@@ -2,8 +2,8 @@
     "tasks": [
         {
             "type": "cppbuild",
-            "label": "C/C++: g++-15 활성 파일 빌드",
-            "command": "/usr/bin/g++-15",
+            "label": "C/C++: g++-14 활성 파일 빌드",
+            "command": "/usr/bin/g++-14",
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
@@ -11,7 +11,9 @@
                 "-std=c++23",
                 "-fmodules-ts",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}"
+                "${fileDirname}/${fileBasenameNoExtension}",
+                "-lcrypto",
+                "-lssl"
             ],
             "options": {
                 "cwd": "${fileDirname}"
