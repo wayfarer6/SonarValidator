@@ -1,0 +1,44 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(SonarValidatorProber LANGUAGES CXX)
+
+enable_testing()
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(SQLite3 REQUIRED)
+find_package(nlohmann_json 3.11 QUIET)
+
+if(NOT nlohmann_json_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        nlohmann_json
+        URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
+
+add_executable(sonar_validator_prober
+    main.cpp
+    prober_config.cpp
+    database_service.cpp
+)
+
+target_link_libraries(sonar_validator_prober PRIVATE
+    SQLite::SQLite3
+    nlohmann_json::nlohmann_json
+)
+
+add_executable(prober_config_test
+    prober_config_test.cpp
+    prober_config.cpp
+)
+
+target_link_libraries(prober_config_test PRIVATE
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME prober_config_test 
+    COMMAND prober_config_test)

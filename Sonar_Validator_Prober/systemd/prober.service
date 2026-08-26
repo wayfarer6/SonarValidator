@@ -1,0 +1,13 @@
+[Unit]
+Description=Sonar Validator Prober
+After=systemd-networkd.service
+Requires=systemd-networkd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/sonar_validator_prober
+Restart=always
+StateDirectory=sonar_validator_prober
+
+[Install]
+WantedBy=multi-user.target

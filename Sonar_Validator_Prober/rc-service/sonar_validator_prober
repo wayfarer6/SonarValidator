@@ -1,0 +1,10 @@
+#!/sbin/openrc-run
+
+name="sonar_validator_prober"
+command="/usr/local/bin/sonar_validator_prober"
+supervisor="supervise-daemon"
+supervise_daemon_args="--respawn"
+
+depend() {
+    need net
+}
