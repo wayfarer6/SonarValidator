@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# 스크립트에서 발생하는 오류나 에러가 발생하면 즉시 스크립트를 종료하는 옵션입니다. 
 set -eu
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -12,6 +13,7 @@ PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 SOURCE_BINARY="$PROJECT_DIR/build/sonar_validator_prober"
 TARGET_BINARY="/usr/local/bin/sonar_validator_prober"
 TARGET_CONFIG="/etc/sonar_validator_prober/default.conf"
+TARGET_TEMPLATE="/etc/sonar_validator_prober/sqlite_template.sqlite"
 TARGET_DATA_DIR="/var/lib/sonar_validator_prober"
 
 if [ ! -x "$SOURCE_BINARY" ]; then
@@ -25,12 +27,13 @@ if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
 elif command -v rc-update >/dev/null 2>&1 && command -v rc-service >/dev/null 2>&1; then
 	INIT_SYSTEM="openrc"
 else
-	echo "Neither systemd nor OpenRC was detected." >&2
-	exit 1
+	INIT_SYSTEM="none"
+	echo "Neither systemd nor OpenRC was detected; install files only." >&2
 fi
 
 install -Dm755 "$SOURCE_BINARY" "$TARGET_BINARY"
 install -Dm644 "$PROJECT_DIR/Installer/default.conf" "$TARGET_CONFIG"
+install -Dm644 "$PROJECT_DIR/Installer/default_template.sqlite" "$TARGET_TEMPLATE"
 install -d -m750 "$TARGET_DATA_DIR"
 
 if [ "$INIT_SYSTEM" = "systemd" ]; then
@@ -39,12 +42,14 @@ if [ "$INIT_SYSTEM" = "systemd" ]; then
 	systemctl daemon-reload
 	systemctl enable --now sonar_validator_prober.service
 	echo "Installed and started with systemd."
-else
+elif [ "$INIT_SYSTEM" = "openrc" ]; then
 	install -Dm755 "$PROJECT_DIR/rc-service/sonar_validator_prober" \
 		/etc/init.d/sonar_validator_prober
 	rc-update add sonar_validator_prober default
 	rc-service sonar_validator_prober start
 	echo "Installed and started with OpenRC."
+else
+	echo "Installed files. Start sonar_validator_prober manually."
 fi
 
 

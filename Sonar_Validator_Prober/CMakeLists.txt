@@ -24,6 +24,8 @@ add_executable(sonar_validator_prober
     main.cpp
     prober_config.cpp
     database_service.cpp
+    communication_service.hpp
+    communication_service.cpp
 )
 
 target_link_libraries(sonar_validator_prober PRIVATE
@@ -35,6 +37,18 @@ add_executable(prober_config_test
     prober_config_test.cpp
     prober_config.cpp
 )
+
+add_executable(database_service_test
+    database_service_test.cpp
+    database_service.cpp
+)
+
+target_link_libraries(database_service_test PRIVATE
+    SQLite::SQLite3
+)
+
+add_test(NAME database_service_test
+    COMMAND database_service_test)
 
 target_link_libraries(prober_config_test PRIVATE
     nlohmann_json::nlohmann_json

@@ -21,7 +21,7 @@ namespace fs = std::filesystem;
 
 namespace
 {
-const fs::path kDataDirectory = "/var/lib/sonar_validator_prober";
+    const fs::path kDataDirectory = "/var/lib/sonar_validator_prober";
 }
 
 std::atomic<bool> g_running{true};
@@ -37,6 +37,7 @@ void CommunicationWorker(std::stop_token stop_token)
     while (!stop_token.stop_requested())
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
+        
     }
 }
 
@@ -48,7 +49,7 @@ void ConfigWorker(std::stop_token stop_token)
     }
 }
 
-void MonitorWorker(std::stop_token stop_token, DatabaseQueue& database_queue)
+void MonitorWorker(std::stop_token stop_token, DatabaseQueue &database_queue)
 {
     (void)database_queue;
     while (!stop_token.stop_requested())
@@ -57,25 +58,12 @@ void MonitorWorker(std::stop_token stop_token, DatabaseQueue& database_queue)
     }
 }
 
-struct DbHandler
-{
-    void operator()(sqlite3* database) const
-    {
-        if (database != nullptr)
-        {
-            sqlite3_close(database);
-        }
-    }
-};
-
-using DbHandle = std::unique_ptr<sqlite3, DbHandler>;
-
 void DatabaseWorker(
     std::stop_token stop_token,
-    DbHandle& db_handle,
-    DatabaseQueue& database_queue)
+    DbHandle &db_handle,
+    DatabaseQueue &database_queue)
 {
-    sqlite3* database = db_handle.get();
+    sqlite3 *database = db_handle.get();
     if (database == nullptr)
     {
         return;
@@ -84,9 +72,17 @@ void DatabaseWorker(
     DatabaseTask task;
     while (database_queue.Pop(stop_token, task))
     {
-        task(database);
+        try
+        {
+            task.result.set_value(task.execute(database));
+        }
+        catch (...)
+        {
+            task.result.set_exception(std::current_exception());
+        }
     }
 }
+
 
 std::string GenerateAgentName()
 {
@@ -122,7 +118,7 @@ std::string TrimValue(std::string value)
     return value.substr(first, last - first + 1);
 }
 
-bool LoadConfig(const fs::path& path, ProberConfig& config)
+bool LoadConfig(const fs::path &path, ProberConfig &config)
 {
     std::ifstream input(path);
     if (!input)
@@ -222,7 +218,7 @@ bool LoadConfig(const fs::path& path, ProberConfig& config)
                 has_device_type = true;
             }
         }
-        catch (const std::exception&)
+        catch (const std::exception &)
         {
             return false;
         }
@@ -233,7 +229,7 @@ bool LoadConfig(const fs::path& path, ProberConfig& config)
            has_server_port && has_architecture;
 }
 
-bool SaveConfig(const fs::path& path, const ProberConfig& config)
+bool SaveConfig(const fs::path &path, const ProberConfig &config)
 {
     const fs::path temporary_path = path.string() + ".tmp";
     std::ofstream output(temporary_path, std::ios::trunc);
@@ -245,18 +241,18 @@ bool SaveConfig(const fs::path& path, const ProberConfig& config)
     std::string node_type;
     switch (config.GetDeviceType())
     {
-        case ProberConfig::DeviceType::kSwitch:
-            node_type = "Switch";
-            break;
-        case ProberConfig::DeviceType::kVirtualMachine:
-            node_type = "VM";
-            break;
-        case ProberConfig::DeviceType::kFirewall:
-            node_type = "Firewall";
-            break;
-        case ProberConfig::DeviceType::kRouter:
-            node_type = "Router";
-            break;
+    case ProberConfig::DeviceType::kSwitch:
+        node_type = "Switch";
+        break;
+    case ProberConfig::DeviceType::kVirtualMachine:
+        node_type = "VM";
+        break;
+    case ProberConfig::DeviceType::kFirewall:
+        node_type = "Firewall";
+        break;
+    case ProberConfig::DeviceType::kRouter:
+        node_type = "Router";
+        break;
     }
 
     output << "AGENT_NAME=" << config.GetAgentName() << '\n'
@@ -284,7 +280,7 @@ bool SaveConfig(const fs::path& path, const ProberConfig& config)
     return true;
 }
 
-bool InitializeConfig(const fs::path& path, ProberConfig& config)
+bool InitializeConfig(const fs::path &path, ProberConfig &config)
 {
     if (fs::exists(path) && LoadConfig(path, config))
     {
@@ -317,6 +313,13 @@ bool InitializeConfig(const fs::path& path, ProberConfig& config)
     return SaveConfig(path, config);
 }
 
+bool InitializeDatabase(const fs::path &path, ProberConfig &config, DbHandle &dbhandler)
+{
+    (void)path;
+    (void)config;
+    return dbhandler != nullptr;
+}
+
 int main()
 {
     std::signal(SIGINT, signalHandler);
@@ -326,6 +329,9 @@ int main()
         kDataDirectory / "settings.conf";
     const fs::path sqlite_db_path =
         kDataDirectory / "prober_db.sqlite";
+
+    const fs::path sqlite_template_path =
+        "/etc/sonar_validator_prober/sqlite_template.sqlite";
 
     std::error_code directory_error;
     fs::create_directories(kDataDirectory, directory_error);
@@ -339,13 +345,64 @@ int main()
     ProberConfig config(
         GenerateAgentName(), "", "", ProberConfig::DeviceType::kSwitch,
         0, "", 0);
+
     if (!InitializeConfig(config_file_path, config))
     {
         std::cerr << "Configuration initialization failed\n";
         return 1;
     }
 
-    sqlite3* raw_database = nullptr;
+    bool should_copy_database_template = !fs::exists(sqlite_db_path);
+    if (!should_copy_database_template)
+    {
+        std::error_code file_size_error;
+        should_copy_database_template =
+            fs::file_size(sqlite_db_path, file_size_error) == 0 &&
+            !file_size_error;
+    }
+
+    if (should_copy_database_template && fs::exists(sqlite_template_path))
+    {
+        std::error_code remove_error;
+        fs::remove(sqlite_db_path, remove_error);
+        if (remove_error)
+        {
+            std::cerr << "Can't replace empty database: "
+                      << remove_error.message() << '\n';
+            return 1;
+        }
+
+        std::error_code copy_error;
+        fs::copy_file(
+            sqlite_template_path,
+            sqlite_db_path,
+            fs::copy_options::none,
+            copy_error);
+        if (copy_error)
+        {
+            std::cerr << "Can't initialize database from template: "
+                      << copy_error.message() << '\n';
+            return 1;
+        }
+        sqlite3 *dbhandle_raw = nullptr;
+        const int dbhandle_result =
+            sqlite3_open(sqlite_db_path.c_str(), &dbhandle_raw);
+        DbHandle dbhandle(dbhandle_raw);
+
+        if (!InitializeDatabase(config_file_path, config, dbhandle))
+        {
+            std::error_code copy_error;
+
+            if (copy_error)
+            {
+                std::cerr << "Can't initialize database from config: "
+                          << copy_error.message() << '\n';
+                return 1;
+            }
+        }
+    }
+
+    sqlite3 *raw_database = nullptr;
     const int db_result = sqlite3_open(sqlite_db_path.c_str(), &raw_database);
     DbHandle database(raw_database);
 
@@ -355,6 +412,9 @@ int main()
         return 1;
     }
 
+    // 초기화 로직 종료 
+
+    // 스레드 생성
     DatabaseQueue database_queue;
     std::jthread communication_thread(CommunicationWorker);
     std::jthread config_thread(ConfigWorker);

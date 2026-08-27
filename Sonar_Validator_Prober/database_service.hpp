@@ -1,4 +1,6 @@
 #include <condition_variable>
+#include <exception>
+#include <future>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -7,9 +9,33 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
+struct DbHandler
+{
+    void operator()(sqlite3 *database) const
+    {
+        if (database != nullptr)
+        {
+            sqlite3_close(database);
+        }
+    }
+};
 
-using DatabaseTask = std::function<void(sqlite3*)>;
+using DbHandle = std::unique_ptr<sqlite3, DbHandler>;
+
+struct DatabaseResult
+{
+    std::vector<std::string> db_task_result;
+    std::string sql_task;
+};
+
+struct DatabaseTask
+{
+    std::function<DatabaseResult(sqlite3 *)> execute;
+    std::promise<DatabaseResult> result;
+};
+
 
 class DatabaseService
 {
@@ -33,6 +59,7 @@ private:
 
 class DatabaseQueue {
 public:
+    DatabaseQueue();
     bool Push(DatabaseTask task);
     bool Pop(std::stop_token stop_token, DatabaseTask& task);
     void Close();

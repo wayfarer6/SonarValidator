@@ -1,5 +1,12 @@
 #include "database_service.hpp"
 
+
+namespace{
+    
+}
+
+DatabaseQueue::DatabaseQueue() = default;
+
 bool DatabaseQueue::Push(DatabaseTask task)
 {
     {

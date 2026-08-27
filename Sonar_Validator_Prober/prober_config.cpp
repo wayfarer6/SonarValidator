@@ -209,6 +209,11 @@ void ProberConfig::DetectDistributionName()
     while (std::getline(os_release_file, line))
     {
         constexpr const char *kNamePrefix = "PRETTY_NAME=";
+        /* 참고
+        PRETTY_NAME은 리눅스 운영 체제에서 사용자에게 친숙하게 보여주기 
+        위한 전체 운영 체제 이름과 버전 정보를 담고 있는 os-release 파일의 표준 변수
+        출처 : Freedesktop
+        */
         if (line.rfind(kNamePrefix, 0) == 0)
         {
             distribution_name_ = RemoveQuotes(line.substr(std::strlen(kNamePrefix)));
@@ -228,6 +233,7 @@ void ProberConfig::DetectMemorySizeBytes()
         return;
     }
 
+    // 운영체제 배울때 기본 페이지 크기는 4kb지만 리눅스 설정마다 다를수 있다고 함. (memory_info.mem_unit 사용하는 이유)
     memory_size_bytes_ = static_cast<std::uint64_t>(memory_info.totalram) *
                          memory_info.mem_unit;
 }
