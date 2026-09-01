@@ -16,13 +16,16 @@ namespace ssl = boost::asio::ssl;       // from <boost/asio/ssl.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 
-class CommunicationService{
+class CommunicationService {
 private:
     std::string host;
     int port;
     std::string target;
+    http::stream 
 
 public:
-    // 차라리 객체를 생성할때 handshake를
-    CommunicationService(std::string& host,int port,std::string target);
+    CommunicationService();
+    CommunicationService(std::string host, int port, std::string target);
+    void initialize(std::string host, int port, std::string target);
+    void setHeader(http::request<http::string_body> & req);
 };

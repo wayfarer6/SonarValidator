@@ -1,5 +1,7 @@
 #include "communication_service.hpp"
 
+#include <utility>
+
 namespace
 {
     // Report a failure
@@ -9,6 +11,7 @@ namespace
         std::cerr << what << ": " << ec.message() << "\n";
     }
 
+    // 코드 출처 https://github.com/boostorg/beast/blob/develop/example/http/client/coro-ssl/http_client_coro_ssl.cpp
     void do_session(
         std::string const &host,
         std::string const &port,
@@ -88,7 +91,7 @@ namespace
 
         // Gracefully close the stream
         // stream.async_shutdown(yield[ec]);
-        
+
         // 일단 종료하지 않을것이기에 예제의 shutdown 제거함.
 
         // ssl::error::stream_truncated, also known as an SSL "short read",
@@ -112,8 +115,39 @@ namespace
             return fail(ec, "shutdown");
     }
 }
-
 CommunicationService::CommunicationService()
+    : host(""), port(0), target("")
+{
+}
+
+CommunicationService::CommunicationService(std::string host, int port, std::string target)
+    : host(std::move(host)), port(port), target(std::move(target))
+{
+}
+
+void CommunicationService::initialize(std::string host, int port, std::string target)
+{
+    this->host = std::move(host);
+    this->port = port;
+    this->target = std::move(target);
+}
+
+/* 
+void CommunicationService::setHeader(http::request<http::string_body> & req)
+{
+    // req.method(http::verb::get);
+
+
+    #ifdef DEBUG
+    std::cout << "Host: " << req[http::field::host] << '\n';
+    std::cout << "Content-Type: " << req[http::field::content_type] << '\n';
+    std::cout << "User-Agent: " << req[http::field::user_agent] << '\n';
+    #endif 
+}
+
+/*
+void CommunicationService::request()
 {
 
 }
+*/

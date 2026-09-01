@@ -42,6 +42,10 @@ add_executable(database_service_test
     database_service_test.cpp
     database_service.cpp
 )
+add_executable(
+    communication_service_test
+    communication_service_test.cpp
+)
 
 target_link_libraries(database_service_test PRIVATE
     SQLite::SQLite3
@@ -56,3 +60,7 @@ target_link_libraries(prober_config_test PRIVATE
 
 add_test(NAME prober_config_test 
     COMMAND prober_config_test)
+
+
+add_test(NAME communication_servicve_test
+    CONMMAND communication_service_test)

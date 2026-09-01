@@ -34,6 +34,12 @@ void signalHandler(int signum)
 
 void CommunicationWorker(std::stop_token stop_token)
 {
+    //init code 
+    CommunicationService communication_service("localhost",1133,"/api/connection");
+    communication_service.handshake();
+    std::shared_ptr<net::io_context> io
+    io_context.run();
+
     while (!stop_token.stop_requested())
     {
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -416,10 +422,9 @@ int main()
 
     // 스레드 생성
     DatabaseQueue database_queue;
-    std::jthread communication_thread(CommunicationWorker);
-    std::jthread config_thread(ConfigWorker);
-    std::jthread database_thread(
-        DatabaseWorker, std::ref(database), std::ref(database_queue));
+    std::jthread communication_thread(CommunicationWorker,std::ref(database_queue));
+    std::jthread config_thread(ConfigWorker,std::ref(database_queue));
+    std::jthread database_thread(DatabaseWorker, std::ref(database), std::ref(database_queue));
     std::jthread monitor_thread(MonitorWorker, std::ref(database_queue));
 
     while (g_running.load())
