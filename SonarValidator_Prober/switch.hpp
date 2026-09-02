@@ -1,42 +1,80 @@
+#ifndef SONAR_VALIDATOR_PROBER_SWITCH_HPP_
+#define SONAR_VALIDATOR_PROBER_SWITCH_HPP_
 
-#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
+
 #include "routing_table.hpp"
-
 
 struct VLan {
 public:
-    VLan(int vlan_id) : vlan_id(vlan_id) {}
+    explicit VLan(int vlan_id) : vlan_id(vlan_id) {}
     int getVLANID() const { return vlan_id; }
+
 private:
     int vlan_id;
 };
 
 struct Subnet {
 public:
-    Subnet(int subnet_id);
+    explicit Subnet(int subnet_id);
 
 private:
     int subnet_id;
-
 };
 
 struct NIC {
 public:
-    NIC(int nic_id);
+    explicit NIC(int nic_id);
 
 private:
     int nic_id;
-    
 };
 
-class Switch
-{
+struct PortInfo {
+    std::string name;
+    std::string interface_name;
+    std::vector<int> access_vlans;
+    std::vector<int> trunk_vlans;
+    bool is_internal = false;
+};
+
+struct BridgeInfo {
+    std::string name;
+    std::vector<PortInfo> ports;
+};
+
+enum class SwitchVendor {
+    OpenVSwitch,
+    CiscoCatalyst8000v,
+};
+
+class TopologyParser {
 public:
-    Switch(const std::string& name) : name(name), routing_table(RoutingTable()) {}
-    Switch();
-    
-    std::string getName() const { return name; }
+    virtual ~TopologyParser() = default;
+    virtual std::vector<BridgeInfo> parse(const std::string& raw_output) const = 0;
+};
+
+class OpenVSwitchTopologyParser : public TopologyParser {
+public:
+    std::vector<BridgeInfo> parse(const std::string& raw_output) const override;
+};
+
+class CiscoTopologyParser : public TopologyParser {
+public:
+    std::vector<BridgeInfo> parse(const std::string& raw_output) const override;
+};
+
+class Switch {
+public:
+    explicit Switch(const std::string& name = "");
+    ~Switch();
+
+    std::string getName() const { return name_; }
     void setName(const std::string& name);
+
+    void loadTopology(const std::string& raw_output, SwitchVendor vendor);
 
     void addRoute(const std::string& destination, const std::string& next_hop);
     void addPort(const std::string& destination, const std::string& port);
@@ -44,12 +82,17 @@ public:
     void printPorts() const;
     void updateRoutingTable(const std::string& destination, const std::string& next_hop);
     void updatePort(const std::string& destination, const std::string& port);
-    void parseCiscoSwitchTopology();
-    void parseOpenVSwitchTopology();
+
+    void parseCiscoSwitchTopology(const std::string& raw_output);
+    void parseOpenVSwitchTopology(const std::string& raw_output);
+
+    const std::vector<BridgeInfo>& getBridges() const { return bridges_; }
 
 private:
-    std::string name;
-    RoutingTable routing_table;
-    std::map<std::string, Subnet> ports; // Map to store ports connected to each switch
+    std::string name_;
+    RoutingTable routing_table_;
+    std::map<std::string, Subnet> ports_; // Map to store ports connected to each switch
+    std::vector<BridgeInfo> bridges_;
 };
 
+#endif  // SONAR_VALIDATOR_PROBER_SWITCH_HPP_

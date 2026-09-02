@@ -1,20 +1,14 @@
 #include "switch.hpp"
+
 #include <cassert>
+#include <string>
 
 int main()
 {
+    Switch demoSwitch;
+    demoSwitch.setName("DMZ-Network-Switch");
 
-Switch demoSwitch;
-// switch name is hostname
-
-demoSwitch.setName("DMZ-Network-Switch");
-
-
-
-
-// result of "DMZ-Network-Switch:/etc/switch# ovs-vsctl show"
-    std::string Test_topology = R"(
-
+    const std::string ovs_topology = R"(
 5858432f-d303-47d6-8c38-762489c828e3
     Bridge br2
         datapath_type: netdev
@@ -80,5 +74,39 @@ demoSwitch.setName("DMZ-Network-Switch");
                 type: internal
 )";
 
+    demoSwitch.loadTopology(ovs_topology, SwitchVendor::OpenVSwitch);
+    assert(demoSwitch.getBridges().size() == 5);
 
+    const auto& ovs_bridges = demoSwitch.getBridges();
+    bool found_br0 = false;
+    bool found_eth0 = false;
+    for (const auto& bridge : ovs_bridges) {
+        if (bridge.name == "br0") {
+            found_br0 = true;
+            for (const auto& port : bridge.ports) {
+                if (port.name == "eth0") {
+                    found_eth0 = true;
+                    assert(port.trunk_vlans.size() == 4);
+                    assert(port.interface_name == "eth0");
+                }
+            }
+        }
+    }
+    assert(found_br0);
+    assert(found_eth0);
+
+    const std::string cisco_topology = R"(
+    interface GigabitEthernet1/0/1
+        switchport mode trunk
+        switchport trunk allowed vlan 100,110,120,130
+    interface GigabitEthernet1/0/2
+        switchport access vlan 50
+)";
+
+    Switch ciscoSwitch("CAT8000V");
+    ciscoSwitch.loadTopology(cisco_topology, SwitchVendor::CiscoCatalyst8000v);
+    assert(ciscoSwitch.getBridges().size() == 1);
+    assert(ciscoSwitch.getBridges()[0].ports.size() == 2);
+
+    return 0;
 }
