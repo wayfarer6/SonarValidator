@@ -28,6 +28,12 @@ add_executable(sonar_validator_prober
     management_service.cpp
     telemetry_service.hpp
     telemetry_service.cpp
+    routing_table.hpp
+    routing_table.cpp
+    switch.cpp
+    switch.hpp
+    firewall.hpp
+    firewall.cpp
 )
 
 target_link_libraries(sonar_validator_prober PRIVATE
@@ -55,6 +61,13 @@ add_executable(
     telemetry_service_test.cpp
 )
 
+add_executable(
+    switch_test
+    switch_test.cpp
+)
+
+
+
 target_link_libraries(database_service_test PRIVATE
     SQLite::SQLite3
 )
@@ -79,3 +92,4 @@ add_test(NAME prober_config_test
 
 add_test(NAME telemetry_service_test
     COMMAND telemetry_service_test)
+

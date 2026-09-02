@@ -7,7 +7,10 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include "switch.hpp"
-
+#include "firewall.hpp"
+#include "routing_table.hpp"
+#include "prober_config.hpp"
+#include <thread>
 namespace beast = boost::beast;
 namespace net = boost::asio;
 namespace websocket = beast::websocket;
@@ -24,17 +27,22 @@ public:
     std::string receiveText();
     bool applyPolicy(const std::string& policy_name, const std::string& payload);
     bool fetchPolicy(const std::string& policy_name, std::string& payload);
-
+    void CheckSwitchStatus();
+    void CheckRouterStatus();
+    void CheckFirewallStatus();
 
 
 private:
     std::string host_{};
+    ProberConfig::DeviceType device_type_{};
     int port_{0};
     std::string target_{};
     net::io_context ioc_;
     tcp::resolver resolver_;
     websocket::stream<beast::tcp_stream> stream_;
     bool connected_;
+    std::thread management_thread_;
+
 };
 
 #endif  // SONAR_VALIDATOR_PROBER_MANAGEMENT_SERVICE_HPP_
