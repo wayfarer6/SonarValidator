@@ -6,6 +6,10 @@ const server = http.createServer((req, res) => {
   res.end('heartbeat-ok');
 });
 
+
+
+
+
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
@@ -20,6 +24,10 @@ wss.on('connection', (ws) => {
     }
   });
 
+  ws.on('message ping') (ws)=>{
+
+  }
+
   ws.on('close', () => {
     console.log('[ws] client disconnected');
   });
@@ -29,3 +37,8 @@ const port = 3000;
 server.listen(port, () => {
   console.log(`WebSocket heartbeat server listening on ws://localhost:${port}`);
 });
+
+
+const receive_data() =>{
+
+}

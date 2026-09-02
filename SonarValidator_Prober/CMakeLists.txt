@@ -34,6 +34,7 @@ add_executable(sonar_validator_prober
     switch.hpp
     firewall.hpp
     firewall.cpp
+    network.hpp
 )
 
 target_link_libraries(sonar_validator_prober PRIVATE

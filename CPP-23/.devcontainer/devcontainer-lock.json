@@ -1,9 +1,0 @@
-{
-  "features": {
-    "ghcr.io/devcontainer-community/devcontainer-features/vcpkg.io:1": {
-      "version": "1.0.2",
-      "resolved": "ghcr.io/devcontainer-community/devcontainer-features/vcpkg.io@sha256:aa1c839509ab397336da9c187c89b16e5cb85666f1c8756a2919f401ed3b44ae",
-      "integrity": "sha256:aa1c839509ab397336da9c187c89b16e5cb85666f1c8756a2919f401ed3b44ae"
-    }
-  }
-}
