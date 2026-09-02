@@ -150,8 +150,8 @@ int main()
 
     // 스레드 생성
     DatabaseQueue database_queue;
-    std::jthread telemetry_thread(TelemetryWorker, std::cref(config));
-    std::jthread management_thread(ManagementWorker, std::cref(config));
+    std::jthread telemetry_thread(TelemetryWorker, std::ref(config));
+    std::jthread management_thread(ManagementWorker, std::ref(config));
     std::jthread database_thread(DatabaseWorker, std::ref(database), std::ref(database_queue));
 
     while (g_running.load())

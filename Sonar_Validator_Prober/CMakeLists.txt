@@ -44,6 +44,12 @@ add_executable(database_service_test
     database_service_test.cpp
     database_service.cpp
 )
+
+add_executable(routing_table_test
+    routing_table_test.cpp
+    routing_table.cpp
+)
+
 add_executable(
     telemetry_service_test
     telemetry_service_test.cpp
@@ -53,8 +59,15 @@ target_link_libraries(database_service_test PRIVATE
     SQLite::SQLite3
 )
 
+target_link_libraries(routing_table_test PRIVATE
+    nlohmann_json::nlohmann_json
+)
+
 add_test(NAME database_service_test
     COMMAND database_service_test)
+
+add_test(NAME routing_table_test
+    COMMAND routing_table_test)
 
 target_link_libraries(prober_config_test PRIVATE
     nlohmann_json::nlohmann_json
