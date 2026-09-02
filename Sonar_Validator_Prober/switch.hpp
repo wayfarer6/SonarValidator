@@ -4,7 +4,7 @@ class Switch
 {
 public:
 
-private
+private:
     std::string switch_name;
     RoutingTable routing_table;
 };
