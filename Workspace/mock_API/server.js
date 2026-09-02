@@ -1,17 +1,31 @@
-const express = require('express');
-const app = express();
+const http = require('http');
+const { WebSocketServer } = require('ws');
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('heartbeat-ok');
+});
+
+const wss = new WebSocketServer({ server });
+
+wss.on('connection', (ws) => {
+  console.log('[ws] client connected');
+
+  ws.on('message', (message) => {
+    const text = message.toString();
+    console.log('[ws] received:', text);
+
+    if (text === 'hello') {
+      ws.send('hello');
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('[ws] client disconnected');
+  });
+});
+
 const port = 3000;
-
-// Define a GET API route for the root path
-app.get('/', (req, res) => {
-  res.send('Hello World!');
-});
-
-
-app.get('./api/heartbeat', (req,res) => {
-    res.senbd("Hello");
-});
-// Start the server and listen on the defined port
-app.listen(port, () => {
-  console.log(`Application listening at http://localhost:${port}`);
+server.listen(port, () => {
+  console.log(`WebSocket heartbeat server listening on ws://localhost:${port}`);
 });

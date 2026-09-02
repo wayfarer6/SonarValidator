@@ -1,3 +1,6 @@
+#ifndef SONAR_VALIDATOR_PROBER_DATABASE_SERVICE_HPP_
+#define SONAR_VALIDATOR_PROBER_DATABASE_SERVICE_HPP_
+
 #include <condition_variable>
 #include <exception>
 #include <future>
@@ -70,3 +73,5 @@ private:
     std::queue<DatabaseTask> tasks_;
     bool closed_ = false;
 };
+
+#endif  // SONAR_VALIDATOR_PROBER_DATABASE_SERVICE_HPP_

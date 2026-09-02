@@ -24,8 +24,10 @@ add_executable(sonar_validator_prober
     main.cpp
     prober_config.cpp
     database_service.cpp
-    communication_service.hpp
-    communication_service.cpp
+    init.cpp
+    management_service.cpp
+    telemetry_service.hpp
+    telemetry_service.cpp
 )
 
 target_link_libraries(sonar_validator_prober PRIVATE
@@ -43,8 +45,8 @@ add_executable(database_service_test
     database_service.cpp
 )
 add_executable(
-    communication_service_test
-    communication_service_test.cpp
+    telemetry_service_test
+    telemetry_service_test.cpp
 )
 
 target_link_libraries(database_service_test PRIVATE
@@ -62,5 +64,5 @@ add_test(NAME prober_config_test
     COMMAND prober_config_test)
 
 
-add_test(NAME communication_servicve_test
-    CONMMAND communication_service_test)
+add_test(NAME telemetry_service_test
+    COMMAND telemetry_service_test)
