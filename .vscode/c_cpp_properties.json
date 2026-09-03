@@ -4,7 +4,7 @@
       "name": "Linux",
       "includePath": [
         "${workspaceFolder}",
-        "${workspaceFolder}/Sonar_Validator_Prober",
+        "${workspaceFolder}/SonarValidator_Prober",
         "${workspaceFolder}/Workspace",
         "${workspaceFolder}/**"
       ],

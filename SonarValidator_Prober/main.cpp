@@ -14,11 +14,11 @@
 
 #include <sqlite3.h>
 
-#include "database_service.hpp"
+#include "database/database_service.hpp"
 #include "init.hpp"
 #include "management_service.hpp"
 #include "prober_config.hpp"
-#include "telemetry_service.hpp"
+#include "telemetry/telemetry_service.hpp"
 
 namespace fs = std::filesystem;
 

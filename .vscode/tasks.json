@@ -7,11 +7,11 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "-I${workspaceFolder}/Sonar_Validator_Prober",
+                "-I${workspaceFolder}/SonarValidator_Prober",
                 "${file}",
-                "${workspaceFolder}/Sonar_Validator_Prober/communication_service.cpp",
+                "${workspaceFolder}/SonarValidator_Prober/telemetry/telemetry_service.cpp",
                 "-o",
-                "${workspaceFolder}/Sonar_Validator_Prober/communication_servicve_test",
+                "${workspaceFolder}/SonarValidator_Prober/output/telemetry_service_test",
                 "-lssl",
                 "-lcrypto"
             ],

@@ -9,7 +9,7 @@
                 "-g",
                 "-std=c++23",
                 "${file}",
-                "${workspaceFolder}/database_service.cpp",
+                "${workspaceFolder}/SonarValidator_Prober/database/database_service.cpp",
                 "${workspaceFolder}/prober_config.cpp",
                 "-lsqlite3",
                 "-o",

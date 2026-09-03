@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "routing_table.hpp"
-#include "network.hpp"
+#include "../router/routing_table.hpp"
+#include "../network.hpp"
 
 struct PortInfo {
     std::string name;

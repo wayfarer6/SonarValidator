@@ -14,10 +14,11 @@ namespace fs = std::filesystem;
 
 int main()
 {
-    const fs::path template_path =
-        "/workspaces/SonarValidator/Sonar_Validator_Prober/Installer/default_template.sqlite";
+    const fs::path installer_path =
+        fs::path(SONAR_VALIDATOR_PROBER_SOURCE_DIR) / "Installer";
+    const fs::path template_path = installer_path / "default_template.sqlite";
     const fs::path test_database_path =
-        "/workspaces/SonarValidator/Sonar_Validator_Prober/Installer/default_template_test.sqlite";
+        installer_path / "default_template_test.sqlite";
 
     std::error_code copy_error;
     fs::copy_file(

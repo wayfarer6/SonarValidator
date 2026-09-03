@@ -6,9 +6,9 @@
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
-#include "switch.hpp"
-#include "firewall.hpp"
-#include "routing_table.hpp"
+#include "switch/switch.hpp"
+#include "firewall/firewall.hpp"
+#include "router/routing_table.hpp"
 #include "prober_config.hpp"
 #include <thread>
 namespace beast = boost::beast;

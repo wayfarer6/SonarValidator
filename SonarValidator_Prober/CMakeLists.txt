@@ -23,18 +23,27 @@ endif()
 add_executable(sonar_validator_prober
     main.cpp
     prober_config.cpp
-    database_service.cpp
+    database/database_service.cpp
     init.cpp
     management_service.cpp
-    telemetry_service.hpp
-    telemetry_service.cpp
-    routing_table.hpp
-    routing_table.cpp
-    switch.cpp
-    switch.hpp
-    firewall.hpp
-    firewall.cpp
+    telemetry/telemetry_service.hpp
+    telemetry/telemetry_service.cpp
+    router/routing_table.hpp
+    router/routing_table.cpp
+    switch/switch.cpp
+    switch/switch.hpp
+    firewall/firewall.hpp
+    firewall/firewall.cpp
     network.hpp
+)
+
+target_include_directories(sonar_validator_prober PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/database
+    ${CMAKE_CURRENT_SOURCE_DIR}/router
+    ${CMAKE_CURRENT_SOURCE_DIR}/switch
+    ${CMAKE_CURRENT_SOURCE_DIR}/firewall
+    ${CMAKE_CURRENT_SOURCE_DIR}/telemetry
 )
 
 target_link_libraries(sonar_validator_prober PRIVATE
@@ -48,29 +57,36 @@ add_executable(prober_config_test
 )
 
 add_executable(database_service_test
-    database_service_test.cpp
-    database_service.cpp
+    database/database_service_test.cpp
+    database/database_service.cpp
 )
 
 add_executable(routing_table_test
-    routing_table_test.cpp
-    routing_table.cpp
+    router/routing_table_test.cpp
+    router/routing_table.cpp
 )
 
 add_executable(
     telemetry_service_test
-    telemetry_service_test.cpp
+    telemetry/telemetry_service_test.cpp
+    telemetry/telemetry_service.cpp
 )
 
 add_executable(
     switch_test
-    switch_test.cpp
+    switch/switch_test.cpp
+    switch/switch.cpp
+    router/routing_table.cpp
 )
 
 
 
 target_link_libraries(database_service_test PRIVATE
     SQLite::SQLite3
+)
+
+target_compile_definitions(database_service_test PRIVATE
+    SONAR_VALIDATOR_PROBER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 target_link_libraries(routing_table_test PRIVATE
