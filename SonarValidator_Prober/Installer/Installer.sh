@@ -8,6 +8,15 @@ if [ "$(id -u)" -ne 0 ]; then
 	exit 1
 fi
 
+# Create account for daemon
+if ! getent group sonar >/dev/null 2>&1; then
+	addgroup --system sonar 2>/dev/null || groupadd -r sonar
+fi
+if ! id -u sonar >/dev/null 2>&1; then
+	adduser --system --no-create-home --shell /usr/sbin/nologin --ingroup sonar sonar 2>/dev/null || useradd -r -s /bin/false -g sonar sonar
+fi
+
+
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 SOURCE_BINARY="$PROJECT_DIR/build/sonar_validator_prober"
@@ -31,10 +40,11 @@ else
 	echo "Neither systemd nor OpenRC was detected; install files only." >&2
 fi
 
-install -Dm755 "$SOURCE_BINARY" "$TARGET_BINARY"
-install -Dm644 "$PROJECT_DIR/Installer/default.conf" "$TARGET_CONFIG"
-install -Dm644 "$PROJECT_DIR/Installer/default_template.sqlite" "$TARGET_TEMPLATE"
-install -d -m750 "$TARGET_DATA_DIR"
+
+install -o root -g root -Dm755 "$SOURCE_BINARY" "$TARGET_BINARY"
+install -o root -g root  -Dm644 "$PROJECT_DIR/Installer/default.conf" "$TARGET_CONFIG"
+install -o root -g root  -Dm644 "$PROJECT_DIR/Installer/default_template.sqlite" "$TARGET_TEMPLATE"
+install -o sonar -g sonar  -d -m750 "$TARGET_DATA_DIR"
 
 if [ "$INIT_SYSTEM" = "systemd" ]; then
 	install -Dm644 "$PROJECT_DIR/systemd/prober.service" \

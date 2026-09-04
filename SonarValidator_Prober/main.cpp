@@ -37,6 +37,7 @@ void signalHandler(int signum)
 
 void TelemetryWorker(std::stop_token stop_token, const ProberConfig &config)
 {
+    /*
     try
     {
         TelemetryService telemetry_service(
@@ -59,6 +60,31 @@ void TelemetryWorker(std::stop_token stop_token, const ProberConfig &config)
     {
         std::cerr << "[WARN] Telemetry worker exception: " << ex.what() << '\n';
     }
+    
+    */
+
+    try {
+        TelemetryService telemetry_service(
+            config.GetServerIpv4(),
+            static_cast<int>(config.GetServerPort()),  //server port 3000 (test)
+            "/api/v1/telemetry");
+        while (!stop_token.stop_requested())
+        {
+            // 나중에 json으로 코드 리펙토링하기
+            std::string request =
+                "{\"agent\":\"" + config.GetAgentName() +
+                "\",\"kernel\":\"" + config.GetKernelName() +
+                "\"}";
+            std::string target = "/api/telemetry";
+            telemetry_service.sendRequest(request, target);
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+        }
+
+    } 
+    catch (const std::exception &ex)
+    {
+        std::cerr << "[WARN] Telemetry worker exception: " << ex.what() <<'\n';
+    }
 }
 
 void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
@@ -66,7 +92,7 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
     ManagementService management_service(
         config.GetServerIpv4(),
         static_cast<int>(config.GetServerPort()),
-        "/api/management");
+        "/api/v1/management");
 
     std::string policy_payload;
 
