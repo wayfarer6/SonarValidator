@@ -123,7 +123,10 @@ wss.on('connection', (ws, request) => {
     } 
 
     if (endpoint === '/api/v1/management') {
-      handleManagementMessage(ws, text);
+      const test_policy_kit= {
+        
+      }
+      handleManagementMessage(ws, test_policy_kit);
       return;
     }
 

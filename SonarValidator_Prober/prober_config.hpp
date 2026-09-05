@@ -4,29 +4,32 @@
 #include <cstdint>
 #include <string>
 
+enum class DeviceType : uint8_t
+{
+    kSwitch,
+    kVirtualMachine,
+    kFirewall,
+    kRouter
+};
+
 class ProberConfig
 {
 public:
-    enum class DeviceType
-    {
-        kSwitch,
-        kVirtualMachine,
-        kFirewall,
-        kRouter
-    };
-
-    ProberConfig(std::string agent_name,
+    ProberConfig(std::string agent_id,
+                 std::string agent_name,
                  std::string kernel_name,
                  std::string distribution_name,
                  DeviceType device_type,
+                 std::string product_name,
                  std::uint64_t memory_size_bytes,
                  std::string server_ipv4,
                  std::uint16_t server_port);
 
-
+    const std::string& GetAgentId() const;
     const std::string& GetAgentName() const;
     const std::string& GetKernelName() const;
     const std::string& GetDistributionName() const;
+    const std::string& GetProductName() const;
     DeviceType GetDeviceType() const;
     std::uint64_t GetMemorySizeBytes() const;
     const std::string& GetServerIpv4() const;
@@ -34,6 +37,7 @@ public:
 
     void SetAgentName(std::string agent_name);
     void SetKernelName(std::string kernel_name);
+    void SetProduct(std::string product_name);
     void SetDistributionName(std::string distribution_name);
     void SetDeviceType(DeviceType device_type);
     void SetMemorySizeBytes(std::uint64_t memory_size_bytes);
@@ -50,12 +54,15 @@ public:
     void DetectServerIpv4();
     void DetectServerPort();
     bool DetectDeviceType();
+    void DetectProductName();
 
 
 private:
+    std::string agent_id_;
     std::string agent_name_;
     std::string kernel_name_;
     std::string distribution_name_;
+    std::string product_name_;
     DeviceType device_type_;
     std::uint64_t memory_size_bytes_;
     std::string server_ipv4_;

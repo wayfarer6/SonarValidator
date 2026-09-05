@@ -69,6 +69,11 @@ void Switch::addPort(const std::string& destination, const std::string& port)
     (void)port;
 }
 
+void Switch::addVlan(const int subnet_id, const std::string& port)
+{
+    (void)subnet_id;
+}
+
 void Switch::printRoutes() const {}
 
 void Switch::printPorts() const {}
@@ -199,6 +204,18 @@ std::vector<BridgeInfo> CiscoTopologyParser::parse(const std::string& raw_output
     return bridges;
 }
 
+
+std::vector<BridgeInfo> AristaTopologyParser::parse(const std::string& raw_output) const
+{
+    
+}
+
+std::vector<BridgeInfo> OpenVSwitchTopologyParser::parse(const std::string& raw_output) const
+{
+
+}
+
+
 void Switch::loadTopology(const std::string& raw_output, SwitchVendor vendor)
 {
     switch (vendor) {
@@ -207,8 +224,13 @@ void Switch::loadTopology(const std::string& raw_output, SwitchVendor vendor)
             bridges_ = parser.parse(raw_output);
             break;
         }
-        case SwitchVendor::CiscoCatalyst8000v: {
+        case SwitchVendor::CiscoCatalyst9000v: {
             CiscoTopologyParser parser;
+            bridges_ = parser.parse(raw_output);
+            break;
+        }
+        case SwitchVendor::AristavEOS: {
+            AristaTopologyParser parser;
             bridges_ = parser.parse(raw_output);
             break;
         }
@@ -220,8 +242,15 @@ void Switch::parseOpenVSwitchTopology(const std::string& raw_output)
     loadTopology(raw_output, SwitchVendor::OpenVSwitch);
 }
 
+/*  PoC가 안되는 관계로 주석처리
 void Switch::parseCiscoSwitchTopology(const std::string& raw_output)
 {
     loadTopology(raw_output, SwitchVendor::CiscoCatalyst8000v);
 }
 
+*/
+
+void Switch::pasreAristaTopology(const std::string& raw_output)
+{
+    loadTopology(raw_output,SwitchVendor::AristavEOS);
+}

@@ -16,6 +16,7 @@ struct RouteEntry {
   std::string interface_name;
 };
 
+
 class RoutingTable {
  public:
   RoutingTable();
@@ -76,5 +77,6 @@ class CiscoRoutingTableView : public RoutingTableView {
  public:
   std::string Render(const RoutingTable& table) const override;
 };
+
 
 #endif  // SONAR_VALIDATOR_PROBER_ROUTING_TABLE_HPP_ (헤더가 여러번 include 되는 불상사 방지)

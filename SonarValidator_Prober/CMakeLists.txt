@@ -35,6 +35,8 @@ add_executable(sonar_validator_prober
     firewall/firewall.hpp
     firewall/firewall.cpp
     network.hpp
+    vm_service.hpp
+    vm_service.cpp
 )
 
 target_include_directories(sonar_validator_prober PRIVATE

@@ -71,33 +71,43 @@ std::string ReadDefaultValue(const char* key)
 
 
 ProberConfig::ProberConfig(
+    std::string agent_id,
     std::string agent_name,
     std::string kernel_name,
     std::string distribution_name,
     DeviceType device_type,
+    std::string product_name,
     std::uint64_t memory_size_bytes,
     std::string server_ipv4,
     std::uint16_t server_port)
-        : agent_name_(std::move(agent_name)),
+        :  agent_id_(std::move(agent_id)),
+            agent_name_(std::move(agent_name)),
             kernel_name_(std::move(kernel_name)),
       distribution_name_(std::move(distribution_name)),
       device_type_(device_type),
+      product_name_(std::move(product_name)),
       memory_size_bytes_(memory_size_bytes),
       server_ipv4_(std::move(server_ipv4)),
       server_port_(server_port)
 {
 }
 
+const std::string& ProberConfig::GetAgentId() const { return agent_id_; }
+
 const std::string& ProberConfig::GetAgentName() const { return agent_name_; }
 
 const std::string& ProberConfig::GetKernelName() const { return kernel_name_; }
+
+const std::string& ProberConfig::GetProductName() const { return product_name_; }
+
+
 
 const std::string& ProberConfig::GetDistributionName() const
 {
     return distribution_name_;
 }
 
-ProberConfig::DeviceType ProberConfig::GetDeviceType() const { return device_type_; }
+DeviceType ProberConfig::GetDeviceType() const { return device_type_; }
 
 std::uint64_t ProberConfig::GetMemorySizeBytes() const { return memory_size_bytes_; }
 

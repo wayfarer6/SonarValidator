@@ -16,6 +16,14 @@ namespace net = boost::asio;
 namespace websocket = beast::websocket;
 using tcp = boost::asio::ip::tcp;
 
+enum class DeviceType : uint8_t
+{
+    kSwitch,
+    kVirtualMachine,
+    kFirewall,
+    kRouter
+};
+
 class ManagementService {
 public:
     ManagementService();
@@ -23,18 +31,23 @@ public:
     ~ManagementService();
 
     bool connect();
-    bool sendText(const std::string &message);
+    Json sendText(const std::string &message);
     std::string receiveText();
     bool applyPolicy(const std::string& policy_name, const std::string& payload);
-    bool fetchPolicy(const std::string& policy_name, std::string& payload);
+    Json fetchPolicy(const std::string& policy_name, std::string& payload);
+    Json fetchPolicy(const DeviceType device_type,const std::string& device_id);
     void CheckSwitchStatus();
     void CheckRouterStatus();
     void CheckFirewallStatus();
-
+    bool replyToPolicy(const std::string& policy_name, const std::string& payload);
+    bool processOpenVSwitchPolicy(const Json& policy_payload);
+    bool processAristaSwitchPolicy(const Json& policy_payload);
+    Json commandAristaSwitch(const std::string& comm );
+    void commandAristaSwitch_no_return(const std::string& comm );
 
 private:
     std::string host_{};
-    ProberConfig::DeviceType device_type_{};
+    DeviceType device_type_{};
     int port_{0};
     std::string target_{};
     net::io_context ioc_;

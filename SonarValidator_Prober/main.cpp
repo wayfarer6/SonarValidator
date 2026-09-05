@@ -19,6 +19,7 @@
 #include "management_service.hpp"
 #include "prober_config.hpp"
 #include "telemetry/telemetry_service.hpp"
+#include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
 
@@ -60,13 +61,14 @@ void TelemetryWorker(std::stop_token stop_token, const ProberConfig &config)
     {
         std::cerr << "[WARN] Telemetry worker exception: " << ex.what() << '\n';
     }
-    
+
     */
 
-    try {
+    try
+    {
         TelemetryService telemetry_service(
             config.GetServerIpv4(),
-            static_cast<int>(config.GetServerPort()),  //server port 3000 (test)
+            static_cast<int>(config.GetServerPort()), // server port 3000 (test)
             "/api/v1/telemetry");
         while (!stop_token.stop_requested())
         {
@@ -75,16 +77,27 @@ void TelemetryWorker(std::stop_token stop_token, const ProberConfig &config)
                 "{\"agent\":\"" + config.GetAgentName() +
                 "\",\"kernel\":\"" + config.GetKernelName() +
                 "\"}";
+            Json request_json = Json::parse(request);
             std::string target = "/api/telemetry";
             telemetry_service.sendRequest(request, target);
             std::this_thread::sleep_for(std::chrono::seconds(5));
         }
-
-    } 
+    }
     catch (const std::exception &ex)
     {
-        std::cerr << "[WARN] Telemetry worker exception: " << ex.what() <<'\n';
+        std::cerr << "[WARN] Telemetry worker exception: " << ex.what() << '\n';
     }
+}
+
+bool RececeivePolicy()
+{
+    // arista 제품군인 경우
+
+    // cisco 제품군의 경우
+
+    // openswitch 노드일 경우
+
+    // FRR Router일 경우
 }
 
 void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
@@ -98,11 +111,63 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
 
     while (!stop_token.stop_requested())
     {
-        const bool policy_ok = management_service.fetchPolicy("agent_policy", policy_payload);
-        if (!policy_ok)
+
+        // 서버와 연결후 정책 받아오기
+        policy_payload = management_service.fetchPolicy(config.GetDeviceType(), config.GetAgentId());
+
+        switch (config.GetDeviceType())
         {
-            std::cerr << "[WARN] Management worker cannot connect to management endpoint\n";
+        case DeviceType::kSwitch:
+            {
+
+                if(config.GetProductName() == "OpenVSwitch")
+                {
+                    // OpenVSwitch의 정책 처리
+                    management_service.processOpenVSwitchPolicy(policy_payload);
+                    
+                }
+                else if(config.GetProductName() == "Arista")
+                {
+                    // Arista's 정책 처리
+                    management_service.processAristaSwitchPolicy(policy_payload);
+
+                } else
+                {
+                    std::cout <<"Unsupported product name: "<< config.GetProductName() << '\n';
+                }
+
+            break;
+
+            }
+            
+        case DeviceType::kVirtualMachine:
+
+            break;
+
+        case DeviceType::kRouter:
+
+           break;
+
+        default:
+            std::cout << "Unsupported device type" << '\n';
         }
+
+        std::cout << "[INFO] Management worker received policy: " << policy_payload << '\n';
+
+        // FRR Router
+        std::cout << "[INFO] FRR Router Policy Received" << '\n';
+
+        // Cisco Router
+        std::cout << "[INFO] Cisco IOS-XE Policy Received " << '\n';
+
+        // Arista Switch
+        std::cout << "[IFNO] Arista EOS Policy Received " << '\n';
+
+        // OpenVswitch
+        std::cout << "[IFNO] OpenVswitch Policy Received " << '\n';
+
+        // linux Nftables firewall
+        std::cout << "[INFO] Linux Firewall Policy Received" << '\n';
 
         std::this_thread::sleep_for(std::chrono::seconds(3));
     }
@@ -142,7 +207,6 @@ void DatabaseWorker(
     }
 }
 
-
 int main()
 {
     std::signal(SIGINT, signalHandler);
@@ -157,7 +221,7 @@ int main()
         "/etc/sonar_validator_prober/sqlite_template.sqlite";
 
     ProberConfig config(
-        "", "", "", ProberConfig::DeviceType::kSwitch,
+        "","","","",DeviceType::kSwitch,"",
         0, "", 0);
 
     DbHandle database(nullptr);
@@ -172,7 +236,6 @@ int main()
         std::cerr << "Runtime initialization failed\n";
         return 1;
     }
-
 
     // 스레드 생성
     DatabaseQueue database_queue;

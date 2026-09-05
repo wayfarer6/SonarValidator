@@ -22,8 +22,9 @@ struct BridgeInfo {
 };
 
 enum class SwitchVendor {
-    OpenVSwitch,
-    CiscoCatalyst8000v,
+    CiscoCatalyst9000v,
+    AristavEOS,
+    OpenVSwitch
 };
 
 class TopologyParser {
@@ -42,6 +43,12 @@ public:
     std::vector<BridgeInfo> parse(const std::string& raw_output) const override;
 };
 
+class AristaTopologyParser : public TopologyParser {
+    public:
+        std::vector<BridgeInfo> parse(const std::string& raw_output) const override;
+};
+
+
 class Switch {
 public:
     explicit Switch(const std::string& name = "");
@@ -54,6 +61,7 @@ public:
 
     void addRoute(const std::string& destination, const std::string& next_hop);
     void addPort(const std::string& destination, const std::string& port);
+    void addVlan(const int subnet_id, const std::string& port); // subnet
     void printRoutes() const;
     void printPorts() const;
     void updateRoutingTable(const std::string& destination, const std::string& next_hop);
@@ -61,6 +69,7 @@ public:
 
     void parseCiscoSwitchTopology(const std::string& raw_output);
     void parseOpenVSwitchTopology(const std::string& raw_output);
+    void pasreAristaTopology(const std::string& raw_output);
 
     const std::vector<BridgeInfo>& getBridges() const { return bridges_; }
 
