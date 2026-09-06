@@ -8,15 +8,16 @@
 
 using Json = nlohmann::json;
 
+// 라우팅 경로 하나를 나타냅니다.
 struct RouteEntry {
-  std::string prefix;
-  std::string next_hop;
-  std::string protocol;
+  std::string prefix;        // 목적지 프리픽스
+  std::string next_hop;      // 다음 홉
+  std::string protocol;      // 라우팅 프로토콜(ospf/static/connected 등)
   std::string metric;
   std::string interface_name;
 };
 
-
+// 라우팅 테이블(연결 정보 + 경로 목록)을 보관하는 클래스입니다.
 class RoutingTable {
  public:
   RoutingTable();

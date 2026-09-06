@@ -6,6 +6,10 @@
 
 #include "device_type.hpp"
 
+// 프로버의 시스템 정보와 중앙 서버 접속 설정을 보관하는 클래스입니다.
+// - Get*: 설정 값 조회
+// - Set*: 설정 값 변경
+// - Detect*: 로컬 시스템에서 값을 자동 탐지
 class ProberConfig
 {
 public:
@@ -51,16 +55,16 @@ public:
     void DetectProductName();
 
 private:
-    std::string agent_id_;
-    std::string agent_name_;
-    std::string kernel_name_;
-    std::string distribution_name_;
-    std::string product_name_;
-    DeviceType device_type_;
-    std::uint64_t memory_size_bytes_;
-    std::string server_ipv4_;
-    std::uint16_t server_port_;
-    std::string architecture_;
+    std::string agent_id_;            // 에이전트 고유 ID
+    std::string agent_name_;          // 생성된 에이전트 이름
+    std::string kernel_name_;         // 커널 버전
+    std::string distribution_name_;   // OS 배포판 이름
+    std::string product_name_;        // 제품군(OpenVSwitch/Arista/FRR/nftables/Ubuntu/Cisco 8000v 등)
+    DeviceType device_type_;          // 장치 유형(스위치/라우터/방화벽/VM)
+    std::uint64_t memory_size_bytes_; // 총 메모리 크기(바이트)
+    std::string server_ipv4_;         // 중앙 서버 IPv4
+    std::uint16_t server_port_;       // 중앙 서버 포트
+    std::string architecture_;        // CPU 아키텍처
 };
 
 #endif // SONAR_VALIDATOR_PROBER_PROBER_CONFIG_HPP_

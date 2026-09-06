@@ -3,8 +3,9 @@
 
 #include "device_type.hpp"
 
-// 네트워크 관련 주요 구조체등을 정리해둔 헤더 파일입니다.
+// 네트워크 관련 주요 구조체들을 정리해둔 헤더 파일입니다.
 
+// VLAN 식별자를 감싸는 타입입니다.
 struct VLan
 {
 public:
@@ -15,6 +16,7 @@ private:
     int vlan_id;
 };
 
+// 서브넷 식별자를 감싸는 타입입니다.
 struct Subnet
 {
 public:
@@ -24,6 +26,7 @@ private:
     int subnet_id;
 };
 
+// 네트워크 인터페이스(NIC) 식별자를 감싸는 타입입니다.
 struct NIC
 {
 public:

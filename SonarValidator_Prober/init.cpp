@@ -13,6 +13,7 @@ namespace fs = std::filesystem;
 namespace
 {
 
+    // 문자열 양 끝의 공백과 세미콜론을 제거합니다. (설정 파일 파싱용)
     std::string TrimValue(std::string value)
     {
         const std::size_t first = value.find_first_not_of(" \t\r\n");
@@ -25,6 +26,7 @@ namespace
         return value.substr(first, last - first + 1);
     }
 
+    // "agent-YYYYMMDD-HHMMSS-mmm-난수" 형식의 고유 에이전트 이름을 생성합니다.
     std::string GenerateAgentName()
     {
         const auto now = std::chrono::system_clock::now();
@@ -48,6 +50,8 @@ namespace
         return agent_name.str();
     }
 
+    // KEY=VALUE 형식의 설정 파일을 읽어 config에 채웁니다.
+    // 모든 필수 항목이 존재해야 true를 반환합니다.
     bool LoadConfig(const fs::path &path, ProberConfig &config)
     {
         std::ifstream input(path);
@@ -159,6 +163,7 @@ namespace
                has_server_port && has_architecture;
     }
 
+    // config 내용을 임시 파일에 쓴 뒤 원자적으로(rename) 저장합니다.
     bool SaveConfig(const fs::path &path, const ProberConfig &config)
     {
         const fs::path temporary_path = path.string() + ".tmp";
@@ -212,6 +217,7 @@ namespace
 
 } // namespace
 
+// 데이터 디렉터리를 생성합니다. 이미 존재하면 성공으로 처리합니다.
 bool AppInitializer::EnsureDataDirectory(const fs::path &path)
 {
     std::error_code error;
@@ -220,6 +226,7 @@ bool AppInitializer::EnsureDataDirectory(const fs::path &path)
     return !error;
 }
 
+// 설정 파일을 로드하고, 없으면 시스템 정보를 탐지해 새로 생성·저장합니다.
 bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config)
 {
 
@@ -227,7 +234,7 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     {
         if (fs::exists(path) && LoadConfig(path, config))
         {
-            config.DetectProductName();
+            config.DetectProductName();  // 제품군은 매번 재탐지합니다.
             return true;
         }
     }
@@ -265,6 +272,7 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     return SaveConfig(path, config);
 }
 
+// SQLite 핸들이 유효한지 확인하고 필요한 테이블을 생성합니다.
 bool AppInitializer::InitializeDatabase(
     const fs::path &database_path,
     const ProberConfig &config,
@@ -276,9 +284,35 @@ bool AppInitializer::InitializeDatabase(
         return false;
     }
 
+    // 텔레메트리/NIC 상태 및 key-value 설정을 저장할 테이블을 보장합니다.
+    const char *kCreateTables =
+        "CREATE TABLE IF NOT EXISTS nic_status ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "agent TEXT NOT NULL,"
+        "collected_at TEXT DEFAULT CURRENT_TIMESTAMP,"
+        "payload TEXT NOT NULL"
+        ");"
+        "CREATE TABLE IF NOT EXISTS settings ("
+        "key TEXT PRIMARY KEY,"
+        "value TEXT NOT NULL"
+        ");";
+
+    char *error_message = nullptr;
+    const int result = sqlite3_exec(
+        database_handle.get(), kCreateTables, nullptr, nullptr, &error_message);
+    if (result != SQLITE_OK)
+    {
+        if (error_message != nullptr)
+        {
+            sqlite3_free(error_message);
+        }
+        return false;
+    }
+
     return true;
 }
 
+// 런타임 준비 전체 흐름: 디렉터리 → 설정 → DB 템플릿 복사 → SQLite 열기 → 스키마 생성.
 bool AppInitializer::PrepareRuntime(
     const fs::path &data_directory,
     const fs::path &config_file_path,

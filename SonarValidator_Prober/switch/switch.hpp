@@ -8,25 +8,29 @@
 #include "../router/routing_table.hpp"
 #include "../network.hpp"
 
+// 스위치 포트 하나의 정보를 담는 구조체입니다.
 struct PortInfo {
-    std::string name;
-    std::string interface_name;
-    std::vector<int> access_vlans;
-    std::vector<int> trunk_vlans;
-    bool is_internal = false;
+    std::string name;               // 포트 이름
+    std::string interface_name;     // 실제 인터페이스 이름
+    std::vector<int> access_vlans;  // access 모드 VLAN 목록
+    std::vector<int> trunk_vlans;   // trunk 허용 VLAN 목록
+    bool is_internal = false;       // 내부 포트 여부
 };
 
+// 스위치 브리지(브리지 이름 + 포트 목록)를 나타냅니다.
 struct BridgeInfo {
     std::string name;
     std::vector<PortInfo> ports;
 };
 
+// 지원하는 스위치 벤더를 구분합니다.
 enum class SwitchVendor {
     CiscoCatalyst9000v,
     AristavEOS,
     OpenVSwitch
 };
 
+// 벤더별 토폴로지 출력을 파싱하는 인터페이스입니다.
 class TopologyParser {
 public:
     virtual ~TopologyParser() = default;
@@ -49,6 +53,7 @@ class AristaTopologyParser : public TopologyParser {
 };
 
 
+// 스위치 토폴로지/포트/VLAN/라우팅 정보를 보관하는 클래스입니다.
 class Switch {
 public:
     explicit Switch(const std::string& name = "");

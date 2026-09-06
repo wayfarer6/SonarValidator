@@ -43,7 +43,7 @@ int main()
             {
                 try
                 {
-                    task.result.set_value(task.execute(database.get()));
+                    task.result.set_value(task.execute(database));
                 }
                 catch (...)
                 {
@@ -53,8 +53,13 @@ int main()
         });
 
     DatabaseTask task;
-    task.execute = [](sqlite3 *database)
+    task.execute = [](DbHandle& handle)
     {
+        sqlite3* database = handle.get();
+        if (database == nullptr)
+        {
+            return DatabaseResult{};
+        }
         /*
         참고로 포인터 변수 자체만 고정하고 싶을 때는 constexpr char*를 쓰면 
         포인터 변수 자체가 상수(char* const)가 되지만, 문자열 리터럴의 

@@ -19,6 +19,8 @@ namespace websocket = beast::websocket;
 using tcp = boost::asio::ip::tcp;
 
 
+// 중앙 서버와 WebSocket으로 통신하며 수신한 정책을 장치에 적용하는 서비스입니다.
+// 벤더별 정책 적용(Apply*), 공통 명령 실행(RunCommand), 영속 CLI 세션(CliCommand)을 제공합니다.
 class ManagementService {
 public:
     ManagementService();
@@ -59,17 +61,17 @@ private:
     // 영속 CLI 세션(pty)으로 명령을 보내고 출력을 받습니다.
     std::string CliCommand(const std::vector<std::string>& argv, const std::string& command);
 
-    std::string host_{};
-    DeviceType device_type_{};
-    int port_{0};
-    std::string target_{};
-    net::io_context ioc_;
-    tcp::resolver resolver_;
-    websocket::stream<beast::tcp_stream> stream_;
-    bool connected_;
-    std::thread management_thread_;
-    TerminalSession cli_session_;
-    std::string cli_program_;
+    std::string host_{};                              // 서버 호스트
+    DeviceType device_type_{};                        // 장치 유형
+    int port_{0};                                     // 서버 포트
+    std::string target_{};                            // WebSocket 경로
+    net::io_context ioc_;                             // Boost.Asio I/O 컨텍스트
+    tcp::resolver resolver_;                          // DNS 리졸버
+    websocket::stream<beast::tcp_stream> stream_;     // WebSocket 스트림
+    bool connected_;                                  // 연결 상태
+    std::thread management_thread_;                   // (예약) 관리 스레드
+    TerminalSession cli_session_;                     // 영속 CLI 세션(pty)
+    std::string cli_program_;                         // 현재 열려 있는 CLI 프로그램명
 
 };
 

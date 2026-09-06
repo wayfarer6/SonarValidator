@@ -68,6 +68,7 @@ std::string ReadDefaultValue(const char* key)
     return {};
 }
 
+// 주어진 실행 파일이 PATH에 존재하는지 확인합니다. (제품군 탐지용)
 bool CommandExists(const char* command)
 {
     const std::string query = std::string("command -v ") + command + " >/dev/null 2>&1";
@@ -77,6 +78,7 @@ bool CommandExists(const char* command)
 
 
 
+// 모든 필드를 받아 초기화합니다. 문자열은 std::move로 복사 없이 옮깁니다.
 ProberConfig::ProberConfig(
     std::string agent_id,
     std::string agent_name,
@@ -151,11 +153,13 @@ void ProberConfig::SetServerIpv4(std::string server_ipv4)
     server_ipv4_ = std::move(server_ipv4);
 }
 
+// 설치 시 작성된 기본 설정(default.conf)에서 서버 IP를 읽어옵니다.
 void ProberConfig::DetectServerIpv4()
 {
     server_ipv4_ = ReadDefaultValue("SERVER_IP");
 }
 
+// 기본 설정에서 서버 포트를 읽고 1~65535 범위인지 검증합니다.
 void ProberConfig::DetectServerPort()
 {
     const std::string port = ReadDefaultValue("SERVER_PORT");
@@ -173,6 +177,8 @@ void ProberConfig::DetectServerPort()
     }
 }
 
+// 기본 설정의 NODE_TYPE을 장치 유형으로 변환합니다.
+// 유효하지 않은 값이면 false를 반환합니다.
 bool ProberConfig::DetectDeviceType()
 {
     const std::string node_type = ReadDefaultValue("NODE_TYPE");
@@ -207,6 +213,7 @@ void ProberConfig::SetArchitecture(std::string architecture)
     architecture_ = std::move(architecture);
 }
 
+// uname()으로 커널 버전을 읽어옵니다.
 void ProberConfig::DetectKernelName()
 {
     struct utsname system_info;
@@ -241,6 +248,7 @@ void ProberConfig::DetectDistributionName()
     std::cerr << "Unable to read distribution name from /etc/os-release\n";
 }
 
+// sysinfo()로 총 메모리 크기를 읽어옵니다.
 void ProberConfig::DetectMemorySizeBytes()
 {
     struct sysinfo memory_info;
@@ -255,6 +263,7 @@ void ProberConfig::DetectMemorySizeBytes()
                          memory_info.mem_unit;
 }
 
+// uname()으로 CPU 아키텍처를 읽어옵니다.
 void ProberConfig::DetectArchitecture()
 {
     struct utsname system_info;

@@ -28,6 +28,8 @@ add_executable(sonar_validator_prober
     management_service.cpp
     telemetry/telemetry_service.hpp
     telemetry/telemetry_service.cpp
+    telemetry/telemetry_monitor.hpp
+    telemetry/telemetry_monitor.cpp
     router/routing_table.hpp
     router/routing_table.cpp
     switch/switch.cpp
