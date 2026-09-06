@@ -4,13 +4,7 @@
 #include <cstdint>
 #include <string>
 
-enum class DeviceType : uint8_t
-{
-    kSwitch,
-    kVirtualMachine,
-    kFirewall,
-    kRouter
-};
+#include "device_type.hpp"
 
 class ProberConfig
 {
@@ -25,14 +19,14 @@ public:
                  std::string server_ipv4,
                  std::uint16_t server_port);
 
-    const std::string& GetAgentId() const;
-    const std::string& GetAgentName() const;
-    const std::string& GetKernelName() const;
-    const std::string& GetDistributionName() const;
-    const std::string& GetProductName() const;
+    const std::string &GetAgentId() const;
+    const std::string &GetAgentName() const;
+    const std::string &GetKernelName() const;
+    const std::string &GetDistributionName() const;
+    const std::string &GetProductName() const;
     DeviceType GetDeviceType() const;
     std::uint64_t GetMemorySizeBytes() const;
-    const std::string& GetServerIpv4() const;
+    const std::string &GetServerIpv4() const;
     std::uint16_t GetServerPort() const;
 
     void SetAgentName(std::string agent_name);
@@ -44,7 +38,7 @@ public:
     void SetServerIpv4(std::string server_ipv4);
     void SetServerPort(std::uint16_t server_port);
 
-    const std::string& GetArchitecture() const;
+    const std::string &GetArchitecture() const;
     void SetArchitecture(std::string architecture);
 
     void DetectKernelName();
@@ -55,7 +49,6 @@ public:
     void DetectServerPort();
     bool DetectDeviceType();
     void DetectProductName();
-
 
 private:
     std::string agent_id_;
@@ -70,4 +63,4 @@ private:
     std::string architecture_;
 };
 
-#endif  // SONAR_VALIDATOR_PROBER_PROBER_CONFIG_HPP_
+#endif // SONAR_VALIDATOR_PROBER_PROBER_CONFIG_HPP_

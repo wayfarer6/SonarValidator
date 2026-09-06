@@ -207,12 +207,9 @@ std::vector<BridgeInfo> CiscoTopologyParser::parse(const std::string& raw_output
 
 std::vector<BridgeInfo> AristaTopologyParser::parse(const std::string& raw_output) const
 {
-    
-}
-
-std::vector<BridgeInfo> OpenVSwitchTopologyParser::parse(const std::string& raw_output) const
-{
-
+    // TODO: Arista EOS 'show vlan'/'show interfaces switchport' 출력 파싱을 구현합니다.
+    (void)raw_output;
+    return {};
 }
 
 

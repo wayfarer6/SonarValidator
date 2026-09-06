@@ -1,21 +1,27 @@
 #include "switch.hpp"
 
 #include <cassert>
+#include <cctype>
+#include <cstddef>
 #include <string>
 
 const std::string Trim(const std::string& input)
 {
-    int start; 
-    while(start < input.size() && std::isspace(static_cast<unsigned char>(input[start])) !=0) { ++start;} 
-
-    int end = input.size();
-
-    while(start <= end  && std::isspace(static_cast<unsigned char>(input[end])) !=0))
+    std::size_t start = 0;
+    while (start < input.size() &&
+           std::isspace(static_cast<unsigned char>(input[start])) != 0)
     {
-        end--;
+        ++start;
     }
 
-    return input.substr(start,end);
+    std::size_t end = input.size();
+    while (end > start &&
+           std::isspace(static_cast<unsigned char>(input[end - 1])) != 0)
+    {
+        --end;
+    }
+
+    return input.substr(start, end - start);
 }
 
 
@@ -152,14 +158,14 @@ Management1     unassigned          up          up              1500
 Vlan8           10.0.8.1/24         up          up              1500           
 Vlan9           10.0.9.1/24         up          up              1500           
 Vlan99          172.18.10.2/24      up          up              1500           
-);
+)";
 
 
 Switch aristavEosSwitch("ARISTA");
 aristavEosSwitch.addPort("Ethernet1","Ethernet1");
 aristavEosSwitch.addPort("Ethernet2","Ethernet2");
 aristavEosSwitch.addPort("Ethernet3","Ethernet3");
-aristavEosSwitch.addVlan(" "," ")
+aristavEosSwitch.addVlan(8, "Ethernet1");
 
 
 

@@ -1,10 +1,10 @@
-package org.sonar_validator.sonarvalidar_backend;
+package org.sonar.sonarvalidator_backend;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class SonarValidarBackendApplicationTests {
+class SonarValidatorBackendApplicationTests {
 
     @Test
     void contextLoads() {

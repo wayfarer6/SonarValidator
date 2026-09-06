@@ -17,8 +17,10 @@
 #include "database/database_service.hpp"
 #include "init.hpp"
 #include "management_service.hpp"
+#include "policy/policy_receiver.hpp"
 #include "prober_config.hpp"
 #include "telemetry/telemetry_service.hpp"
+#include "vm/vm_service.hpp"
 #include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
@@ -72,12 +74,17 @@ void TelemetryWorker(std::stop_token stop_token, const ProberConfig &config)
             "/api/v1/telemetry");
         while (!stop_token.stop_requested())
         {
-            // 나중에 json으로 코드 리펙토링하기
-            std::string request =
-                "{\"agent\":\"" + config.GetAgentName() +
-                "\",\"kernel\":\"" + config.GetKernelName() +
-                "\"}";
-            Json request_json = Json::parse(request);
+            Json telemetry;
+            telemetry["agent"] = config.GetAgentName();
+            telemetry["kernel"] = config.GetKernelName();
+
+            // VM은 NIC/연결 상태를 함께 전송합니다. (제어는 스위치/라우터 담당)
+            if (config.GetDeviceType() == DeviceType::kVirtualMachine)
+            {
+                telemetry["nic_status"] = VmService::CollectNicStatus();
+            }
+
+            std::string request = telemetry.dump();
             std::string target = "/api/telemetry";
             telemetry_service.sendRequest(request, target);
             std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -89,17 +96,6 @@ void TelemetryWorker(std::stop_token stop_token, const ProberConfig &config)
     }
 }
 
-bool RececeivePolicy()
-{
-    // arista 제품군인 경우
-
-    // cisco 제품군의 경우
-
-    // openswitch 노드일 경우
-
-    // FRR Router일 경우
-}
-
 void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
 {
     ManagementService management_service(
@@ -107,67 +103,22 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
         static_cast<int>(config.GetServerPort()),
         "/api/v1/management");
 
-    std::string policy_payload;
-
     while (!stop_token.stop_requested())
     {
+        // 서버와 연결 후 정책을 받아옵니다.
+        const Json policy =
+            management_service.fetchPolicy(config.GetDeviceType(), config.GetAgentId());
 
-        // 서버와 연결후 정책 받아오기
-        policy_payload = management_service.fetchPolicy(config.GetDeviceType(), config.GetAgentId());
-
-        switch (config.GetDeviceType())
+        if (policy.is_null() || policy.is_boolean())
         {
-        case DeviceType::kSwitch:
-            {
-
-                if(config.GetProductName() == "OpenVSwitch")
-                {
-                    // OpenVSwitch의 정책 처리
-                    management_service.processOpenVSwitchPolicy(policy_payload);
-                    
-                }
-                else if(config.GetProductName() == "Arista")
-                {
-                    // Arista's 정책 처리
-                    management_service.processAristaSwitchPolicy(policy_payload);
-
-                } else
-                {
-                    std::cout <<"Unsupported product name: "<< config.GetProductName() << '\n';
-                }
-
-            break;
-
-            }
-            
-        case DeviceType::kVirtualMachine:
-
-            break;
-
-        case DeviceType::kRouter:
-
-           break;
-
-        default:
-            std::cout << "Unsupported device type" << '\n';
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            continue;
         }
 
-        std::cout << "[INFO] Management worker received policy: " << policy_payload << '\n';
+        std::cout << "[INFO] Management worker received policy: " << policy.dump() << '\n';
 
-        // FRR Router
-        std::cout << "[INFO] FRR Router Policy Received" << '\n';
-
-        // Cisco Router
-        std::cout << "[INFO] Cisco IOS-XE Policy Received " << '\n';
-
-        // Arista Switch
-        std::cout << "[IFNO] Arista EOS Policy Received " << '\n';
-
-        // OpenVswitch
-        std::cout << "[IFNO] OpenVswitch Policy Received " << '\n';
-
-        // linux Nftables firewall
-        std::cout << "[INFO] Linux Firewall Policy Received" << '\n';
+        // 장치 유형(DeviceType)별로 정책 처리 함수를 분기합니다.
+        ReceivePolicy(config, management_service, policy);
 
         std::this_thread::sleep_for(std::chrono::seconds(3));
     }

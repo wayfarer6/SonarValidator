@@ -35,8 +35,14 @@ add_executable(sonar_validator_prober
     firewall/firewall.hpp
     firewall/firewall.cpp
     network.hpp
-    vm_service.hpp
-    vm_service.cpp
+    device_type.hpp
+    policy/policy_json.hpp
+    policy/policy_receiver.hpp
+    policy/policy_receiver.cpp
+    terminal_session.hpp
+    terminal_session.cpp
+    vm/vm_service.hpp
+    vm/vm_service.cpp
 )
 
 target_include_directories(sonar_validator_prober PRIVATE
@@ -46,6 +52,7 @@ target_include_directories(sonar_validator_prober PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/switch
     ${CMAKE_CURRENT_SOURCE_DIR}/firewall
     ${CMAKE_CURRENT_SOURCE_DIR}/telemetry
+    ${CMAKE_CURRENT_SOURCE_DIR}/policy
 )
 
 target_link_libraries(sonar_validator_prober PRIVATE

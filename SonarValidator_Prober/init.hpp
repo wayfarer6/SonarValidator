@@ -24,6 +24,4 @@ public:
         DbHandle &database_handle);
 };
 
-
-
 #endif // SONAR_VALIDATOR_PROBER_INIT_HPP_

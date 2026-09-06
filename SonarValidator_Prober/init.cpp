@@ -7,11 +7,12 @@
 #include <random>
 #include <sstream>
 #include <system_error>
-
+#include "network.hpp"
 namespace fs = std::filesystem;
 
 namespace
 {
+
     std::string TrimValue(std::string value)
     {
         const std::size_t first = value.find_first_not_of(" \t\r\n");
@@ -126,19 +127,19 @@ namespace
                 {
                     if (value == "Switch")
                     {
-                        config.SetDeviceType(ProberConfig::DeviceType::kSwitch);
+                        config.SetDeviceType(DeviceType::kSwitch);
                     }
                     else if (value == "VM")
                     {
-                        config.SetDeviceType(ProberConfig::DeviceType::kVirtualMachine);
+                        config.SetDeviceType(DeviceType::kVirtualMachine);
                     }
                     else if (value == "Firewall")
                     {
-                        config.SetDeviceType(ProberConfig::DeviceType::kFirewall);
+                        config.SetDeviceType(DeviceType::kFirewall);
                     }
                     else if (value == "Router")
                     {
-                        config.SetDeviceType(ProberConfig::DeviceType::kRouter);
+                        config.SetDeviceType(DeviceType::kRouter);
                     }
                     else
                     {
@@ -170,16 +171,16 @@ namespace
         std::string node_type;
         switch (config.GetDeviceType())
         {
-        case ProberConfig::DeviceType::kSwitch:
+        case DeviceType::kSwitch:
             node_type = "Switch";
             break;
-        case ProberConfig::DeviceType::kVirtualMachine:
+        case DeviceType::kVirtualMachine:
             node_type = "VM";
             break;
-        case ProberConfig::DeviceType::kFirewall:
+        case DeviceType::kFirewall:
             node_type = "Firewall";
             break;
-        case ProberConfig::DeviceType::kRouter:
+        case DeviceType::kRouter:
             node_type = "Router";
             break;
         }
@@ -226,20 +227,20 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     {
         if (fs::exists(path) && LoadConfig(path, config))
         {
+            config.DetectProductName();
             return true;
         }
     }
-    catch (const std::exception& e)
+    catch (const std::exception &e)
     {
-        std::cout << " Cant create config directories because of authority" << '\n'; 
+        std::cout << " Cant create config directories because of authority" << '\n';
         std::cout << "Error: " << e.what() << '\n';
         return 1;
     }
-        
 
     ProberConfig initial_config(
-        GenerateAgentName(), "", "", ProberConfig::DeviceType::kSwitch,
-        0, "", 0);
+        GenerateAgentName(), "", "", "", DeviceType::kSwitch,
+        "", 0, "", 0);
     initial_config.DetectKernelName();
     initial_config.DetectDistributionName();
     initial_config.DetectMemorySizeBytes();
@@ -247,6 +248,7 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     initial_config.DetectServerIpv4();
     initial_config.DetectServerPort();
     const bool has_valid_device_type = initial_config.DetectDeviceType();
+    initial_config.DetectProductName();
 
     if (initial_config.GetKernelName().empty() ||
         initial_config.GetDistributionName().empty() ||

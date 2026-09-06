@@ -14,6 +14,7 @@
 - 방화벽: `SonarValidator_Prober/firewall/firewall.hpp`, `firewall.cpp`
 - Telemetry 통신: `SonarValidator_Prober/telemetry/telemetry_service.hpp`, `telemetry_service.cpp`
 - 네트워크 값 타입: `SonarValidator_Prober/network.hpp`
+- 장치 유형: `SonarValidator_Prober/device_type.hpp`
 
 ## ProberConfig
 
@@ -23,7 +24,7 @@
 
 ### 타입
 
-- `DeviceType`: `kSwitch`, `kVirtualMachine`, `kFirewall`, `kRouter`
+- `DeviceType`: `kSwitch`, `kVirtualMachine`, `kFirewall`, `kRouter` (정의: `SonarValidator_Prober/device_type.hpp`)
 
 ### 메서드
 

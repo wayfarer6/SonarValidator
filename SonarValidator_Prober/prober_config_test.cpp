@@ -10,7 +10,9 @@ int main()
         "",
         "",
         "",
-        ProberConfig::DeviceType::kSwitch,
+        "",
+        DeviceType::kSwitch,
+        "",
         0,
         "",
         0);
@@ -18,7 +20,7 @@ int main()
     config.SetAgentName("test-agent");
     config.SetKernelName("test-kernel");
     config.SetDistributionName("test-distribution");
-    config.SetDeviceType(ProberConfig::DeviceType::kRouter);
+    config.SetDeviceType(DeviceType::kRouter);
     config.SetMemorySizeBytes(4096);
     config.SetServerIpv4("192.0.2.1");
     config.SetServerPort(8080);
@@ -27,7 +29,7 @@ int main()
     assert(config.GetAgentName() == "test-agent");
     assert(config.GetKernelName() == "test-kernel");
     assert(config.GetDistributionName() == "test-distribution");
-    assert(config.GetDeviceType() == ProberConfig::DeviceType::kRouter);
+    assert(config.GetDeviceType() == DeviceType::kRouter);
     assert(config.GetMemorySizeBytes() == 4096);
     assert(config.GetServerIpv4() == "192.0.2.1");
     assert(config.GetServerPort() == 8080);

@@ -1,13 +1,13 @@
-package org.sonar_validator.sonarvalidar_backend;
+package org.sonar.sonarvalidator_backend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class SonarValidarBackendApplication {
+public class SonarValidatorBackendApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(SonarValidarBackendApplication.class, args);
+        SpringApplication.run(SonarValidatorBackendApplication.class, args);
     }
 
 }

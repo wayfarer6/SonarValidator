@@ -1,6 +1,7 @@
 #include "prober_config.hpp"
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -8,7 +9,7 @@
 #include <sys/sysinfo.h>
 #include <memory>
 #include <filesystem>
-
+#include "network.hpp"
 namespace
 {
 constexpr const char* kDefaultConfigPath =
@@ -65,6 +66,12 @@ std::string ReadDefaultValue(const char* key)
         return value;
     }
     return {};
+}
+
+bool CommandExists(const char* command)
+{
+    const std::string query = std::string("command -v ") + command + " >/dev/null 2>&1";
+    return std::system(query.c_str()) == 0;
 }
 }
 
@@ -257,4 +264,44 @@ void ProberConfig::DetectArchitecture()
         return;
     }
     architecture_ = system_info.machine;
+}
+
+void ProberConfig::SetProduct(std::string product_name)
+{
+    product_name_ = std::move(product_name);
+}
+
+void ProberConfig::DetectProductName()
+{
+    if (CommandExists("dohost"))
+    {
+        product_name_ = "Cisco 8000v";
+        return;
+    }
+    if (CommandExists("ovs-vsctl"))
+    {
+        product_name_ = "OpenVSwitch";
+        return;
+    }
+    if (CommandExists("FastCli"))
+    {
+        product_name_ = "Arista";
+        return;
+    }
+    if (CommandExists("vtysh"))
+    {
+        product_name_ = "FRR";
+        return;
+    }
+    if (distribution_name_.find("Ubuntu") != std::string::npos)
+    {
+        product_name_ = "Ubuntu";
+        return;
+    }
+    if (CommandExists("nft"))
+    {
+        product_name_ = "nftables";
+        return;
+    }
+    product_name_ = "Unknown";
 }
