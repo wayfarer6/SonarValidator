@@ -10,10 +10,18 @@ import {themes as prismThemes} from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'My Site',
-  tagline: 'Dinosaurs are cool',
+  title: 'SonarValidator Docs',
+  tagline: 'Docs For SonarValidator',
   favicon: 'img/favicon.ico',
 
+  // 1. 여기에 테마를 추가해야 합니다.
+  themes: ['@docusaurus/theme-mermaid'],
+
+  // 2. 마크다운에서 mermaid를 활성화하는 설정입니다.
+  markdown: {
+    mermaid: true,
+  },
+  
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
@@ -83,7 +91,7 @@ const config = {
         respectPrefersColorScheme: true,
       },
       navbar: {
-        title: 'My Site',
+        title: 'SonarValidator Docs',
         logo: {
           alt: 'My Site Logo',
           src: 'img/logo.svg',
@@ -146,7 +154,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} SonarValidator Project, Inc. Built with Docusaurus.`,
       },
       prism: {
         theme: prismThemes.github,
