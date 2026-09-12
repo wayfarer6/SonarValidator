@@ -34,6 +34,8 @@ classDiagram
     note for Duck "can fly\ncan swim\ncan dive\ncan help in debugging"
 ```
 
+- Sequence Diagram
+
 ```mermaid
 graph TD;
     A --> B;
