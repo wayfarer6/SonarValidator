@@ -28,6 +28,10 @@ import DetectedNetworkNodes from "./pages/DetectedNetworkNodes";
 import SubnetAdvanceConfiguration from "./pages/SubnetAdvanceConfiguration";
 import NetworkSegmentationRule from "./pages/NetworkSegmentationRule";
 import TopologyRulePreview from "./pages/TopologyRulePreview";
+import ComplianceExporter from "./pages/ComplianceExporter";
+import PolicyManagement from "./pages/ PolicyManagement";
+import PolicyExporter from "./pages/PolicyExporter";
+import NetwworkManagement from "./pages/NetworkManagement";
 
 export default function App() {
   const [cookies] = useCookies(["username"]);
@@ -60,6 +64,12 @@ export default function App() {
             <Route path="/project/create/preview" element={<TopologyRulePreview/>}/>
             <Route path="/agent" element={<Agent/>}/>
             <Route path="/compliance" element={<Compliance/>}/>
+            <Route path="/compliance/export" element={<ComplianceExporter/>}/>
+            <Route path="/policy" element={<PolicyManagement/>}/>
+            <Route path="/policy/export" element={<PolicyExporter/>}/>
+            <Route path="/network" element={<NetwworkManagement/>}/>
+            
+            
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
             <Route path="/form-elements" element={<FormElements />} />

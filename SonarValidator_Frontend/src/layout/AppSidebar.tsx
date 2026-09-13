@@ -70,7 +70,6 @@ const navItems: NavItem[] = [
     name: "Network Management",
     subItems: [
       { name: "View Network", path: "/network", pro: false },
-      { name: "Export Logs", path: "/network/export", pro: false },
     ]
   },
   {
