@@ -11,6 +11,7 @@ import {
   getChangesByProject,
   type ComplianceChange,
 } from "../lib/mockData";
+import { exportComplianceReportPdf } from "../lib/pdf/compliancePdf";
 
 const STATUS_COLOR: Record<
   ComplianceChange["status"],
@@ -79,10 +80,27 @@ export default function ComplianceExporter() {
     setSelectedAgentId(null);
   };
 
-  const handlePrint = () => {
-    // 브라우저 인쇄 다이얼로그 → "PDF로 저장" 선택
-    // (print CSS가 #compliance-report 영역만 출력하도록 제어)
-    window.print();
+  const [isExporting, setIsExporting] = useState(false);
+
+  // 화면에 렌더링된 보고서와 동일한 데이터를 jsPDF로 직접 그려 PDF 파일 생성
+  // (DOM 캡처 방식이 아니라 실제 텍스트 기반 → 선택·검색 가능, 파일 작음)
+  const handleExportPdf = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      await exportComplianceReportPdf({
+        project: selectedProject,
+        agent: selectedAgent,
+        changes,
+        counts,
+        generatedAt,
+      });
+    } catch (error) {
+      console.error("PDF 생성 실패:", error);
+      // TODO: 토스트/알림 컴포넌트로 오류 표시
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -93,8 +111,8 @@ export default function ComplianceExporter() {
       />
       <PageBreadcrumb pageTitle="Export Compliance" />
 
-      {/* 컨트롤 (인쇄 시 숨김) */}
-      <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6 print:hidden">
+      {/* 컨트롤 */}
+      <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
@@ -153,16 +171,16 @@ export default function ComplianceExporter() {
             이전
           </button>
           <button
-            onClick={handlePrint}
-            disabled={selectedProjectId === null}
+            onClick={handleExportPdf}
+            disabled={selectedProjectId === null || isExporting}
             className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            PDF 내보내기
+            {isExporting ? "PDF 생성 중..." : "PDF 내보내기"}
           </button>
         </div>
       </div>
 
-      {/* 인쇄 대상 보고서 */}
+      {/* PDF 추출 대상 보고서 */}
       <div
         id="compliance-report"
         className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03] lg:p-8"
