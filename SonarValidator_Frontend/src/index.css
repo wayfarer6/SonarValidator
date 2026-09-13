@@ -790,3 +790,53 @@ span.flatpickr-weekday,
 .simplebar-scrollbar.simplebar-visible:before {
   @apply opacity-100;
 }
+
+/* ---------------------------------------------------------------------------
+   Compliance 보고서 인쇄(PDF 저장) 스타일
+   - #compliance-report 영역만 출력하고 사이드바/헤더/컨트롤은 숨김
+   - 다크모드여도 인쇄물은 라이트 톤으로 강제
+--------------------------------------------------------------------------- */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #compliance-report,
+  #compliance-report * {
+    visibility: visible;
+  }
+
+  #compliance-report {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    margin: 0;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #101828 !important;
+  }
+
+  #compliance-report .dark\:bg-white\/\[0\.03\],
+  #compliance-report [class*="dark:"] {
+    background-color: #ffffff !important;
+    color: inherit !important;
+  }
+
+  #compliance-report table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  #compliance-report th,
+  #compliance-report td {
+    color: #344054 !important;
+    border-color: #e4e7ec !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}

@@ -164,3 +164,66 @@ export function buildTopologyChart(agents: AgentInfo[]): string {
 
   return lines.join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Compliance (네트워크 설정 변경 이력)
+// TODO: 추후 백엔드 API(/api/v1/compliance/changes)로 교체할 더미 데이터
+// ---------------------------------------------------------------------------
+export type ComplianceScope = "Project" | "Agent";
+
+export type ComplianceChangeType =
+  | "Policy Update"
+  | "Topology Change"
+  | "Firmware Update"
+  | "Config Rollback"
+  | "ACL Change";
+
+export interface ComplianceChange {
+  id: string;
+  scope: ComplianceScope;
+  projectId: number;
+  agentId: string | null; // Agent 단위 변경이면 agent id, 프로젝트 단위면 null
+  type: ComplianceChangeType;
+  summary: string;
+  changedBy: string;
+  timestamp: string; // ISO date
+  status: "Applied" | "Pending" | "Rejected";
+}
+
+export const MOCK_COMPLIANCE_CHANGES: ComplianceChange[] = [
+  // Project 3 (Campus Research Net)
+  { id: "CHG-3001", scope: "Project", projectId: 3, agentId: null, type: "Topology Change", summary: "Research VLAN(10.30.20.0/24) 신규 추가 및 SW-Lab-A 업링크 변경", changedBy: "shseo2023@gmail.com", timestamp: "2026-09-12T10:22:00Z", status: "Applied" },
+  { id: "CHG-3002", scope: "Agent", projectId: 3, agentId: "AGT-0005", type: "Policy Update", summary: "FW-Edge-01 인바운드 규칙 3건 추가 (Confidential → Open 차단 유지)", changedBy: "shseo2023@gmail.com", timestamp: "2026-09-11T16:05:00Z", status: "Applied" },
+  { id: "CHG-3003", scope: "Agent", projectId: 3, agentId: "AGT-0003", type: "ACL Change", summary: "SW-Lab-A 포트 12-16 ACL: 연구망 세그먼트만 허용하도록 변경", changedBy: "admin@campus.ac.kr", timestamp: "2026-09-10T09:40:00Z", status: "Applied" },
+  { id: "CHG-3004", scope: "Agent", projectId: 3, agentId: "AGT-0004", type: "Firmware Update", summary: "SW-Lab-B 펌웨어 4.2.1 → 4.3.0 업그레이드", changedBy: "admin@campus.ac.kr", timestamp: "2026-09-08T13:15:00Z", status: "Pending" },
+  { id: "CHG-3005", scope: "Project", projectId: 3, agentId: null, type: "Config Rollback", summary: "세그멘테이션 규칙 Rule-0007 위반 감지로 스냅샷 2026-09-07로 롤백", changedBy: "system", timestamp: "2026-09-07T22:31:00Z", status: "Applied" },
+  // Project 1 (Sonar Bank Network)
+  { id: "CHG-1001", scope: "Project", projectId: 1, agentId: null, type: "Policy Update", summary: "DMZ 세그먼트(10.0.0.0/24) 외부 접근 정책 강화", changedBy: "shseo2023@gmail.com", timestamp: "2026-09-05T11:00:00Z", status: "Applied" },
+  { id: "CHG-1002", scope: "Agent", projectId: 1, agentId: "AGT-1003", type: "ACL Change", summary: "FW-Bank-DMZ 아웃바운드 화이트리스트 5건 갱신", changedBy: "secops@sonarbank.kr", timestamp: "2026-09-03T15:47:00Z", status: "Applied" },
+  { id: "CHG-1003", scope: "Agent", projectId: 1, agentId: "AGT-1001", type: "Topology Change", summary: "RTR-Bank-Core 정적 라우트 2건 추가 (192.168.20.0/24 경유)", changedBy: "secops@sonarbank.kr", timestamp: "2026-08-30T08:12:00Z", status: "Rejected" },
+  { id: "CHG-1004", scope: "Agent", projectId: 1, agentId: "AGT-1004", type: "Firmware Update", summary: "VM-Core-Banking 호스트 패치 KB5063 적용", changedBy: "system", timestamp: "2026-08-27T02:00:00Z", status: "Applied" },
+  // Project 2 (A Nation Defense Force Network)
+  { id: "CHG-2001", scope: "Project", projectId: 2, agentId: null, type: "Topology Change", summary: "지휘망 세그먼트(172.20.0.0/24) 이중화 구성 승인 대기", changedBy: "shseo2023@gmail.com", timestamp: "2026-09-09T17:25:00Z", status: "Pending" },
+  { id: "CHG-2002", scope: "Agent", projectId: 2, agentId: "AGT-2001", type: "Policy Update", summary: "RTR-DEF-01 BGP 이웃 필터링 정책 변경", changedBy: "netadmin@defense.go.kr", timestamp: "2026-09-02T10:05:00Z", status: "Applied" },
+  { id: "CHG-2003", scope: "Agent", projectId: 2, agentId: "AGT-2002", type: "Config Rollback", summary: "SW-DEF-01 STP 설정 오류로 이전 구성 복원", changedBy: "netadmin@defense.go.kr", timestamp: "2026-08-25T19:58:00Z", status: "Applied" },
+];
+
+/** 프로젝트 단위 변경 이력 조회 */
+export function getChangesByProject(projectId: number): ComplianceChange[] {
+  return MOCK_COMPLIANCE_CHANGES.filter((c) => c.projectId === projectId).sort(
+    (a, b) => b.timestamp.localeCompare(a.timestamp),
+  );
+}
+
+/** Agent 단위 변경 이력 조회 */
+export function getChangesByAgent(agentId: string): ComplianceChange[] {
+  return MOCK_COMPLIANCE_CHANGES.filter((c) => c.agentId === agentId).sort(
+    (a, b) => b.timestamp.localeCompare(a.timestamp),
+  );
+}
+
+export function formatTimestamp(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
