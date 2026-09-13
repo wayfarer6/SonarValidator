@@ -6,6 +6,7 @@ import "flatpickr/dist/flatpickr.css";
 import App from "./App.tsx";
 import { AppWrapper } from "./components/common/PageMeta.tsx";
 import { ThemeProvider } from "./context/ThemeContext.tsx";
+import { ProjectWizardProvider } from "./context/ProjectWizardContext.tsx";
 import { CookiesProvider } from 'react-cookie'; // 👈 여기서 감싸기
 
 createRoot(document.getElementById("root")!).render(
@@ -13,7 +14,9 @@ createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <AppWrapper>
          <CookiesProvider> 
-        <App />
+        <ProjectWizardProvider>
+          <App />
+        </ProjectWizardProvider>
         </CookiesProvider>
       </AppWrapper>
     </ThemeProvider>

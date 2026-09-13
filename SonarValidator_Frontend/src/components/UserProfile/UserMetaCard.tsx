@@ -3,9 +3,17 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import {
+  splitDisplayName,
+  useDisplayName,
+  useUserEmail,
+} from "../../lib/userInfo";
 
 export default function UserMetaCard() {
   const { isOpen, openModal, closeModal } = useModal();
+  const displayName = useDisplayName();
+  const userEmail = useUserEmail();
+  const { first: firstName, last: lastName } = splitDisplayName(displayName);
   const handleSave = () => {
     // Handle save logic here
     console.log("Saving changes...");
@@ -21,7 +29,7 @@ export default function UserMetaCard() {
             </div>
             <div className="order-3 xl:order-2">
               <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-                Musharof Chowdhury
+                {displayName}
               </h4>
               <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -33,7 +41,7 @@ export default function UserMetaCard() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center order-2 gap-2 grow xl:order-3 xl:justify-end">
+            {/* <div className="flex items-center order-2 gap-2 grow xl:order-3 xl:justify-end">
               <a
                 href="https://www.facebook.com/PimjoHQ"
                 target="_blank"
@@ -117,7 +125,7 @@ export default function UserMetaCard() {
                   />
                 </svg>
               </a>
-            </div>
+            </div> */}
           </div>
           <button
             onClick={openModal}
@@ -154,7 +162,7 @@ export default function UserMetaCard() {
           </div>
           <form className="flex flex-col">
             <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
-              <div>
+              {/* <div>
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                   Social Links
                 </h5>
@@ -186,7 +194,7 @@ export default function UserMetaCard() {
                     <Input type="text" value="https://instagram.com/PimjoHQ" />
                   </div>
                 </div>
-              </div>
+              </div> */}
               <div className="mt-7">
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                   Personal Information
@@ -195,17 +203,17 @@ export default function UserMetaCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
-                    <Input type="text" value="Musharof" />
+                    <Input type="text" value={firstName} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
-                    <Input type="text" value="Chowdhury" />
+                    <Input type="text" value={lastName} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" value="randomuser@pimjo.com" />
+                    <Input type="text" value={userEmail} />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
@@ -214,7 +222,7 @@ export default function UserMetaCard() {
                   </div>
 
                   <div className="col-span-2">
-                    <Label>Bio</Label>
+                    <Label>직책</Label>
                     <Input type="text" value="Team Manager" />
                   </div>
                 </div>

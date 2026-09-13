@@ -3,13 +3,17 @@ import { Link, useLocation } from "react-router";
 
 // 사용 중인 아이콘만 유지
 import {
+  AlertIcon,
   ChevronDownIcon,
   DocsIcon,
+  FileTextIcon,
+  GlobeIcon,
   GridIcon,
   HorizontaLDots,
   ListIcon,
+  MailIcon,
   PageIcon,
-  TableIcon,
+  ShieldCheckIcon,
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
@@ -46,11 +50,35 @@ const navItems: NavItem[] = [
     ],
   },
     {
-    icon: <TableIcon/>,
+    icon: <ShieldCheckIcon />,
     name: "Policy Management",
     subItems: [
       { name: "View Policy", path: "/policy", pro: false },
       { name: "Export Policy", path: "/policy/export", pro: false },
+    ]
+  },
+   {
+    icon: <FileTextIcon />,
+    name: "Log Management",
+    subItems: [
+      { name: "View Logs", path: "/log", pro: false },
+      { name: "Export Logs", path: "/log/export", pro: false },
+    ]
+  },
+  {
+    icon: <GlobeIcon />,
+    name: "Network Management",
+    subItems: [
+      { name: "View Network", path: "/network", pro: false },
+      { name: "Export Logs", path: "/network/export", pro: false },
+    ]
+  },
+  {
+    icon: <DocsIcon />,
+    name: "Notification",
+    subItems: [
+      { name: "View Notifiaction", path: "/notification", pro: false },
+      { name: "Export Logs", path: "/notification/export", pro: false },
     ]
   },
 
@@ -249,14 +277,14 @@ const AppSidebar: React.FC = () => {
             <>
               <img
                 className="dark:hidden"
-                //src="/images/logo/logo.svg"
+                src="/images/logo/logo.svg"
                 alt="SonarValidator"
                 width={150}
                 height={40}
               />
               <img
                 className="hidden dark:block"
-                //src="/images/logo/logo-dark.svg"
+                src="/images/logo/logo-dark.svg"
                 alt="SonarValidator"
                 width={150}
                 height={40}
@@ -264,7 +292,7 @@ const AppSidebar: React.FC = () => {
             </>
           ) : (
             <img
-              //src="/images/logo/logo-icon.svg"
+              src="/images/logo/logo-icon.svg"
               alt="SonarValidator"
               width={32}
               height={32}

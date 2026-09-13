@@ -21,8 +21,7 @@ export default function AuthLayout({
                 <img
                   width={231}
                   height={48}
-                  //src="/images/logo/auth-logo.svg"
-                  
+                  src="/images/logo/auth-logo.svg"
                   alt="SonarValidator"
                 />
               </Link>

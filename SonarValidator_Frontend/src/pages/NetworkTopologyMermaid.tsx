@@ -1,28 +1,7 @@
-import React, { useEffect, useRef } from "react";
-import mermaid from "mermaid";
+import MermaidDiagram from "../components/common/MermaidDiagram";
 
-mermaid.initialize({
-  startOnLoad: true,
-  theme: "default",
-  securityLevel: "loose",
-  flowchart: {
-    useMaxWidth: true,
-    htmlLabels: true,
-    curve: "basis",
-  },
-});
-
-export default function NetworkTopologyMermaid() {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (containerRef.current) {
-      mermaid.contentLoaded();
-    }
-  }, []);
-
-  // CSO(Confidential, Sensitive, Open) 등급별 라우팅 및 서브넷 구조 정의
-  const mermaidChart = `
+// CSO(Confidential, Sensitive, Open) 등급별 라우팅 및 서브넷 구조 정의
+const mermaidChart = `
     flowchart LR
         subgraph Open [Open Network Zone]
             H1[Host H1<br/>192.168.1.10] --> SW1[Switch SW1<br/>192.168.1.0/24]
@@ -52,13 +31,13 @@ export default function NetworkTopologyMermaid() {
         class H1,SW1 open;
         class H2,SW2,R2 sensitive;
         class H3,SW3,R3 confidential;
-  `;
+`;
 
+export default function NetworkTopologyMermaid() {
   return (
-    <div className="overflow-x-auto py-4 flex justify-center bg-white dark:bg-gray-900 rounded-xl">
-      <div ref={containerRef} className="mermaid">
-        {mermaidChart}
-      </div>
-    </div>
+    <MermaidDiagram
+      chart={mermaidChart}
+      className="rounded-xl bg-white py-4 dark:bg-gray-900"
+    />
   );
 }

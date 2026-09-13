@@ -1,49 +1,42 @@
-import EcommerceMetrics from "../../components/ecommerce/EcommerceMetrics";
-import MonthlySalesChart from "../../components/ecommerce/MonthlySalesChart";
-import StatisticsChart from "../../components/ecommerce/StatisticsChart";
-import MonthlyTarget from "../../components/ecommerce/MonthlyTarget";
-import RecentOrders from "../../components/ecommerce/RecentOrders";
-import DemographicCard from "../../components/ecommerce/DemographicCard";
 import PageMeta from "../../components/common/PageMeta";
 import AgentList from "../../components/project/agent-element/AgentList";
+import ProjectListCard from "../../components/dashboard/ProjectListCard";
+import LatestTopologyCard from "../../components/dashboard/LatestTopologyCard";
+import LogStatusCard from "../../components/dashboard/LogStatusCard";
+import AgentTableCard from "../../components/dashboard/AgentTableCard";
 
 export default function Home() {
   return (
     <>
       <PageMeta
-        title="React.js Ecommerce Dashboard | TailAdmin - React.js Admin Dashboard Template"
-        description="This is React.js Ecommerce Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
+        title="SonarValidator Dashboard"
+        description="SonarValidator home dashboard: projects, latest topology, logs, agents"
       />
-      <div className="grid grid-cols-12 gap-4 md:gap-6">
-        {
-        <div className="col-span-12 space-y-6 xl:col-span-7">
-          <AgentList />
+      <div className="space-y-6">
+        {/* 상단 요약 메트릭 (Projects / Connected Agents) */}
+        <AgentList />
 
+        <div className="grid grid-cols-12 gap-6">
+          {/* 현재 프로젝트 리스트 */}
+          <div className="col-span-12 xl:col-span-4">
+            <ProjectListCard />
+          </div>
+
+          {/* 가장 최근 프로젝트 토폴로지 */}
+          <div className="col-span-12 xl:col-span-8">
+            <LatestTopologyCard />
+          </div>
+
+          {/* 로그 현황 */}
+          <div className="col-span-12">
+            <LogStatusCard />
+          </div>
+
+          {/* Agent 리스트 (id, 이름, IP, 대역대, 장비 타입) */}
+          <div className="col-span-12">
+            <AgentTableCard />
+          </div>
         </div>
-
-        
-        /* <div className="col-span-12 space-y-6 xl:col-span-7">
-          <EcommerceMetrics />
-
-          <MonthlySalesChart />
-        </div>
-
-        <div className="col-span-12 xl:col-span-5">
-          <MonthlyTarget />
-        </div>
-
-        <div className="col-span-12">
-          <StatisticsChart />
-        </div>
-
-        <div className="col-span-12 xl:col-span-5">
-          <DemographicCard />
-        </div>
-
-        <div className="col-span-12 xl:col-span-7">
-          <RecentOrders />
-        </div> */
-        }
       </div>
     </>
   );

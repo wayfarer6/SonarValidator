@@ -25,6 +25,9 @@ import ProjectCreation from "./pages/ProjectCreation";
 import Agent from "./pages/Agent";
 import Compliance from "./pages/Compliance";
 import DetectedNetworkNodes from "./pages/DetectedNetworkNodes";
+import SubnetAdvanceConfiguration from "./pages/SubnetAdvanceConfiguration";
+import NetworkSegmentationRule from "./pages/NetworkSegmentationRule";
+import TopologyRulePreview from "./pages/TopologyRulePreview";
 
 export default function App() {
   const [cookies] = useCookies(["username"]);
@@ -52,6 +55,9 @@ export default function App() {
             <Route path="/project" element={<Project />} />
             <Route path="/project/create" element={<ProjectCreation />} />
             <Route path="/project/create/ViewNodes" element={<DetectedNetworkNodes/>}/>
+            <Route path="/project/create/subnet" element={<SubnetAdvanceConfiguration/>}/>
+            <Route path="/project/create/segmentation" element={<NetworkSegmentationRule/>}/>
+            <Route path="/project/create/preview" element={<TopologyRulePreview/>}/>
             <Route path="/agent" element={<Agent/>}/>
             <Route path="/compliance" element={<Compliance/>}/>
             <Route path="/calendar" element={<Calendar />} />

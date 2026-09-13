@@ -1,14 +1,13 @@
-import React, { useState } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 
 export default function ProjectCreation() {
-  const { projectId } = useParams();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get("project_id");
   const navigate = useNavigate();
 
-  const [projectName, setProjectName] = useState(location.state?.projectName || "");
   const [managementServerIPAddr, setManagementServerIPAddr] = useState("");
   const [managementServerPort, setManagementServerPort] = useState("");
   // 카드(모달 역할)의 노출 여부를 제어하는 상태
@@ -17,7 +16,7 @@ export default function ProjectCreation() {
 
   //project 이름없으면 지정해주는거 필요
 
-  const handleCreateProber = (e) => {
+  const handleCreateProber = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log(`Setting Management Server - IP: ${managementServerIPAddr}, Port: ${managementServerPort}`);
     setShowDeployCard(true); 
@@ -27,7 +26,7 @@ export default function ProjectCreation() {
   const handleContinue = () => {
     console.log("Proceeding to next step...");
     // 다음 페이지로 이동하는 로직 (예: navigate(`/project/status/${projectId}`))
-    navigate(`/project/create/?project_id=${projectId}/ViewNodes`);
+    navigate(`/project/create/ViewNodes?project_id=${projectId ?? ""}`);
   };
 
   return (
@@ -67,7 +66,7 @@ export default function ProjectCreation() {
               Setup Management Server 
             </div>
 
-            <form onClick={handleCreateProber} className="space-y-4">
+            <form onSubmit={handleCreateProber} className="space-y-4">
               
               {/* Management Server IP 입력 영역 */}
               <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/50">

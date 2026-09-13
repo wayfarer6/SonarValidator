@@ -1,10 +1,23 @@
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "react-router";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import UserMetaCard from "../components/UserProfile/UserMetaCard";
 import UserInfoCard from "../components/UserProfile/UserInfoCard";
 import UserAddressCard from "../components/UserProfile/UserAddressCard";
+import AccountManagementCard from "../components/UserProfile/AccountManagementCard";
 import PageMeta from "../components/common/PageMeta";
 
 export default function UserProfiles() {
+  const [searchParams] = useSearchParams();
+  const accountRef = useRef<HTMLDivElement>(null);
+
+  // Account settings(드롭다운)에서 ?tab=account 로 진입한 경우 해당 섹션으로 스크롤
+  useEffect(() => {
+    if (searchParams.get("tab") === "account") {
+      accountRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [searchParams]);
+
   return (
     <>
       <PageMeta
@@ -19,8 +32,11 @@ export default function UserProfiles() {
         <div className="space-y-6">
           <UserMetaCard />
           <UserInfoCard />
-          <UserAddressCard />
+          {/* <UserAddressCard /> */}
         </div>
+      </div>
+      <div ref={accountRef} className="mt-6 scroll-mt-24">
+        <AccountManagementCard />
       </div>
     </>
   );

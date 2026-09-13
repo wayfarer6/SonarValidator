@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifying, setNotifying] = useState(true);
+  const navigate = useNavigate();
+
+  const handleViewAll = () => {
+    closeDropdown();
+    navigate("/notification");
+  };
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -79,7 +85,7 @@ export default function NotificationDropdown() {
         <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
           {/* Example notification items */}
           <li>
-            <DropdownItem
+            {/* <DropdownItem
               onItemClick={closeDropdown}
               className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
             >
@@ -364,16 +370,16 @@ export default function NotificationDropdown() {
                   <span>1 hr ago</span>
                 </span>
               </span>
-            </DropdownItem>
+            </DropdownItem> */}
           </li>
           {/* Add more items as needed */}
         </ul>
-        <Link
-          to="/"
-          className="block px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+        <button
+          onClick={handleViewAll}
+          className="block w-full px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
         >
           View All Notifications
-        </Link>
+        </button>
       </Dropdown>
     </div>
   );
