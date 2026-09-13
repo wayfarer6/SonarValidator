@@ -1,12 +1,7 @@
-apk update 
-apk add openssh
-apk add nftables
-apk add dnsmasq
+#!/bin/sh
 
-# ssh 실행을 위한 
-ssh-keygen
+# 패키지 목록 업데이트
+apk update
 
-# SNAT 규칙 구성
-
-
-# DHCP 서버 구성
+# ssh, 방화벽(nftables), dhcp(dnsmasq), 네트워크 관리 도구(iproute2) 설치
+apk add openssh nftables dnsmasq iproute2 busybox-extras

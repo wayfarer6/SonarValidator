@@ -1,4 +1,14 @@
-# GNS3 자체 제공 OpenVSwitch 이미지
+# GNS3 자체 제공 OpenVSwitch 이미지 (Alpine Linux 기반)
 FROM gns3/openvswitch:latest
 
-CMD [ "ssh-keygen" ]
+WORKDIR /root
+
+# 스크립트 복사
+COPY build-script.sh .
+COPY start.sh .
+
+# 스크립트에 실행 권한 부여 및 빌드 단계에서 패키지 설치
+RUN chmod +x build-script.sh start.sh && ./build-script.sh
+
+# 컨테이너 구동 시 start.sh 실행
+CMD ["/root/start.sh"]

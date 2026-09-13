@@ -1,0 +1,14 @@
+# GNS3 자체 제공 OpenVSwitch 이미지
+FROM ubuntu:latest
+
+# 작업 디렉토리 설정 (보통 루트 디렉토리보다 /root 또는 /app 등을 권장)
+WORKDIR /root
+
+# 스크립트 복사
+COPY build-script.sh .
+
+# 스크립트에 실행 권한 부여 및 빌드 단계에서 실행 (특수 공백 문자 제거)
+RUN chmod +x build-script.sh && ./build-script.sh
+
+# SSH 호스트 키 자동 생성(-A) 및 SSH 데몬 포그라운드 실행(-D)
+CMD ssh-keygen -A && mkdir -p /run/sshd && /usr/sbin/sshd -D && telnetd
