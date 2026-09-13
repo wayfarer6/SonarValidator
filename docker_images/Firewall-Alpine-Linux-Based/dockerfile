@@ -1,0 +1,14 @@
+# Alpine Linux 기반의 이미지 사용
+FROM alpine:latest
+
+# 작업 디렉토리 설정
+WORKDIR /workspace
+
+# 스크립트
+COPY build-script.sh .
+
+# 스크립트에 실행 권한 부여 및 빌드 단계에서 실
+RUN chmod +x build-script.sh  && ./build-script.sh
+
+# 초기 설정
+CMD ["ssh-keygen -a"]

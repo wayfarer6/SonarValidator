@@ -1,0 +1,4 @@
+# GNS3 자체 제공 OpenVSwitch 이미지
+FROM gns3/openvswitch:latest
+
+CMD [ "ssh-keygen" ]
