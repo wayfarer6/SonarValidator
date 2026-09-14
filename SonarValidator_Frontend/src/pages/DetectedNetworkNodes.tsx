@@ -1,6 +1,8 @@
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
+import { useModal} from "../hooks/useModal";
+import { Modal } from "../components/ui/modal";
 
 interface DetectedNode {
   id: number;
@@ -18,6 +20,12 @@ export default function DetectedNetworkNodes() {
     console.log("Proceeding to next step...");
     navigate(`/project/create/subnet?project_id=${projectId ?? ""}`);
   };
+
+  // const handleOPNsenseGuide=()=> {
+    
+  // }
+
+  const {isOpen, openModal,closeModal } = useModal();
 
   // 테스트를 위한 임시(Dummy) 데이터
   const detectedNodes: Record<"routers" | "switches" | "firewalls" | "vms", DetectedNode[]> = {
@@ -132,17 +140,24 @@ export default function DetectedNetworkNodes() {
           </div>
         </div>
 
-        {/* 3. Fortigate Firewall 카드 */}
-        <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+        {/* 3. OPNsense Firewall 카드 */}
+        <div
+        //  onClick=handleOPNsenseGuide()
+        className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
           <div className="border-b border-stroke py-4 px-6.5 dark:border-strokedark">
             <h3 className="font-medium text-black dark:text-white">
-              Fortigate Firewall
+              OPNsense Firewall
             </h3>
           </div>
           <div className="p-6.5 max-h-[350px] overflow-y-auto custom-scrollbar">
             {renderNodeList(detectedNodes.firewalls)}
           </div>
         </div>
+        <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
+        <div>
+          
+        </div>
+        </Modal>
 
         {/* 4. Linux VM 카드 */}
         <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">

@@ -124,7 +124,7 @@ export default function ProjectCreation() {
           <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50 lg:p-6">
             <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3 dark:border-gray-700">
               <h4 className="font-semibold text-gray-800 dark:text-white/90">
-                Deploy & Download Card
+                Deploy & Download
               </h4>
               <button
                 onClick={() => setShowDeployCard(false)}
@@ -170,19 +170,48 @@ export default function ProjectCreation() {
                 </span>
               </div>
 
-              {/* Fortigate Firewall */}
+              {/* OPNsense Firewall */}
               <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
                 <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
                   <img
-                    src="https://companieslogo.com/img/orig/FTNT-745f92ba.png?t=1783191297"
-                    alt="Fortigate Firewall"
+                    src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/opnsense.png"
+                    alt="OPNsense Firewall"
                     className="max-w-full max-h-full object-contain"
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  Fortigate Firewall
+                  OPNsense Firewall
                 </span>
               </div>
+
+              {/* Linux VM */}
+              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
+                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
+                  <img
+                    src="https://img.icons8.com/color/150/linux.png"
+                    alt="Linux VM"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
+                  Linux VM
+                </span>
+              </div>
+
+              {/* Poc OpenvSwitch */}
+              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
+                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
+                  <img
+                    src="https://images.seeklogo.com/logo-png/27/1/open-vswitch-logo-png_seeklogo-271617.png"
+                    alt="OpenvSwitch"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
+                  Open vSwitch
+                </span>
+              </div>
+
 
               {/* Linux VM */}
               <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
