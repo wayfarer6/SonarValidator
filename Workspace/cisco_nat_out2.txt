@@ -1,0 +1,35 @@
+[OK]
+Router#show access-lists
+Standard IP access list FORTIGATE_NAT_ACL
+    10 permit 172.128.0.0, wildcard bits 0.0.0.255
+    20 permit 10.20.0.0, wildcard bits 0.0.0.255
+Standard IP access list GUEST_NAT_ACL
+    10 permit 192.168.35.0, wildcard bits 0.0.0.255
+Standard IP access list WEB_ACCESS_ACL
+    10 permit 10.20.0.0, wildcard bits 0.0.0.255
+Extended IP access list meraki-fqdn-dns
+Router#
+*Sep 13 15:06:18.124: %SYS-3-CPUHOG: Task is running for (2759)msecs, more than (2000)msecs (16/16),process = Exec.
+-Traceback= 1#f8cd8d625c26f4779524533e99c47acf crypto:786EB7F33000+19584A 
+*Sep 13 15:06:21.489: %SYS-6-PRIVCFG_ENCRYPT_SUCCESS: Successfully encrypted private config file
+Router#enable
+Router#Pa129@YX#143
+% Bad IP address or host name% Unknown command or computer name, or unable to find computer address
+Router#terminal length 0
+Router#configure terminal
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router(config)#ip access-list standard FORTIGATE_NAT_ACL
+Router(config-std-nacl)#permit 172.18.10.0 0.0.0.255
+Router(config-std-nacl)#exit
+Router(config)#end
+Router#
+*Sep 13 15:07:21.347: %SYS-5-CONFIG_I: Configured from console by consolewrite memory
+Building configuration...
+[OK]
+Router#show access-lists FORTIGATE_NAT_ACL
+Standard IP access list FORTIGATE_NAT_ACL
+    10 permit 172.128.0.0, wildcard bits 0.0.0.255
+    20 permit 10.20.0.0, wildcard bits 0.0.0.255
+    30 permit 172.18.10.0, wildcard bits 0.0.0.255
+Router#
+*Sep 13 15:07:28.094: %SYS-6-PRIVCFG_ENCRYPT_SUCCESS: Successfully encrypted private config file

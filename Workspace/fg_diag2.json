@@ -1,0 +1,13 @@
+[
+  {"expect": "(?i)(login:|password:|#)", "send": "\n", "timeout": 8, "optional": true},
+  {"expect": "(?i)login:", "send": "admin\n", "timeout": 6, "optional": true},
+  {"expect": "(?i)password:", "send": "Pa129@Y\n", "timeout": 6, "optional": true},
+  {"expect": "#", "send": "\n", "timeout": 10},
+  {"expect": "#", "send": "get system status\n", "timeout": 15, "pause": 1.0},
+  {"expect": "#", "send": "get router info routing-table all\n", "timeout": 15, "pause": 1.0},
+  {"expect": "#", "send": "show router static\n", "timeout": 15, "pause": 1.0},
+  {"expect": "#", "send": "show firewall policy\n", "timeout": 15, "pause": 1.0},
+  {"expect": "#", "send": "diagnose hardware deviceinfo nic port2\n", "timeout": 15, "pause": 1.0},
+  {"expect": "#", "send": "execute ping 10.20.0.3\n", "timeout": 30, "pause": 1.0},
+  {"expect": "#", "send": "execute ping 172.18.10.2\n", "timeout": 30, "pause": 1.0}
+]

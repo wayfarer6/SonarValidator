@@ -1,0 +1,10 @@
+.
+.
+.
+.
+admin
+Pa129@Y
+.
+.
+get system status
+diagnose debug vm-print-license

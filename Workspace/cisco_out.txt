@@ -1,0 +1,174 @@
+GNU GRUB  version 2.12~rc1
+
++----------------------------------------------------------------------------+||||||||||||||||||||||||+----------------------------------------------------------------------------+     Use the UP and DOWN arrow keys to select which entry is             
+      highlighted.                                                        
+      Press <Enter> to boot the selected OS or `c' for a command-line.     *C8000V - packages.conf                                                      C8000V - GOLDEN IMAGE                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  The highlighted entry will be executed automatically in 5s.                    The highlighted entry will be executed automatically in 4s.                    The highlighted entry will be executed automatically in 3s.                    The highlighted entry will be executed automatically in 2s.                    The highlighted entry will be executed automatically in 1s.                    The highlighted entry will be executed automatically in 0s.                   Booting `C8000V - packages.conf'
+
+
+BOOT CMD: /packages.conf rw root=/dev/ram max_loop=64 HARDWARE=virtual quiet
+console= SR_BOOT=bootflash:packages.conf
+Calculating SHA-1 hash...done
+SHA-1 hash:
+        calculated   ab6c3c0:d77401bb:6748fb41:24f7d475:8ee456f
+        expected     ab6c3c0:d77401bb:6748fb41:24f7d475:8ee456f
+package header rev 3 structure detected
+IOSXE image contains grub version 3.4
+IOSXE version 17.15.04 detected
+Calculating SHA-1 hash...done
+SHA-1 hash:
+        calculated   e12bc40b:37379b66:307f44f7:b8745346:c91c8d32
+        expected     e12bc40b:37379b66:307f44f7:b8745346:c91c8d32
+Package type:0x7531, flags:0x0
+linux isord, size=0x2e8e253
+
+%IOSXEBOOT-4-PART_VERIFY: (local/local): Verifying partition table for device /dev/bootflash...
+%IOSXEBOOT-4-PART_VERIFY: (local/local): Selected MBR v4 partition layout.
+
+*Sep 13 14:00:50.110: %IOSXEBOOT-4-BOOT_SRC: (rp/0): Checking for grub upgrade
+
+*Sep 13 14:00:50.460: %IOSXEBOOT-4-BOOT_SRC: (rp/0): Checking grub versions 3.4 vs 3.4
+
+*Sep 13 14:00:50.471: %IOSXEBOOT-4-BOOT_SRC: (rp/0): Bootloader upgrade not necessary.
+Sep 13 14:01:24.976: %BOOT-5-OPMODE_LOG: R0/0: binos: System booted in AUTONOMOUS mode
+
+              Restricted Rights Legend
+
+Use, duplication, or disclosure by the Government is
+subject to restrictions as set forth in subparagraph
+(c) of the Commercial Computer Software - Restricted
+Rights clause at FAR sec. 52.227-19 and subparagraph
+(c) (1) (ii) of the Rights in Technical Data and Computer
+Software clause at DFARS sec. 252.227-7013.
+
+           Cisco Systems, Inc.
+           170 West Tasman Drive
+           San Jose, California 95134-1706
+
+
+
+Cisco IOS Software [IOSXE], Virtual XE Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 17.15.4, RELEASE SOFTWARE (fc6)
+Technical Support: http://www.cisco.com/techsupport
+Copyright (c) 1986-2025 by Cisco Systems, Inc.
+Compiled Tue 05-Aug-25 00:09 by mcpre
+
+
+This software version supports only Smart Licensing as the software licensing mechanism.
+
+
+Please read the following carefully before proceeding. By downloading,
+installing, and/or using any Cisco software product, application, feature,
+license, or license key (collectively, the "Software"), you accept and
+agree to the following terms. If you do not agree, do not proceed and do not
+use this Software.
+
+This Software and its use are governed by Cisco's General Terms and any 
+relevant supplemental terms found at
+https://www.cisco.com/site/us/en/about/legal/contract-experience/index.html.
+If you have a negotiated agreement with Cisco that includes this Software, the
+terms of that agreement apply as well. In the event of a conflict, the order 
+of precedence stated in your negotiated agreement controls.
+
+Cisco Software is licensed on a term and/or subscription-basis. The license to
+the Software is valid only for the duration of the specified term, or in the
+case of a subscription-based license, only so long as all required subscription
+payments are current and fully paid-up. While Cisco may provide you
+licensing-related alerts, it is your sole responsibility to monitor your usage.
+Using Cisco Software without a valid license is not permitted and may result in
+fees charged to your account. Cisco reserves the right to terminate access to,
+or restrict the functionality of, any Cisco Software, or any features thereof,
+that are being used without a valid license.
+
+
+cisco C8000V (VXE) processor (revision VXE) with 1656554K/3075K bytes of memory.
+Processor board ID 9TCJE8DXIB0
+Router operating mode: Autonomous
+4 Gigabit Ethernet interfaces
+32768K bytes of non-volatile configuration memory.
+3960380K bytes of physical memory.
+5234688K bytes of virtual hard disk at bootflash:.
+
+
+
+Press RETURN to get started!
+
+
+*Sep 13 14:02:22.865: %CRYPTO-5-SELF_TEST_START: Crypto algorithms release (Rel5a), Entropy release (3.4.1)
+       begin Crypto Module self-tests
+*Sep 13 14:02:22.865: %CRYPTO-5-SELF_TEST_START: Crypto algorithms release (Rel5a), Entropy release (3.4.1)
+       begin Crypto Module Integrity Test
+*Sep 13 14:02:22.872: %CRYPTO-5-SELF_TEST_END: Crypto Integrity self-test completed successfully
+       All tests passed.
+*Sep 13 14:02:23.142: %CRYPTO-5-SELF_TEST_END: Crypto Algorithm self-test completed successfully
+       All tests passed.
+*Sep 13 14:02:23.927: %IOSXE_SMART_AGENT-6-NOTIFY_NO_SNAPSHOT: Platform supports PAK snapshot, but none exists.
+*Sep 13 14:02:26.761: VXE-CSL-DBG:Unable to open the postFR backup file/file not present 
+
+*Sep 13 14:02:27.418: %SMART_LIC-6-AGENT_ENABLED: Smart Agent for Licensing is enabled 
+*Sep 13 14:02:27.439: %SMART_LIC-6-EXPORT_CONTROLLED: Usage of export controlled features is not allowed
+*Sep 13 14:02:30.395: %VUDI-6-EVENT: [serial number: 9TCJE8DXIB0], [vUDI: C8000V:9TCJE8DXIB0], vUDI initialization is now complete
+*Sep 13 14:02:30.833: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet1, changed state to down
+*Sep 13 14:02:30.844: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet2, changed state to down
+*Sep 13 14:02:30.850: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet3, changed state to down
+*Sep 13 14:02:30.857: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet4, changed state to down
+*Sep 13 14:02:33.493: %CRYPTO_ENGINE-5-CSDL_COMPLIANCE_ENFORCED: Cisco PSB security compliance is being enforced
+*Sep 13 14:02:34.273: %LINK-3-UPDOWN: Interface Lsmpi0, changed state to up
+*Sep 13 14:02:34.370: %LINK-3-UPDOWN: Interface EOBC0, changed state to up
+*Sep 13 14:02:34.375: %LINK-3-UPDOWN: Interface LIIN0, changed state to up
+*Sep 13 14:02:34.388: %LINK-3-UPDOWN: Interface GigabitEthernet1, changed state to down
+*Sep 13 14:02:34.392: %LINK-3-UPDOWN: Interface GigabitEthernet2, changed state to down
+*Sep 13 14:02:34.394: %LINK-3-UPDOWN: Interface GigabitEthernet3, changed state to down
+*Sep 13 14:02:34.396: %LINK-3-UPDOWN: Interface GigabitEthernet4, changed state to down
+*Sep 13 14:02:34.570: %PNP-6-PNP_DISCOVERY_STARTED: PnP Discovery started
+*Sep 13 14:00:23.409: %IOSXE-3-PLATFORM: R0/0: kernel: Warning: unable to open an initial console.
+*Sep 13 14:01:24.974: %BOOT-5-OPMODE_LOG: R0/0: binos: System booted in AUTONOMOUS mode
+*Sep 13 14:01:54.954: %CPPDRV-4-CPU_FEATURE: F0/0: cpp_driver: CPP0: CPU lacks feature (Population Count HW-Assist (POPCNT)).  Performance may be sub-optimal.
+*Sep 13 14:01:54.954: %CPPDRV-4-CPU_FEATURE: F0/0: cpp_driver: CPP0: CPU lacks feature (AES HW-Assist (AES-NI)).  Performance may be sub-optimal.
+*Sep 13 14:01:54.954: %CPPDRV-3-GUEST_CPU_FEATURE: F0/0: cpp_driver: CPP0: Guest CPU lacks feature (Supplemental Streaming SIMD Extensions 3 (SSSE3)).
+*Sep 13 14:01:54.954: %CPPDRV-4-CPU_FEATURE: F0/0: cpp_driver: CPP0: CPU lacks feature (Streaming SIMD Extensions 4.1 (SSE4.1)).  Performance may be sub-optimal.
+*Sep 13 14:01:54.954: %CPPDRV-4-CPU_FEATURE: F0/0: cpp_driver: CPP0: CPU lacks feature (Streaming SIMD Extensions 4.2 (SSE4.2)).  Performance may be sub-optimal.
+*Sep 13 14:02:36.532: %LINEPROTO-5-UPDOWN: Line protocol on Interface Lsmpi0, changed state to up
+*Sep 13 14:02:36.538: %LINEPROTO-5-UPDOWN: Line protocol on Interface EOBC0, changed state to up
+*Sep 13 14:02:36.539: %LINEPROTO-5-UPDOWN: Line protocol on Interface LIIN0, changed state to up
+*Sep 13 14:02:36.540: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet1, changed state to down
+*Sep 13 14:02:36.544: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet2, changed state to down
+*Sep 13 14:02:36.545: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet3, changed state to down
+*Sep 13 14:02:36.546: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet4, changed state to down
+*Sep 13 14:02:37.925: %SYS-7-NVRAM_INIT_WAIT_TIME: Waited 0 seconds for NVRAM to be available
+*Sep 13 14:02:38.337: %CRYPTO_ENGINE-5-KEY_ADDITION: A key named TP-self-signed-1335341488 has been generated or imported by crypto config
+*Sep 13 14:02:38.356: %SYS-6-PRIVCFG_DECRYPT_SUCCESS: Successfully apply the private config file
+*Sep 13 14:02:38.409: %PKI-6-TRUSTPOINT_CREATE: Trustpoint: TP-self-signed-1335341488 created succesfully
+*Sep 13 14:02:38.412: %PKI-6-TRUSTPOINT_CREATE: Trustpoint: SLA-TrustPoint created succesfully
+*Sep 13 14:02:38.440: %LICENSE-4-UDI_MISMATCH: The source license udi(C8000V:9X4SGFB55FM) differs from the platform udi(C8000V:9TCJE8DXIB0), please save the running config.
+*Sep 13 14:02:38.444: %AAA-6-USERNAME_CONFIGURATION: user with username: admin configured
+*Sep 13 14:02:38.444: %AAA-6-USER_PRIVILEGE_UPDATE: username: admin privilege updated with priv-15
+*Sep 13 14:02:40.582: %SYS-5-CONFIG_I: Configured from memory by console
+*Sep 13 14:02:40.587: CSR CSL:NO_LICENSE_MODE rommon variable is set to FALSE. Licensing mode is enabled.
+
+*Sep 13 14:02:41.537: %IOSXE_OIR-6-INSCARD: Card (fp) inserted in slot F0
+*Sep 13 14:02:41.538: %IOSXE_OIR-6-ONLINECARD: Card (fp) online in slot F0
+*Sep 13 14:02:40.288: %UICFGEXP-6-SERVER_NOTIFIED_START: R0/0: psd: Server iox has been notified to start
+*Sep 13 14:02:42.144: %SYS-5-RESTART: System restarted --
+Cisco IOS Software [IOSXE], Virtual XE Software (X86_64_LINUX_IOSD-UNIVERSALK9-M), Version 17.15.4, RELEASE SOFTWARE (fc6)
+Technical Support: http://www.cisco.com/techsupport
+Copyright (c) 1986-2025 by Cisco Systems, Inc.
+Compiled Tue 05-Aug-25 00:09 by mcpre
+*Sep 13 14:02:42.714: %SSH-5-ENABLED: SSH 2.0 has been enabled
+*Sep 13 14:02:43.005: %LINEPROTO-5-UPDOWN: Line protocol on Interface VirtualPortGroup0, changed state to up
+*Sep 13 14:02:47.633: %LINK-3-UPDOWN: Interface GigabitEthernet1, changed state to up
+*Sep 13 14:02:47.658: %LINK-3-UPDOWN: Interface GigabitEthernet2, changed state to up
+*Sep 13 14:02:47.669: %LINK-3-UPDOWN: Interface GigabitEthernet4, changed state to up
+*Sep 13 14:02:53.352: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet1, changed state to up
+*Sep 13 14:02:53.370: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet2, changed state to up
+*Sep 13 14:02:53.372: %LINEPROTO-5-UPDOWN: Line protocol on Interface GigabitEthernet4, changed state to up
+*Sep 13 14:02:53.377: %PNP-6-PNP_BEST_UDI_UPDATE: Best UDI [PID:C8000V,VID:V00,SN:9TCJE8DXIB0] identified via (entity-mibs)
+*Sep 13 14:02:53.378: %PNP-6-PNP_CDP_UPDATE: Device UDI [PID:C8000V,VID:V00,SN:9TCJE8DXIB0] identified for CDP
+*Sep 13 14:02:53.382: %PNP-6-PNP_DISCOVERY_STOPPED: PnP Discovery stopped (Startup Config Present)
+*Sep 13 14:02:55.716: %SYS-5-CONFIG_I: Configured from console by console
+*Sep 13 14:03:01.384: %PKI-6-SUDI_INFO: PKI: platform doesn't support sudi certificate
+*Sep 13 14:03:01.385: %PKI-6-SUDI_INFO: PKI: no sudi certificate is installed
+*Sep 13 14:03:01.388: %PKI-2-NON_AUTHORITATIVE_CLOCK: PKI functions can not be initialized until an authoritative time source, like NTP, can be obtained.
+*Sep 13 14:03:08.189: %ONEP_BASE-6-SS_ENABLED: ONEP: Service set Base was enabled by Default
+*Sep 13 14:03:16.864: %CRYPTO_ENGINE-5-KEY_ADDITION: A key named TP-self-signed-1335341488.server has been generated or imported by crypto-engine
+*Sep 13 14:03:53.013: %IM-6-IOX_INST_INFO: R0/0: ioxman: IOX SERVICE guestshell LOG: Guestshell is up at 08/13/2026 14:03:53
+*Sep 13 14:03:59.885: %IM-6-IOX_ENABLEMENT: R0/0: ioxman: IOX is ready.
+*Sep 13 14:04:08.069: %SMART_LIC-3-COMM_FAILED: Communications failure with the Cisco Smart License Utility (CSLU) : Unable to resolve server hostname/domain name 

@@ -1,0 +1,15 @@
+# Cisco state collection (post-boot)
+
+Pa129@YX#143
+enable
+Pa129@YX#143
+terminal length 0
+show ip interface brief
+show ip route
+show arp
+show ip nat translations
+show running-config | section ip nat
+ping 172.128.0.2
+@6
+ping 10.20.0.2
+@6

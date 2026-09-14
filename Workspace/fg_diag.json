@@ -1,0 +1,14 @@
+[
+  {"expect": "(?i)(login:|password:|#\\s*$)", "send": "\n", "timeout": 8, "optional": true},
+  {"expect": "(?i)login:", "send": "admin\n", "timeout": 8, "optional": true},
+  {"expect": "(?i)password:", "send": "Pa129@Y\n", "timeout": 8, "optional": true},
+  {"expect": "#", "send": "get system status\n", "timeout": 15},
+  {"expect": "#", "send": "get system interface physical\n", "timeout": 15},
+  {"expect": "#", "send": "show system interface\n", "timeout": 15},
+  {"expect": "#", "send": "get router info routing-table all\n", "timeout": 15},
+  {"expect": "#", "send": "get system arp\n", "timeout": 15},
+  {"expect": "#", "send": "execute ping-options count 2\n", "timeout": 10},
+  {"expect": "#", "send": "execute ping 172.128.0.1\n", "timeout": 25},
+  {"expect": "#", "send": "execute ping 10.20.0.1\n", "timeout": 25},
+  {"expect": "#", "send": "execute ping 10.20.0.3\n", "timeout": 25}
+]

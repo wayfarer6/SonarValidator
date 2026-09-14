@@ -1,0 +1,94 @@
+
+
+FortiGate-VM64-KVM login: admin
+Password: 
+Welcome!
+
+WARNING: File System Check Recommended! An unsafe reboot may have caused an inconsistency in the disk drive.
+It is strongly recommended that you check the file system consistency before proceeding.
+Please run 'execute disk list' and then 'execute disk scan <ref#>'.
+Note: The device will reboot and scan the disk during startup. This may take up to an hour.
+FortiGate-VM64-KVM # config system interface
+
+FortiGate-VM64-KVM (interface) # edit port2
+
+FortiGate-VM64-KVM (port2) # set mode static
+
+FortiGate-VM64-KVM (port2) # set ip 172.18.10.1 255.255.255.0
+
+FortiGate-VM64-KVM (port2) # set allowaccess ping https ssh
+
+FortiGate-VM64-KVM (port2) # next
+
+FortiGate-VM64-KVM (interface) # end
+
+FortiGate-VM64-KVM # config router static
+
+FortiGate-VM64-KVM (static) # edit 3
+new entry '3' added
+
+FortiGate-VM64-KVM (3) # set dst 0.0.0.0 0.0.0.0
+
+FortiGate-VM64-KVM (3) # set gateway 172.128.0.1
+
+FortiGate-VM64-KVM (3) # set device port1
+
+FortiGate-VM64-KVM (3) # next
+The destination is set to 0.0.0.0/0 which means all IP addresses.
+
+FortiGate-VM64-KVM (static) # end
+
+FortiGate-VM64-KVM # show system interface port2
+config system interface
+    edit "port2"
+        set vdom "root"
+        set ip 172.18.10.1 255.255.255.0
+        set allowaccess ping https ssh
+        set type physical
+        set snmp-index 2
+    next
+end
+
+FortiGate-VM64-KVM # get router info routing-table all
+Codes: K - kernel, C - connected, S - static, R - RIP, B - BGP
+       O - OSPF, IA - OSPF inter area
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, L1 - IS-IS level-1, L2 - IS-IS level-2, ia - IS-IS inter area
+       V - BGP VPNv4
+       * - candidate default
+
+Routing table for VRF=0
+S*      0.0.0.0/0 [10/0] via 172.128.0.1, port1, [1/0]
+S       10.0.8.0/24 [10/0] via 172.18.10.2, port2, [1/0]
+S       10.0.9.0/24 [10/0] via 172.18.10.2, port2, [1/0]
+C       10.20.0.0/24 is directly connected, port3
+C       172.18.10.0/24 is directly connected, port2
+C       172.128.0.0/24 is directly connected, port1
+
+
+FortiGate-VM64-KVM # execute ping 172.18.10.2
+PING 172.18.10.2 (172.18.10.2): 56 data bytes
+64 bytes from 172.18.10.2: icmp_seq=0 ttl=64 time=3.5 ms
+64 bytes from 172.18.10.2: icmp_seq=1 ttl=64 time=2.0 ms
+64 bytes from 172.18.10.2: icmp_seq=2 ttl=64 time=1.8 ms
+64 bytes from 172.18.10.2: icmp_seq=3 ttl=64 time=3.4 ms
+64 bytes from 172.18.10.2: icmp_seq=4 ttl=64 time=2.2 ms
+
+--- 172.18.10.2 ping statistics ---
+5 packets transmitted, 5 packets received, 0% packet loss
+round-trip min/avg/max = 1.8/2.5/3.5 ms
+
+FortiGate-VM64-KVM # execute ping 10.0.8.1
+PING 10.0.8.1 (10.0.8.1): 56 data bytes
+64 bytes from 10.0.8.1: icmp_seq=0 ttl=64 time=14.9 ms
+64 bytes from 10.0.8.1: icmp_seq=1 ttl=64 time=2.0 ms
+64 bytes from 10.0.8.1: icmp_seq=2 ttl=64 time=1.9 ms
+64 bytes from 10.0.8.1: icmp_seq=3 ttl=64 time=1.9 ms
+64 bytes from 10.0.8.1: icmp_seq=4 ttl=64 time=1.8 ms
+
+--- 10.0.8.1 ping statistics ---
+5 packets transmitted, 5 packets received, 0% packet loss
+round-trip min/avg/max = 1.8/4.5/14.9 ms
+
+FortiGate-VM64-KVM # 

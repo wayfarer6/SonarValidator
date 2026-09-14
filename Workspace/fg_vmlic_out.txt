@@ -1,0 +1,24 @@
+
+FortiGate-VM64-KVM # admin
+Unknown action 0
+
+FortiGate-VM64-KVM # Pa129@Y
+Unknown action 0
+
+FortiGate-VM64-KVM # 
+FortiGate-VM64-KVM # 
+FortiGate-VM64-KVM # execute vm-license-options account-id shseo2023@gmail.com
+
+FortiGate-VM64-KVM # execute vm-license-options account-password 9roGPnWyZ4oa1w* 
+
+FortiGate-VM64-KVM # execute vm-license
+This VM is using the evaluation license. This license does not expire.
+Limitations of the Evaluation VM license include:
+  1.Support for low encryption operation only
+  2.Maximum of 1 CPU and 2GiB of memory
+  3.Maximum of three interfaces, firewall policies, and routes each
+  4.No FortiCare Support
+This operation will reboot the system !
+Do you want to continue? (y/n)y^J
+
+Requesting FortiCare Trial license, proxy:(null)

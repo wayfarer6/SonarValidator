@@ -1,0 +1,6 @@
+.
+admin
+Pa129@Y
+.
+.
+execute log display
