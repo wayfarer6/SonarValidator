@@ -1,9 +1,0 @@
-.
-admin
-Pa129@Y
-.
-.
-execute vm-license-options account-id shseo2023@gmail.com
-execute vm-license-options account-password 9roGPnWyZ4oa1w*
-execute vm-license
-y

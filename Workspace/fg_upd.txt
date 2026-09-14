@@ -1,7 +1,0 @@
-.
-admin
-Pa129@Y
-.
-.
-execute update-now
-get system status

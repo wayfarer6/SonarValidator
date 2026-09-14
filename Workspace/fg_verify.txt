@@ -1,8 +1,0 @@
-.
-admin
-Pa129@Y
-get system status
-execute ping 8.8.8.8
-@6
-execute ping 10.0.9.1
-@6
