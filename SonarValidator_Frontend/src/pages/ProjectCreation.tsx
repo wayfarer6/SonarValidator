@@ -208,22 +208,36 @@ export default function ProjectCreation() {
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  Open vSwitch
+                  Open vSwitch(for poc)
                 </span>
               </div>
 
 
-              {/* Linux VM */}
+              {/* Alpine Based Firewall */}
               <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
                 <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
                   <img
-                    src="https://img.icons8.com/color/150/linux.png"
-                    alt="Linux VM"
+                    src="https://cdn-icons-png.flaticon.com/512/6071/6071236.png"
+                    alt="Alpine Based Firewall"
                     className="max-w-full max-h-full object-contain"
                   />
                 </div>
                 <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  Linux VM
+                  Alpine Based Firewall (for poc)
+                </span>
+              </div>
+
+              {/* FRRouting */}
+              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
+                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
+                  <img
+                    src="https://docs.frrouting.org/en/stable-8.5/_static/frr-icon.svg"
+                    alt="FRRouting (for poc)"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
+                  FRRouting (for poc)
                 </span>
               </div>
 

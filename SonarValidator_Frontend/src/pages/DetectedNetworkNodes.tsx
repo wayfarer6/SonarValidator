@@ -155,7 +155,7 @@ export default function DetectedNetworkNodes() {
         </div>
         <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
         <div>
-          
+
         </div>
         </Modal>
 
@@ -170,6 +170,9 @@ export default function DetectedNetworkNodes() {
             {renderNodeList(detectedNodes.vms)}
           </div>
         </div>
+
+        
+       
 
         </div>
       </div>
