@@ -32,7 +32,7 @@ Internet,none
 KNCCS,telnet localhost:5024
 Management-Console,vnc localhost:5901
 NAT1,none
-Public-Web-Server,telnet localhost:5000
+Public-Web-Server,telnet localhost:5010
 Survillance-Network-Router,telnet localhost:5013
 Switch-0,telnet localhost:5042
 Switch-1,telnet localhost:5044
