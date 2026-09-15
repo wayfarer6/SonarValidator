@@ -1,5 +1,6 @@
 package org.sonar.sonarvalidator_backend;
 import org.junit.jupiter.api.Test;
+import org.sonar.sonarvalidator_backend.Controller.AgentController;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
@@ -14,7 +15,8 @@ public class WebSocketTest {
 
     @Test 
     void testWebSocketConnection() {
-        // WebSocket 연결 테스트 코드 작성
+
+        AgentController controller;
         
     }
 }

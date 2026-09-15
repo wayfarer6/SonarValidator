@@ -4,7 +4,7 @@ package org.sonar.sonarvalidator_backend.Service;
 import org.sonar.sonarvalidator_backend.Model.dto.AgentMessage;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.socket.WebSocketSession;
+import org.springframework.web.socket.WebSocketSession;
 
 
 @Service 
