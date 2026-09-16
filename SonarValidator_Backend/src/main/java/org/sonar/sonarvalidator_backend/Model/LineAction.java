@@ -1,5 +1,6 @@
 package org.sonar.sonarvalidator_backend.Model;
 
-public class Switch {
-
+public enum LineAction {
+    PERMIT,
+    DENY;
 }
