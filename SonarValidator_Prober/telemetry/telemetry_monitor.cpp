@@ -9,6 +9,7 @@
 
 #include "database/database_service.hpp"
 #include "device_type.hpp"
+#include "envelope.hpp"
 #include "prober_config.hpp"
 #include "telemetry/telemetry_service.hpp"
 #include "vm/vm_service.hpp"
@@ -86,12 +87,16 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
             static_cast<int>(config.GetServerPort()),
             "/api/v1/telemetry");
 
+        // 서버 봉투의 식별자 필드에 넣을 값입니다. (없으면 세션 이름을 씁니다.)
+        const std::string agent_id =
+            config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
+
         while (!stop_token.stop_requested())
         {
             const auto interval = std::chrono::seconds(interval_seconds_.load());
             const auto deadline = std::chrono::steady_clock::now() + interval;
 
-            // 간격 동안 대기하면서 서버 지시(모니터링 간격 제어 등)를 수신합니다.
+            // 간격 동안 대기하면서 서버 지시(command 봉투)를 수신합니다.
             while (!stop_token.stop_requested() &&
                    std::chrono::steady_clock::now() < deadline)
             {
@@ -101,15 +106,30 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
                     try
                     {
                         const Json message = Json::parse(instruction);
-                        if (message.contains("monitor_interval"))
+
+                        // 서버는 command 봉투로 모니터링 간격을 조정합니다.
+                        // payload.monitor_interval 또는 (구버전) 최상위 monitor_interval 을 모두 받습니다.
+                        const Json& payload = envelope::Payload(message);
+                        int seconds = 0;
+                        if (payload.contains("monitor_interval"))
                         {
-                            const int seconds = message["monitor_interval"].get<int>();
-                            if (seconds > 0)
-                            {
-                                interval_seconds_.store(seconds);
-                                std::cout << "[TELEMETRY] monitor interval updated: "
-                                          << seconds << "s\n";
-                            }
+                            seconds = payload.at("monitor_interval").get<int>();
+                        }
+                        else if (message.contains("monitor_interval"))
+                        {
+                            seconds = message["monitor_interval"].get<int>();
+                        }
+
+                        if (seconds > 0)
+                        {
+                            interval_seconds_.store(seconds);
+                            std::cout << "[TELEMETRY] monitor interval updated: "
+                                      << seconds << "s\n";
+                        }
+                        else
+                        {
+                            std::cout << "[TELEMETRY] server command: "
+                                      << envelope::Type(message) << '\n';
                         }
                     }
                     catch (const std::exception&)
@@ -127,21 +147,22 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
                 break;
             }
 
-            Json telemetry;
-            telemetry["agent"] = config.GetAgentName();
-            telemetry["kernel"] = config.GetKernelName();
+            Json body;
+            body["agent"] = config.GetAgentName();
+            body["kernel"] = config.GetKernelName();
 
             // VM은 NIC/연결 상태를 함께 전송하고 DB에도 저장합니다.
             if (config.GetDeviceType() == DeviceType::kVirtualMachine)
             {
                 const Json nic_status = VmService::CollectNicStatus();
-                telemetry["nic_status"] = nic_status;
+                body["nic_status"] = nic_status;
                 EnqueueNicStatusSave(database_queue, config.GetAgentName(), nic_status);
             }
 
-            std::string request = telemetry.dump();
-            std::string target = "/api/telemetry";
-            telemetry_service.sendRequest(request, target);
+            // 텔레메트리는 일방향이라 응답을 기다리지 않습니다.
+            const Json report = envelope::Telemetry(agent_id, config.GetDeviceType(), std::move(body));
+            std::string request = report.dump();
+            telemetry_service.sendRequest(request, "/api/v1/telemetry");
         }
     }
     catch (const std::exception& ex)

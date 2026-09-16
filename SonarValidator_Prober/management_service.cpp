@@ -9,7 +9,6 @@
 #include <chrono>
 #include <fstream>
 #include <sys/wait.h>
-
 struct TerminalHandler
 {
     void operator()(FILE* pipe) const
@@ -69,159 +68,235 @@ bool ManagementService::connect()
     }
 }
 
-Json ManagementService::sendText(const std::string &message)
+void ManagementService::SetAgentId(std::string agent_id)
 {
-    if (!connected_)
-    {
-        return {};
-    }
-
-    try
-    {
-        stream_.write(net::buffer(message));
-        beast::flat_buffer buffer; // 동적 버퍼 boost library가 제공
-        stream_.read(buffer);
-        const std::string response = beast::buffers_to_string(buffer.data());
-        Json result = Json::parse(response);
-        return result;
-    }
-    catch (...)
-    {
-        connected_ = false;
-        return {};
-    }
+    agent_id_ = std::move(agent_id);
 }
 
-std::string ManagementService::receiveText()
+bool ManagementService::SendEnvelope(const nlohmann::json& message)
 {
-    if (!connected_)
-    {
-        return {};
-    }
-
-    try
-    {
-        beast::flat_buffer buffer;
-        std::string message;
-        stream_.read(buffer);
-        message.assign(static_cast<const char *>(buffer.data().data()), buffer.size());
-        return message;
-    }
-    catch (...)
-    {
-        connected_ = false;
-        return {};
-    }
-}
-
-bool ManagementService::applyPolicy(const std::string& policy_name, const std::string& payload)
-{
-    (void)policy_name;
     if (!connected_ && !connect())
     {
         return false;
     }
 
-    return sendText(payload);
+    try
+    {
+        stream_.write(net::buffer(message.dump()));
+        return true;
+    }
+    catch (...)
+    {
+        connected_ = false;
+        return false;
+    }
 }
 
-Json ManagementService::fetchPolicy(const DeviceType device_type,const std::string& device_id)
+bool ManagementService::TryReceive(std::string& message, std::chrono::milliseconds timeout)
 {
-    if(!connected_ && !connect())
+    if (!connected_)
     {
         return false;
     }
-    Json payload_json = Json();
-    payload_json["device_type"] = device_type;
-    payload_json["device_id"] = device_id;
 
-    const std::string payload = to_string(payload_json);
+    // 이전 호출에서 남은 완전한 프레임이 있으면 즉시 돌려줍니다.
+    if (read_buffer_.size() > 0)
+    {
+        const std::string pending = beast::buffers_to_string(read_buffer_.data());
+        try
+        {
+            (void)nlohmann::json::parse(pending);
+            message = pending;
+            read_buffer_.consume(read_buffer_.size());
+            return true;
+        }
+        catch (const std::exception&)
+        {
+            // 아직 덜 온 프레임입니다. 아래에서 더 읽습니다.
+        }
+    }
 
-    try {
-        return sendText(payload);
-        // 보낸 다음에 답을 받을려면 
+    boost::system::error_code ec;
+    auto& socket = beast::get_lowest_layer(stream_).socket();
+    socket.native_non_blocking(true, ec);
+    if (ec)
+    {
+        return false;
+    }
 
-    } catch(...) {
-        connected_ = false;
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    bool received = false;
+
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+        const std::size_t document_size = read_buffer_.size();
+        stream_.read_some(read_buffer_, 65536, ec);
+
+        if (ec == websocket::error::closed)
+        {
+            connected_ = false;
+            break;
+        }
+
+        if (!ec && read_buffer_.size() > document_size)
+        {
+            const std::string raw = beast::buffers_to_string(read_buffer_.data());
+            try
+            {
+                // 완전한 JSON 프레임이 도착했는지 검증합니다.
+                (void)nlohmann::json::parse(raw);
+                message = raw;
+                read_buffer_.consume(read_buffer_.size());
+                received = true;
+                break;
+            }
+            catch (const std::exception&)
+            {
+                // 부분 프레임이면 계속 누적합니다.
+            }
+        }
+
+        if (ec == boost::asio::error::would_block || ec == boost::asio::error::try_again)
+        {
+            ec.clear();
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            continue;
+        }
+
+        if (ec)
+        {
+            break;
+        }
+    }
+
+    socket.native_non_blocking(false, ec);
+    return received;
+}
+
+std::string ManagementService::ResolveAgentId(const std::string& device_id) const
+{
+    if (!agent_id_.empty())
+    {
+        return agent_id_;
+    }
+    return device_id.empty() ? "unknown" : device_id;
+}
+
+nlohmann::json ManagementService::fetchPolicy(const DeviceType device_type,
+                                              const std::string& device_id)
+{
+    if (!connected_ && !connect())
+    {
         return {};
     }
-}
 
-bool ManagementService::processOpenVSwitchPolicy(const Json& policy_payload)
-{
-   
+    const std::string agent_id = ResolveAgentId(device_id);
 
+    // 최초 연결이면 hello 를 보내 서버 세션 레지스트리에 등록합니다.
+    // ack 는 흘려보내되, error 봉투면 로그로 알립니다.
+    if (!hello_sent_)
+    {
+        if (!SendEnvelope(envelope::Hello(agent_id, device_type)))
+        {
+            return {};
+        }
+        hello_sent_ = true;
 
-    
-
-    return true;
-}
-
-
-
-bool ManagementService::processAristaSwitchPolicy(const Json& policy_payload)
-{
-     // OpenVSwitch Policy 처리 로직
-    std::string command = "";
-    
-    // 예시
-    //command = "sudo ovs-vsctl set bridge br0 other-config:policy=" + policy_payload["policy"] ;
-    
-    
-    commandAristaSwitch(command);
-    return true;
-}
-
-Json ManagementService::commandAristaSwitch(const std::string& comm )
-{
-        // AristaVEos Policy 처리 로직
-    std::string command = " FastCli -c";
-    //command =+ "\"show version\"";
-    command += comm;
-
-    // 임시 버퍼 (128바이트씩 쪼개서 안전하게 읽음)
-    std::array<char, 128> buffer;
-    std::string result;
-
-
-    TerminalFile terminal_file (popen(command.c_str(), "r"));
-
-    if (!terminal_file) throw std::runtime_error("Can't open Terminal!");
-
-    // 버퍼 단위로 읽어서 하나의 string에 병합
-
-    while (fgets(buffer.data(), buffer.size(), terminal_file.get()) != nullptr) {
-        result += buffer.data();
+        std::string greeting;
+        if (TryReceive(greeting, kResponseTimeout))
+        {
+            try
+            {
+                const Json reply = Json::parse(greeting);
+                if (envelope::IsType(reply, envelope::kError))
+                {
+                    std::cerr << "[MGMT] hello rejected: " << envelope::ErrorText(reply) << '\n';
+                }
+            }
+            catch (const std::exception&)
+            {
+                std::cerr << "[MGMT] hello reply was not JSON\n";
+            }
+        }
     }
 
-    // string을 입력 스트림(stringstream)으로 변환
-    std::stringstream stream(result);
-    
-    // 이제 일반적인 std::istream처럼 사용 가능
-    std::string line;
-    while (std::getline(stream, line)) {
-        std::cout << line << std::endl;
+    const Json request = envelope::PolicyRequest(agent_id, device_type, device_id);
+    const std::string correlation_id = envelope::CorrelationId(request);
+
+    if (!SendEnvelope(request))
+    {
+        return {};
     }
 
-    return Json{};
+    // 같은 correlation_id 를 가진 응답이 올 때까지 기다립니다.
+    // (다른 봉투 — 예: 서버 푸시 — 는 로그만 남기고 버립니다.)
+    const auto deadline = std::chrono::steady_clock::now() + kResponseTimeout;
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+        std::string raw;
+        const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+            deadline - std::chrono::steady_clock::now());
+        if (!TryReceive(raw, remaining))
+        {
+            break;
+        }
+
+        Json reply;
+        try
+        {
+            reply = Json::parse(raw);
+        }
+        catch (const std::exception&)
+        {
+            std::cerr << "[MGMT] dropped non-JSON frame: " << raw << '\n';
+            continue;
+        }
+
+        if (envelope::CorrelationId(reply) != correlation_id)
+        {
+            std::cout << "[MGMT] ignored out-of-band envelope: " << envelope::Type(reply) << '\n';
+            continue;
+        }
+
+        if (envelope::IsType(reply, envelope::kError))
+        {
+            std::cerr << "[MGMT] policy request failed: " << envelope::ErrorText(reply) << '\n';
+            return {};
+        }
+
+        if (envelope::IsType(reply, envelope::kPolicyResponse))
+        {
+            return envelope::Payload(reply);
+        }
+
+        std::cerr << "[MGMT] unexpected reply type: " << envelope::Type(reply) << '\n';
+    }
+
+    std::cerr << "[MGMT] policy response timeout (correlation_id=" << correlation_id << ")\n";
+    return {};
 }
 
-void ManagementService::commandAristaSwitch_no_return(const std::string& comm )
+bool ManagementService::ReportPolicyApplied(const DeviceType device_type,
+                                            const std::string& device_id,
+                                            const std::string& policy_id,
+                                            bool applied)
 {
-        // AristaVEos Policy 처리 로직
-    std::string command = " FastCli -c";
-    command =+ "\"show version\"";
+    if (!connected_ && !connect())
+    {
+        return false;
+    }
 
+    Json payload;
+    payload["device_id"] = device_id;
+    payload["policy_id"] = policy_id;
+    payload["applied"] = applied;
 
-    // 임시 버퍼 (128바이트씩 쪼개서 안전하게 읽음)
-    std::array<char, 128> buffer;
-    std::string result;
-
-
-    TerminalFile terminal_file (popen(command.c_str(), "r"));
-
-    if (!terminal_file) throw std::runtime_error("Can't open Terminal!");
-
+    // ack 는 서버가 응답하지 않는 일방향 봉투입니다.
+    return SendEnvelope(envelope::Make(envelope::kAck,
+                                       ResolveAgentId(device_id),
+                                       envelope::DeviceTypeToString(device_type),
+                                       envelope::NextCorrelationId(),
+                                       std::move(payload)));
 }
 
 bool ManagementService::RunCommand(const std::string& command)
@@ -625,6 +700,35 @@ bool ManagementService::ApplyNftablesPolicy(const Json& policy)
     if (command == "get")
     {
         std::cout << CliCommand({"nft", "-i"}, "list ruleset");
+        return true;
+    }
+    return false;
+}
+
+bool ManagementService::ApplyVmPolicy(const Json& policy)
+{
+    // VM(Ubuntu/NIC) 정책은 스위치 포트 정책과 같은 형태(interface up/down)를 씁니다.
+    // 별도 CLI 세션이 필요 없어 일반 명령 실행 유틸로 처리합니다.
+    const std::string command = policy_json::AsString(policy, "command");
+    const std::string interface = policy_json::AsString(policy, "interface");
+
+    if (interface.empty())
+    {
+        std::cerr << "[POLICY] VM policy has no interface\n";
+        return false;
+    }
+
+    if (command == "on")
+    {
+        return RunCommand("ip link set " + interface + " up");
+    }
+    if (command == "off")
+    {
+        return RunCommand("ip link set " + interface + " down");
+    }
+    if (command == "get")
+    {
+        std::cout << RunCommandOutput("ip addr show " + interface);
         return true;
     }
     return false;

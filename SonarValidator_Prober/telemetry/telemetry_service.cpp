@@ -104,7 +104,7 @@ TelemetryService::~TelemetryService()
 }
 
 // 필요하면 먼저 연결하고 요청을 전송합니다.
-bool TelemetryService::sendRequest(std::string &request, std::string &target)
+bool TelemetryService::sendRequest(const std::string &request, const std::string &target)
 {
     (void)target;
     if (!connected_ && !connect())

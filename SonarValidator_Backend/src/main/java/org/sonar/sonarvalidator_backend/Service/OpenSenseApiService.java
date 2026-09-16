@@ -15,7 +15,9 @@ public class OpenSenseApiService {
 
     //1. Get 요청
     public String callGetApi(Long id) {
-        
+        // TODO: OPNSense REST GET 구현 예정.
+        // 현재는 컴파일 가능한 최소 구현으로, 요청 URL 을 돌려줍니다.
+        return config.getBaseUrl() + "/api/" + id;
     }
 
 

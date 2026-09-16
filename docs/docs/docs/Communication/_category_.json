@@ -1,0 +1,8 @@
+{
+  "label": "Communication",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "description": "Agent 와 서버가 순수 WebSocket + JSON 봉투로 통신하는 구조를 설명합니다."
+  }
+}

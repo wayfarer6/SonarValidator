@@ -1,12 +1,14 @@
 #ifndef SONAR_VALIDATOR_PROBER_MANAGEMENT_SERVICE_HPP_
 #define SONAR_VALIDATOR_PROBER_MANAGEMENT_SERVICE_HPP_
 
+#include <chrono>
 #include <string>
 #include <vector>
 #include "network.hpp"
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
+#include "envelope.hpp"
 #include "switch/switch.hpp"
 #include "firewall/firewall.hpp"
 #include "router/routing_table.hpp"
@@ -20,6 +22,10 @@ using tcp = boost::asio::ip::tcp;
 
 
 // 중앙 서버와 WebSocket으로 통신하며 수신한 정책을 장치에 적용하는 서비스입니다.
+//
+// STOMP를 사용하지 않고 순수 WebSocket 텍스트 프레임 위에서 envelope.hpp 가 만든
+// JSON 봉투를 주고받습니다. 요청과 응답의 짝은 봉투의 correlation_id 로 맞춥니다.
+//
 // 벤더별 정책 적용(Apply*), 공통 명령 실행(RunCommand), 영속 CLI 세션(CliCommand)을 제공합니다.
 class ManagementService {
 public:
@@ -28,19 +34,29 @@ public:
     ~ManagementService();
 
     bool connect();
-    Json sendText(const std::string &message);
-    std::string receiveText();
-    bool applyPolicy(const std::string& policy_name, const std::string& payload);
-    Json fetchPolicy(const std::string& policy_name, std::string& payload);
-    Json fetchPolicy(const DeviceType device_type,const std::string& device_id);
-    void CheckSwitchStatus();
-    void CheckRouterStatus();
-    void CheckFirewallStatus();
-    bool replyToPolicy(const std::string& policy_name, const std::string& payload);
-    bool processOpenVSwitchPolicy(const Json& policy_payload);
-    bool processAristaSwitchPolicy(const Json& policy_payload);
-    Json commandAristaSwitch(const std::string& comm );
-    void commandAristaSwitch_no_return(const std::string& comm );
+
+    // 서버에 알릴 에이전트 ID 를 설정합니다. (미설정이면 device_id 로 대체)
+    void SetAgentId(std::string agent_id);
+
+    // 봉투 하나를 텍스트 프레임으로 전송합니다.
+    bool SendEnvelope(const nlohmann::json& message);
+
+    // fetchPolicy 가 응답을 기다리는 최대 시간입니다.
+    static constexpr std::chrono::seconds kResponseTimeout{5};
+
+    // 정책을 요청하고(policy-request) 같은 correlation_id 의 응답(policy-response)을 기다립니다.
+    // 실패하면 null JSON(Json())을 반환합니다.
+    nlohmann::json fetchPolicy(const DeviceType device_type, const std::string& device_id);
+
+    // 정책 적용이 끝났음을 서버에 알립니다. (ack 봉투, 일방향)
+    bool ReportPolicyApplied(const DeviceType device_type,
+                            const std::string& device_id,
+                            const std::string& policy_id,
+                            bool applied);
+
+    // 짧은 시간 동안 수신을 시도합니다. 완전한 JSON 텍스트 프레임이면 true 입니다.
+    // 서버 푸시(command 등)를 처리하는 수신 루프에서 사용합니다.
+    bool TryReceive(std::string& message, std::chrono::milliseconds timeout);
 
     // 공통 명령 실행 유틸
     bool RunCommand(const std::string& command);
@@ -56,19 +72,25 @@ public:
     bool ApplyCiscoRouterPolicy(const Json& policy);
     bool ApplyFrrRouterPolicy(const Json& policy);
     bool ApplyNftablesPolicy(const Json& policy);
+    bool ApplyVmPolicy(const Json& policy);
 
 private:
     // 영속 CLI 세션(pty)으로 명령을 보내고 출력을 받습니다.
     std::string CliCommand(const std::vector<std::string>& argv, const std::string& command);
 
+    // 봉투를 만들 때 쓰는 에이전트 식별자입니다. (비어 있으면 device_id 로 대체)
+    std::string ResolveAgentId(const std::string& device_id) const;
+
     std::string host_{};                              // 서버 호스트
-    DeviceType device_type_{};                        // 장치 유형
     int port_{0};                                     // 서버 포트
     std::string target_{};                            // WebSocket 경로
     net::io_context ioc_;                             // Boost.Asio I/O 컨텍스트
     tcp::resolver resolver_;                          // DNS 리졸버
     websocket::stream<beast::tcp_stream> stream_;     // WebSocket 스트림
+    beast::flat_buffer read_buffer_;                  // 수신 프레임 누적 버퍼
     bool connected_;                                  // 연결 상태
+    bool hello_sent_{false};                          // hello 봉투 전송 여부
+    std::string agent_id_{};                          // 서버에 알릴 에이전트 ID
     std::thread management_thread_;                   // (예약) 관리 스레드
     TerminalSession cli_session_;                     // 영속 CLI 세션(pty)
     std::string cli_program_;                         // 현재 열려 있는 CLI 프로그램명

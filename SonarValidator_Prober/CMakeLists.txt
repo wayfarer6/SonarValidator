@@ -38,6 +38,7 @@ add_executable(sonar_validator_prober
     firewall/firewall.cpp
     network.hpp
     device_type.hpp
+    envelope.hpp
     policy/policy_json.hpp
     policy/policy_receiver.hpp
     policy/policy_receiver.cpp
@@ -90,6 +91,25 @@ add_executable(
     router/routing_table.cpp
 )
 
+# 봉투(통신 프로토콜) 단위 테스트. 네트워크 없이 생성/파싱 계약만 검증합니다.
+add_executable(
+    envelope_test
+    envelope_test.cpp
+)
+
+# 통신 통합 테스트. mock 서버(Agent_Test/mock_API) 또는 실제 백엔드를 상대로
+# hello -> ack, policy-request -> policy-response 왕복을 검증합니다.
+# 서버가 없으면 SKIP(종료 코드 0)이라 CI를 막지 않습니다.
+add_executable(
+    management_service_integration_test
+    management_service_integration_test.cpp
+    management_service.cpp
+    terminal_session.cpp
+    switch/switch.cpp
+    firewall/firewall.cpp
+    router/routing_table.cpp
+)
+
 
 
 target_link_libraries(database_service_test PRIVATE
@@ -120,4 +140,35 @@ add_test(NAME prober_config_test
 
 add_test(NAME telemetry_service_test
     COMMAND telemetry_service_test)
+
+# telemetry_service_test 는 봉투 헬퍼(envelope.hpp)를 사용하므로
+# 루트와 telemetry 디렉터리를 모두 include 경로에 넣어야 합니다.
+target_include_directories(telemetry_service_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/telemetry
+)
+
+target_link_libraries(telemetry_service_test PRIVATE
+    nlohmann_json::nlohmann_json
+)
+
+target_link_libraries(envelope_test PRIVATE
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME envelope_test
+    COMMAND envelope_test)
+
+target_link_libraries(management_service_integration_test PRIVATE
+    nlohmann_json::nlohmann_json
+)
+
+target_include_directories(management_service_integration_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/telemetry
+    ${CMAKE_CURRENT_SOURCE_DIR}/policy
+    ${CMAKE_CURRENT_SOURCE_DIR}/router
+    ${CMAKE_CURRENT_SOURCE_DIR}/switch
+    ${CMAKE_CURRENT_SOURCE_DIR}/firewall
+)
 

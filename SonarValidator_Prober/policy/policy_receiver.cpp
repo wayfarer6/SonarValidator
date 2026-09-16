@@ -74,6 +74,16 @@ void ReceiveFirewallPolicy(const ProberConfig& config,
     }
 }
 
+void ReceiveVmPolicy(const ProberConfig& config,
+                     ManagementService& mgmt,
+                     const nlohmann::json& policy)
+{
+    (void)config;
+    // VM은 인터페이스 up/down 정도만 적용합니다.
+    // (NIC 상태 수집은 TelemetryMonitor가 담당합니다.)
+    mgmt.ApplyVmPolicy(policy);
+}
+
 } // namespace
 
 void ReceivePolicy(const ProberConfig& config,
@@ -101,6 +111,9 @@ void ReceivePolicy(const ProberConfig& config,
         break;
     case DeviceType::kFirewall:
         ReceiveFirewallPolicy(config, management_service, policy);
+        break;
+    case DeviceType::kVirtualMachine:
+        ReceiveVmPolicy(config, management_service, policy);
         break;
     }
 }
