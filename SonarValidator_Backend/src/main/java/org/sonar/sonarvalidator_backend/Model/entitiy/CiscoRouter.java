@@ -16,5 +16,11 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class CiscoRouter {
-    
+    @Id // foreign key (agent id)
+    private Long id;
+
+    @Column(name = "name", length = 128)
+    private String name;
+
+    @Column(name = "version", )
 }
