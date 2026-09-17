@@ -20,11 +20,11 @@ public class OPNSenseClientConfig {
      * 기동이 실패했습니다. {@code @Value} 로 프로퍼티에서 읽고 기본값을 두어
      * 설정이 없어도 기동되게 합니다.
      *
-     * @param baseurl OPNSense 기준 URL (기본 {@code https://test.local})
+     * @param baseurl OPNSense 기준 URL (기본 {@code https://test.local:8080}) 포트 넘버 포함 필수
      * @param apiKey  OPNSense API 키 (기본 빈 문자열)
      */
     public OPNSenseClientConfig(
-            @Value("${opnsense.base-url:https://test.local}") String baseurl,
+            @Value("${opnsense.base-url:https://test.local:8000}") String baseurl,
             @Value("${opnsense.api-key:}") String apiKey)
     {
         this.baseurl = baseurl;

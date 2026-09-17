@@ -19,10 +19,10 @@ public class OPNSenseClientService {
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     public OPNSenseClientService(
-            @Value("${opnsense.base-url:https://localhost:8080}") String baseUrl,
+            @Value("${opnsense.base-url:}") String baseUrl,
             OPNSenseEndpoint apiEndpoint,
             OPNSenseClientConfig clientConfig) {
-        this.baseUrl = baseUrl;
+        this.baseUrl = (baseUrl == null || baseUrl.isBlank()) ? clientConfig.getBaseUrl() : baseUrl;
         this.api_endpoint = apiEndpoint;
         this.clientConfig = clientConfig;
     }
