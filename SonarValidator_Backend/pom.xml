@@ -1,36 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>4.1.1</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath /> <!-- lookup parent from repository -->
     </parent>
     <groupId>org.example</groupId>
     <artifactId>SonarValidator_Backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>SonarValidator_Backend</name>
     <description>SonarValidator_Backend</description>
-    <url/>
+    <url />
     <licenses>
-        <license/>
+        <license />
     </licenses>
     <developers>
-        <developer/>
+        <developer />
     </developers>
     <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
+        <connection />
+        <developerConnection />
+        <tag />
+        <url />
     </scm>
     <properties>
         <java.version>26</java.version>
     </properties>
     <dependencies>
 
+        <dependency>
+            <groupId>org.antlr</groupId>
+            <artifactId>antlr4-runtime</artifactId>
+            <version>4.13.1</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -46,6 +52,48 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        <!--
+            Spring Data JPA: 엔티티(@Entity) 기반 영속성 계층.
+            Hibernate 가 기본 JPA 구현체로 함께 들어옵니다.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <!--
+            PostgreSQL JDBC 드라이버 (운영 DB).
+
+            JPA 스타터만 추가하고 드라이버가 없으면 기동 시
+            "Failed to determine a suitable driver class" 로 실패합니다.
+            버전은 spring-boot-dependencies 가 관리하므로 생략합니다.
+        -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!--
+            H2: 외부 DB 서버 없이 띄우는 개발/테스트용 임베디드 DB.
+            `local` 프로필(application-local.yml)과 테스트에서만 사용합니다.
+        -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!--
+            H2 웹 콘솔 (/h2-console).
+
+            Spring Boot 4 에서는 H2 콘솔 자동구성이 spring-boot-autoconfigure 에서
+            분리되어 이 모듈로 옮겨졌습니다. 이 의존성이 없으면
+            spring.h2.console.enabled=true 로 두어도 콘솔이 404 를 반환합니다.
+            개발 편의용이므로 런타임 스코프로 둡니다.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-h2console</artifactId>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -68,10 +116,40 @@
             <artifactId>spring-boot-starter-websocket-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--
+            JPA 테스트 지원 (@DataJpaTest 등).
+
+            Spring Boot 4 에서는 테스트 슬라이스 애노테이션이 본체에서 분리되어
+            모듈별 *-test 아티팩트로 제공됩니다. 이 의존성이 없으면
+            org.springframework.boot.test.autoconfigure.orm.jpa 패키지를 찾지 못해
+            컴파일이 실패합니다.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-maven-plugin</artifactId>
+                <version>4.13.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>antlr4</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <!-- Visitor 패턴 사용 여부 설정 -->
+                    <visitor>true</visitor>
+                    <listener>true</listener>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -114,5 +192,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

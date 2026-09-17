@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local Database (H2 file mode) ###
+# `local` 프로필로 실행하면 여기에 DB 파일이 생깁니다.
+# 로컬 개발 데이터이므로 버전 관리 대상이 아닙니다.
+data/
+*.mv.db
+*.trace.db

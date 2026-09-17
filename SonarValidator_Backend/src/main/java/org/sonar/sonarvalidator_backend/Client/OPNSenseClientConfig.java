@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
 
+// RestAPI로 써야해서 좀 달라질 예정
 @Configuration 
 public class OPNSenseClientConfig {
 
@@ -45,7 +46,7 @@ public class OPNSenseClientConfig {
      * @return apiKey
      */
     public String getApiKey() {
-        return apiKey;
+        return apiKey; // Server랑 연동해서
     }
 
 
