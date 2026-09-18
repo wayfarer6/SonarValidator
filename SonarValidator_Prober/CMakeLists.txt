@@ -20,6 +20,41 @@ if(NOT nlohmann_json_FOUND)
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
+# =============================================================================
+#  ANTLR4 (벤더 CLI 조회 출력 파서)
+#
+#  프로버는 조회 명령어 출력을 파싱해 JSON 으로 서버에 올린다.
+#  문법은 parser/grammar/*.g4 이고, 생성 코드는 빌드 시 만든다.
+#
+#  툴체인(jar + C++ 런타임)이 없으면 SONAR_ANTLR4_AVAILABLE=FALSE 가 되고
+#  cli_output_parser 없이 기존 수집 경로만으로 빌드된다(빌드 실패 방지).
+#    - jar      : ANTLR4_JAR          (기본 탐색: ~/tools/antlr.jar 등)
+#    - 런타임    : ANTLR4_RUNTIME_ROOT (기본 탐색: ~/tools/antlr4-install 등)
+# =============================================================================
+set(SONAR_ANTLR4_GENERATED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/parser/generated")
+include(${CMAKE_CURRENT_SOURCE_DIR}/parser/cmake/FindANTLR4Runtime.cmake)
+
+set(SONAR_ANTLR4_GENERATED_SOURCES "")
+set(SONAR_CLI_PARSER_SOURCES "")
+
+if(SONAR_ANTLR4_AVAILABLE)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/parser/cmake/Antlr4Generate.cmake)
+
+    foreach(_grammar
+            IpAddr
+            OvsTopology
+            FrrRouter
+            NftablesRule
+            SwitchTopology)
+        sonar_add_antlr4_grammar(
+            "${CMAKE_CURRENT_SOURCE_DIR}/parser/grammar/${_grammar}.g4")
+    endforeach()
+
+    set(SONAR_CLI_PARSER_SOURCES
+        parser/cli_output_parser.cpp
+        ${SONAR_ANTLR4_GENERATED_SOURCES})
+endif()
+
 add_executable(sonar_validator_prober
     main.cpp
     prober_config.cpp
@@ -46,6 +81,7 @@ add_executable(sonar_validator_prober
     terminal_session.cpp
     vm/vm_service.hpp
     vm/vm_service.cpp
+    ${SONAR_CLI_PARSER_SOURCES}
 )
 
 target_include_directories(sonar_validator_prober PRIVATE
@@ -56,7 +92,19 @@ target_include_directories(sonar_validator_prober PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/firewall
     ${CMAKE_CURRENT_SOURCE_DIR}/telemetry
     ${CMAKE_CURRENT_SOURCE_DIR}/policy
+    ${CMAKE_CURRENT_SOURCE_DIR}/parser
 )
+
+if(SONAR_ANTLR4_AVAILABLE)
+    target_include_directories(sonar_validator_prober PRIVATE
+        ${SONAR_ANTLR4_GENERATED_DIR}/grammar
+        ${ANTLR4_RUNTIME_ROOT}/include/antlr4-runtime
+    )
+    target_link_libraries(sonar_validator_prober PRIVATE ${SONAR_ANTLR4_RUNTIME_LIB})
+    target_compile_definitions(sonar_validator_prober PRIVATE SONAR_HAS_ANTLR4=1)
+else()
+    target_compile_definitions(sonar_validator_prober PRIVATE SONAR_HAS_ANTLR4=0)
+endif()
 
 target_link_libraries(sonar_validator_prober PRIVATE
     SQLite::SQLite3
@@ -171,4 +219,33 @@ target_include_directories(management_service_integration_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/switch
     ${CMAKE_CURRENT_SOURCE_DIR}/firewall
 )
+
+# =============================================================================
+#  ANTLR CLI 출력 파서 테스트
+#
+#  docs/Agent_Command.md 의 실제 조회 명령어 출력 샘플을 그대로 넣고
+#  JSON 변환 결과를 검증한다. 장비/네트워크가 필요 없다.
+#  ANTLR4 툴체인이 없으면 이 테스트는 생성되지 않는다.
+# =============================================================================
+if(SONAR_ANTLR4_AVAILABLE)
+    add_executable(cli_output_parser_test
+        parser/cli_output_parser_test.cpp
+        ${SONAR_CLI_PARSER_SOURCES}
+    )
+
+    target_include_directories(cli_output_parser_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/parser
+        ${SONAR_ANTLR4_GENERATED_DIR}/grammar
+        ${ANTLR4_RUNTIME_ROOT}/include/antlr4-runtime
+    )
+
+    target_link_libraries(cli_output_parser_test PRIVATE
+        nlohmann_json::nlohmann_json
+        ${SONAR_ANTLR4_RUNTIME_LIB}
+    )
+
+    add_test(NAME cli_output_parser_test
+        COMMAND cli_output_parser_test)
+endif()
 
