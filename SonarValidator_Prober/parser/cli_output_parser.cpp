@@ -1298,11 +1298,17 @@ public:
         return {};
     }
 
-    // `ovs-vsctl list port` 레코드 -> 포트 객체 (recordSep 마다 새 레코드)
+    // `ovs-vsctl list port` 레코드 -> 포트 객체 (레코드 경계 마다 새 객체)
+    //
+    //  실제 ovs-vsctl 은 두 가지 구분 방식을 쓴다.
+    //    (A) 속성 레코드를 `--` 로 구분 (구버전/일부 옵션)
+    //    (B) 레코드 사이를 **빈 줄** 로 구분 (배포판 기본, 실측 확인)
+    //  (B) 를 처리하지 않으면 모든 레코드가 하나의 객체로 합쳐져
+    //  포트가 1개만 수집된다. 두 방식 모두에서 새 레코드를 시작한다.
     std::any visitListItem(OvsTopologyParser::ListItemContext* ctx) override
     {
-        // `--` 는 레코드 구분자이므로 다음 레코드에서 새 객체를 시작한다.
-        if (ctx->recordSep() != nullptr)
+        // `--` 또는 빈 줄 = 레코드 구분자 → 다음 속성에서 새 객체를 시작한다.
+        if (ctx->recordSep() != nullptr || ctx->blank() != nullptr)
         {
             current_port_list = nullptr;
             return {};
@@ -1317,6 +1323,13 @@ public:
         if (key.empty())
         {
             return {};
+        }
+
+        // 구분자가 없더라도 `_uuid` 가 다시 나오면 새 레코드다.
+        // (마지막 레코드 뒤에 빈 줄이 없는 출력 형태 방어)
+        if (key == "_uuid" && current_port_list != nullptr)
+        {
+            current_port_list = nullptr;
         }
 
         if (ports.empty() || (current_port_list == nullptr))
@@ -2384,12 +2397,96 @@ nlohmann::json ParseNicBrief(const std::string& raw_output)
     }
 }
 
+// FRR 라우터는 라우팅 정보를 두 가지 형식으로 내보낼 수 있다.
+//
+//   (A) 호스트 커널 — `ip route show` (Alpine/Debian 셸)
+//       default via 192.168.122.1 dev eth0 metric 1
+//       10.99.10.0/24 dev eth1 proto kernel scope link src 10.99.10.1
+//       10.10.128.0/21 nhid 30 via 10.99.10.4 dev eth1 proto ospf metric 20
+//       → 라우트 코드가 없고 IpAddr 문법으로 파싱해야 한다.
+//
+//   (B) vtysh — `show ip route` (FRR CLI)
+//       Codes: K - kernel route, C - connected, S - static, ...
+//       O>* 0.0.0.0/0 [110/1] via 10.99.10.1, eth0, weight 1, 00:17:20
+//       O   10.99.10.0/24 [110/100] is directly connected, eth0, ...
+//       → 라우트 코드가 있고 FrrRouter 문법으로 파싱해야 한다.
+//
+// 같은 Vendor::kFrr 라도 문법이 달라야 하므로 내용으로 판별한다.
+bool LooksLikeVtyshRouteTable(const std::string& raw_output)
+{
+    // 1) FRR CLI 의 코드 설명 머리말은 가장 확실한 신호다.
+    if (raw_output.find("Codes:") != std::string::npos)
+    {
+        return true;
+    }
+
+    // 2) 줄 첫 토큰이 라우트 코드(영문 대문자 1~4자 + 선택적 `*`/`>` 마커)인지 본다.
+    //    커널 형식의 첫 토큰은 `default` 나 CIDR(`10.99.10.0/24`) 이므로
+    //    전부 대문자로만 이루어진 짧은 토큰과 겹치지 않는다.
+    std::istringstream stream(raw_output);
+    std::string line;
+    while (std::getline(stream, line))
+    {
+        std::istringstream line_stream(line);
+        std::string token;
+        if (!(line_stream >> token))
+        {
+            continue;
+        }
+
+        std::size_t index = 0;
+        while (index < token.size() &&
+               std::isupper(static_cast<unsigned char>(token[index])) != 0)
+        {
+            ++index;
+        }
+
+        const std::size_t letter_count = index;
+        if (letter_count == 0 || letter_count > 4)
+        {
+            continue;
+        }
+
+        while (index < token.size() && (token[index] == '*' || token[index] == '>'))
+        {
+            ++index;
+        }
+
+        if (index == token.size())
+        {
+            // 코드 뒤에 목적지(주소 또는 `is directly connected`)가 이어지면 확정.
+            std::string second;
+            if ((line_stream >> second) && !second.empty())
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 nlohmann::json ParseRouteStatus(const std::string& raw_output, Vendor vendor)
 {
     // Linux `ip route show` 는 라우트 코드(O>*, C 등)가 없고
     // `default via ... dev ... proto ...` 형태다.
     // FRR/Cisco 문법으로는 코드가 없어 파싱되지 않으므로 IpAddr 문법을 쓴다.
-    if (vendor == Vendor::kUbuntu)
+    //
+    // FRR 라우터(Vendor::kFrr)는 호스트 OS 가 리눅스이므로 커널 테이블을
+    // 그대로 내보낼 수도 있고(A), vtysh 로 코드가 붙은 표를 낼 수도 있다(B).
+    // 그래서 kFrr 은 출력 내용을 보고 문법을 고른다.
+    //
+    // nftables 방화벽(kNftables)·OpenVSwitch(kOpenVSwitch) 도 호스트는
+    // 리눅스이므로 커널 `ip route show` 형식을 그대로 낸다.
+    // 어느 쪽이든 라우트 코드가 없으면 IpAddr 문법으로 파싱한다.
+    const bool linux_host_vendor = vendor == Vendor::kUbuntu || vendor == Vendor::kFrr ||
+                                   vendor == Vendor::kNftables ||
+                                   vendor == Vendor::kOpenVSwitch;
+
+    const bool linux_kernel_style =
+        linux_host_vendor && !LooksLikeVtyshRouteTable(raw_output);
+
+    if (linux_kernel_style)
     {
         // IpAddr 문법의 routeDocument 를 사용한다.
         //  NicVisitor 가 routeEntry 를 처리하므로 그 결과를 재사용한다.

@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.springframework.stereotype.Service;
@@ -56,13 +57,27 @@ public class AgentMessageRouterService {
     /** 정책 요청 처리 건수 (모니터링용). */
     private final AtomicLong policyRequestCount = new AtomicLong();
 
+    /**
+     * 중립 장비 설정 변환 서비스.
+     *
+     * <p>텔레메트리를 받을 때마다 벤더별 파서를 거쳐 벤더 중립 구조로 바꿔 둡니다.
+     * 분석/저장/표시 계층이 벤더를 모르게 하려면 수집 시점에 변환해 두는 것이
+     * 가장 단순합니다.
+     */
+    private final DeviceConfigService deviceConfigService;
+
+    /** Agent 별 최근 중립 설정. (분석 계층이 조회하는 지점) */
+    private final Map<String, NeutralDeviceConfig> lastConfig = new ConcurrentHashMap<>();
+
     private final AgentSessionRegistry registry;
     private final PolicyRegistryService policyRegistry;
 
     public AgentMessageRouterService(AgentSessionRegistry registry,
-                                     PolicyRegistryService policyRegistry) {
+                                     PolicyRegistryService policyRegistry,
+                                     DeviceConfigService deviceConfigService) {
         this.registry = registry;
         this.policyRegistry = policyRegistry;
+        this.deviceConfigService = deviceConfigService;
     }
 
     /**
@@ -153,6 +168,10 @@ public class AgentMessageRouterService {
     /**
      * {@code telemetry} 처리: 최근 값만 저장하고 응답하지 않습니다.
      *
+     * <p>payload 를 그대로 보관하는 것에 더해, 벤더별 파서를 거쳐
+     * {@link NeutralDeviceConfig} 로도 변환해 둡니다. 이후 분석(정책 위반, 도달성)
+     * 과 DB 저장은 벤더를 모르는 그 구조를 사용합니다.
+     *
      * @param envelope 수신 봉투
      * @param agentId 해석된 Agent 식별자
      * @return 항상 {@code null} (일방향)
@@ -161,9 +180,46 @@ public class AgentMessageRouterService {
         if (agentId == null) {
             return null;
         }
-        lastTelemetry.put(agentId, envelope.payloadOrEmpty());
-        log.info("telemetry from agent={} keys={}", agentId, envelope.payloadOrEmpty().size());
+        final JsonNode payload = envelope.payloadOrEmpty();
+        lastTelemetry.put(agentId, payload);
+
+        try {
+            // Agent 가 payload 에 제품명을 넣지 않는 경우가 있으므로,
+            // 봉투의 device_type 과 payload 의 product 를 함께 씁니다.
+            final String product = text(payload, "product",
+                    text(payload, "vendor", envelope.getDevice_type()));
+            final NeutralDeviceConfig config = deviceConfigService.parse(agentId, product, payload);
+            lastConfig.put(agentId, config);
+
+            log.info("telemetry from agent={} keys={} format={} ifaces={} routes={} vlans={}",
+                    agentId, payload.size(), config.getFormat(),
+                    config.getInterfaces().size(), config.getRoutes().size(),
+                    config.getVlans().size());
+        } catch (RuntimeException ex) {
+            // 변환 실패가 수신 자체를 막지 않도록 흡수합니다. (일방향 메시지)
+            log.warn("config parse failed for agent={}: {}", agentId, ex.getMessage());
+            log.info("telemetry from agent={} keys={}", agentId, payload.size());
+        }
         return null;
+    }
+
+    /**
+     * 특정 Agent 의 최근 중립 설정을 조회합니다. (분석/저장 계층의 진입점)
+     *
+     * @param agentId Agent 식별자
+     * @return 최근 설정 (없으면 {@code null})
+     */
+    public NeutralDeviceConfig lastConfigOf(String agentId) {
+        return lastConfig.get(agentId);
+    }
+
+    /**
+     * 지금까지 변환된 모든 중립 설정을 돌려줍니다.
+     *
+     * @return Agent 식별자 → 중립 설정
+     */
+    public Map<String, NeutralDeviceConfig> allConfigs() {
+        return Map.copyOf(lastConfig);
     }
 
     /**

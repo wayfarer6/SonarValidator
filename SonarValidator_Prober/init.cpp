@@ -253,8 +253,13 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
         return 1;
     }
 
+    // 에이전트 이름은 한 번만 생성해 agent_id 와 agent_name 에 함께 넣습니다.
+    //  agent_name 이 비어 있으면 LoadConfig() 가 실패해
+    //  매 기동마다 설정이 새로 생성되고(에이전트 ID 변경),
+    //  텔레메트리/DB 의 agent 컬럼도 빈 값이 됩니다.
+    const std::string generated_agent_name = GenerateAgentName();
     ProberConfig initial_config(
-        GenerateAgentName(), "", "", "", DeviceType::kSwitch,
+        generated_agent_name, generated_agent_name, "", "", DeviceType::kSwitch,
         "", 0, "", 0);
     initial_config.DetectKernelName();
     initial_config.DetectDistributionName();

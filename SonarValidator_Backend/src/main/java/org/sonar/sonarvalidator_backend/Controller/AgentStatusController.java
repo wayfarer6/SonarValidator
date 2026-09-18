@@ -6,9 +6,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
+import org.sonar.sonarvalidator_backend.Service.DeviceConfigService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,11 +36,14 @@ public class AgentStatusController {
 
     private final AgentSessionRegistry registry;
     private final AgentMessageRouterService router;
+    private final DeviceConfigService deviceConfigService;
 
     public AgentStatusController(AgentSessionRegistry registry,
-                                 AgentMessageRouterService router) {
+                                 AgentMessageRouterService router,
+                                 DeviceConfigService deviceConfigService) {
         this.registry = registry;
         this.router = router;
+        this.deviceConfigService = deviceConfigService;
     }
 
     /**
@@ -78,6 +83,57 @@ public class AgentStatusController {
             throw new AgentNotFoundException(agentId);
         }
         return telemetry;
+    }
+
+    /**
+     * 특정 Agent 의 <b>중립 설정</b>을 반환합니다.
+     *
+     * <p>텔레메트리 원본({@code /telemetry})은 벤더 고유 표현을 그대로 담고 있습니다.
+     * 이 엔드포인트는 그것을 벤더 중립 구조(인터페이스/VLAN/트렌크/라우팅/규칙)로
+     * 변환한 결과를 돌려줍니다. 분석·비교 UI 는 이쪽을 쓰면 벤더를 몰라도 됩니다.
+     *
+     * @param agentId Agent 식별자
+     * @return 중립 설정, 없으면 404
+     */
+    @GetMapping("/{agentId}/config")
+    public NeutralDeviceConfig config(@PathVariable String agentId) {
+        final NeutralDeviceConfig config = router.lastConfigOf(agentId);
+        if (config == null) {
+            throw new AgentNotFoundException(agentId);
+        }
+        return config;
+    }
+
+    /**
+     * 등록된 벤더 파서 목록과, 현재 변환된 설정의 요약을 돌려줍니다.
+     *
+     * <p>운영자가 "어떤 장비가 어떤 형식으로 해석됐는지" 한 번에 확인하는 용도입니다.
+     *
+     * @return 형식 목록 + Agent 별 요약
+     */
+    @GetMapping("/configs")
+    public Map<String, Object> configs() {
+        final List<Map<String, Object>> summaries = new ArrayList<>();
+        router.allConfigs().forEach((agentId, config) -> {
+            final Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("agent_id", agentId);
+            entry.put("format", config.getFormat());
+            entry.put("vendor", config.getVendor());
+            entry.put("product", config.getProduct());
+            entry.put("interfaces", config.getInterfaces().size());
+            entry.put("routes", config.getRoutes().size());
+            entry.put("vlans", config.getVlans().size());
+            entry.put("arp_entries", config.getArpEntries().size());
+            entry.put("firewall_rules", config.getFirewallRules().size());
+            entry.put("warnings", List.copyOf(config.getWarnings()));
+            summaries.add(entry);
+        });
+
+        final Map<String, Object> body = new LinkedHashMap<>();
+        body.put("supported_formats", deviceConfigService.supportedFormats());
+        body.put("parsed_devices", summaries.size());
+        body.put("devices", summaries);
+        return body;
     }
 
     /**

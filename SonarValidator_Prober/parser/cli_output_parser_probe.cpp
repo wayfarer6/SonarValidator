@@ -38,8 +38,9 @@ int main(int argc, char** argv)
 {
     if (argc < 3)
     {
-        std::cerr << "usage: " << argv[0] << " <target> <file>\n"
-                  << "  target: nic|brief|route|interface|ovs|vlan|switchport|ruleset\n";
+        std::cerr << "usage: " << argv[0] << " <target> <file> [vendor]\n"
+                  << "  target: nic|brief|route|interface|ovs|vlan|switchport|ruleset\n"
+                  << "  vendor: ubuntu|frr|cisco|arista|ovs|nftables (기본: 자동 판별)\n";
         return 2;
     }
 
@@ -49,6 +50,37 @@ int main(int argc, char** argv)
     {
         std::cerr << "empty input: " << argv[2] << '\n';
         return 2;
+    }
+
+    // 벤더를 강제하면 자동 판별을 건너뛴다(실장비 형식 검증용).
+    cli_parser::Vendor forced = cli_parser::Vendor::kUnknown;
+    if (argc > 3)
+    {
+        const std::string name = argv[3];
+        if (name == "ubuntu")
+        {
+            forced = cli_parser::Vendor::kUbuntu;
+        }
+        else if (name == "frr")
+        {
+            forced = cli_parser::Vendor::kFrr;
+        }
+        else if (name == "cisco")
+        {
+            forced = cli_parser::Vendor::kCisco;
+        }
+        else if (name == "arista")
+        {
+            forced = cli_parser::Vendor::kArista;
+        }
+        else if (name == "ovs")
+        {
+            forced = cli_parser::Vendor::kOpenVSwitch;
+        }
+        else if (name == "nftables")
+        {
+            forced = cli_parser::Vendor::kNftables;
+        }
     }
 
     nlohmann::json result;
@@ -65,20 +97,23 @@ int main(int argc, char** argv)
         // `ip route show`(Linux) 는 라우트 코드가 없으므로 자동 판별한다.
         //  FRR/Cisco 는 선두에 코드(O, C, S, *)가 오고,
         //  Linux 는 `default` 또는 CIDR 로 시작한다.
-        cli_parser::Vendor vendor = cli_parser::Vendor::kUnknown;
-        const std::size_t first_line_end = raw.find('\n');
-        const std::string first_line =
-            raw.substr(0, first_line_end == std::string::npos ? raw.size() : first_line_end);
-        if (first_line.rfind("default ", 0) == 0 ||
-            first_line.rfind("blackhole", 0) == 0 ||
-            first_line.find(" proto ") != std::string::npos)
+        cli_parser::Vendor vendor = forced;
+        if (vendor == cli_parser::Vendor::kUnknown)
         {
-            vendor = cli_parser::Vendor::kUbuntu;
-        }
-        else if (first_line.find("Codes:") != std::string::npos ||
-                 first_line.find("Gateway of last resort") != std::string::npos)
-        {
-            vendor = cli_parser::Vendor::kFrr;
+            const std::size_t first_line_end = raw.find('\n');
+            const std::string first_line =
+                raw.substr(0, first_line_end == std::string::npos ? raw.size() : first_line_end);
+            if (first_line.rfind("default ", 0) == 0 ||
+                first_line.rfind("blackhole", 0) == 0 ||
+                first_line.find(" proto ") != std::string::npos)
+            {
+                vendor = cli_parser::Vendor::kUbuntu;
+            }
+            else if (first_line.find("Codes:") != std::string::npos ||
+                     first_line.find("Gateway of last resort") != std::string::npos)
+            {
+                vendor = cli_parser::Vendor::kFrr;
+            }
         }
         result = cli_parser::ParseRouteStatus(raw, vendor);
     }

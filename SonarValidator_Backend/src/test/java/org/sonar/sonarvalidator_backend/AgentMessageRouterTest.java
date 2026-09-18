@@ -15,6 +15,7 @@ import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
+import org.sonar.sonarvalidator_backend.Service.DeviceConfigService;
 import org.sonar.sonarvalidator_backend.Service.PolicyRegistryService;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -37,7 +38,8 @@ class AgentMessageRouterTest {
     void setUp() {
         mapper = JsonMapper.builder().build();
         registry = new AgentSessionRegistry(mapper);
-        router = new AgentMessageRouterService(registry, new PolicyRegistryService());
+        router = new AgentMessageRouterService(
+                registry, new PolicyRegistryService(), new DeviceConfigService(java.util.List.of()));
     }
 
     /**

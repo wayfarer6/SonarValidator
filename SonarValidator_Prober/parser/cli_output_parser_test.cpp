@@ -235,6 +235,71 @@ void TestFrrRoute()
 }
 
 // ---------------------------------------------------------------------------
+//  ip route show  (FRR 호스트 커널 샘플)
+//
+//  FRR 라우터는 라우팅 정보를 두 형식으로 낼 수 있다.
+//    (A) 호스트 커널 `ip route show`  → 라우트 코드 없음, `nhid` 토큰 존재
+//    (B) vtysh `show ip route`        → 라우트 코드(O>*, C ...) 존재
+//  같은 Vendor::kFrr 이므로 파서가 내용을 보고 문법을 골라야 한다.
+// ---------------------------------------------------------------------------
+const char* kFrrKernelRouteSample =
+    "default via 192.168.122.1 dev eth0 metric 1 \n"
+    "10.10.128.0/21 nhid 30 via 10.99.10.4 dev eth1 proto ospf metric 20 \n"
+    "10.20.111.0/24 nhid 27 via 10.99.10.5 dev eth1 proto ospf metric 20 \n"
+    "10.20.112.0/24 nhid 27 via 10.99.10.5 dev eth1 proto ospf metric 20 \n"
+    "10.30.141.0/24 nhid 28 via 10.99.10.3 dev eth1 proto ospf metric 20 \n"
+    "10.40.121.0/24 nhid 29 via 10.99.10.6 dev eth1 proto ospf metric 20 \n"
+    "10.40.122.0/24 nhid 29 via 10.99.10.6 dev eth1 proto ospf metric 20 \n"
+    "10.99.10.0/24 dev eth1 proto kernel scope link src 10.99.10.1 \n"
+    "10.99.143.0/24 nhid 30 via 10.99.10.4 dev eth1 proto ospf metric 20 \n"
+    "10.255.255.3 nhid 28 via 10.99.10.3 dev eth1 proto ospf metric 20 \n"
+    "10.255.255.4 nhid 30 via 10.99.10.4 dev eth1 proto ospf metric 20 \n"
+    "10.255.255.5 nhid 27 via 10.99.10.5 dev eth1 proto ospf metric 20 \n"
+    "10.255.255.6 nhid 29 via 10.99.10.6 dev eth1 proto ospf metric 20 \n"
+    "172.16.255.0/24 dev eth7 proto kernel scope link src 172.16.255.1 \n"
+    "192.168.122.0/24 dev eth0 proto kernel scope link src 192.168.122.10 \n";
+
+void TestFrrKernelRoute()
+{
+    std::cout << "\n--- ip route show (FRR 호스트 커널) ---\n";
+    const auto json = cli_parser::ParseRouteStatus(kFrrKernelRouteSample, Vendor::kFrr);
+
+    if (json.contains("parse_error"))
+    {
+        std::cerr << "      parse_error: " << json["parse_error"].dump() << '\n';
+    }
+    Check(json["parsed"].get<bool>(), "FRR 커널 라우팅 파싱 성공");
+    const auto& routes = json["routes"];
+    Check(routes.is_array() && routes.size() == 15,
+          "FRR 커널 라우트 15개 (got=" + std::to_string(routes.size()) + ")");
+
+    CheckEq(routes[0]["destination"].get<std::string>(), "0.0.0.0/0", "커널 라우트0 목적지=default");
+    Check(routes[0]["is_default"].get<bool>(), "커널 라우트0 is_default");
+    CheckEq(routes[0]["via"].get<std::string>(), "192.168.122.1", "커널 라우트0 via");
+    CheckEq(routes[0]["interface_name"].get<std::string>(), "eth0", "커널 라우트0 인터페이스");
+
+    // `nhid N` 은 FRR 문법에 없는 토큰이라 extras 로 흡수되지만,
+    // 목적지/via/proto/metric 은 정상 추출되어야 한다.
+    CheckEq(routes[1]["destination"].get<std::string>(), "10.10.128.0/21",
+            "커널 라우트1 목적지");
+    CheckEq(routes[1]["protocol"].get<std::string>(), "ospf", "커널 라우트1 protocol=ospf");
+    CheckEq(routes[1]["via"].get<std::string>(), "10.99.10.4", "커널 라우트1 via");
+    CheckEq(routes[1]["metric"].get<std::string>(), "20", "커널 라우트1 metric=20");
+
+    // 직접 연결 경로(src 만 있고 via 없음)
+    CheckEq(routes[7]["destination"].get<std::string>(), "10.99.10.0/24",
+            "커널 라우트7 목적지");
+    CheckEq(routes[7]["protocol"].get<std::string>(), "kernel", "커널 라우트7 protocol=kernel");
+    CheckEq(routes[7]["pref_src"].get<std::string>(), "10.99.10.1", "커널 라우트7 pref_src");
+    Check(!routes[7].contains("via"), "커널 라우트7 via 없음(직접 연결)");
+
+    // CIDR 없는 /32 호스트 라우트(10.255.255.x)
+    CheckEq(routes[9]["destination"].get<std::string>(), "10.255.255.3",
+            "커널 라우트9 /32 목적지");
+    CheckEq(routes[9]["via"].get<std::string>(), "10.99.10.3", "커널 라우트9 via");
+}
+
+// ---------------------------------------------------------------------------
 //  show ip route  (Cisco 샘플 — docs/Agent_Command.md)
 // ---------------------------------------------------------------------------
 const char* kCiscoRouteSample =
@@ -554,6 +619,7 @@ int main()
     TestOvsShow();
     TestOvsListPort();
     TestFrrRoute();
+    TestFrrKernelRoute();
     TestCiscoRoute();
     TestIfaceBrief();
     TestNftRuleset();

@@ -9,17 +9,31 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import org.sonar.sonarvalidator_backend.Model.Configuration;
+
 @Entity
 @Table(name = "network_interface")
 @Getter
 @Setter
 public class InterfaceEntity {
-    @ManyToOne
-    @JoinColumn (name = "node_id")
 
-    @Id @GeneratedValue
+    /**
+     * 기본 키. JPA 는 모든 @Entity 에 식별자를 요구합니다.
+     *
+     * <p>주의: 이 필드에 {@code @ManyToOne} 을 함께 붙이면 Hibernate 가
+     * {@code Long} 을 연관 엔티티 타입으로 해석해
+     * "Primary key referenced an unknown entity: java.lang.Long" 으로
+     * 컨텍스트 기동에 실패합니다. 식별자와 연관관계는 반드시 분리하세요.
+     */
+    @Id
+    @GeneratedValue
     private Long interfaceId;
-    
+
+    /** 이 인터페이스가 속한 노드. 소유 측(인터페이스)이 FK 를 가집니다. */
+    @ManyToOne
+    @JoinColumn(name = "node_id")
+    private Configuration node;
+
     @Column(name = "member_name", nullable = false, length = 50)
     private String interfaceName;
 

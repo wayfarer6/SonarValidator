@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <vector>
 
@@ -24,10 +25,13 @@ namespace
 // ---------------------------------------------------------------------------
 enum class ProductKind
 {
-    kLinux,     // Ubuntu 등 일반 리눅스 (ip ... 명령)
-    kCisco,     // Cisco IOS-XE (guestshell 의 dohost)
-    kArista,    // Arista vEOS (FastCli)
-    kOther      // FRR / OpenVSwitch / nftables — 이 수집기에서는 명령을 실행하지 않는다
+    kLinux,        // Ubuntu 등 일반 리눅스 (ip ... 명령)
+    kFrr,          // FRR 라우터 (Alpine/Debian 호스트의 ip ... 명령 + vtysh 보조)
+    kFirewall,     // nftables 방화벽 (Alpine 호스트의 ip ... 명령 + nft 규칙)
+    kCisco,        // Cisco IOS-XE (guestshell 의 dohost)
+    kArista,       // Arista vEOS (FastCli)
+    kOpenVSwitch,  // Open vSwitch 스위치 (ovs-vsctl show / list port)
+    kOther         // 알 수 없는 제품 — 수집 명령을 실행하지 않는다
 };
 
 ProductKind ClassifyProduct(const std::string& product_name)
@@ -39,6 +43,28 @@ ProductKind ClassifyProduct(const std::string& product_name)
     if (product_name.find("Arista") != std::string::npos)
     {
         return ProductKind::kArista;
+    }
+    // OpenVSwitch 는 스위치의 L2 설정(port 의 tag/trunks)을 vtysh/IP 와
+    // 전혀 다른 CLI 로 내놓으므로 별도 분기로 처리한다.
+    if (product_name.find("OpenVSwitch") != std::string::npos ||
+        product_name.find("Open vSwitch") != std::string::npos)
+    {
+        return ProductKind::kOpenVSwitch;
+    }
+    // FRR 은 라우팅 데몬일 뿐이고 실제 호스트는 리눅스(Alpine 등)이므로
+    // `ip ...` 명령으로 NIC/라우팅/이웃을 그대로 수집할 수 있다.
+    // (제품 감지는 vtysh 존재를 먼저 보므로 Ubuntu 판정보다 앞에 둔다.)
+    if (product_name.find("FRR") != std::string::npos)
+    {
+        return ProductKind::kFrr;
+    }
+    // nftables 방화벽도 호스트는 Alpine 리눅스다.
+    // NIC/라우팅/이웃은 `ip ...` 로, 규칙은 `nft list ruleset` 으로 수집한다.
+    if (product_name.find("nftables") != std::string::npos ||
+        product_name.find("nft") != std::string::npos ||
+        product_name.find("Firewall") != std::string::npos)
+    {
+        return ProductKind::kFirewall;
     }
     if (product_name.find("Ubuntu") != std::string::npos ||
         product_name.find("Linux") != std::string::npos)
@@ -481,6 +507,267 @@ bool HasItems(const Json& object, const char* key)
     return iterator != object.end() && iterator->is_array() && !iterator->empty();
 }
 
+// JSON 객체의 배열 멤버를 찾습니다. 없거나 배열이 아니면 nullptr.
+const Json* FindArrayMember(const Json& object, const char* key)
+{
+    if (!object.is_object())
+    {
+        return nullptr;
+    }
+    const auto iterator = object.find(key);
+    if (iterator == object.end() || !iterator->is_array())
+    {
+        return nullptr;
+    }
+    return &(*iterator);
+}
+
+// ---------------------------------------------------------------------------
+//  Open vSwitch 변환
+//
+//  `ovs-vsctl show` 는 브리지 → 포트 → 인터페이스 계층을 준다.
+//  포트의 `tag`(액세스 VLAN)와 `trunks`(트렁크 허용 VLAN)가 L2 설정의 전부다.
+//  이를 벤더 중립적인 vlan_status / trunk_status 모양으로 바꿔 다른 장비와
+//  같은 테이블에 저장되도록 한다.
+// ---------------------------------------------------------------------------
+
+// 포트의 tag 값을 정수로 읽습니다. 없으면 -1(액세스 VLAN 아님).
+int OvsPortAccessVlan(const Json& port)
+{
+    const auto iterator = port.find("tag");
+    if (iterator == port.end())
+    {
+        return -1;
+    }
+    if (iterator->is_number_integer())
+    {
+        return iterator->get<int>();
+    }
+    // `tag: []` 처럼 배열로 올 수도 있다.
+    if (iterator->is_array() && !iterator->empty() && iterator->front().is_number_integer())
+    {
+        return iterator->front().get<int>();
+    }
+    return -1;
+}
+
+// 포트의 trunks 배열을 정수 목록으로 읽습니다.
+std::vector<int> OvsPortTrunks(const Json& port)
+{
+    std::vector<int> vlans;
+    const auto iterator = port.find("trunks");
+    if (iterator == port.end() || !iterator->is_array())
+    {
+        return vlans;
+    }
+    for (const Json& item : *iterator)
+    {
+        if (item.is_number_integer())
+        {
+            vlans.push_back(item.get<int>());
+        }
+    }
+    return vlans;
+}
+
+// `ovs-vsctl show` 결과를 vlan_status(vlans) 로 변환합니다.
+//  액세스 포트의 tag 를 VLAN 별로 묶고, 그 VLAN 을 쓰는 포트 목록을 남긴다.
+Json OvsTopologyToVlanStatus(const Json& topology)
+{
+    Json vlans = Json::array();
+    const Json* bridges = FindArrayMember(topology, "bridges");
+    if (bridges == nullptr)
+    {
+        return Json::object();
+    }
+
+    // vlan_id -> 포트 이름 목록
+    std::map<int, std::vector<std::string>> members;
+    for (const Json& bridge : *bridges)
+    {
+        const Json* ports = FindArrayMember(bridge, "ports");
+        if (ports == nullptr)
+        {
+            continue;
+        }
+        for (const Json& port : *ports)
+        {
+            const int access_vlan = OvsPortAccessVlan(port);
+            if (access_vlan <= 0)
+            {
+                continue;
+            }
+            const auto name = port.find("name");
+            members[access_vlan].push_back(
+                name != port.end() && name->is_string() ? name->get<std::string>() : std::string{});
+        }
+    }
+
+    for (const auto& [vlan_id, ports] : members)
+    {
+        Json vlan = Json::object();
+        vlan["vlan_id"] = vlan_id;
+        vlan["name"] = "VLAN" + std::to_string(vlan_id);
+        vlan["status"] = "active";
+        vlan["ports"] = ports;
+        vlans.push_back(std::move(vlan));
+    }
+
+    if (vlans.empty())
+    {
+        return Json::object();
+    }
+
+    Json body = Json::object();
+    body["vlans"] = std::move(vlans);
+    body["vlan_count"] = body["vlans"].size();
+    return body;
+}
+
+// `ovs-vsctl show` 결과를 trunk_status(ports) 로 변환합니다.
+//  포트의 tag 를 access_vlan, trunks 를 trunk_vlans 로 옮긴다.
+Json OvsTopologyToTrunkStatus(const Json& topology)
+{
+    Json ports_out = Json::array();
+    const Json* bridges = FindArrayMember(topology, "bridges");
+    if (bridges == nullptr)
+    {
+        return Json::object();
+    }
+
+    for (const Json& bridge : *bridges)
+    {
+        const Json* ports = FindArrayMember(bridge, "ports");
+        if (ports == nullptr)
+        {
+            continue;
+        }
+        for (const Json& port : *ports)
+        {
+            const int access_vlan = OvsPortAccessVlan(port);
+            const std::vector<int> trunks = OvsPortTrunks(port);
+
+            // 액세스 VLAN 도 트렁크도 없는 포트(예: br0 internal)는 제외한다.
+            if (access_vlan <= 0 && trunks.empty())
+            {
+                continue;
+            }
+
+            Json entry = Json::object();
+            const auto name = port.find("name");
+            entry["name"] =
+                name != port.end() && name->is_string() ? name->get<std::string>() : std::string{};
+            entry["mode"] = trunks.empty() ? "access" : "trunk";
+            if (access_vlan > 0)
+            {
+                entry["access_vlan"] = access_vlan;
+            }
+            entry["trunk_vlans"] = trunks;
+            entry["admin_enabled"] = true;
+            ports_out.push_back(std::move(entry));
+        }
+    }
+
+    if (ports_out.empty())
+    {
+        return Json::object();
+    }
+
+    Json body = Json::object();
+    body["ports"] = std::move(ports_out);
+    body["port_count"] = body["ports"].size();
+    return body;
+}
+
+// `ovs-vsctl list port` 결과를 vlan_status(vlans) 로 변환합니다.
+//  포트 레코드의 tag 를 VLAN 별로 모아 `show` 와 같은 모양으로 만든다.
+Json OvsPortListToVlanStatus(const Json& ports_result)
+{
+    const Json* ports = FindArrayMember(ports_result, "ports");
+    if (ports == nullptr)
+    {
+        return Json::object();
+    }
+
+    std::map<int, std::vector<std::string>> members;
+    for (const Json& port : *ports)
+    {
+        const int access_vlan = OvsPortAccessVlan(port);
+        if (access_vlan <= 0)
+        {
+            continue;
+        }
+        const auto name = port.find("name");
+        members[access_vlan].push_back(
+            name != port.end() && name->is_string() ? name->get<std::string>() : std::string{});
+    }
+
+    Json vlans = Json::array();
+    for (const auto& [vlan_id, names] : members)
+    {
+        Json vlan = Json::object();
+        vlan["vlan_id"] = vlan_id;
+        vlan["name"] = "VLAN" + std::to_string(vlan_id);
+        vlan["status"] = "active";
+        vlan["ports"] = names;
+        vlans.push_back(std::move(vlan));
+    }
+
+    if (vlans.empty())
+    {
+        return Json::object();
+    }
+
+    Json body = Json::object();
+    body["vlans"] = std::move(vlans);
+    body["vlan_count"] = body["vlans"].size();
+    return body;
+}
+
+// `ovs-vsctl list port` 결과를 trunk_status(ports) 로 변환합니다.
+Json OvsPortListToTrunkStatus(const Json& ports_result)
+{
+    const Json* ports = FindArrayMember(ports_result, "ports");
+    if (ports == nullptr)
+    {
+        return Json::object();
+    }
+
+    Json ports_out = Json::array();
+    for (const Json& port : *ports)
+    {
+        const int access_vlan = OvsPortAccessVlan(port);
+        const std::vector<int> trunks = OvsPortTrunks(port);
+        if (access_vlan <= 0 && trunks.empty())
+        {
+            continue;
+        }
+
+        Json entry = Json::object();
+        const auto name = port.find("name");
+        entry["name"] =
+            name != port.end() && name->is_string() ? name->get<std::string>() : std::string{};
+        entry["mode"] = trunks.empty() ? "access" : "trunk";
+        if (access_vlan > 0)
+        {
+            entry["access_vlan"] = access_vlan;
+        }
+        entry["trunk_vlans"] = trunks;
+        entry["admin_enabled"] = true;
+        ports_out.push_back(std::move(entry));
+    }
+
+    if (ports_out.empty())
+    {
+        return Json::object();
+    }
+
+    Json body = Json::object();
+    body["ports"] = std::move(ports_out);
+    body["port_count"] = body["ports"].size();
+    return body;
+}
+
 } // namespace
 
 CollectedState BuildStateFromOutputs(DeviceType device_type,
@@ -501,7 +788,12 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
     Json snapshot = Json::object();
 
     // 리눅스 계열(VM/방화벽, Ubuntu)은 `ip ...` 명령을 쓴다.
+    // FRR 라우터와 nftables 방화벽도 호스트 OS 가 리눅스(Alpine 등)이므로 같은 경로를 쓴다.
+    // OpenVSwitch 스위치도 컨테이너 호스트가 리눅스라 `ip a` 로 포트 정보를 얻는다.
     const bool linux_style = product == ProductKind::kLinux ||
+                             product == ProductKind::kFrr ||
+                             product == ProductKind::kFirewall ||
+                             product == ProductKind::kOpenVSwitch ||
                              device_type == DeviceType::kVirtualMachine;
 
     // -----------------------------------------------------------------------
@@ -587,8 +879,81 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
     }
 
     // -----------------------------------------------------------------------
-    // 3) VLAN — show vlan brief
+    // 3) VLAN — ovs-vsctl show (OpenVSwitch) 또는 show vlan brief (Arista)
     // -----------------------------------------------------------------------
+    if (product == ProductKind::kOpenVSwitch)
+    {
+        // 스위치는 L2 전용이라 `show vlan brief` 가 없다.
+        // 포트의 tag/trunks 가 곧 VLAN 구성이므로 ovs-vsctl 출력에서 만든다.
+        const std::string raw = output("ovs-vsctl show");
+        if (!empty(raw))
+        {
+            const Json topology = cli_parser::ParseOvsTopology(raw);
+            state.topology = topology;
+            if (HasItems(topology, "bridges"))
+            {
+                snapshot["ovs_topology"] = topology;
+                state.any_success = true;
+
+                state.vlan = OvsTopologyToVlanStatus(topology);
+                if (HasItems(state.vlan, "vlans"))
+                {
+                    snapshot["vlan_status"] = state.vlan;
+                }
+                else
+                {
+                    state.vlan = Json{};
+                }
+
+                state.trunk = OvsTopologyToTrunkStatus(topology);
+                if (HasItems(state.trunk, "ports"))
+                {
+                    snapshot["trunk_status"] = state.trunk;
+                }
+                else
+                {
+                    state.trunk = Json{};
+                }
+            }
+        }
+
+        // `list port` 는 `show` 와 같은 tag/trunks 를 레코드 형태로 준다.
+        // `show` 가 브리지 이름을 못 준 경우의 대안으로만 쓴다.
+        if (!HasItems(state.trunk, "ports"))
+        {
+            const std::string raw_list = output("ovs-vsctl list port");
+            if (!empty(raw_list))
+            {
+                const Json ports_result = cli_parser::ParseOvsTopology(raw_list);
+                if (HasItems(ports_result, "ports"))
+                {
+                    snapshot["ovs_ports"] = ports_result;
+                    state.any_success = true;
+
+                    state.vlan = OvsPortListToVlanStatus(ports_result);
+                    if (HasItems(state.vlan, "vlans"))
+                    {
+                        snapshot["vlan_status"] = state.vlan;
+                    }
+                    else
+                    {
+                        state.vlan = Json{};
+                    }
+
+                    state.trunk = OvsPortListToTrunkStatus(ports_result);
+                    if (HasItems(state.trunk, "ports"))
+                    {
+                        snapshot["trunk_status"] = state.trunk;
+                    }
+                    else
+                    {
+                        state.trunk = Json{};
+                    }
+                }
+            }
+        }
+    }
+    else
     {
         const std::string raw = output("show vlan brief");
         if (!empty(raw))
@@ -607,8 +972,10 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
     }
 
     // -----------------------------------------------------------------------
-    // 4) 트렁크/스위치포트 — show interfaces switchport
+    // 4) 트렁크/스위치포트 — show interfaces switchport (Arista/Cisco)
+    //    (OpenVSwitch 는 위 3) 에서 이미 채웠다.)
     // -----------------------------------------------------------------------
+    if (product != ProductKind::kOpenVSwitch)
     {
         const std::string raw = output("show interfaces switchport");
         if (!empty(raw))
@@ -627,7 +994,33 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
     }
 
     // -----------------------------------------------------------------------
-    // 5) ARP / 이웃 — ip neigh show, show arp, show ip arp
+    // 5) 방화벽 규칙 — nft list ruleset (nftables)
+    //
+    //  nftables 방화벽은 라우터/스위치의 VLAN·트렁크 대신 필터 규칙이
+    //  수집 대상이다. 규칙은 스냅샷에만 실어 보내고(서버 계약 유지)
+    //  DB 규칙 테이블 저장은 기존 firewall_rule_table 경로가 담당한다.
+    // -----------------------------------------------------------------------
+    if (product == ProductKind::kFirewall)
+    {
+        const std::string raw = output("nft list ruleset");
+        if (!empty(raw))
+        {
+            state.rules = cli_parser::ParseFirewallRules(raw);
+            // 파서는 tables 배열을 돌려준다(table → chains → rules 구조).
+            if (HasItems(state.rules, "tables"))
+            {
+                snapshot["firewall_rules"] = state.rules;
+                state.any_success = true;
+            }
+            else
+            {
+                state.rules = Json{};
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 6) ARP / 이웃 — ip neigh show, show arp, show ip arp
     // -----------------------------------------------------------------------
     {
         std::string raw = output("show arp");
@@ -716,6 +1109,26 @@ CollectedState CollectState(const ProberConfig& config, ManagementService& manag
         run_shell("ip neigh show", management_service);
         break;
 
+    case ProductKind::kFrr:
+        // FRR 라우터의 호스트 OS 는 리눅스(Alpine 등)이므로 `ip ...` 로 수집한다.
+        // 수집기는 조회 전용이므로 vtysh 설정 변경은 하지 않는다.
+        run_shell("ip a", management_service);
+        run_shell("ip -br addr show", management_service);
+        run_shell("ip route show", management_service);
+        run_shell("ip neigh show", management_service);
+        break;
+
+    case ProductKind::kFirewall:
+        // nftables 방화벽도 호스트는 Alpine 리눅스다.
+        // NIC/라우팅/이웃/ARP 는 `ip ...` 로, 필터 규칙은 nft 조회로 수집한다.
+        // (조회 전용 — 규칙을 추가/삭제하지 않는다.)
+        run_shell("ip a", management_service);
+        run_shell("ip -br addr show", management_service);
+        run_shell("ip route show", management_service);
+        run_shell("ip neigh show", management_service);
+        run_shell("nft list ruleset", management_service);
+        break;
+
     case ProductKind::kCisco:
         // docs/Agent_Command.md "Cisco" — guestshell 의 dohost 로 IOS CLI 실행
         run_ios("show ip interface brief", management_service);
@@ -731,9 +1144,20 @@ CollectedState CollectState(const ProberConfig& config, ManagementService& manag
         run_arista("show arp", management_service);
         break;
 
+    case ProductKind::kOpenVSwitch:
+        // docs/Agent_Command.md "OpenvSwitch" — L2 토폴로지는 ovs-vsctl 로만 보인다.
+        // `show` 는 브리지/포트/인터페이스 계층을, `list port` 는 포트 속성
+        // 레코드(tag/trunks/vlan_mode)를 준다. 둘 다 조회 전용이다.
+        // 스위치는 L2 전용이지만 `ip a` 로 포트별 MAC/상태는 수집할 수 있다.
+        run_shell("ovs-vsctl show", management_service);
+        run_shell("ovs-vsctl list port", management_service);
+        run_shell("ip a", management_service);
+        run_shell("ip -br addr show", management_service);
+        break;
+
     case ProductKind::kOther:
         std::cerr << "[COLLECT] no live query commands for product '" << product
-                  << "' — 수집 생략 (FRR/OpenVSwitch/nftables 는 이 수집기 범위 밖)\n";
+                  << "' — 수집 생략\n";
         break;
     }
 

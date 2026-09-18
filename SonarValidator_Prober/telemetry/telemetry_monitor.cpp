@@ -107,6 +107,17 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
             body["agent"] = config.GetAgentName();
             body["kernel"] = config.GetKernelName();
 
+            // 서버가 벤더별 설정 파서를 고를 수 있도록 제품/장치 유형을 함께 보냅니다.
+            // (예: "OpenVSwitch" -> OpenVSwitchConfigParser, "FRR" -> FrrRouterConfigParser)
+            // 이 값이 없으면 서버는 어떤 파서를 쓸지 알 수 없어 설정 변환을 건너뜁니다.
+            const std::string product_name = config.GetProductName();
+            if (!product_name.empty())
+            {
+                body["product"] = product_name;
+                body["vendor"] = product_name;
+            }
+            body["device_type"] = envelope::DeviceTypeToString(config.GetDeviceType());
+
             // 조회 명령 실행 + 파싱은 collector 가 담당합니다.
             // 명령이 실패해도 예외를 던지지 않고 성공한 항목만 담아 돌려줍니다.
             const collector::CollectedState collected =
@@ -133,6 +144,17 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
             if (collected.arp.is_object())
             {
                 body["arp_table"] = collected.arp;
+            }
+            // 방화벽 규칙(nftables)과 OVS L2 토폴로지도 함께 보냅니다.
+            // 이 두 항목은 장치 유형별로만 수집되므로, 빠뜨리면 서버의 벤더별
+            // 설정 파서가 규칙/브리지 정보를 채우지 못해 전부 빈 값이 됩니다.
+            if (collected.rules.is_object())
+            {
+                body["firewall_rules"] = collected.rules;
+            }
+            if (collected.topology.is_object())
+            {
+                body["ovs_topology"] = collected.topology;
             }
 
             // 한 스냅샷에서 나온 모든 행이 같은 collected_at 을 쓰도록 한 번만 만듭니다.

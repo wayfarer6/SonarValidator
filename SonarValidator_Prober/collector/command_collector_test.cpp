@@ -304,7 +304,280 @@ void TestAristaSwitch()
 }
 
 // ---------------------------------------------------------------------------
-//  5) 실패/빈 입력에서도 예외 없이 부분 결과를 돌려준다
+//  5) FRR 라우터 (Alpine) — 호스트 커널 `ip ...` 로 수집
+//
+//  FRR 은 라우팅 데몬이고 실제 호스트 OS 는 리눅스(Alpine)다.
+//  따라서 NIC/라우팅/이웃을 `ip ...` 명령으로 그대로 수집해야 한다.
+//  (과거에는 ProductKind::kOther 로 분류되어 수집이 통째로 생략됐다.)
+// ---------------------------------------------------------------------------
+const char* kFrrKernelRoute =
+    "default via 192.168.122.1 dev eth0 metric 1 \n"
+    "10.10.128.0/21 nhid 30 via 10.99.10.4 dev eth1 proto ospf metric 20 \n"
+    "10.99.10.0/24 dev eth1 proto kernel scope link src 10.99.10.1 \n"
+    "172.16.255.0/24 dev eth7 proto kernel scope link src 172.16.255.1 \n";
+
+void TestFrrRouter()
+{
+    std::cout << "\n--- FRR 라우터 (Alpine, 커널 명령) ---\n";
+
+    const std::map<std::string, std::string> outputs = {
+        {"ip a", kIpAddrSample},
+        {"ip route show", kFrrKernelRoute},
+        {"ip neigh show", kIpNeighSample},
+    };
+
+    const collector::CollectedState state =
+        collector::BuildStateFromOutputs(DeviceType::kRouter, "FRR", outputs);
+
+    assert(state.any_success);
+
+    // 라우팅 — 라우트 코드가 없어도 IpAddr 경로로 파싱되어야 한다.
+    assert(state.route.is_object());
+    assert(state.route.contains("routes"));
+    assert(state.route["routes"].size() == 4);
+    assert(state.route["routes"][0]["is_default"].get<bool>());
+    assert(state.route["routes"][0]["via"].get<std::string>() == "192.168.122.1");
+    assert(state.route["routes"][1]["protocol"].get<std::string>() == "ospf");
+    assert(state.route["routes"][1]["destination"].get<std::string>() == "10.10.128.0/21");
+
+    // NIC / 주소 — 커널 `ip a` 결과를 그대로 쓴다.
+    assert(state.nic.is_object());
+    assert(state.nic.contains("interfaces"));
+    assert(!state.nic["interfaces"].empty());
+
+    assert(state.snapshot.contains("route_status"));
+    assert(state.snapshot.contains("nic_status"));
+    assert(state.snapshot.contains("arp_table"));
+    assert(state.snapshot["vendor"].get<std::string>() == "FRR");
+
+    std::cout << "[ ok ] FRR: 라우트 " << state.route["routes"].size() << "건 수집, "
+              << "NIC " << state.nic["interfaces"].size() << "건\n";
+}
+
+// ---------------------------------------------------------------------------
+//  6) nftables 방화벽 (Alpine) — 커널 명령 + nft 규칙
+//
+//  방화벽도 호스트 OS 는 Alpine 리눅스다. NIC/라우팅/이웃은 `ip ...` 로,
+//  필터 규칙은 `nft list ruleset` 으로 수집한다.
+//  (과거에는 ProductKind::kOther 로 분류되어 수집이 통째로 생략됐다.)
+// ---------------------------------------------------------------------------
+const char* kNftRuleset =
+    "table inet filter {\n"
+    "  chain input {\n"
+    "    type filter hook input priority 0; policy drop;\n"
+    "    iifname \"lo\" accept\n"
+    "    ct state established,related accept\n"
+    "    tcp dport 22 accept\n"
+    "  }\n"
+    "  chain forward {\n"
+    "    type filter hook forward priority 0; policy accept;\n"
+    "    ip saddr 10.10.131.0/24 drop\n"
+    "  }\n"
+    "}\n";
+
+void TestFirewall()
+{
+    std::cout << "\n--- nftables 방화벽 (Alpine, 커널 명령 + nft) ---\n";
+
+    const std::map<std::string, std::string> outputs = {
+        {"ip a", kIpAddrSample},
+        {"ip route show", kFrrKernelRoute},
+        {"ip neigh show", kIpNeighSample},
+        {"nft list ruleset", kNftRuleset},
+    };
+
+    const collector::CollectedState state =
+        collector::BuildStateFromOutputs(DeviceType::kFirewall, "nftables", outputs);
+
+    assert(state.any_success);
+
+    // 규칙 — tables 배열이 스냅샷에 실려야 한다.
+    assert(state.rules.is_object());
+    assert(state.rules.contains("tables"));
+    assert(!state.rules["tables"].empty());
+    assert(state.snapshot.contains("firewall_rules"));
+
+    // NIC / 라우팅 / ARP 도 함께 수집된다.
+    assert(state.nic.is_object());
+    assert(state.route.is_object());
+    assert(state.route["routes"].size() == 4);
+    assert(state.arp.is_object());
+    assert(state.snapshot.contains("route_status"));
+    assert(state.snapshot.contains("nic_status"));
+    assert(state.snapshot["vendor"].get<std::string>() == "nftables");
+
+    std::cout << "[ ok ] 방화벽: 규칙 테이블 " << state.rules["tables"].size()
+              << "개, 라우트 " << state.route["routes"].size() << "건 수집\n";
+}
+
+// ---------------------------------------------------------------------------
+//  7) Open vSwitch 스위치 (컨테이너) — ovs-vsctl 로 L2 설정 수집
+//
+//  VSwitch 스위치는 L2 전면이라 관리 IP/라우팅이 없다. 대신 포트의
+//  tag(액세스 VLAN)/trunks(트렁크 허용 VLAN)가 L2 설정의 전부다.
+//  과거에는 ProductKind::kOther 로 분류되어 수집이 통째로 생략됐다.
+//  아래 샘플은 GNS3 랩의 Switch-0/ Switch-1 에서 실제로 캡처한 출력이다.
+// ---------------------------------------------------------------------------
+const char* kOvsShowAccessSwitch =
+    "eb51961d-7e75-46bf-9811-fab71eafc5da\n"
+    "    Bridge br0\n"
+    "        Port eth0\n"
+    "            tag: 10\n"
+    "            Interface eth0\n"
+    "        Port eth3\n"
+    "            tag: 10\n"
+    "            Interface eth3\n"
+    "        Port br0\n"
+    "            Interface br0\n"
+    "                type: internal\n"
+    "        Port eth4\n"
+    "            tag: 10\n"
+    "            Interface eth4\n";
+
+// Switch-1 — 업링크가 트렁크, 나머지는 액세스
+const char* kOvsShowTrunkSwitch =
+    "132ed848-9126-42a3-a136-fb54dfcb07f6\n"
+    "    Bridge br0\n"
+    "        Port br0\n"
+    "            Interface br0\n"
+    "                type: internal\n"
+    "        Port eth0\n"
+    "            trunks: [111, 112]\n"
+    "            Interface eth0\n"
+    "        Port eth1\n"
+    "            tag: 111\n"
+    "            Interface eth1\n"
+    "        Port eth2\n"
+    "            tag: 112\n"
+    "            Interface eth2\n";
+
+// `ovs-vsctl list port` — 속성 레코드가 `--` 없이 빈 줄로 나뉜다.
+const char* kOvsListPort =
+    "_uuid               : 14c38928-d7e2-4caf-9dea-34a27eed1610\n"
+    "name                : eth3\n"
+    "tag                 : 10\n"
+    "trunks              : []\n"
+    "vlan_mode           : []\n"
+    "\n"
+    "_uuid               : eb41023c-e279-4bd2-9a31-1a652c82cd28\n"
+    "name                : eth1\n"
+    "tag                 : 111\n"
+    "trunks              : []\n"
+    "vlan_mode           : []\n"
+    "\n"
+    "_uuid               : f510417f-e978-42df-8974-90afdec15110\n"
+    "name                : eth0\n"
+    "tag                 : []\n"
+    "trunks              : [111, 112]\n"
+    "vlan_mode           : []\n";
+
+void TestOpenVSwitchSwitch()
+{
+    std::cout << "\n--- Open vSwitch 스위치 (ovs-vsctl) ---\n";
+
+    // (a) 액세스 전용 스위치 (Switch-0)
+    {
+        const std::map<std::string, std::string> outputs = {
+            {"ovs-vsctl show", kOvsShowAccessSwitch},
+            {"ovs-vsctl list port", ""},
+            {"ip a", kIpAddrSample},
+        };
+
+        const collector::CollectedState state =
+            collector::BuildStateFromOutputs(DeviceType::kSwitch, "OpenVSwitch", outputs);
+
+        assert(state.any_success);
+        // 모든 포트가 tag=10 하나이므로 VLAN 은 1개로 모인다.
+        assert(Count(state.vlan, "vlans") == 1);
+        assert(state.vlan["vlans"][0]["vlan_id"].get<int>() == 10);
+        assert(Count(state.vlan["vlans"][0], "ports") == 3);
+
+        // br0 내부 포트는 tag/trunks 가 없으므로 제외된다.
+        assert(Count(state.trunk, "ports") == 3);
+        assert(state.trunk["ports"][0]["mode"].get<std::string>() == "access");
+        assert(state.trunk["ports"][0]["access_vlan"].get<int>() == 10);
+
+        assert(state.snapshot.contains("vlan_status"));
+        assert(state.snapshot.contains("trunk_status"));
+        assert(state.snapshot.contains("ovs_topology"));
+        assert(state.snapshot["vendor"].get<std::string>() == "OpenVSwitch");
+
+        std::cout << "[ ok ] Switch-0: VLAN " << state.vlan["vlans"].size() << "개, 포트 "
+                  << state.trunk["ports"].size() << "개\n";
+    }
+
+    // (b) 트렁크 + 액세스 혼합 스위치 (Switch-1)
+    {
+        const std::map<std::string, std::string> outputs = {
+            {"ovs-vsctl show", kOvsShowTrunkSwitch},
+            {"ip a", kIpAddrSample},
+        };
+
+        const collector::CollectedState state =
+            collector::BuildStateFromOutputs(DeviceType::kSwitch, "OpenVSwitch", outputs);
+
+        assert(state.any_success);
+        // tag 111, 112 액세스 포트 2개 -> VLAN 2개
+        assert(Count(state.vlan, "vlans") == 2);
+        assert(state.vlan["vlans"][0]["vlan_id"].get<int>() == 111);
+        assert(state.vlan["vlans"][1]["vlan_id"].get<int>() == 112);
+
+        // eth0(트렁크) + eth1/eth2(액세스) = 3개. br0 는 제외.
+        assert(Count(state.trunk, "ports") == 3);
+
+        // 트렁크 포트를 찾아 허용 VLAN 을 확인한다.
+        bool trunk_found = false;
+        for (const Json& port : state.trunk["ports"])
+        {
+            if (port["name"].get<std::string>() == "eth0")
+            {
+                trunk_found = true;
+                assert(port["mode"].get<std::string>() == "trunk");
+                assert(Count(port, "trunk_vlans") == 2);
+                assert(port["trunk_vlans"][0].get<int>() == 111);
+                assert(port["trunk_vlans"][1].get<int>() == 112);
+            }
+        }
+        assert(trunk_found);
+
+        std::cout << "[ ok ] Switch-1: VLAN " << state.vlan["vlans"].size() << "개, 포트 "
+                  << state.trunk["ports"].size() << "개 (트렁크 포함)\n";
+    }
+
+    // (c) `ovs-vsctl list port` 폴백 — show 가 실패한 경우
+    {
+        const std::map<std::string, std::string> outputs = {
+            {"ovs-vsctl show", ""},
+            {"ovs-vsctl list port", kOvsListPort},
+        };
+
+        const collector::CollectedState state =
+            collector::BuildStateFromOutputs(DeviceType::kSwitch, "OpenVSwitch", outputs);
+
+        assert(state.any_success);
+        // eth3(tag10), eth1(tag111) -> VLAN 2개. eth0 는 트렁크라 tag 없음.
+        assert(Count(state.vlan, "vlans") == 2);
+        assert(Count(state.trunk, "ports") == 3);
+        assert(state.snapshot.contains("ovs_ports"));
+
+        bool trunk_found = false;
+        for (const Json& port : state.trunk["ports"])
+        {
+            if (port["name"].get<std::string>() == "eth0")
+            {
+                trunk_found = true;
+                assert(port["mode"].get<std::string>() == "trunk");
+            }
+        }
+        assert(trunk_found);
+
+        std::cout << "[ ok ] list port 폴백: VLAN " << state.vlan["vlans"].size() << "개, 포트 "
+                  << state.trunk["ports"].size() << "개\n";
+    }
+}
+
+// ---------------------------------------------------------------------------
+//  8) 실패/빈 입력에서도 예외 없이 부분 결과를 돌려준다
 // ---------------------------------------------------------------------------
 void TestRobustness()
 {
@@ -362,6 +635,9 @@ int main()
     TestLinuxBriefFallback();
     TestCiscoRouter();
     TestAristaSwitch();
+    TestFrrRouter();
+    TestFirewall();
+    TestOpenVSwitchSwitch();
     TestRobustness();
 
     std::cout << "\n총 검사 " << g_checks << "건, 실패 " << g_failures << "건\n";

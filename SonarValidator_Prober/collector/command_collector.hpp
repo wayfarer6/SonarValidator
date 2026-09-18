@@ -44,6 +44,8 @@ struct CollectedState
     nlohmann::json vlan;        // vlan_status 용 ("vlans")
     nlohmann::json trunk;       // trunk_status 용 ("ports")
     nlohmann::json arp;         // arp_table 용 ("entries")
+    nlohmann::json rules;       // 방화벽 규칙 (nftables, "chains"/"rules")
+    nlohmann::json topology;    // OpenVSwitch L2 토폴로지 ("bridges")
     bool any_success = false;   // 수집에 성공한 항목이 하나라도 있는지
 };
 

@@ -1,5 +1,5 @@
 
-// Generated from /home/osboxes/SonarValidator/SonarValidator_Prober/parser/grammar/SwitchTopology.g4 by ANTLR 4.13.2
+// Generated from /home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Prober/parser/grammar/SwitchTopology.g4 by ANTLR 4.13.1
 
 
 #include "SwitchTopologyLexer.h"
@@ -45,7 +45,7 @@ struct SwitchTopologyLexerStaticData final {
 #if ANTLR4_USE_THREAD_LOCAL_CACHE
 static thread_local
 #endif
-std::unique_ptr<SwitchTopologyLexerStaticData> switchtopologylexerLexerStaticData = nullptr;
+SwitchTopologyLexerStaticData *switchtopologylexerLexerStaticData = nullptr;
 
 void switchtopologylexerLexerInitialize() {
 #if ANTLR4_USE_THREAD_LOCAL_CACHE
@@ -189,7 +189,7 @@ void switchtopologylexerLexerInitialize() {
   for (size_t i = 0; i < count; i++) { 
     staticData->decisionToDFA.emplace_back(staticData->atn->getDecisionState(i), i);
   }
-  switchtopologylexerLexerStaticData = std::move(staticData);
+  switchtopologylexerLexerStaticData = staticData.release();
 }
 
 }
