@@ -22,6 +22,21 @@ document      : item* EOF ;
 briefDocument : item* EOF ;
 routeDocument : item* EOF ;
 
+/* ARP/이웃 테이블
+ *   `ip neigh show` (Linux)
+ *     10.0.9.1 dev ens3 lladdr 0c:2d:07:65:99:f3 REACHABLE
+ *   `show arp` (Arista)
+ *     172.18.10.1       2:31:51  0cae.21dd.0001  Ethernet1
+ *   `show ip arp` (Cisco)
+ *     Protocol  Address    Age (min)  Hardware Addr   Type   Interface
+ *     Internet  10.20.0.4  -          0c2d.0765.99f3  ARPA   GigabitEthernet4
+ */
+arpDocument : (arpEntry | genericLine | blank)* EOF ;
+
+/* 선두 주소 + 나머지 필드. 세부 해석은 visitor 가 담당한다. */
+arpEntry : arpAddress elem* NEWLINE ;
+arpAddress : ADDR | IFNAME ;
+
 item : ifaceHeader
      | ifaceAttr
      | briefEntry

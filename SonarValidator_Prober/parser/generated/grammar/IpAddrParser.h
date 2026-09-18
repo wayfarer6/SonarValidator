@@ -18,10 +18,11 @@ public:
   };
 
   enum {
-    RuleDocument = 0, RuleBriefDocument = 1, RuleRouteDocument = 2, RuleItem = 3, 
-    RuleIfaceHeader = 4, RuleIfaceAttr = 5, RuleAttrLead = 6, RuleBriefEntry = 7, 
-    RuleLinkState = 8, RuleBriefAddr = 9, RuleRouteEntry = 10, RuleRouteHead = 11, 
-    RuleIfname = 12, RuleGenericLine = 13, RuleBlank = 14, RuleElem = 15
+    RuleDocument = 0, RuleBriefDocument = 1, RuleRouteDocument = 2, RuleArpDocument = 3, 
+    RuleArpEntry = 4, RuleArpAddress = 5, RuleItem = 6, RuleIfaceHeader = 7, 
+    RuleIfaceAttr = 8, RuleAttrLead = 9, RuleBriefEntry = 10, RuleLinkState = 11, 
+    RuleBriefAddr = 12, RuleRouteEntry = 13, RuleRouteHead = 14, RuleIfname = 15, 
+    RuleGenericLine = 16, RuleBlank = 17, RuleElem = 18
   };
 
   explicit IpAddrParser(antlr4::TokenStream *input);
@@ -44,6 +45,9 @@ public:
   class DocumentContext;
   class BriefDocumentContext;
   class RouteDocumentContext;
+  class ArpDocumentContext;
+  class ArpEntryContext;
+  class ArpAddressContext;
   class ItemContext;
   class IfaceHeaderContext;
   class IfaceAttrContext;
@@ -102,6 +106,55 @@ public:
   };
 
   RouteDocumentContext* routeDocument();
+
+  class  ArpDocumentContext : public antlr4::ParserRuleContext {
+  public:
+    ArpDocumentContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *EOF();
+    std::vector<ArpEntryContext *> arpEntry();
+    ArpEntryContext* arpEntry(size_t i);
+    std::vector<GenericLineContext *> genericLine();
+    GenericLineContext* genericLine(size_t i);
+    std::vector<BlankContext *> blank();
+    BlankContext* blank(size_t i);
+
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  ArpDocumentContext* arpDocument();
+
+  class  ArpEntryContext : public antlr4::ParserRuleContext {
+  public:
+    ArpEntryContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    ArpAddressContext *arpAddress();
+    antlr4::tree::TerminalNode *NEWLINE();
+    std::vector<ElemContext *> elem();
+    ElemContext* elem(size_t i);
+
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  ArpEntryContext* arpEntry();
+
+  class  ArpAddressContext : public antlr4::ParserRuleContext {
+  public:
+    ArpAddressContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *ADDR();
+    antlr4::tree::TerminalNode *IFNAME();
+
+
+    virtual std::any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  ArpAddressContext* arpAddress();
 
   class  ItemContext : public antlr4::ParserRuleContext {
   public:

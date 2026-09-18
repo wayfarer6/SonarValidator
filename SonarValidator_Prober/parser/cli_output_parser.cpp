@@ -198,6 +198,38 @@ bool LooksLikeMac(const std::string& token)
     return std::count(token.begin(), token.end(), ':') >= 5;
 }
 
+// IP 주소(CIDR 포함) 형태인지 판별한다.
+//  `10.10.131.1`, `10.10.131.1/24`, `fe80::1/64` -> true
+//  `eth1.131` 처럼 점이 하나뿐인 이름 -> false (인터페이스명으로 취급해야 함)
+bool LooksLikeIp(const std::string& token)
+{
+    if (token.find(':') != std::string::npos)
+    {
+        return true;  // IPv6 / MAC
+    }
+
+    std::string bare = token;
+    const std::size_t slash = bare.find('/');
+    if (slash != std::string::npos)
+    {
+        bare = bare.substr(0, slash);
+    }
+
+    std::size_t dots = 0;
+    for (const char ch : bare)
+    {
+        if (ch == '.')
+        {
+            ++dots;
+        }
+        else if (std::isdigit(static_cast<unsigned char>(ch)) == 0)
+        {
+            return false;
+        }
+    }
+    return dots == 3;  // 점 4개 옥텟이면 IPv4
+}
+
 // ============================================================================
 // 파싱 세션
 //
@@ -421,52 +453,66 @@ void ApplyLinkLine(const std::vector<std::string>& tokens, Json& iface)
 }
 
 // `inet 10.10.131.1/24 scope global eth1.131`
-Json ParseAddressLine(const std::vector<std::string>& tokens)
-{
-    Json address = Json::object();
-    if (tokens.size() < 2)
+    // `inet6 ::1/128 scope host noprefixroute`   <- 인터페이스명 없음
+    Json ParseAddressLine(const std::vector<std::string>& tokens)
     {
+        Json address = Json::object();
+        if (tokens.size() < 2)
+        {
+            return address;
+        }
+
+        address["family"] = tokens[0];  // inet / inet6
+        std::string bare;
+        int prefix_len = -1;
+        if (SplitCidr(TrimPunct(tokens[1]), bare, prefix_len))
+        {
+            address["address"] = bare;
+            if (prefix_len >= 0)
+            {
+                address["prefix_len"] = prefix_len;
+            }
+        }
+
+        // scope 값 뒤에 오는 토큰이 인터페이스명이다.
+        // scope 뒤에 바로 수명/속성 토큰이 오면 인터페이스명이 없는 것이다.
+        static const char* kNonIface[] = {
+            "global", "host", "link", "forever", "noprefixroute",
+            "dynamic", "secondary", "temporary", "mngtmpaddr", "nodad",
+            "metric", "brd", "proto", "deprecated"};
+
+        for (std::size_t i = 2; i + 1 < tokens.size(); ++i)
+        {
+            if (tokens[i] == "scope")
+            {
+                address["scope"] = TrimPunct(tokens[i + 1]);
+                // scope 값 다음 토큰이 인터페이스명일 수 있다.
+                if (i + 2 < tokens.size())
+                {
+                    const std::string candidate = TrimPunct(tokens[i + 2]);
+                    bool is_attr = false;
+                    for (const char* skip : kNonIface)
+                    {
+                        if (candidate == skip)
+                        {
+                            is_attr = true;
+                            break;
+                        }
+                    }
+                    if (!is_attr && !candidate.empty() && !IsNumber(candidate) &&
+                        !LooksLikeIp(candidate))
+                    {
+                        address["interface"] = candidate;
+                    }
+                }
+            }
+            else if (tokens[i] == "peer")
+            {
+                address["peer"] = TrimPunct(tokens[i + 1]);
+            }
+        }
         return address;
     }
-
-    address["family"] = tokens[0];  // inet / inet6
-    std::string bare;
-    int prefix_len = -1;
-    if (SplitCidr(TrimPunct(tokens[1]), bare, prefix_len))
-    {
-        address["address"] = bare;
-        if (prefix_len >= 0)
-        {
-            address["prefix_len"] = prefix_len;
-        }
-    }
-
-    bool scope_seen = false;
-    for (std::size_t i = 2; i + 1 < tokens.size(); ++i)
-    {
-        if (tokens[i] == "scope")
-        {
-            address["scope"] = TrimPunct(tokens[i + 1]);
-            scope_seen = true;
-        }
-        else if (tokens[i] == "peer")
-        {
-            address["peer"] = TrimPunct(tokens[i + 1]);
-        }
-    }
-
-    // 마지막 토큰이 인터페이스명인 경우 (inet 10.10.131.1/24 scope global eth1.131)
-    if (scope_seen && tokens.size() > 2)
-    {
-        const std::string last = TrimPunct(tokens.back());
-        if (last != "global" && last != "host" && last != "link" &&
-            last != "forever" && !IsNumber(last) && !LooksLikeMac(last))
-        {
-            address["interface"] = last;
-        }
-    }
-    return address;
-}
 
 // `valid_lft forever preferred_lft forever` -> 가장 최근 주소에 수명 정보를 채운다
 void ApplyLifetimeLine(const std::vector<std::string>& tokens, Json& iface)
@@ -984,7 +1030,19 @@ public:
     {
         if (ctx->briefEntry() != nullptr)
         {
-            interfaces.push_back(ParseBriefEntryTokens(session->TokensOf(ctx->briefEntry())));
+            const std::vector<std::string> tokens = session->TokensOf(ctx->briefEntry());
+            // 컬럼 헤더/구분선을 인터페이스로 오인하지 않는다.
+            //   `Interface   IP-Address   OK? Method Status Protocol`
+            //   `            Address`            <- Arista 는 첫 줄이 비어 있다
+            //   `--------- -------------------- ------------ ...`
+            const Json entry = ParseBriefEntryTokens(tokens);
+            const std::string name = entry.value("name", std::string{});
+            if (name == "Interface" || name == "Address" || name == "Name" ||
+                name.rfind("---", 0) == 0 || name == "unassigned")
+            {
+                return {};
+            }
+            interfaces.push_back(entry);
         }
         return {};
     }
@@ -1780,7 +1838,16 @@ public:
     {
         if (ctx->briefEntry() != nullptr)
         {
-            interfaces.push_back(ParseBriefEntryTokens(session->TokensOf(ctx->briefEntry())));
+            const std::vector<std::string> tokens = session->TokensOf(ctx->briefEntry());
+            // 컬럼 헤더(`Interface IP Address Status Protocol MTU Owner`)를
+            // 인터페이스로 오인하지 않는다.
+            const Json entry = ParseBriefEntryTokens(tokens);
+            const std::string name = entry.value("name", std::string{});
+            if (name == "Interface" || name == "Address" || name == "Name")
+            {
+                return {};
+            }
+            interfaces.push_back(entry);
         }
         return {};
     }
@@ -1794,7 +1861,9 @@ public:
 
         const std::vector<std::string> tokens = session->TokensOf(ctx->portEntry());
 
-        // `interface Ethernet1` 형태 -> 새 포트 레코드
+        // ---------------------------------------------------------------
+        // 1) `interface Ethernet1` 형태 (IOS 스타일) -> 새 포트 레코드
+        // ---------------------------------------------------------------
         if (ctx->portEntry()->INTERFACE() != nullptr)
         {
             Json port = Json::object();
@@ -1808,12 +1877,6 @@ public:
             return {};
         }
 
-        // `Access Mode VLAN: 99 (TRANSIT)` 형태
-        if (current_port == nullptr)
-        {
-            return {};
-        }
-
         const std::string line = session->LineOf(ctx->portEntry());
         const auto [key, value] = SplitAttr(line);
         if (key.empty())
@@ -1821,15 +1884,38 @@ public:
             return {};
         }
 
+        // ---------------------------------------------------------------
+        // 2) Arista 는 `Name: Et2` 로 포트 블록을 시작한다.
+        //    (실제 장비 출력 기준) 이 줄에서 새 포트 레코드를 만든다.
+        // ---------------------------------------------------------------
         if (key == "Name")
         {
-            (*current_port)["name"] = Unquote(value);
+            Json port = Json::object();
+            port["name"] = Unquote(value);
+            port["trunk_vlans"] = Json::array();
+            ports.push_back(std::move(port));
+            current_port = &ports.back();
+            return {};
         }
-        else if (key == "Switchport")
+
+        // 포트 블록 이전의 전역 설정 줄(Default switchport mode 등)은 버린다.
+        if (current_port == nullptr)
+        {
+            return {};
+        }
+
+        // 키 표기 차이 흡수:
+        //   IOS    : `Access Mode VLAN: 99`  / `Trunking VLANs Enabled: 111,112`
+        //   Arista : `Access Mode VLAN: 8 (VLAN8)`
+        //            `Trunking VLANs Enabled: ALL`
+        //            `Administrative Mode: static access`
+        //            `Operational Mode: static access`
+        if (key == "Switchport")
         {
             (*current_port)["admin_enabled"] = (Unquote(value) == "Enabled");
         }
-        else if (key == "Administrative Mode")
+        else if (key.find("Administrative Mode") != std::string::npos &&
+                 key.find("Native") == std::string::npos)
         {
             const std::string mode = Unquote(value);
             if (mode.find("trunk") != std::string::npos)
@@ -1851,16 +1937,41 @@ public:
         }
         else if (key.find("Access Mode VLAN") != std::string::npos)
         {
-            const std::vector<int> vlans = ParseVlanNumbers(value);
-            if (!vlans.empty())
+            // `8 (VLAN8)` 에서 괄호 앞 숫자만 VLAN ID 다.
+            // (ParseVlanNumbers 를 그대로 쓰면 괄호 안 이름의 숫자까지 이어붙어
+            //  `8 (VLAN8)` -> 88 이 되는 버그가 생긴다.)
+            const std::size_t paren = value.find('(');
+            const std::string id_text = Trim(paren == std::string::npos
+                                                 ? value
+                                                 : value.substr(0, paren));
+            if (IsNumber(id_text))
             {
-                (*current_port)["access_vlan"] = vlans.front();
+                (*current_port)["access_vlan"] = std::stoi(id_text);
+            }
+
+            // 괄호 안 이름도 보존한다(`8 (VLAN8)` -> access_vlan_name=VLAN8)
+            const std::size_t close = value.find(')', paren);
+            if (paren != std::string::npos && close != std::string::npos &&
+                close > paren + 1)
+            {
+                (*current_port)["access_vlan_name"] =
+                    value.substr(paren + 1, close - paren - 1);
             }
         }
         else if (key.find("Trunking VLANs Enabled") != std::string::npos ||
                  key.find("Trunking VLANs Active") != std::string::npos)
         {
-            (*current_port)["trunk_vlans"] = VlanJson(ParseVlanNumbers(value));
+            // Arista 는 `ALL` 로 표기하므로 그대로 문자열로도 남긴다.
+            const std::string trunk_text = Unquote(value);
+            if (trunk_text == "ALL" || trunk_text.empty())
+            {
+                (*current_port)["trunk_vlans_all"] = (trunk_text == "ALL");
+                (*current_port)["trunk_vlans"] = Json::array();
+            }
+            else
+            {
+                (*current_port)["trunk_vlans"] = VlanJson(ParseVlanNumbers(trunk_text));
+            }
         }
         else if (key.find("Administrative Trunking Encapsulation") != std::string::npos)
         {
@@ -1877,7 +1988,350 @@ public:
 }  // namespace
 
 // ============================================================================
-// 공개 API
+// ARP / 이웃 테이블 — `ip neigh show`, `show arp`, `show ip arp`
+//
+//  세 벤더의 출력 형식이 모두 다르다.
+//    Linux  : 10.0.9.1 dev ens3 lladdr 0c:2d:07:65:99:f3 REACHABLE
+//    Arista : 10.0.9.100  1:35:06  0cae.dcfd.0000  Vlan9, Ethernet3
+//    Cisco  : Internet  10.20.0.4  -  0c2d.0765.99f3  ARPA  GigabitEthernet4
+//  공통점은 "선두에 IP 주소"라는 것뿐이므로, 첫 토큰을 주소로 잡고
+//  나머지는 형태를 보고 해석한다.
+// ============================================================================
+
+namespace
+{
+
+// Arista/Cisco 형식의 하드웨어 주소(`0cae.21dd.0001`)를 콜론 표기로 바꾼다.
+//  0cae.21dd.0001 -> 0c:ae:21:dd:00:01
+std::string NormalizeHardwareAddress(const std::string& token)
+{
+    const std::string value = TrimPunct(token);
+
+    // 이미 콜론 표기(MAC)면 그대로 둔다.
+    if (std::count(value.begin(), value.end(), ':') >= 5)
+    {
+        return value;
+    }
+
+    // 점 2개로 3덩어리(4자리씩)면 Cisco/Arista 표기다.
+    if (std::count(value.begin(), value.end(), '.') != 2)
+    {
+        return value;
+    }
+
+    // 16진수만 모아 12자리면 2자리씩 콜론으로 구분한다.
+    std::string digits;
+    for (const char ch : value)
+    {
+        if (std::isxdigit(static_cast<unsigned char>(ch)) != 0)
+        {
+            digits.push_back(static_cast<char>(
+                std::tolower(static_cast<unsigned char>(ch))));
+        }
+    }
+    if (digits.size() != 12)
+    {
+        return value;
+    }
+
+    std::string normalized;
+    for (std::size_t i = 0; i < digits.size(); ++i)
+    {
+        if (i != 0 && i % 2 == 0)
+        {
+            normalized.push_back(':');
+        }
+        normalized.push_back(digits[i]);
+    }
+    return normalized;
+}
+
+// ARP 테이블의 컬럼 헤더/구분선인지 판별한다.
+//  Arista : `Address  Age (sec)  Hardware Addr  Interface`
+//  Cisco  : `Protocol  Address  Age (min)  Hardware Addr  Type  Interface`
+//  Linux  : 헤더 없음
+bool IsArpHeaderLine(const std::vector<std::string>& tokens)
+{
+    static const char* kHeaderWords[] = {
+        "Address", "Age", "Hardware", "Interface", "Protocol", "Type",
+        "Addr", "Vlan", "MAC", "HWaddr", "(sec)", "(min)"};
+
+    for (const auto& token : tokens)
+    {
+        const std::string value = TrimPunct(token);
+        for (const char* word : kHeaderWords)
+        {
+            if (value == word)
+            {
+                return true;
+            }
+        }
+        // `(sec)` `(min)` 처럼 괄호로 시작하는 단위 표기도 헤더의 일부다.
+        if (!value.empty() && value.front() == '(')
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// `2:31:51`(시:분:초) 형태의 age 인지 판별한다.
+bool LooksLikeAge(const std::string& token)
+{
+    if (std::count(token.begin(), token.end(), ':') != 2)
+    {
+        return false;
+    }
+    return std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+        return std::isdigit(ch) != 0 || ch == ':';
+    });
+}
+
+// MAC 주소 형태(콜론 5개 이상 또는 Cisco 점 표기)인지 판별한다.
+bool LooksLikeHardwareAddress(const std::string& token)
+{
+    const std::string value = TrimPunct(token);
+    if (std::count(value.begin(), value.end(), ':') >= 5)
+    {
+        return true;
+    }
+    return value.size() == 14 &&
+           std::count(value.begin(), value.end(), '.') == 2 &&
+           std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+               return std::isxdigit(static_cast<unsigned char>(ch)) != 0 || ch == '.';
+           });
+}
+
+// Linux `ip neigh` 의 상태 토큰
+bool IsNeighborState(const std::string& token)
+{
+    static const char* kStates[] = {
+        "REACHABLE", "STALE", "DELAY", "PROBE", "FAILED", "INCOMPLETE",
+        "NOARP", "PERMANENT", "NONE"};
+    for (const char* state : kStates)
+    {
+        if (token == state)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Cisco `show ip arp` 의 Type 컬럼
+bool IsArpType(const std::string& token)
+{
+    return token == "ARPA" || token == "SNAP" || token == "PROBE" ||
+           token == "STATIC" || token == "Dynamic" || token == "dynamic";
+}
+
+class ArpVisitor : public IpAddrBaseVisitor
+{
+public:
+    ParseSession<IpAddrLexer, IpAddrParser>* session{nullptr};
+    Json entries = Json::array();
+
+    std::any visitArpEntry(IpAddrParser::ArpEntryContext* ctx) override
+    {
+        // ArpEntryContext 자체가 한 줄이므로 LineOf(ctx) 를 그대로 쓴다.
+        const std::vector<std::string> tokens = session->TokensOf(ctx);
+        if (tokens.size() < 2)
+        {
+            return {};
+        }
+
+        // 컬럼 헤더/구분선은 항목이 아니다.
+        if (IsArpHeaderLine(tokens))
+        {
+            return {};
+        }
+
+        // 첫 토큰이 IP 가 아니면 (Cisco 의 `Internet` 같은 프로토콜 컬럼)
+        // 그 다음 토큰을 주소로 본다.
+        std::size_t address_index = 0;
+        if (!LooksLikeIp(TrimPunct(tokens[0])))
+        {
+            static const char* kProtocols[] = {
+                "Internet", "I", "ip", "ipv6", "IPv6", "Incomplete"};
+            bool is_protocol = false;
+            for (const char* protocol : kProtocols)
+            {
+                if (TrimPunct(tokens[0]) == protocol)
+                {
+                    is_protocol = true;
+                    break;
+                }
+            }
+            if (!is_protocol)
+            {
+                return {};
+            }
+            address_index = 1;
+            if (tokens.size() < 3)
+            {
+                return {};
+            }
+        }
+
+        Json entry = Json::object();
+        entry["address"] = TrimPunct(tokens[address_index]);
+        entry["family"] =
+            (tokens[address_index].find(':') != std::string::npos) ? "inet6" : "inet";
+
+        Json interfaces = Json::array();
+        std::string mac;
+        std::string state;
+        std::string age;
+        std::string type;
+        bool dev_seen = false;
+
+        for (std::size_t i = address_index + 1; i < tokens.size(); ++i)
+        {
+            std::string token = TrimPunct(tokens[i]);
+            if (token.empty())
+            {
+                continue;
+            }
+
+            // Linux: `dev <iface>` / `lladdr <mac>`
+            if (token == "dev")
+            {
+                dev_seen = true;
+                if (i + 1 < tokens.size())
+                {
+                    interfaces.push_back(TrimPunct(tokens[++i]));
+                }
+                continue;
+            }
+            if (token == "lladdr")
+            {
+                if (i + 1 < tokens.size())
+                {
+                    mac = NormalizeHardwareAddress(tokens[++i]);
+                }
+                continue;
+            }
+
+            // Arista: `Vlan9,` `Ethernet3` 처럼 인터페이스가 쉼표로 이어진다.
+            if (token.back() == ',')
+            {
+                token.pop_back();
+                if (!token.empty())
+                {
+                    interfaces.push_back(token);
+                }
+                continue;
+            }
+
+            // MAC (Cisco/Arista 점 표기 포함)
+            if (mac.empty() && LooksLikeHardwareAddress(token))
+            {
+                mac = NormalizeHardwareAddress(token);
+                continue;
+            }
+
+            // age (`2:31:51` Arista, `-` 또는 숫자 Cisco)
+            if (age.empty() && (LooksLikeAge(token) || IsNumber(token) || token == "-"))
+            {
+                age = token;
+                continue;
+            }
+
+            // 상태 (Linux)
+            if (state.empty() && IsNeighborState(token))
+            {
+                state = token;
+                continue;
+            }
+
+            // Type 컬럼 (Cisco)
+            if (type.empty() && IsArpType(token))
+            {
+                type = token;
+                continue;
+            }
+
+            // 남은 영문 토큰은 인터페이스명 후보로 본다.
+            // (`Protocol`/`Internet` 같은 헤더 토큰은 걸러낸다)
+            if (token != "Protocol" && token != "Internet" && token != "Address" &&
+                token != "Age" && token != "Hardware" && token != "Type" &&
+                token != "Interface" && token != "Addr" && token != "(min)" &&
+                token != "Vlan" && token != "vlan")
+            {
+                if (!dev_seen || interfaces.empty())
+                {
+                    interfaces.push_back(token);
+                }
+            }
+        }
+
+        if (!mac.empty())
+        {
+            entry["mac"] = mac;
+        }
+        if (!state.empty())
+        {
+            entry["state"] = state;
+        }
+        if (!age.empty())
+        {
+            entry["age"] = age;
+        }
+        if (!type.empty())
+        {
+            entry["type"] = type;
+        }
+        if (!interfaces.empty())
+        {
+            entry["interfaces"] = interfaces;
+            entry["interface"] = interfaces.front();
+        }
+
+        // 주소도 MAC 도 없으면 헤더/잡음 줄이다.
+        if (!entry.contains("address") || entry["address"].get<std::string>().empty())
+        {
+            return {};
+        }
+        if (mac.empty() && interfaces.empty())
+        {
+            return {};
+        }
+
+        entries.push_back(std::move(entry));
+        return {};
+    }
+};
+
+}  // namespace
+
+nlohmann::json ParseArpTable(const std::string& raw_output, Vendor /*vendor*/)
+{
+    ParseSession<IpAddrLexer, IpAddrParser> session(raw_output);
+    IpAddrParser& parser = session.Parser();
+
+    try
+    {
+        auto* tree = parser.arpDocument();
+        ArpVisitor visitor;
+        visitor.session = &session;
+        for (auto* item : tree->arpEntry())
+        {
+            visitor.visitArpEntry(item);
+        }
+
+        Json body = Json::object();
+        body["entries"] = visitor.entries;
+        body["entry_count"] = visitor.entries.size();
+        return AttachParseInfo(std::move(body), session);
+    }
+    catch (const std::exception& ex)
+    {
+        return MakeParseFailure(raw_output, ex.what());
+    }
+}
+
+// ============================================================================
+// 공개 API — NIC / 라우팅 / 인터페이스 / 스위치 / 방화벽
 // ============================================================================
 
 nlohmann::json ParseNicStatus(const std::string& raw_output)
@@ -1930,8 +2384,61 @@ nlohmann::json ParseNicBrief(const std::string& raw_output)
     }
 }
 
-nlohmann::json ParseRouteStatus(const std::string& raw_output, Vendor /*vendor*/)
+nlohmann::json ParseRouteStatus(const std::string& raw_output, Vendor vendor)
 {
+    // Linux `ip route show` 는 라우트 코드(O>*, C 등)가 없고
+    // `default via ... dev ... proto ...` 형태다.
+    // FRR/Cisco 문법으로는 코드가 없어 파싱되지 않으므로 IpAddr 문법을 쓴다.
+    if (vendor == Vendor::kUbuntu)
+    {
+        // IpAddr 문법의 routeDocument 를 사용한다.
+        //  NicVisitor 가 routeEntry 를 처리하므로 그 결과를 재사용한다.
+        ParseSession<IpAddrLexer, IpAddrParser> session(raw_output);
+        IpAddrParser& parser = session.Parser();
+        try
+        {
+            auto* tree = parser.routeDocument();
+            NicVisitor visitor;
+            visitor.session = &session;
+            for (auto* item : tree->item())
+            {
+                visitor.visitItem(item);
+            }
+
+            Json body = Json::object();
+            body["routes"] = visitor.routes;
+            body["route_count"] = visitor.routes.size();
+
+            Json protocols = Json::array();
+            for (const auto& route : visitor.routes)
+            {
+                if (route.contains("protocol") && route["protocol"].is_string())
+                {
+                    const std::string protocol = route["protocol"].get<std::string>();
+                    bool seen = false;
+                    for (const auto& existing : protocols)
+                    {
+                        if (existing.get<std::string>() == protocol)
+                        {
+                            seen = true;
+                            break;
+                        }
+                    }
+                    if (!seen)
+                    {
+                        protocols.push_back(protocol);
+                    }
+                }
+            }
+            body["protocols"] = protocols;
+            return AttachParseInfo(std::move(body), session);
+        }
+        catch (const std::exception& ex)
+        {
+            return MakeParseFailure(raw_output, ex.what());
+        }
+    }
+
     ParseSession<FrrRouterLexer, FrrRouterParser> session(raw_output);
     FrrRouterParser& parser = session.Parser();
 
@@ -2183,6 +2690,10 @@ nlohmann::json ParseQueryOutput(Vendor vendor,
     {
         return ParseFirewallRules(raw_output);
     }
+    if (target == "arp" || target == "neigh")
+    {
+        return ParseArpTable(raw_output, vendor);
+    }
 
     // target 미지정: 벤더 기본 조회로 폴백
     switch (vendor)
@@ -2201,6 +2712,68 @@ nlohmann::json ParseQueryOutput(Vendor vendor,
         break;
     }
     return ParseNicStatus(raw_output);
+}
+
+// ============================================================================
+// 벤더 이름 <-> Vendor 열거형
+//
+// 수집기(collector)는 ProberConfig::GetProductName() 만 알고 있으므로
+// 제품명 문자열과 Vendor 사이의 변환이 필요하다.
+// ProberConfig::DetectProductName() 이 만드는 문자열을 그대로 받는다.
+// ============================================================================
+
+Vendor VendorFromProductName(const std::string& product_name)
+{
+    if (product_name.find("Cisco") != std::string::npos)
+    {
+        return Vendor::kCisco;
+    }
+    if (product_name.find("Arista") != std::string::npos)
+    {
+        return Vendor::kArista;
+    }
+    if (product_name.find("FRR") != std::string::npos)
+    {
+        return Vendor::kFrr;
+    }
+    if (product_name.find("OpenVSwitch") != std::string::npos ||
+        product_name.find("Open vSwitch") != std::string::npos)
+    {
+        return Vendor::kOpenVSwitch;
+    }
+    if (product_name.find("nftables") != std::string::npos ||
+        product_name.find("nft") != std::string::npos)
+    {
+        return Vendor::kNftables;
+    }
+    if (product_name.find("Ubuntu") != std::string::npos ||
+        product_name.find("Linux") != std::string::npos)
+    {
+        return Vendor::kUbuntu;
+    }
+    return Vendor::kUnknown;
+}
+
+std::string VendorName(Vendor vendor)
+{
+    switch (vendor)
+    {
+    case Vendor::kOpenVSwitch:
+        return "OpenVSwitch";
+    case Vendor::kFrr:
+        return "FRR";
+    case Vendor::kCisco:
+        return "Cisco";
+    case Vendor::kArista:
+        return "Arista";
+    case Vendor::kNftables:
+        return "nftables";
+    case Vendor::kUbuntu:
+        return "Ubuntu";
+    case Vendor::kUnknown:
+        break;
+    }
+    return "Unknown";
 }
 
 }  // namespace cli_parser

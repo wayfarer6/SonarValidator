@@ -55,10 +55,20 @@ if(SONAR_ANTLR4_AVAILABLE)
         ${SONAR_ANTLR4_GENERATED_SOURCES})
 endif()
 
+# 수집기(collector) — 조회 명령 실행 + ANTLR 파서 호출.
+# 파서를 직접 호출하므로 ANTLR4 툴체인이 있을 때만 컴파일한다.
+set(SONAR_COLLECTOR_SOURCES "")
+if(SONAR_ANTLR4_AVAILABLE)
+    set(SONAR_COLLECTOR_SOURCES
+        collector/command_collector.cpp)
+endif()
+
 add_executable(sonar_validator_prober
     main.cpp
     prober_config.cpp
     database/database_service.cpp
+    database/schema.cpp
+    database/telemetry_store.cpp
     init.cpp
     management_service.cpp
     telemetry/telemetry_service.hpp
@@ -81,11 +91,14 @@ add_executable(sonar_validator_prober
     terminal_session.cpp
     vm/vm_service.hpp
     vm/vm_service.cpp
+    collector/command_collector.hpp
+    ${SONAR_COLLECTOR_SOURCES}
     ${SONAR_CLI_PARSER_SOURCES}
 )
 
 target_include_directories(sonar_validator_prober PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/collector
     ${CMAKE_CURRENT_SOURCE_DIR}/database
     ${CMAKE_CURRENT_SOURCE_DIR}/router
     ${CMAKE_CURRENT_SOURCE_DIR}/switch
@@ -119,6 +132,28 @@ add_executable(prober_config_test
 add_executable(database_service_test
     database/database_service_test.cpp
     database/database_service.cpp
+)
+
+# 수집 상태(라우팅/NIC/VLAN/트렁크/ARP) 저장 헬퍼 검증 테스트.
+# schema.cpp 로 테이블을 만든 뒤 실제로 INSERT 되는지, 키가 없을 때
+# 조용히 건너뛰는지(예외 없음)를 확인합니다.
+add_executable(telemetry_store_test
+    database/telemetry_store_test.cpp
+    database/telemetry_store.cpp
+    database/schema.cpp
+    database/database_service.cpp
+)
+
+# 스키마 DDL 을 표준 출력으로 내보내는 도구.
+# 템플릿 DB 를 코드와 같은 내용으로 맞출 때 사용합니다:
+#   ./build/schema_dump | sqlite3 Installer/default_template.sqlite
+add_executable(schema_dump
+    database/schema_dump.cpp
+    database/schema.cpp
+)
+
+target_include_directories(schema_dump PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 add_executable(routing_table_test
@@ -164,6 +199,16 @@ target_link_libraries(database_service_test PRIVATE
     SQLite::SQLite3
 )
 
+target_link_libraries(telemetry_store_test PRIVATE
+    SQLite::SQLite3
+    nlohmann_json::nlohmann_json
+)
+
+target_include_directories(telemetry_store_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/database
+)
+
 target_compile_definitions(database_service_test PRIVATE
     SONAR_VALIDATOR_PROBER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
@@ -174,6 +219,9 @@ target_link_libraries(routing_table_test PRIVATE
 
 add_test(NAME database_service_test
     COMMAND database_service_test)
+
+add_test(NAME telemetry_store_test
+    COMMAND telemetry_store_test)
 
 add_test(NAME routing_table_test
     COMMAND routing_table_test)
@@ -247,5 +295,65 @@ if(SONAR_ANTLR4_AVAILABLE)
 
     add_test(NAME cli_output_parser_test
         COMMAND cli_output_parser_test)
+
+    # 실제 장비 출력 검증용 CLI 도구 (node_probe.py 가 수집한 파일을 먹인다)
+    add_executable(cli_output_parser_probe
+        parser/cli_output_parser_probe.cpp
+        ${SONAR_CLI_PARSER_SOURCES}
+    )
+
+    target_include_directories(cli_output_parser_probe PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/parser
+        ${SONAR_ANTLR4_GENERATED_DIR}/grammar
+        ${ANTLR4_RUNTIME_ROOT}/include/antlr4-runtime
+    )
+
+    target_link_libraries(cli_output_parser_probe PRIVATE
+        nlohmann_json::nlohmann_json
+        ${SONAR_ANTLR4_RUNTIME_LIB}
+    )
+
+    # =========================================================================
+    #  수집기(command_collector) 테스트
+    #
+    #  docs/Agent_Command.md 의 실제 조회 출력 샘플을 BuildStateFromOutputs() 에
+    #  직접 넣고 검증한다. 장치/네트워크가 필요 없다.
+    #  CollectState() 가 ManagementService 의 명령 실행 메서드를 호출하므로
+    #  command_collector.cpp 를 링크하려면 management_service 도 함께 링크해야 한다.
+    #  ANTLR4 툴체인이 없으면 이 테스트는 생성되지 않는다.
+    # =========================================================================
+    add_executable(command_collector_test
+        collector/command_collector_test.cpp
+        collector/command_collector.cpp
+        management_service.cpp
+        prober_config.cpp
+        terminal_session.cpp
+        switch/switch.cpp
+        firewall/firewall.cpp
+        router/routing_table.cpp
+        ${SONAR_CLI_PARSER_SOURCES}
+    )
+
+    target_include_directories(command_collector_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/collector
+        ${CMAKE_CURRENT_SOURCE_DIR}/parser
+        ${CMAKE_CURRENT_SOURCE_DIR}/policy
+        ${CMAKE_CURRENT_SOURCE_DIR}/router
+        ${CMAKE_CURRENT_SOURCE_DIR}/switch
+        ${CMAKE_CURRENT_SOURCE_DIR}/firewall
+        ${CMAKE_CURRENT_SOURCE_DIR}/telemetry
+        ${SONAR_ANTLR4_GENERATED_DIR}/grammar
+        ${ANTLR4_RUNTIME_ROOT}/include/antlr4-runtime
+    )
+
+    target_link_libraries(command_collector_test PRIVATE
+        nlohmann_json::nlohmann_json
+        ${SONAR_ANTLR4_RUNTIME_LIB}
+    )
+
+    add_test(NAME command_collector_test
+        COMMAND command_collector_test)
 endif()
 

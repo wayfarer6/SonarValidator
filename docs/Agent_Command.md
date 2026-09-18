@@ -1214,3 +1214,168 @@ ARISTA#reload
   인지합니다. 라우터 쪽에 VLAN 상세를 내려보내지 않아야 내부망 구조 노출을 막을 수 있습니다.
 - **자동 수집 설정의 재편집**: 초기 스캔으로 수집한 설정은 프로젝트 생성 후 편집 가능해야 하므로,
   모든 제어 명령은 "현재 값 조회 → 변경 → 검증" 순서로 수행하고 결과를 서버에 `ReportPolicyApplied` 로 보고합니다.
+
+---
+
+## ANTLR 기반 조회 출력 파서 (`parser/`)
+
+조회 명령어 출력을 파싱해 JSON 으로 서버에 올리는 계층입니다. 제어(정책 적용)는 Spring 백엔드가
+직접 수행하고, 프로버는 **수집 전용**입니다.
+
+```
+parser/
+├── grammar/                     ANTLR4 문법 (읽기 전용 조회 출력 전용)
+│   ├── IpAddr.g4                ip a / ip -br addr / ip route
+│   ├── OvsTopology.g4           ovs-vsctl show / list port / dump-flows
+│   ├── FrrRouter.g4             show ip route / interface brief / interface
+│   ├── NftablesRule.g4          nft list ruleset
+│   └── SwitchTopology.g4        show vlan brief / ip interface brief / switchport
+├── generated/grammar/           빌드 시 자동 생성 (커밋하지 않음)
+├── cli_output_parser.{hpp,cpp}  파스 트리 → JSON 변환
+├── cli_output_parser_test.cpp   문법 샘플 검증 (131 항목)
+├── cli_output_parser_probe.cpp  실제 장비 출력 검증 CLI
+└── tools/node_probe.py          실제 노드 접속·조회·캡처 스크립트
+```
+
+### 빌드 요구사항
+
+ANTLR4 툴체인(jar + C++ 런타임)이 필요합니다. 없으면 문법 생성만 건너뛰고
+나머지는 정상 빌드됩니다(`SONAR_ANTLR4_AVAILABLE=FALSE`).
+
+| 항목 | 환경변수 | CMake 변수 | 기본 탐색 경로 |
+|---|---|---|---|
+| ANTLR jar | `ANTLR4_JAR` | `-DANTLR4_JAR=` | `~/tools/antlr.jar` |
+| C++ 런타임 | `ANTLR4_RUNTIME_ROOT` | `-DANTLR4_RUNTIME_ROOT=` | `~/tools/antlr4-install` |
+
+```bash
+cmake -S . -B build -DANTLR4_JAR=$HOME/tools/antlr.jar \
+      -DANTLR4_RUNTIME_ROOT=$HOME/tools/antlr4-install
+cmake --build build -j
+ctest --test-dir build -R cli_output_parser_test --output-on-failure
+```
+
+### 파서 진입점
+
+| 함수 | 대상 출력 | 주요 결과 필드 |
+|---|---|---|
+| `ParseNicStatus` | `ip a` | `interfaces[].{name,parent,mac,flags,mtu,state,addresses[]}` |
+| `ParseNicBrief` | `ip -br addr show` | `brief[].{name,state,addresses[],mac}` |
+| `ParseRouteStatus` | `show ip route` (FRR/Cisco) | `routes[].{protocol,selected,fib,prefix,metric,next_hop,interface_name}` |
+| `ParseInterfaceStatus` | `show ip interface brief` | `interfaces[].{name,ip_address,method,status,protocol}` |
+| `ParseOvsTopology` | `ovs-vsctl show` / `list port` | `bridges[].ports[].{tag,trunks,vlan_mode,interfaces[]}` |
+| `ParseSwitchVlan` | `show vlan brief` | `vlans[].{vlan_id,name,status,ports[]}` |
+| `ParseSwitchPorts` | `show interfaces switchport` | `ports[].{name,mode,access_vlan,trunk_vlans,admin_enabled}` |
+| `ParseFirewallRules` | `nft list ruleset` | `tables[].chains[].{type,hook,priority,policy,rules[]}` |
+| `ParseArpTable` | `ip neigh show` / `show arp` / `show ip arp` | `entries[].{address,mac,interface,interfaces[],state,age,type}` |
+
+모든 함수는 실패해도 예외를 던지지 않고 `{"parsed": false, "parse_error": ..., "raw": ...}`
+를 반환합니다. 부분 파싱 결과도 함께 담기므로 수집 루프가 멈추지 않습니다.
+
+> **`ParseRouteStatus` 의 벤더 차이**: `Vendor::kUbuntu` 를 넘기면 `ip route show` 형식
+> (`default via ... dev ... proto ...`)을 `IpAddr` 문법으로 파싱합니다.
+> FRR/Cisco 는 라우트 코드(`O>*`, `C` 등)가 있는 `show ip route` 형식을 씁니다.
+>
+> **ARP MAC 정규화**: Cisco/Arista 의 점 표기(`0cae.21dd.0001`)는
+> 콜론 표기(`0c:ae:21:dd:00:01`)로 자동 변환됩니다.
+
+### 수집기 (`collector/`)
+
+파서를 실제로 호출해 장치 상태를 모으는 계층입니다.
+
+| 함수 | 역할 |
+|---|---|
+| `CollectState(config, management_service)` | 벤더를 판별해 조회 명령을 실행하고 `CollectedState` 를 만듭니다 |
+| `BuildStateFromOutputs(device_type, product, outputs)` | 명령 출력 맵을 받아 파싱만 수행합니다 (테스트용, 장치 불필요) |
+
+`CollectedState` 는 `snapshot`(서버 전송용)과 `nic` / `route` / `vlan` / `trunk` / `arp`
+(DB 저장용)를 담습니다. 명령 하나가 실패해도 나머지는 계속 수집하고 `[COLLECT]` 로그를 남깁니다.
+
+**벤더별 실행 명령**
+
+| 벤더 | 실행기 | 명령 |
+|---|---|---|
+| Ubuntu / Alpine | `RunCommandOutput` | `ip a`, `ip -br addr show`, `ip route show`, `ip neigh show` |
+| Cisco 8000v | `ExecuteIosCli` (guestshell `dohost`) | `show ip interface brief`, `show ip route`, `show ip arp` |
+| Arista vEOS | `QueryAristaCli` (`FastCli` 파이프) | `show vlan brief`, `show ip interface brief`, `show interfaces switchport`, `show arp` |
+
+> **Arista 실행 방식 주의**: `FastCli` 를 pty 대화형 세션으로 다루면 프롬프트 타이밍에
+> 의존해 조회 출력을 얻지 못합니다(실측: 4건 모두 빈 결과).
+> `printf 'enable\n<cmd>\n' | timeout 20 FastCli` 파이프 방식으로 실행하고,
+> 출력에 섞이는 명령 에코와 `% Internal error at line N` 잡음은
+> `CleanAristaOutput()` 으로 제거한 뒤 파서에 넘깁니다.
+
+### SQLite 저장 (`database/`)
+
+수집한 스냅샷은 전송과 동시에 SQLite 에도 저장됩니다.
+
+| 테이블 | 저장 내용 | JSON 키 |
+|---|---|---|
+| `nic_info` | 인터페이스 (이름/인덱스/MAC/MTU/상태/플래그/부모) | `interfaces[]` |
+| `nic_address` | 인터페이스별 주소 (family/주소/prefix/scope) | `interfaces[].addresses[]` |
+| `route_table` | 라우팅 항목 (protocol/prefix/next_hop/metric/인터페이스) | `routes[]` |
+| `vlan_status` | VLAN (id/이름/상태/포트) | `vlans[]` |
+| `trunk_status` | 포트 모드 (mode/access_vlan/trunk_vlans/vlan_mode) | `ports[]` |
+| `arp_table` | ARP 항목 (주소/MAC/인터페이스/상태/age/type) | `entries[]` |
+
+- 한 번의 수집 = 태스크 하나 = **트랜잭션 하나**로 묶어 반쪽 저장을 막습니다.
+- `collected_at` 은 스냅샷 전체가 같은 시각을 공유합니다(`telemetry_store::CurrentUtcTimestamp()`).
+- 기존 설계 테이블(`vlan_table`, `nic_table` 등)은 수집기가 덮어쓰지 않습니다.
+  런타임 수집은 별도 테이블(`vlan_status` 등)에 쌓여 시계열 조회가 가능합니다.
+
+### 검증 도구
+
+| 도구 | 용도 |
+|---|---|
+| `tools/node_probe.py` | 실제 노드에 접속해 조회 명령을 실행하고 원문을 캡처 |
+| `tools/deploy_arista.sh` | Arista 에 프로버를 sftp 로 배포 (배포 후 sha256 검증) |
+| `tools/run_prober.sh` | Arista 에서 프로버를 실행하고 SQLite 수집 결과 요약 |
+| `tools/ws_collector.py` | 표준 라이브러리만으로 동작하는 WebSocket 수신기 (서버 전송 검증용) |
+| `cli_output_parser_probe` | 캡처한 원문을 파서에 통과시켜 JSON 확인 |
+
+
+### 실제 장비 검증 결과 (2026-09-18)
+
+`tools/node_probe.py` 로 실제 노드에서 조회한 원문을 `cli_output_parser_probe` 에 통과시킨 결과입니다.
+
+| 노드 | 접속 방식 | 검증한 명령 | 결과 |
+|---|---|---|---|
+| Arista vEOS (10.20.0.4) | SSH 키 인증 → `enable` → `bash` | `show vlan brief` | ✅ 4 VLAN, 포트 이어짐 병합 |
+| Arista vEOS | 동일 | `show ip interface brief` | ✅ 4 인터페이스 (헤더 줄 제외) |
+| Arista vEOS | 동일 | `show interfaces switchport` | ✅ 11 포트 (mode/access_vlan/trunk) |
+| Ubuntu 24.10 VM (10.0.9.100) | Arista 경유 nested SSH | `ip a`, `ip -br addr show` | ✅ 2 인터페이스, 주소/수명 파싱 |
+| Cisco 8000v (10.20.0.1) | SSH 인증 실패, GNS3 콘솔 미개방 | — | ⏸ 보류 (아래 참고) |
+
+**Ubuntu VM 접속 경로**: 프로버 호스트는 `10.0.9.0/24` 로 직접 라우팅되지 않습니다.
+Arista가 `vlan9`(10.0.9.1/24)를 들고 있어 `Arista bash → ssh ubuntu@10.0.9.100` 2단 접속으로 검증했습니다.
+실제 배포 시에도 동일 경로를 쓰거나, VM을 Arista 3번 포트 대역에 직접 연결해야 합니다.
+
+**Cisco 보류 사유**: 문서상 `cisco` 계정으로 SSH 비밀번호 인증이 실패하고,
+GNS3 콘솔 포트(`localhost:5018`)가 프로버 호스트에 열려 있지 않습니다.
+Cisco 경로는 `guestshell run ...` 형태이므로 아래를 확인한 뒤 재시도해야 합니다.
+- GNS3 서버가 프로버 호스트와 다른 곳에 있으면 그 호스트에서 `telnet localhost:5018`
+- 또는 10.20.0.1 의 SSH 계정명/비밀번호 재확인
+
+### 실제 출력 사용 시 확인된 처리 규칙
+
+실제 장비 출력을 넣어보며 문법·파서에 반영한 내용입니다.
+
+- **catch-all 토큰에서 `:` 제외**: `1:`(INDEX+COLON), `tag:`(ATTRWORD+COLON)이
+  한 토큰으로 뭉치면 구조 규칙이 매칭되지 않습니다.
+- **`IFNAME`/`ATTRWORD` 동점**: 문자집합이 같아 선언 순서에 따라 승자가 바뀝니다.
+  `Name:` 이 `IFNAME` 으로 잡히면 `portEntry(ATTRWORD COLON ...)` 이 실패하므로
+  키 자리에서 두 토큰을 모두 허용합니다.
+- **라우트 코드는 "코드+마커" 한 토큰**: `O>*` 를 `O`+`>`+`*` 로 쪼개면 3글자 catch-all 과
+  동점이 되어 `routeLine` 이 `genericLine` 으로 떨어집니다.
+- **Arista `Access Mode VLAN: 8 (VLAN8)`**: 괄호 앞 숫자만 VLAN ID 입니다.
+  괄호 안 이름의 숫자까지 이어 붙이면 `88` 이 되므로 `(` 앞까지만 취합니다.
+- **`noprefixroute`**: `inet6 ::1/128 scope host noprefixroute` 에서
+  `noprefixroute` 는 인터페이스명이 아니라 속성이므로 주소에 기록하지 않습니다.
+- **컬럼 헤더 제거**: `Interface`, `Address`, `---...` 줄은 인터페이스가 아니므로 제외합니다.
+- **명령 에코 제거**: 대화형 세션에서 되돌아온 `show ...` 첫 줄은 헤더로 오인되므로 제거합니다.
+
+### 읽기 전용 원칙
+
+이 파서 계층은 **명령을 실행하지 않습니다**. 장비 출력을 받아 JSON 으로 바꾸는 순수 함수만 제공합니다.
+따라서:
+- 장비에 SSH/telnet 접속·명령 실행은 `tools/node_probe.py`(검증용) 또는 향후 텔레메트리 수집기가 담당합니다.
+- 정책 적용/설정 변경은 이 계층에 존재하지 않으며 Spring 백엔드가 수행합니다.

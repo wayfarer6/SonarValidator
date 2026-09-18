@@ -83,12 +83,20 @@ briefField       : STATUSWORD ;
 
 portItem : portEntry | genericLine | blank ;
 
+/* `Name:`, `Access Mode VLAN:`, `Administrative Trunking Encapsulation:` 등
+ * 키는 1~4개 단어로 이루어지므로 keyWord+ COLON 형태로 받는다. */
 portEntry : INTERFACE ifname elem* NEWLINE
-          | ATTRWORD COLON elem* NEWLINE ;
+          | keyWord+ COLON elem* NEWLINE ;
 
 /* ------------------------------ 공통 ----------------------------- */
 
-ifname      : IFNAME | PORTNAME | IDENT ;
+/* IFNAME 과 ATTRWORD 는 같은 문자집합이라 어느 쪽으로 토큰화될지
+ * 선언 순서에 달렸다. 두 토큰을 모두 허용해 순서 의존성을 제거한다. */
+ifname      : IFNAME | ATTRWORD | PORTNAME | IDENT ;
+
+/* 키를 이루는 단어. IFNAME/ATTRWORD 는 같은 문자집합이라
+ * 어느 쪽으로 토큰화될지 선언 순서에 달렸으므로 둘 다 허용한다. */
+keyWord     : ATTRWORD | IFNAME | IDENT | VLAN | INTERFACE | STATUSWORD | NUMBER ;
 genericLine : elem+ NEWLINE ;
 blank       : NEWLINE ;
 elem        : ~NEWLINE ;
@@ -113,13 +121,19 @@ STATUSWORD : 'up' | 'down' | 'administratively' | 'deleted'
            | 'active' | 'act' | 'suspended'
            | 'YES' | 'NO' | 'NVRAM' | 'unset' | 'manual' ;
 
-IFNAME   : [a-zA-Z] [a-zA-Z0-9/._:-]* ;
-ATTRWORD : [a-zA-Z_] [a-zA-Z0-9_.:-]* ;
+/* ':' 를 포함하지 않는다. 포함하면 `Name:` 이 IFNAME 한 토큰이 되어
+ * portEntry(ATTRWORD COLON ...) 매칭이 깨진다. (vlanEntry 도 동일) */
+IFNAME   : [a-zA-Z] [a-zA-Z0-9/._-]* ;
+/* ':' 를 포함하지 않는다. 포함하면 `Name:` 이 한 토큰이 되어
+ * portEntry(ATTRWORD COLON ...) 매칭이 깨진다. */
+ATTRWORD : [a-zA-Z_] [a-zA-Z0-9_.-]* ;
 IDENT    : [a-zA-Z_] [a-zA-Z0-9_.-]* ;
 
-COMMA : ',' ;
-COLON : ':' ;
-SLASH : '/' ;
+COMMA  : ',' ;
+COLON  : ':' ;
+SLASH  : '/' ;
+LPAREN : '(' ;
+RPAREN : ')' ;
 
 fragment IPV4  : OCTET '.' OCTET '.' OCTET '.' OCTET ;
 fragment OCTET : [0-9]+ ;

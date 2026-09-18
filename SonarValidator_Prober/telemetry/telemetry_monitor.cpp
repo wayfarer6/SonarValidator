@@ -5,62 +5,17 @@
 #include <thread>
 
 #include <nlohmann/json.hpp>
-#include <sqlite3.h>
 
+#include "collector/command_collector.hpp"
 #include "database/database_service.hpp"
+#include "database/telemetry_store.hpp"
 #include "device_type.hpp"
 #include "envelope.hpp"
+#include "management_service.hpp"
 #include "prober_config.hpp"
 #include "telemetry/telemetry_service.hpp"
-#include "vm/vm_service.hpp"
 
 using Json = nlohmann::json;
-
-namespace
-{
-
-// NIC 상태를 데이터베이스 큐에 저장하는 태스크를 만들어 전달합니다.
-// 실제 SQL 실행은 데이터베이스 스레드가 담당하므로 동시성 문제가 없습니다.
-void EnqueueNicStatusSave(DatabaseQueue& database_queue,
-                          const std::string& agent,
-                          const Json& nic_status)
-{
-    DatabaseTask task;
-    const std::string payload = nic_status.dump();
-
-    task.execute = [agent, payload](DbHandle& handle) -> DatabaseResult {
-        sqlite3* database = handle.get();
-        DatabaseResult result;
-        result.sql_task = "INSERT INTO nic_status (agent, payload) VALUES (?, ?)";
-
-        if (database == nullptr)
-        {
-            return result;  // 핸들이 비어 있으면 빈 결과를 반환합니다.
-        }
-
-        const char* sql = "INSERT INTO nic_status (agent, payload) VALUES (?, ?);";
-        sqlite3_stmt* statement = nullptr;
-        if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK)
-        {
-            return result;
-        }
-
-        sqlite3_bind_text(statement, 1, agent.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, payload.c_str(), -1, SQLITE_TRANSIENT);
-
-        if (sqlite3_step(statement) == SQLITE_DONE)
-        {
-            result.db_task_result.push_back("ok");
-        }
-
-        sqlite3_finalize(statement);
-        return result;
-    };
-
-    database_queue.Push(std::move(task));
-}
-
-} // namespace
 
 void TelemetryMonitor::SetMonitorInterval(std::chrono::seconds interval)
 {
@@ -78,7 +33,8 @@ std::chrono::seconds TelemetryMonitor::GetMonitorInterval() const
 
 void TelemetryMonitor::Run(std::stop_token stop_token,
                            const ProberConfig& config,
-                           DatabaseQueue& database_queue)
+                           DatabaseQueue& database_queue,
+                           ManagementService& management_service)
 {
     try
     {
@@ -151,12 +107,70 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
             body["agent"] = config.GetAgentName();
             body["kernel"] = config.GetKernelName();
 
-            // VM은 NIC/연결 상태를 함께 전송하고 DB에도 저장합니다.
-            if (config.GetDeviceType() == DeviceType::kVirtualMachine)
+            // 조회 명령 실행 + 파싱은 collector 가 담당합니다.
+            // 명령이 실패해도 예외를 던지지 않고 성공한 항목만 담아 돌려줍니다.
+            const collector::CollectedState collected =
+                collector::CollectState(config, management_service);
+
+            // 서버 payload: 수집된 항목만 키를 추가합니다.
+            // (nic_status 는 기존 VM 경로와 같은 키를 유지하되 모든 장치 유형으로 일반화했습니다.)
+            if (collected.nic.is_object())
             {
-                const Json nic_status = VmService::CollectNicStatus();
-                body["nic_status"] = nic_status;
-                EnqueueNicStatusSave(database_queue, config.GetAgentName(), nic_status);
+                body["nic_status"] = collected.nic;
+            }
+            if (collected.route.is_object())
+            {
+                body["route_status"] = collected.route;
+            }
+            if (collected.vlan.is_object())
+            {
+                body["vlan_status"] = collected.vlan;
+            }
+            if (collected.trunk.is_object())
+            {
+                body["trunk_status"] = collected.trunk;
+            }
+            if (collected.arp.is_object())
+            {
+                body["arp_table"] = collected.arp;
+            }
+
+            // 한 스냅샷에서 나온 모든 행이 같은 collected_at 을 쓰도록 한 번만 만듭니다.
+            const std::string collected_at = telemetry_store::CurrentUtcTimestamp();
+            const std::string agent_name = config.GetAgentName();
+
+            try
+            {
+                if (collected.nic.is_object())
+                {
+                    telemetry_store::EnqueueNicInfoSave(
+                        database_queue, agent_name, collected.nic, collected_at);
+                }
+                if (collected.route.is_object())
+                {
+                    telemetry_store::EnqueueRouteStatusSave(
+                        database_queue, agent_name, collected.route, collected_at);
+                }
+                if (collected.vlan.is_object())
+                {
+                    telemetry_store::EnqueueVlanStatusSave(
+                        database_queue, agent_name, collected.vlan, collected_at);
+                }
+                if (collected.trunk.is_object())
+                {
+                    telemetry_store::EnqueueTrunkStatusSave(
+                        database_queue, agent_name, collected.trunk, collected_at);
+                }
+                if (collected.arp.is_object())
+                {
+                    telemetry_store::EnqueueArpTableSave(
+                        database_queue, agent_name, collected.arp, collected_at);
+                }
+            }
+            catch (const std::exception& ex)
+            {
+                // 저장 큐 문제로 수집 루프가 멈추면 안 됩니다.
+                std::cerr << "[TELEMETRY] persist skipped: " << ex.what() << '\n';
             }
 
             // 텔레메트리는 일방향이라 응답을 기다리지 않습니다.

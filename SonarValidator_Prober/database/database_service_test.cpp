@@ -108,7 +108,16 @@ int main()
     };
 
     std::future<DatabaseResult> result = task.result.get_future();
-    assert(database_queue.Push(std::move(task)));
+
+    // 주의: assert(...) 안에 부작용이 있는 호출을 넣으면 안 된다.
+    // Release 빌드(-DNDEBUG)에서 assert 가 통째로 제거되어 Push 가 실행되지 않고,
+    // result.get() 이 영원히 대기한다(테스트가 타임아웃까지 멈춤).
+    const bool pushed = database_queue.Push(std::move(task));
+    assert(pushed);
+    if (!pushed)
+    {
+        throw std::runtime_error("failed to push task into database queue");
+    }
 
     const DatabaseResult insert_result = result.get();
     assert(insert_result.db_task_result.size() == 1);

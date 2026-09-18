@@ -8,12 +8,28 @@
 #include <sys/utsname.h>
 #include <sys/sysinfo.h>
 #include <memory>
+#include <cstdlib>
 #include <filesystem>
 #include "network.hpp"
 namespace
 {
+// 기본 설정 파일 경로.
+//  root 로 설치한 경우 /etc/... 를 쓰지만, root 가 아닌 환경(vEOS bash,
+//  사용자 홈 배포 등)에서는 SONAR_CONFIG_PATH 로 지정할 수 있게 한다.
 constexpr const char* kDefaultConfigPath =
     "/etc/sonar_validator_prober/default.conf";
+
+const char* ResolveConfigPath()
+{
+    if (const char* from_env = std::getenv("SONAR_CONFIG_PATH"))
+    {
+        if (from_env[0] != '\0')
+        {
+            return from_env;
+        }
+    }
+    return kDefaultConfigPath;
+}
 
 std::string RemoveQuotes(std::string value)
 {
@@ -40,7 +56,7 @@ using DConfFile = std::unique_ptr<FILE, DConfHandler>;
 
 std::string ReadDefaultValue(const char* key)
 {
-    DConfFile default_config(std::fopen(kDefaultConfigPath, "r"));
+    DConfFile default_config(std::fopen(ResolveConfigPath(), "r"));
     if (!default_config)
     {
         return {};

@@ -65,6 +65,11 @@ public:
     // IOS-XE guestshell의 dohost 명령으로 IOS CLI를 실행합니다. (인증 불필요)
     std::string ExecuteIosCli(const std::vector<std::string>& cli_commands);
 
+    // Arista vEOS CLI(FastCli) 명령을 실행하고 출력을 돌려줍니다.
+    // 수집기(collector)가 `show ...` 조회 명령을 실행할 때 사용합니다.
+    // (내부적으로 private CliCommand({"FastCli"}, ...) 에 위임합니다.)
+    std::string QueryAristaCli(const std::string& command);
+
     // 벤더별 정책 적용 (policy_receiver에서 호출)
     bool ApplyOpenVSwitchPolicy(const Json& policy);
     bool ApplyAristaSwitchPolicy(const Json& policy);

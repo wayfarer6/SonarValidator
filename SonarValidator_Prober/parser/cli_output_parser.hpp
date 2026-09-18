@@ -71,6 +71,15 @@ nlohmann::json ParseNicStatus(const std::string& raw_output);
 nlohmann::json ParseNicBrief(const std::string& raw_output);
 
 // ---------------------------------------------------------------------------
+// ARP / 이웃 테이블  —  `ip neigh show`, `show arp`, `show ip arp`
+//   { "entries": [ { "address":"10.0.9.1", "mac":"0c:2d:07:65:99:f3",
+//                    "interface":"ens3", "state":"REACHABLE",
+//                    "age":"2:31:51", "type":"ARPA",
+//                    "interfaces":["Vlan9","Ethernet3"] } ] }
+// ---------------------------------------------------------------------------
+nlohmann::json ParseArpTable(const std::string& raw_output, Vendor vendor);
+
+// ---------------------------------------------------------------------------
 // 라우팅 테이블  —  `show ip route` (FRR / Cisco 공통)
 //   {
 //     "protocols": ["ospf","connected"],

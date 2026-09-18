@@ -27,6 +27,18 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual std::any visitArpDocument(IpAddrParser::ArpDocumentContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitArpEntry(IpAddrParser::ArpEntryContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual std::any visitArpAddress(IpAddrParser::ArpAddressContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual std::any visitItem(IpAddrParser::ItemContext *ctx) override {
     return visitChildren(ctx);
   }

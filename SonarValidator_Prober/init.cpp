@@ -7,6 +7,7 @@
 #include <random>
 #include <sstream>
 #include <system_error>
+#include "database/schema.hpp"
 #include "network.hpp"
 namespace fs = std::filesystem;
 
@@ -222,8 +223,15 @@ bool AppInitializer::EnsureDataDirectory(const fs::path &path)
 {
     std::error_code error;
     fs::create_directories(path, error);
-    std::cout << "Data Directory Existed!" << '\n';
-    return !error;
+    if (error)
+    {
+        // 권한 부족 등으로 만들지 못한 경우, 원인을 남겨 진단을 돕습니다.
+        std::cerr << "Data directory unavailable: " << path
+                  << " (" << error.message() << ")" << '\n';
+        return false;
+    }
+    std::cout << "Data directory ready: " << path << '\n';
+    return true;
 }
 
 // 설정 파일을 로드하고, 없으면 시스템 정보를 탐지해 새로 생성·저장합니다.
@@ -284,22 +292,14 @@ bool AppInitializer::InitializeDatabase(
         return false;
     }
 
-    // 텔레메트리/NIC 상태 및 key-value 설정을 저장할 테이블을 보장합니다.
-    const char *kCreateTables =
-        "CREATE TABLE IF NOT EXISTS nic_status ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "agent TEXT NOT NULL,"
-        "collected_at TEXT DEFAULT CURRENT_TIMESTAMP,"
-        "payload TEXT NOT NULL"
-        ");"
-        "CREATE TABLE IF NOT EXISTS settings ("
-        "key TEXT PRIMARY KEY,"
-        "value TEXT NOT NULL"
-        ");";
+    // 텔레메트리/NIC 상태, key-value 설정, 수집 네트워크 상태(라우팅/NIC/VLAN/
+    // 트렁크/ARP) 테이블을 보장합니다.
+    // DDL 은 database/schema.cpp 한 곳에만 두고 여기서는 실행만 합니다(멱등).
+    const std::string& create_tables_sql = database_schema::CreateTablesSql();
 
     char *error_message = nullptr;
     const int result = sqlite3_exec(
-        database_handle.get(), kCreateTables, nullptr, nullptr, &error_message);
+        database_handle.get(), create_tables_sql.c_str(), nullptr, nullptr, &error_message);
     if (result != SQLITE_OK)
     {
         if (error_message != nullptr)

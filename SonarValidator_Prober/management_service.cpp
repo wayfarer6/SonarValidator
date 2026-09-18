@@ -472,6 +472,24 @@ bool ManagementService::ApplyAristaSwitchPolicy(const Json& policy)
     return false;
 }
 
+std::string ManagementService::QueryAristaCli(const std::string& command)
+{
+    // Arista vEOS 의 FastCli 는 표준입력으로 명령을 주면 배치 모드로 동작한다.
+    //
+    // 왜 pty 대화형 세션이 아니라 파이프인가
+    //   대화형(pty) 경로는 프롬프트 타이밍에 의존해 `show ...` 출력을
+    //   안정적으로 얻지 못했다(실측: 조회 4건 모두 빈 결과).
+    //   반면 `printf 'enable\n<cmd>\n' | FastCli` 는 출력이 온전히 나온다(실측 확인).
+    //   조회는 부작용이 없으므로 매번 새 프로세스로 실행해도 문제없다.
+    //
+    // 출력에는 명령 에코(`> show ...`)와 종료 시의
+    // `% Internal error at line N` 잡음이 섞이므로 수집기가 정리한다.
+    const std::string script = "enable\n" + command + "\n";
+    const std::string pipeline =
+        "printf '%s' '" + script + "' | timeout 20 FastCli 2>&1";
+    return RunCommandOutput(pipeline);
+}
+
 std::string ManagementService::ExecuteIosCli(const std::vector<std::string>& cli_commands)
 {
     // Cisco IOS-XE guestshell의 dohost 유틸로 IOS CLI를 실행합니다.

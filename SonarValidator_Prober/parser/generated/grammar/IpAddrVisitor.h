@@ -25,6 +25,12 @@ public:
 
     virtual std::any visitRouteDocument(IpAddrParser::RouteDocumentContext *context) = 0;
 
+    virtual std::any visitArpDocument(IpAddrParser::ArpDocumentContext *context) = 0;
+
+    virtual std::any visitArpEntry(IpAddrParser::ArpEntryContext *context) = 0;
+
+    virtual std::any visitArpAddress(IpAddrParser::ArpAddressContext *context) = 0;
+
     virtual std::any visitItem(IpAddrParser::ItemContext *context) = 0;
 
     virtual std::any visitIfaceHeader(IpAddrParser::IfaceHeaderContext *context) = 0;

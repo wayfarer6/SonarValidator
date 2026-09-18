@@ -2,6 +2,7 @@
 #include <chrono>
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -27,7 +28,62 @@ namespace fs = std::filesystem;
 
 namespace
 {
-    const fs::path kDataDirectory = "/var/lib/sonar_validator_prober";
+    // 기본 데이터 디렉터리(설치 시 systemd 로 root 권한으로 실행되는 것을 전제).
+    const fs::path kDefaultDataDirectory = "/var/lib/sonar_validator_prober";
+
+    // 기본 SQLite 템플릿 경로.
+    const fs::path kDefaultTemplatePath =
+        "/etc/sonar_validator_prober/sqlite_template.sqlite";
+
+    // 데이터 디렉터리를 결정합니다.
+    //  1) SONAR_DATA_DIR 환경변수
+    //  2) 시스템 기본 경로(/var/lib/...)
+    //  root 가 아닌 환경(예: vEOS bash, 사용자 홈 실행)에서는
+    //  시스템 경로를 만들 수 없으므로 실패 시 실행 파일 옆으로 폴백합니다.
+    fs::path ResolveDataDirectory()
+    {
+        if (const char* from_env = std::getenv("SONAR_DATA_DIR"))
+        {
+            if (from_env[0] != '\0')
+            {
+                return fs::path(from_env);
+            }
+        }
+        return kDefaultDataDirectory;
+    }
+
+    // SQLite 템플릿 경로를 결정합니다.
+    //  SONAR_TEMPLATE_PATH 가 있으면 우선 사용하고, 없으면
+    //    /etc/... → 실행 파일 디렉터리 순으로 찾습니다.
+    fs::path ResolveTemplatePath()
+    {
+        if (const char* from_env = std::getenv("SONAR_TEMPLATE_PATH"))
+        {
+            if (from_env[0] != '\0')
+            {
+                return fs::path(from_env);
+            }
+        }
+
+        std::error_code error;
+        if (fs::exists(kDefaultTemplatePath, error))
+        {
+            return kDefaultTemplatePath;
+        }
+
+        // 실행 파일 옆에 두는 배포 형태(예: /mnt/flash/sonar_validator/)를 지원합니다.
+        std::error_code self_error;
+        const fs::path self = fs::read_symlink("/proc/self/exe", self_error);
+        if (!self_error)
+        {
+            const fs::path candidate = self.parent_path() / "sqlite_template.sqlite";
+            if (fs::exists(candidate, error))
+            {
+                return candidate;
+            }
+        }
+        return kDefaultTemplatePath;
+    }
 }
 
 // 프로세스 전체의 실행 플래그입니다. SIGINT/SIGTERM이 오면 false로 바뀝니다.
@@ -41,13 +97,20 @@ void signalHandler(int signum)
 }
 
 // 텔레메트리 스레드 진입점입니다. 실제 루프는 TelemetryMonitor가 담당합니다.
-// (NIC 상태 수집 → 서버 전송 + DB 큐 저장, 기본 30초 간격)
+// (조회 명령 실행 + 파싱 → 서버 전송 + DB 큐 저장, 기본 30초 간격)
 void TelemetryWorker(std::stop_token stop_token,
                      const ProberConfig &config,
                      DatabaseQueue &database_queue)
 {
+    // 장치 조회 명령 실행에 쓰는 서비스입니다.
+    // 관리 스레드와 정책 적용은 각자 별도 인스턴스를 씁니다(영속 CLI 세션 공유 방지).
+    ManagementService management_service(
+        config.GetServerIpv4(),
+        static_cast<int>(config.GetServerPort()),
+        "/api/v1/management");
+
     TelemetryMonitor monitor;
-    monitor.Run(stop_token, config, database_queue);
+    monitor.Run(stop_token, config, database_queue, management_service);
 }
 
 // 관리 스레드: 서버로부터 정책을 받아 장치에 적용합니다.
@@ -128,13 +191,12 @@ int main()
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
-    const fs::path config_file_path =
-        kDataDirectory / "settings.conf";
-    const fs::path sqlite_db_path =
-        kDataDirectory / "prober_db.sqlite";
-
-    const fs::path sqlite_template_path =
-        "/etc/sonar_validator_prober/sqlite_template.sqlite";
+    // 데이터 디렉터리와 템플릿 경로를 결정합니다.
+    //  환경변수로 오버라이드할 수 있어 root 가 아닌 환경(vEOS bash 등)에서도 실행됩니다.
+    const fs::path data_directory = ResolveDataDirectory();
+    const fs::path config_file_path = data_directory / "settings.conf";
+    const fs::path sqlite_db_path = data_directory / "prober_db.sqlite";
+    const fs::path sqlite_template_path = ResolveTemplatePath();
 
     // 임시 기본값으로 config를 만든 뒤, PrepareRuntime에서 실제 값으로 채웁니다.
     ProberConfig config(
@@ -143,7 +205,7 @@ int main()
 
     DbHandle database(nullptr);
     if (!AppInitializer::PrepareRuntime(
-            kDataDirectory,
+            data_directory,
             config_file_path,
             sqlite_db_path,
             sqlite_template_path,
@@ -151,6 +213,9 @@ int main()
             database))
     {
         std::cerr << "Runtime initialization failed\n";
+        std::cerr << "  data dir : " << data_directory << '\n';
+        std::cerr << "  template : " << sqlite_template_path << '\n';
+        std::cerr << "  (SONAR_DATA_DIR / SONAR_TEMPLATE_PATH 로 경로를 지정할 수 있습니다)\n";
         return 1;
     }
 

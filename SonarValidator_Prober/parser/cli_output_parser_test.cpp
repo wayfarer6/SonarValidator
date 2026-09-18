@@ -450,6 +450,77 @@ void TestAristaVlan()
 }
 
 // ---------------------------------------------------------------------------
+//  ARP / 이웃 테이블 — 세 벤더 형식
+// ---------------------------------------------------------------------------
+const char* kArpLinuxSample =
+    "10.0.9.1 dev ens3 lladdr 0c:2d:07:65:99:f3 REACHABLE\n"
+    "10.0.9.100 dev ens3 lladdr 0c:ae:dc:fd:00:00 STALE\n";
+
+const char* kArpAristaSample =
+    "Address         Age (sec)  Hardware Addr   Interface\n"
+    "172.18.10.1       2:31:51  0cae.21dd.0001  Ethernet1\n"
+    "10.0.8.100        2:25:33  0c87.2f1f.0000  Vlan8, Ethernet2\n"
+    "10.0.9.100        1:35:06  0cae.dcfd.0000  Vlan9, Ethernet3\n";
+
+const char* kArpCiscoSample =
+    "Protocol  Address    Age (min)  Hardware Addr   Type   Interface\n"
+    "Internet  10.20.0.4  -          0c2d.0765.99f3  ARPA   GigabitEthernet4\n"
+    "Internet  10.20.0.1  5          0c3f.5d52.0003  ARPA   GigabitEthernet1\n";
+
+void TestArpTables()
+{
+    std::cout << "\n--- ARP 테이블 (Linux / Arista / Cisco) ---\n";
+
+    // Linux `ip neigh show`
+    {
+        const auto json = cli_parser::ParseArpTable(kArpLinuxSample, Vendor::kUbuntu);
+        const auto& entries = json["entries"];
+        Check(entries.is_array() && entries.size() == 2, "Linux ARP 2건 (got=" +
+                                                             std::to_string(entries.size()) + ")");
+        CheckEq(entries[0]["address"].get<std::string>(), "10.0.9.1", "Linux ARP 주소");
+        CheckEq(entries[0]["mac"].get<std::string>(), "0c:2d:07:65:99:f3", "Linux ARP MAC");
+        CheckEq(entries[0]["interface"].get<std::string>(), "ens3", "Linux ARP 인터페이스(dev)");
+        CheckEq(entries[0]["state"].get<std::string>(), "REACHABLE", "Linux ARP 상태");
+        CheckEq(entries[1]["state"].get<std::string>(), "STALE", "Linux ARP STALE 상태");
+        Check(json["parsed"].get<bool>(), "Linux ARP 문법 오류 없음");
+    }
+
+    // Arista `show arp` — 헤더 제외, 점 표기 MAC 정규화, 쉼표 인터페이스
+    {
+        const auto json = cli_parser::ParseArpTable(kArpAristaSample, Vendor::kArista);
+        const auto& entries = json["entries"];
+        Check(entries.is_array() && entries.size() == 3,
+              "Arista ARP 3건(헤더 제외) (got=" + std::to_string(entries.size()) + ")");
+        CheckEq(entries[0]["address"].get<std::string>(), "172.18.10.1", "Arista ARP 주소");
+        CheckEq(entries[0]["mac"].get<std::string>(), "0c:ae:21:dd:00:01",
+                "Arista 점 표기 MAC 정규화");
+        CheckEq(entries[0]["age"].get<std::string>(), "2:31:51", "Arista ARP age");
+        CheckEq(entries[0]["interface"].get<std::string>(), "Ethernet1", "Arista ARP 인터페이스");
+        Check(entries[1]["interfaces"].size() == 2, "Arista 복수 인터페이스(Vlan8, Ethernet2)");
+        CheckEq(entries[1]["interfaces"][1].get<std::string>(), "Ethernet2",
+                "Arista 두번째 인터페이스");
+        Check(json["parsed"].get<bool>(), "Arista ARP 문법 오류 없음");
+    }
+
+    // Cisco `show ip arp` — Protocol 컬럼 건너뛰기
+    {
+        const auto json = cli_parser::ParseArpTable(kArpCiscoSample, Vendor::kCisco);
+        const auto& entries = json["entries"];
+        Check(entries.is_array() && entries.size() == 2,
+              "Cisco ARP 2건 (got=" + std::to_string(entries.size()) + ")");
+        CheckEq(entries[0]["address"].get<std::string>(), "10.20.0.4",
+                "Cisco ARP 주소(Protocol 컬럼 이후)");
+        CheckEq(entries[0]["mac"].get<std::string>(), "0c:2d:07:65:99:f3",
+                "Cisco 점 표기 MAC 정규화");
+        CheckEq(entries[0]["type"].get<std::string>(), "ARPA", "Cisco ARP Type");
+        CheckEq(entries[0]["interface"].get<std::string>(), "GigabitEthernet4",
+                "Cisco ARP 인터페이스");
+        CheckEq(entries[0]["age"].get<std::string>(), "-", "Cisco ARP age=-");
+        Check(json["parsed"].get<bool>(), "Cisco ARP 문법 오류 없음");
+    }
+}
+
+// ---------------------------------------------------------------------------
 //  Par브 — 빈 입력 / 이상 입력에서도 크래시하지 않아야 한다
 // ---------------------------------------------------------------------------
 void TestRobustness()
@@ -488,6 +559,7 @@ int main()
     TestNftRuleset();
     TestNftDropRule();
     TestAristaVlan();
+    TestArpTables();
     TestRobustness();
 
     std::cout << "\n=== 결과: " << (g_checks - g_failures) << "/" << g_checks
