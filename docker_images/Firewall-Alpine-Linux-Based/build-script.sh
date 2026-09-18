@@ -1,5 +1,5 @@
 #!/bin/sh
-
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
 # 패키지 목록 업데이트
 apk update
 
