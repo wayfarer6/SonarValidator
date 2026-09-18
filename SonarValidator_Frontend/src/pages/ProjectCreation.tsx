@@ -2,7 +2,21 @@ import { useState, type FormEvent } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
+import Badge from "../components/ui/badge/Badge";
+import OPNsenseConfigModal from "../components/opnsense/OPNsenseConfigModal";
 
+/**
+ * Agent 배포 화면입니다.
+ *
+ * <h2>OPNsense 카드의 특별 처리</h2>
+ * 다른 장비는 이미지/배포 파일을 받아 설치하지만, <b>OPNsense 는 REST API 로
+ * 접속</b>하므로 API Key 와 Secret 을 별도로 등록해야 합니다. 그래서 이
+ * 카드만 클릭 시 <b>별도 설정 모달</b>을 엽니다.
+ *
+ * <p>모달에서 저장하면 서버가 즉시 연결을 확인하고 결과를 화면에 돌려줍니다.
+ * 저장만 하고 끝내면 운영자가 "등록됐다" 고 믿고 넘어갔다가 정책 푸시
+ * 단계에서야 처음 실패를 보게 됩니다.
+ */
 export default function ProjectCreation() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("project_id");
@@ -12,6 +26,11 @@ export default function ProjectCreation() {
   const [managementServerPort, setManagementServerPort] = useState("");
   // 카드(모달 역할)의 노출 여부를 제어하는 상태
   const [showDeployCard, setShowDeployCard] = useState(false);
+
+  // OPNsense 설정 모달의 열림 여부와 대상 Agent
+  const [opnsenseOpen, setOpnsenseOpen] = useState(false);
+  const [opnsenseAgentId, setOpnsenseAgentId] = useState("");
+  const [opnsenseSavedCount, setOpnsenseSavedCount] = useState(0);
 
 
   //project 이름없으면 지정해주는거 필요
@@ -170,8 +189,23 @@ export default function ProjectCreation() {
                 </span>
               </div>
 
-              {/* OPNsense Firewall */}
-              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
+              {/* OPNsense Firewall — 다른 카드와 달리 API 자격증명이 필요하므로
+                  클릭 시 별도 설정 모달을 엽니다. */}
+              <div
+                onClick={() => {
+                  setOpnsenseAgentId(managementServerIPAddr.trim() || "opnsense-1");
+                  setOpnsenseOpen(true);
+                }}
+                title="클릭하면 API Key / Secret 을 등록하는 화면이 열립니다"
+                className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group relative"
+              >
+                {opnsenseSavedCount > 0 && (
+                  <span className="absolute right-2 top-2">
+                    <Badge size="sm" color="success">
+                      {opnsenseSavedCount}
+                    </Badge>
+                  </span>
+                )}
                 <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
                   <img
                     src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/opnsense.png"
@@ -182,6 +216,7 @@ export default function ProjectCreation() {
                 <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
                   OPNsense Firewall
                 </span>
+                <span className="mt-1 text-[10px] text-brand-500">API 설정 필요</span>
               </div>
 
               {/* Linux VM */}
@@ -246,6 +281,15 @@ export default function ProjectCreation() {
         )}
 
       </div>
+
+      {/* OPNsense 설정 모달 — 기존 Modal 컴포넌트를 재사용합니다. */}
+      <OPNsenseConfigModal
+        isOpen={opnsenseOpen}
+        onClose={() => setOpnsenseOpen(false)}
+        agentId={opnsenseAgentId}
+        deviceLabel={managementServerIPAddr || null}
+        onSaved={() => setOpnsenseSavedCount((count) => count + 1)}
+      />
     </>
   );
 }

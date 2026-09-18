@@ -54,6 +54,36 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
         <!--
+            Spring Security: 아이디/비밀번호 기반 로그인.
+
+            프론트엔드의 SignInForm 이 지금까지 쿠키에 이메일만 넣고 통과시키는
+            자리표시자였습니다. 이 의존성을 넣으면 실제 인증/인가를 쓸 수 있습니다.
+
+            세션 기반으로 갑니다(폼 로그인 + HttpSession). 이유:
+              - 기존 화면이 쿠키 기반 흐름을 이미 전제로 하고 있습니다.
+              - 같은 출처가 아니어도 CORS + credentials 로 세션 쿠키가 오갑니다.
+            JWT 는 무상태 이점이 있지만, 지금 규모에서는 토큰 저장/갱신/폐기
+            로직이 오히려 위험을 늘립니다.
+
+            인증이 필요한 경로는 /api/v1/** 이고, Agent WebSocket
+            (/api/v1/management, /api/v1/telemetry)은 C++ Prober 가 세션을
+            가질 수 없으므로 예외로 둡니다. (Config/SecurityConfig 참고)
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <!--
+            Spring Security 테스트 지원 (spring-security-test).
+
+            @WithMockUser 등으로 인증을 가정한 컨트롤러 테스트를 쓰기 위함입니다.
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
             Spring Data JPA: 엔티티(@Entity) 기반 영속성 계층.
             Hibernate 가 기본 JPA 구현체로 함께 들어옵니다.
         -->

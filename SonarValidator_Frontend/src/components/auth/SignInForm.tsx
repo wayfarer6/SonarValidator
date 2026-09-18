@@ -1,52 +1,71 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
+import { AlertIcon, ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
-import { useCookies } from "react-cookie";
+import { useAuth } from "../../context/AuthContext";
 
+/**
+ * 로그인 폼입니다.
+ *
+ * <h2>자리표시자에서 실제 인증으로</h2>
+ * 이전 구현은 이메일만 쿠키에 넣고 통과시켰습니다. 즉 <b>아무 비밀번호나</b>
+ * 통과했고, 쿠키를 직접 만들면 인증을 우회할 수 있었습니다.
+ *
+ * <p>이제 서버(`POST /api/v1/auth/login`)가 검증하고, 서버가 발급한 세션
+ * 쿠키(`JSESSIONID`, HttpOnly)가 인증 상태를 나타냅니다. 프론트는 그 결과를
+ * 받아 화면만 바꿉니다.
+ *
+ * <h2>오류 메시지를 서버에서 받아 그대로 보여주는 이유</h2>
+ * 서버가 실패 원인을 구분해 줍니다.
+ * <ul>
+ *   <li>아이디/비밀번호 오류 → 401 (문구를 통일해 계정 존재 여부를 숨김)</li>
+ *   <li>계정 잠김 → 423 + 잠금 해제 시각</li>
+ *   <li>비활성 계정 → 403</li>
+ * </ul>
+ * 프론트에서 "로그인 실패" 로 뭉뚱그리면 사용자가 무엇을 해야 할지 알 수
+ * 없습니다.
+ *
+ * <h2>로그인 유지 체크박스</h2>
+ * 세션 쿠키는 브라우저를 닫으면 사라집니다. 체크하면 서버가 세션 만료를
+ * 늘리도록 표시할 수 있지만, 지금은 안내 문구만 남기고 서버 기본 만료를
+ * 따릅니다. (만료 시간은 `application.properties` 의
+ * `server.servlet.session.timeout` 으로 조정)
+ */
 export default function SignInForm() {
   const navigate = useNavigate();
-  const [, setCookie] = useCookies(["username"]);
-  const [email, setEmail] = useState("");
+  const { login, submitting, error, clearError } = useAuth();
+
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
   const [isChecked, setIsChecked] = useState(false);
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-    if (!email) {
-      alert("이메일을 입력해주세요.");
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setValidationError(null);
+
+    // 서버 호출 전 기본 검증으로 불필요한 왕복을 줄입니다.
+    if (!username.trim()) {
+      setValidationError("아이디를 입력하세요.");
       return;
     }
     if (!password) {
-      alert("비밀번호를 입력해주세요.");
+      setValidationError("비밀번호를 입력하세요.");
       return;
     }
-    try {
-      /* 
-        실제 백엔드 통신 예시 (fetch 사용)
-        const response = await fetch("http://localhost:8080/api/v1/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        if (!response.ok) throw new Error("로그인 실패");
-      */
 
-      // UI 테스트를 위해 쿠키에 이메일 저장 후 메인('/')으로 이동
-      setCookie("username", email, { path: "/" });
+    const ok = await login(username.trim(), password);
+    if (ok) {
       navigate("/");
-
-    } catch (error) {
-      console.error("로그인 에러:", error);
-      alert("로그인에 실패했습니다.");
     }
+    // 실패 시 오류는 컨텍스트의 error 로 표시됩니다.
   };
 
+  const displayError = validationError ?? error;
 
   return (
     <div className="flex flex-col flex-1">
@@ -66,45 +85,39 @@ export default function SignInForm() {
               Sign In
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              계속하려면 이메일과 비밀번호로 로그인 하십시오.
+              계속하려면 아이디와 비밀번호로 로그인 하십시오.
             </p>
           </div>
           <div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
-            </div>
-            <div className="relative py-3 sm:py-5">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-gray-800"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="p-2 text-gray-400 bg-white dark:bg-gray-900 sm:px-5 sm:py-2">
-                  Or
-                </span>
-              </div>
-            </div>
-            <form  onSubmit={handleLogin}>
+            <form onSubmit={handleLogin}>
               <div className="space-y-6">
                 <div>
                   <Label>
-                    Email <span className="text-error-500">*</span>{" "}
+                    아이디 <span className="text-error-500">*</span>{" "}
                   </Label>
-                  <Input 
-                  type="email"
-                    placeholder="admin@mil.kr.com" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                     />
+                  <Input
+                    type="text"
+                    placeholder="admin"
+                    value={username}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      if (displayError) clearError();
+                    }}
+                  />
                 </div>
                 <div>
                   <Label>
-                    Password <span className="text-error-500">*</span>{" "}
+                    비밀번호 <span className="text-error-500">*</span>{" "}
                   </Label>
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
+                      placeholder="비밀번호를 입력하세요"
                       value={password}
-                      onChange={(e)=>setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (displayError) clearError();
+                      }}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -118,6 +131,15 @@ export default function SignInForm() {
                     </span>
                   </div>
                 </div>
+
+                {/* 인증 오류 안내 */}
+                {displayError && (
+                  <div className="flex items-start gap-2 rounded-lg bg-error-50 px-3 py-2.5 text-xs text-error-700 dark:bg-error-500/15 dark:text-error-300">
+                    <AlertIcon className="mt-0.5 size-4 shrink-0" />
+                    <span>{displayError}</span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Checkbox checked={isChecked} onChange={setIsChecked} />
@@ -133,22 +155,18 @@ export default function SignInForm() {
                   </Link>
                 </div>
                 <div>
-                  <Button className="w-full" size="sm" type="submit">
-                    Sign in
+                  <Button className="w-full" size="sm" type="submit" disabled={submitting}>
+                    {submitting ? "로그인 중..." : "Sign in"}
                   </Button>
                 </div>
               </div>
             </form>
 
             <div className="mt-5">
-              <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                계정이 없으십니까? {""}
-                <Link
-                  to="/signup"
-                  className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                >
-                  Sign Up
-                </Link>
+              <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+                초기 계정은 <span className="font-mono">admin</span> / 환경변수
+                <span className="font-mono"> SONAR_ADMIN_PASSWORD</span> 로 설정한 비밀번호입니다.
+                기본값을 쓰고 있다면 즉시 변경하세요.
               </p>
             </div>
           </div>

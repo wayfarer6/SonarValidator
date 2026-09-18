@@ -1,37 +1,41 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { useCookies } from "react-cookie";
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import { notifyUserInfoChanged, useUserEmail } from "../../lib/userInfo";
+import { useUserEmail } from "../../lib/userInfo";
+import { useAuth } from "../../context/AuthContext";
+import { apiRequest, ApiError } from "../../lib/api/client";
+import { changePassword } from "../../lib/api/auth";
 
 type Feedback = { type: "success" | "error"; text: string } | null;
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function FeedbackText({ feedback }: { feedback: Feedback }) {
-  if (!feedback) return null;
-  return (
-    <p
-      className={`col-span-2 text-sm font-medium ${
-        feedback.type === "error"
-          ? "text-error-600 dark:text-error-500"
-          : "text-success-600 dark:text-success-500"
-      }`}
-    >
-      {feedback.text}
-    </p>
-  );
-}
-
+/**
+ * 계정 관리 카드입니다.
+ *
+ * <h2>자리표시자에서 실제 API 로</h2>
+ * 이전 구현은 서버를 부르지 않고 화면 메시지만 바꿨습니다.
+ * (<code>// TODO: 백엔드 비밀번호 변경 API 호출</code>)
+ * 즉 "변경되었습니다" 가 표시돼도 <b>실제로는 아무것도 바뀌지 않았습니다.</b>
+ * 이제 서버 API 와 연결했습니다.
+ *
+ * <h2>이메일 변경 기능을 뺀 이유</h2>
+ * 현재 백엔드는 아이디(username)가 로그인 키이고, 사용자 이름 변경 API 가
+ * 없습니다. 화면만 남겨 두면 "바꿨는데 로그인이 안 된다" 는 혼란을 만듭니다.
+ * 그래서 <b>아이디는 읽기 전용</b>으로 표시하고, 변경이 필요하면 관리자가
+ * 새 계정을 만드는 흐름으로 안내합니다.
+ *
+ * <h2>계정 삭제에 비밀번호를 요구하는 이유</h2>
+ * 삭제는 되돌릴 수 없습니다. 세션만 탈취한 공격자가 계정을 지워버리는 것을
+ * 막으려면 비밀번호 확인이 필요합니다. 서버도 같은 검증을 합니다.
+ */
 export default function AccountManagementCard() {
-  const [, setCookie, removeCookie] = useCookies(["username"]);
   const navigate = useNavigate();
   const currentEmail = useUserEmail();
+  const { logout } = useAuth();
   const { isOpen, openModal, closeModal } = useModal();
 
   // 비밀번호 변경 상태
@@ -39,14 +43,18 @@ export default function AccountManagementCard() {
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [pwFeedback, setPwFeedback] = useState<Feedback>(null);
+  const [pwSubmitting, setPwSubmitting] = useState(false);
 
-  // 이메일 변경 상태
-  const [newEmail, setNewEmail] = useState("");
-  const [confirmEmail, setConfirmEmail] = useState("");
-  const [emailFeedback, setEmailFeedback] = useState<Feedback>(null);
+  // 계정 삭제 상태
+  const [deletePw, setDeletePw] = useState("");
+  const [deleteFeedback, setDeleteFeedback] = useState<Feedback>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
-  const handleChangePassword = (e: FormEvent) => {
+  /** 비밀번호를 변경합니다. */
+  const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
+    setPwFeedback(null);
+
     if (!currentPw) {
       setPwFeedback({ type: "error", text: "현재 비밀번호를 입력해주세요." });
       return;
@@ -59,40 +67,50 @@ export default function AccountManagementCard() {
       setPwFeedback({ type: "error", text: "새 비밀번호 확인이 일치하지 않습니다." });
       return;
     }
-    // TODO: 백엔드 비밀번호 변경 API 호출 (POST /api/v1/users/me/password)
-    setPwFeedback({ type: "success", text: "비밀번호가 변경되었습니다." });
-    setCurrentPw("");
-    setNewPw("");
-    setConfirmPw("");
+
+    setPwSubmitting(true);
+    try {
+      await changePassword(currentPw, newPw);
+      setPwFeedback({ type: "success", text: "비밀번호가 변경되었습니다." });
+      setCurrentPw("");
+      setNewPw("");
+      setConfirmPw("");
+    } catch (cause) {
+      setPwFeedback({
+        type: "error",
+        text: cause instanceof ApiError ? cause.message : "비밀번호 변경에 실패했습니다.",
+      });
+    } finally {
+      setPwSubmitting(false);
+    }
   };
 
-  const handleChangeEmail = (e: FormEvent) => {
-    e.preventDefault();
-    if (!EMAIL_REGEX.test(newEmail)) {
-      setEmailFeedback({ type: "error", text: "올바른 이메일 형식이 아닙니다." });
+  /** 계정을 삭제합니다. */
+  const handleDeleteAccount = async () => {
+    setDeleteFeedback(null);
+    if (!deletePw) {
+      setDeleteFeedback({ type: "error", text: "비밀번호를 입력하세요." });
       return;
     }
-    if (newEmail === currentEmail) {
-      setEmailFeedback({ type: "error", text: "현재 사용 중인 이메일입니다." });
-      return;
-    }
-    if (newEmail !== confirmEmail) {
-      setEmailFeedback({ type: "error", text: "이메일 확인이 일치하지 않습니다." });
-      return;
-    }
-    // TODO: 백엔드 이메일 변경 API 호출 (인증 메일 발송 등)
-    setCookie("username", newEmail, { path: "/" });
-    notifyUserInfoChanged();
-    setEmailFeedback({ type: "success", text: "이메일이 변경되었습니다." });
-    setNewEmail("");
-    setConfirmEmail("");
-  };
 
-  const handleDeleteAccount = () => {
-    // TODO: 백엔드 계정 삭제 API 호출 (DELETE /api/v1/users/me)
-    closeModal();
-    removeCookie("username", { path: "/" });
-    navigate("/signin");
+    setDeleteSubmitting(true);
+    try {
+      await apiRequest<{ message: string }>("/api/v1/users/me", {
+        method: "DELETE",
+        body: { currentPassword: deletePw },
+      });
+      closeModal();
+      // 서버가 세션을 무효화했으므로 프론트 상태도 초기화합니다.
+      await logout();
+      navigate("/signin");
+    } catch (cause) {
+      setDeleteFeedback({
+        type: "error",
+        text: cause instanceof ApiError ? cause.message : "계정 삭제에 실패했습니다.",
+      });
+    } finally {
+      setDeleteSubmitting(false);
+    }
   };
 
   return (
@@ -102,8 +120,24 @@ export default function AccountManagementCard() {
       </h3>
 
       <div className="space-y-7">
+        {/* 아이디 (읽기 전용) */}
+        <div className="flex flex-col gap-3">
+          <div>
+            <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">
+              아이디
+            </h4>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              아이디는 변경할 수 없습니다. 변경이 필요하면 관리자에게 새 계정을 요청하세요.
+            </p>
+          </div>
+          <Input type="text" value={currentEmail} disabled />
+        </div>
+
         {/* 비밀번호 변경 */}
-        <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
+        <form
+          onSubmit={handleChangePassword}
+          className="flex flex-col gap-4 border-t border-gray-200 pt-6 dark:border-gray-800"
+        >
           <div>
             <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">
               비밀번호 변경
@@ -143,53 +177,8 @@ export default function AccountManagementCard() {
             <FeedbackText feedback={pwFeedback} />
           </div>
           <div className="flex justify-end">
-            <Button size="sm" type="submit">
-              비밀번호 변경
-            </Button>
-          </div>
-        </form>
-
-        {/* 이메일 변경 */}
-        <form
-          onSubmit={handleChangeEmail}
-          className="flex flex-col gap-4 border-t border-gray-200 pt-6 dark:border-gray-800"
-        >
-          <div>
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">
-              이메일 변경
-            </h4>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              로그인에 사용하는 이메일 주소를 변경합니다.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div>
-              <Label>현재 이메일</Label>
-              <Input type="email" value={currentEmail} disabled />
-            </div>
-            <div>
-              <Label>새 이메일</Label>
-              <Input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="new@email.com"
-              />
-            </div>
-            <div>
-              <Label>새 이메일 확인</Label>
-              <Input
-                type="email"
-                value={confirmEmail}
-                onChange={(e) => setConfirmEmail(e.target.value)}
-                placeholder="새 이메일 재입력"
-              />
-            </div>
-            <FeedbackText feedback={emailFeedback} />
-          </div>
-          <div className="flex justify-end">
-            <Button size="sm" type="submit">
-              이메일 변경
+            <Button size="sm" type="submit" disabled={pwSubmitting}>
+              {pwSubmitting ? "변경 중..." : "비밀번호 변경"}
             </Button>
           </div>
         </form>
@@ -202,7 +191,7 @@ export default function AccountManagementCard() {
                 계정 삭제
               </h4>
               <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                계정을 삭제하면 모든 프로젝트·로그 데이터가 함께 삭제되며 복구할 수
+                계정을 삭제하면 되돌릴 수 없습니다. 마지막 관리자 계정은 삭제할 수
                 없습니다.
               </p>
             </div>
@@ -216,7 +205,7 @@ export default function AccountManagementCard() {
         </div>
       </div>
 
-      {/* 계정 삭제 확인 모달 */}
+      {/* 계정 삭제 확인 모달 — 기존 Modal 컴포넌트를 재사용합니다. */}
       <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[480px] m-4">
         <div className="relative w-full rounded-3xl bg-white p-6 dark:bg-gray-900 lg:p-8">
           <h4 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
@@ -228,19 +217,52 @@ export default function AccountManagementCard() {
             </span>{" "}
             계정이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
           </p>
-          <div className="flex items-center justify-end gap-3">
+
+          <div className="mb-4">
+            <Label>
+              비밀번호 확인 <span className="text-error-500">*</span>
+            </Label>
+            <Input
+              type="password"
+              value={deletePw}
+              onChange={(e) => setDeletePw(e.target.value)}
+              placeholder="현재 비밀번호를 입력하세요"
+            />
+          </div>
+
+          <FeedbackText feedback={deleteFeedback} />
+
+          <div className="mt-6 flex items-center justify-end gap-3">
             <Button size="sm" variant="outline" onClick={closeModal}>
               취소
             </Button>
-            <button
+            <Button
+              size="sm"
               onClick={handleDeleteAccount}
-              className="inline-flex items-center justify-center rounded-lg bg-error-600 px-4 py-3 text-sm font-medium text-white shadow-theme-xs transition hover:bg-error-500"
+              disabled={deleteSubmitting}
+              className="bg-error-600 hover:bg-error-500"
             >
-              영구 삭제
-            </button>
+              {deleteSubmitting ? "삭제 중..." : "계정 삭제"}
+            </Button>
           </div>
         </div>
       </Modal>
     </div>
+  );
+}
+
+/** 피드백 메시지를 렌더링합니다. */
+function FeedbackText({ feedback }: { feedback: Feedback }) {
+  if (!feedback) return null;
+  return (
+    <p
+      className={`col-span-2 text-sm font-medium ${
+        feedback.type === "error"
+          ? "text-error-600 dark:text-error-500"
+          : "text-success-600 dark:text-success-500"
+      }`}
+    >
+      {feedback.text}
+    </p>
   );
 }

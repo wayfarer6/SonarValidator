@@ -18,8 +18,8 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
-import { useCookies } from 'react-cookie';
 import { Navigate } from 'react-router-dom';
+import { useAuth } from "./context/AuthContext";
 import Project from "./pages/Project";
 import ProjectCreation from "./pages/ProjectCreation";
 import ProjectEditor from "./pages/ProjectEditor";
@@ -35,8 +35,23 @@ import PolicyExporter from "./pages/PolicyExporter";
 import NetwworkManagement from "./pages/NetworkManagement";
 
 export default function App() {
-  const [cookies] = useCookies(["username"]);
-  const username = cookies.username;
+  // 인증 상태는 서버 세션을 따릅니다. (기존 쿠키 방식은 검증 없이 통과했습니다)
+  const { user, initializing } = useAuth();
+  const signedIn = user !== null;
+
+  // 세션 확인이 끝나기 전에 라우팅하면 로그인 화면이 잠깐 보였다가 바뀝니다.
+  if (initializing) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            로그인 상태를 확인하는 중...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router> 
@@ -45,15 +60,15 @@ export default function App() {
         {/* 1. 로그인/회원가입 페이지는 항상 열어두되, 이미 로그인된 사람이 접근하면 메인으로 보냄 */}
         <Route 
           path="/signin" 
-          element={username ? <Navigate to="/" replace /> : <SignIn />} 
+          element={signedIn ? <Navigate to="/" replace /> : <SignIn />} 
         />
         <Route 
           path="/signup" 
-          element={username ? <Navigate to="/" replace /> : <SignUp />} 
+          element={signedIn ? <Navigate to="/" replace /> : <SignUp />} 
         />
 
         {/* 2. 로그인된 사용자만 접근할 수 있는 대시보드 레이아웃 */}
-        {username ? (
+        {signedIn ? (
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
             <Route path="/profile" element={<UserProfiles />} />
@@ -94,7 +109,7 @@ export default function App() {
         )}
 
         {/* 4. 로그인된 상태에서 이상한 주소로 가면 404(NotFound) 처리 */}
-        {username && <Route path="*" element={<NotFound />} />}
+        {signedIn && <Route path="*" element={<NotFound />} />}
       </Routes>
     </Router>
   );

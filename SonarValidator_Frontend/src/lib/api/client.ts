@@ -61,11 +61,20 @@ export class ApiError extends Error {
 /** 요청 옵션입니다. */
 interface RequestOptions {
   /** HTTP 메서드 (기본 GET). */
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** JSON 본문. */
   body?: unknown;
   /** 쿼리 파라미터 (null/undefined 는 생략). */
   params?: Record<string, string | number | boolean | null | undefined>;
+  /**
+   * 세션 쿠키 전송 여부입니다. 기본값은 `"include"` 입니다.
+   *
+   * 백엔드가 세션 기반이라 모든 API 요청에 쿠키가 필요합니다. 다른 출처
+   * (5173 → 3000)로 보낼 때 브라우저는 기본적으로 쿠키를 생략하므로,
+   * `include` 를 명시해야 합니다. 이 값을 빼면 "로그인은 되는데 이후 요청이
+   * 전부 401" 이 되는 증상이 나타납니다.
+   */
+  credentials?: RequestCredentials;
 }
 
 /**
@@ -94,13 +103,15 @@ function buildQuery(params?: RequestOptions["params"]): string {
  * @throws ApiError 실패 시 (상태 코드 보존)
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, params } = options;
+  const { method = "GET", body, params, credentials = "include" } = options;
   const url = `${API_BASE_URL}${path}${buildQuery(params)}`;
 
   let response: Response;
   try {
     response = await fetch(url, {
       method,
+      // 세션 쿠키를 주고받으려면 필수입니다. (다른 출처 + 세션 인증)
+      credentials,
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
