@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -9,13 +9,13 @@ import { useCookies } from "react-cookie";
 
 export default function SignInForm() {
   const navigate = useNavigate();
-  const [cookies, setCookie] = useCookies(["username"]);
+  const [, setCookie] = useCookies(["username"]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const [isChecked, setIsChecked] = useState(false);
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!email) {

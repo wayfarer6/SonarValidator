@@ -3,16 +3,12 @@ import { Link, useLocation } from "react-router";
 
 // 사용 중인 아이콘만 유지
 import {
-  AlertIcon,
   ChevronDownIcon,
   DocsIcon,
   FileTextIcon,
   GlobeIcon,
   GridIcon,
   HorizontaLDots,
-  ListIcon,
-  MailIcon,
-  PageIcon,
   ShieldCheckIcon,
   UserCircleIcon,
 } from "../icons";

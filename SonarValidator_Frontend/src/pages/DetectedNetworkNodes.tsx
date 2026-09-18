@@ -1,179 +1,197 @@
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
-import { useModal} from "../hooks/useModal";
-import { Modal } from "../components/ui/modal";
+import Badge from "../components/ui/badge/Badge";
+import Button from "../components/ui/button/Button";
+import { useApi } from "../hooks/useApi";
+import { getAllDiscoveredDevices } from "../lib/api";
+import type { ApiDiscoveredDevice } from "../lib/api/types";
 
-interface DetectedNode {
-  id: number;
-  ip: string;
-  name: string;
-  status: "online" | "offline";
-}
-
+/**
+ * 탐지된 네트워크 노드 화면입니다.
+ *
+ * <h2>더미 데이터에서 서버 연동으로</h2>
+ * 이 화면은 이전에 {@code Record<"routers"|"switches"|...>} 로 하드코딩된
+ * 8건을 보여줬습니다. 이제 {@code GET /api/v1/network/discovered} 를 호출해
+ * <b>Agent 가 실제로 보고한 장치</b>를 보여줍니다.
+ *
+ * <h2>벤더가 아니라 계열로 묶는 이유</h2>
+ * 기존 화면은 "Cisco Router / Arista Switch / OPNsense Firewall / Linux VM"
+ * 4개 고정 카드였습니다. 하지만 랩에는 FRR 라우터, Alpine 방화벽, Open vSwitch
+ * 도 있어서 고정 카드로는 담기지 않습니다. 그래서 <b>설정 형식(format)</b>
+ * 기준으로 묶어 어떤 벤더가 늘어나도 자동으로 표시되게 했습니다.
+ */
 export default function DetectedNetworkNodes() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("project_id");
   const navigate = useNavigate();
 
-  const handleContinue = () => {
-    console.log("Proceeding to next step...");
-    navigate(`/project/create/subnet?project_id=${projectId ?? ""}`);
-  };
+  const { data, loading, error, offline, reload } = useApi(
+    () => getAllDiscoveredDevices(),
+    [],
+  );
 
-  // const handleOPNsenseGuide=()=> {
-    
-  // }
-
-  const {isOpen, openModal,closeModal } = useModal();
-
-  // 테스트를 위한 임시(Dummy) 데이터
-  const detectedNodes: Record<"routers" | "switches" | "firewalls" | "vms", DetectedNode[]> = {
-    routers: [
-      { id: 1, ip: "192.168.10.1", name: "RTR-Auto-001", status: "online" },
-      { id: 2, ip: "192.168.10.2", name: "RTR-Auto-002", status: "offline" },
-    ],
-    switches: [
-      { id: 3, ip: "192.168.20.10", name: "SW-Auto-001", status: "online" },
-      { id: 4, ip: "192.168.20.11", name: "SW-Auto-002", status: "online" },
-      { id: 5, ip: "192.168.20.12", name: "SW-Auto-003", status: "offline" },
-    ],
-    firewalls: [
-      { id: 6, ip: "10.0.0.254", name: "FW-Auto-001", status: "online" },
-    ],
-    vms: [
-      { id: 7, ip: "172.16.0.100", name: "WIN-VM-001", status: "online" },
-      { id: 8, ip: "172.16.0.101", name: "LINUX-VM-002", status: "online" },
-    ],
-  };
-
-  // 노드 리스트를 렌더링하는 공통 함수 (TailAdmin 리스트 스타일 적용)
-  const renderNodeList = (nodes: DetectedNode[]) => {
-    if (nodes.length === 0) {
-      return (
-        <div className="flex h-32 items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-          No nodes detected
-        </div>
-      );
+  /** 장치를 설정 형식별로 묶습니다. */
+  const grouped = useMemo(() => {
+    const map = new Map<string, ApiDiscoveredDevice[]>();
+    for (const device of data?.devices ?? []) {
+      const key = device.format ?? "미분류";
+      const bucket = map.get(key);
+      if (bucket) bucket.push(device);
+      else map.set(key, [device]);
     }
+    return [...map.entries()].sort((a, b) => b[1].length - a[1].length);
+  }, [data]);
 
-    return (
-      <div className="flex flex-col">
-        {nodes.map((node) => (
-          <div
-            key={node.id}
-            className="flex items-center justify-between border-b border-stroke py-3 last:border-b-0 dark:border-strokedark"
-          >
-            <div className="flex flex-col">
-              <span className="font-medium text-black dark:text-white">
-                {node.ip}
-              </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {node.name}
-              </span>
-            </div>
-            {/* 상태 표시 인디케이터 (TailAdmin의 meta 색상 또는 표준 색상 활용) */}
-            <div className="flex items-center justify-center">
-              <span
-                className={`h-3 w-3 rounded-full ${
-                  node.status === "online" ? "bg-meta-3 bg-green-500" : "bg-meta-1 bg-red-500"
-                }`}
-                title={node.status === "online" ? "Online" : "Offline"}
-              ></span>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+  /** 카드 접기/펼치기 상태. */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggle = (format: string) =>
+    setCollapsed((prev) => ({ ...prev, [format]: !prev[format] }));
+
+  const handleContinue = () => {
+    // 다음 단계(서브넷 등급 지정)로 이동합니다.
+    navigate(`/project/create/subnet?project_id=${projectId ?? ""}`);
   };
 
   return (
     <>
       <PageMeta
-        title="View Detected Network Nodes | TailAdmin - React.js Admin Dashboard Template"
-        description="This is View Detected Network Nodes page for TailAdmin"
+        title="View Detected Network Nodes | SonarValidator"
+        description="Agent 가 보고한 네트워크 장치 목록"
       />
       <PageBreadcrumb pageTitle="View Detected Network Nodes" />
 
-      {/* 전체 메인 컨테이너 박스 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-        {/* 상단 헤더 영역 (직전 화면과 동일한 뱃지 + 우측 Continue 버튼) */}
-        <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4 dark:border-gray-800">
-          <span className="inline-block rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
-            View Detected Network Nodes
-          </span>
-
-          {/* 우측 상단 Continue 버튼 */}
-          <button
-            type="button"
-            onClick={handleContinue}
-            className="rounded-xl border border-gray-300 bg-white px-6 py-2.5 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700"
-          >
-            Continue
-          </button>
-        </div>
-
-        {/* 4분할 그리드 레이아웃 */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4 2xl:gap-7.5">
-        
-        {/* 1. Cisco Router 카드 */}
-        <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
-          <div className="border-b border-stroke py-4 px-6.5 dark:border-strokedark">
-            <h3 className="font-medium text-black dark:text-white">
-              Cisco Router
-            </h3>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <span className="inline-block rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+              View Detected Network Nodes
+            </span>
+            {data && (
+              <>
+                <Badge size="sm" color="success">
+                  연결 {data.connected_agents ?? 0}
+                </Badge>
+                <Badge size="sm" color="light">
+                  수집 {data.parsed_devices ?? 0}
+                </Badge>
+              </>
+            )}
           </div>
-          <div className="p-6.5 max-h-[350px] overflow-y-auto custom-scrollbar">
-            {renderNodeList(detectedNodes.routers)}
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={reload}>
+              새로고침
+            </Button>
+            <Button size="sm" onClick={handleContinue}>
+              Continue
+            </Button>
           </div>
         </div>
 
-        {/* 2. Arista Switch 카드 */}
-        <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
-          <div className="border-b border-stroke py-4 px-6.5 dark:border-strokedark">
-            <h3 className="font-medium text-black dark:text-white">
-              Arista Switch
-            </h3>
+        {loading && (
+          <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+            장치 목록을 불러오는 중...
           </div>
-          <div className="p-6.5 max-h-[350px] overflow-y-auto custom-scrollbar">
-            {renderNodeList(detectedNodes.switches)}
-          </div>
-        </div>
+        )}
 
-        {/* 3. OPNsense Firewall 카드 */}
-        <div
-        //  onClick=handleOPNsenseGuide()
-        className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
-          <div className="border-b border-stroke py-4 px-6.5 dark:border-strokedark">
-            <h3 className="font-medium text-black dark:text-white">
-              OPNsense Firewall
-            </h3>
+        {error && (
+          <div className="rounded-xl border border-error-200 bg-error-50 p-4 dark:border-error-500/30 dark:bg-error-500/10">
+            <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+              {offline ? "백엔드에 연결할 수 없습니다" : "장치 목록을 불러오지 못했습니다"}
+            </p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{error}</p>
+            <Button className="mt-3" size="sm" variant="outline" onClick={reload}>
+              다시 시도
+            </Button>
           </div>
-          <div className="p-6.5 max-h-[350px] overflow-y-auto custom-scrollbar">
-            {renderNodeList(detectedNodes.firewalls)}
+        )}
+
+        {!loading && !error && grouped.length === 0 && (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-12 text-center dark:border-gray-800">
+            <p className="text-base font-medium text-gray-600 dark:text-gray-400">
+              탐지된 장치가 없습니다
+            </p>
+            <p className="mt-1 max-w-md text-sm text-gray-400 dark:text-gray-500">
+              Agent(Prober)를 배포하고 실행하면 수집된 장치가 여기에 표시됩니다.
+              텔레메트리는 30초 주기로 수집되므로 실행 후 잠시 기다리세요.
+            </p>
           </div>
-        </div>
-        <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
-        <div>
+        )}
 
-        </div>
-        </Modal>
+        {/* 설정 형식별 카드 그리드 */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-6">
+          {grouped.map(([format, devices]) => (
+            <div
+              key={format}
+              className="rounded-xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-700 dark:bg-gray-800/50"
+            >
+              <button
+                type="button"
+                onClick={() => toggle(format)}
+                className="flex w-full items-center justify-between border-b border-gray-100 px-4 py-3 text-left dark:border-gray-700"
+              >
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                    {format}
+                  </h3>
+                  <Badge size="sm" color="light">
+                    {devices.length}
+                  </Badge>
+                </div>
+                <span className="text-xs text-gray-400">
+                  {collapsed[format] ? "▼" : "▲"}
+                </span>
+              </button>
 
-        {/* 4. Linux VM 카드 */}
-        <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
-          <div className="border-b border-stroke py-4 px-6.5 dark:border-strokedark">
-            <h3 className="font-medium text-black dark:text-white">
-              Linux VM
-            </h3>
-          </div>
-          <div className="p-6.5 max-h-[350px] overflow-y-auto custom-scrollbar">
-            {renderNodeList(detectedNodes.vms)}
-          </div>
-        </div>
-
-        
-       
-
+              {!collapsed[format] && (
+                <div className="custom-scrollbar max-h-[350px] overflow-y-auto p-4">
+                  <div className="flex flex-col">
+                    {devices.map((device) => {
+                      // 주소가 있으면 대표 주소를 보여줍니다.
+                      const primaryAddress =
+                        device.interfaces
+                          .flatMap((iface) => iface.addresses)
+                          .map((address) => address.split("/")[0])[0] ?? null;
+                      return (
+                        <div
+                          key={device.agent_id}
+                          className="flex items-start justify-between border-b border-gray-100 py-3 last:border-b-0 dark:border-gray-700"
+                        >
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate font-medium text-black dark:text-white">
+                              {primaryAddress ?? device.agent_id}
+                            </span>
+                            <span className="truncate text-xs text-gray-500 dark:text-gray-400">
+                              {device.hostname ?? device.agent_id}
+                            </span>
+                            <span className="mt-0.5 text-[10px] text-gray-400">
+                              인터페이스 {device.interfaces.length} · VLAN{" "}
+                              {device.vlans.length}
+                              {typeof device.route_count === "number" &&
+                                ` · 경로 ${device.route_count}`}
+                            </span>
+                            {device.warnings && device.warnings.length > 0 && (
+                              <span className="mt-0.5 text-[10px] text-warning-600 dark:text-orange-400">
+                                경고 {device.warnings.length}건
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`ml-2 h-3 w-3 shrink-0 rounded-full ${
+                              device.discovered ? "bg-success-500" : "bg-gray-300"
+                            }`}
+                            title={device.discovered ? "수집 완료" : "텔레메트리 없음"}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </>

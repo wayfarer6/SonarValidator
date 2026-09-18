@@ -19,9 +19,10 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import { useCookies } from 'react-cookie';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import Project from "./pages/Project";
 import ProjectCreation from "./pages/ProjectCreation";
+import ProjectEditor from "./pages/ProjectEditor";
 import Agent from "./pages/Agent";
 import Compliance from "./pages/Compliance";
 import DetectedNetworkNodes from "./pages/DetectedNetworkNodes";
@@ -58,6 +59,10 @@ export default function App() {
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/project" element={<Project />} />
             <Route path="/project/create" element={<ProjectCreation />} />
+            {/* 프로젝트 편집: 서브넷 등급 + 연결 규칙 + 망분리 검증을 한 화면에서 다룹니다.
+                쿼리스트링(?project_id=...) 도 받아 기존 마법사 링크와 호환됩니다. */}
+            <Route path="/project/editor/:projectId" element={<ProjectEditor />} />
+            <Route path="/project/editor" element={<ProjectEditor />} />
             <Route path="/project/create/ViewNodes" element={<DetectedNetworkNodes/>}/>
             <Route path="/project/create/subnet" element={<SubnetAdvanceConfiguration/>}/>
             <Route path="/project/create/segmentation" element={<NetworkSegmentationRule/>}/>

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { useNavigate } from "react-router";
 
 export default function NotificationDropdown() {

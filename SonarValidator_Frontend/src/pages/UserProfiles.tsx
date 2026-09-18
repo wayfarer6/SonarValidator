@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import UserMetaCard from "../components/UserProfile/UserMetaCard";
 import UserInfoCard from "../components/UserProfile/UserInfoCard";
-import UserAddressCard from "../components/UserProfile/UserAddressCard";
 import AccountManagementCard from "../components/UserProfile/AccountManagementCard";
 import PageMeta from "../components/common/PageMeta";
 

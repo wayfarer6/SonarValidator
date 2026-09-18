@@ -10,6 +10,9 @@ interface ButtonProps {
   onClick?: () => void; // Click handler
   disabled?: boolean; // Disabled state
   className?: string; // Disabled state
+  // 네이티브 툴팁. 비활성 사유를 설명할 때 씁니다.
+  // (비활성 버튼은 클릭 이벤트가 없어 화면으로 설명할 기회가 없습니다)
+  title?: string;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -22,6 +25,7 @@ const Button: React.FC<ButtonProps> = ({
   onClick,
   className = "",
   disabled = false,
+  title,
 }) => {
   // Size Classes
   const sizeClasses = {
@@ -47,6 +51,7 @@ const Button: React.FC<ButtonProps> = ({
       }`}
       onClick={onClick}
       disabled={disabled}
+      title={title}
     >
       {startIcon && <span className="flex items-center">{startIcon}</span>}
       {children}
