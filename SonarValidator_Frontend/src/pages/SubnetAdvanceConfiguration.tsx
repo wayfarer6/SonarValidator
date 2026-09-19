@@ -1,7 +1,8 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
+import OfflineImportCard from "../components/offline/OfflineImportCard";
 import { useProjectWizard, type SubnetClass } from "../context/ProjectWizardContext";
 
 const SUBNET_CLASSES: SubnetClass[] = ["Confidential", "Sensitive", "Open"];
@@ -19,11 +20,8 @@ export default function SubnetAdvanceConfiguration() {
   );
   const [vxlanIp, setVxlanIp] = useState("");
   const [vxlanPort, setVxlanPort] = useState("");
-  const [importedFiles, setImportedFiles] = useState<string[]>([]);
-  const [isDragOver, setIsDragOver] = useState(false);
 
   const vxlanCardRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleContinue = () => {
     console.log("Proceeding to next step...");
@@ -45,24 +43,6 @@ export default function SubnetAdvanceConfiguration() {
 
   const handleApplyVxlan = () => {
     console.log(`Apply VXLAN - subnet: ${selectedSubnet}, ip: ${vxlanIp}, port: ${vxlanPort}`);
-  };
-
-  const addFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const names = Array.from(files).map((file) => file.name);
-    setImportedFiles((prev) => [...prev, ...names]);
-    console.log("Import offline prober data:", names);
-  };
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    addFiles(e.dataTransfer.files);
-  };
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    addFiles(e.target.files);
-    e.target.value = "";
   };
 
   return (
@@ -212,53 +192,12 @@ export default function SubnetAdvanceConfiguration() {
               </button>
             </div>
 
-            {/* Import Offline Prober Data 카드 (Drop Zone) */}
-            <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-transparent">
-              <div className="mb-5 rounded-lg border border-gray-200 bg-white py-2.5 text-center font-medium text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white/90">
-                Import Offline Prober Data
-              </div>
-
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragOver(true);
-                }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-4 text-sm transition ${
-                  isDragOver
-                    ? "border-brand-500 bg-brand-50/60 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
-                    : "border-gray-300 bg-white text-gray-500 hover:border-brand-500 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400 dark:hover:border-brand-500 dark:hover:text-brand-400"
-                }`}
-              >
-                <span className="text-2xl leading-none">⬇</span>
-                <span className="font-medium">Drop Here</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
-                  클릭해서 파일을 선택할 수도 있습니다
-                </span>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                hidden
-                onChange={handleFileChange}
-              />
-
-              {importedFiles.length > 0 && (
-                <ul className="mt-3 space-y-1 text-xs text-gray-600 dark:text-gray-300">
-                  {importedFiles.map((name, idx) => (
-                    <li
-                      key={`${name}-${idx}`}
-                      className="truncate rounded-lg border border-gray-200 bg-white px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800"
-                    >
-                      📄 {name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {/* Import Offline Prober Data 카드 (드래그앤드롭 → 서버 업로드)
+                이전에는 파일 이름만 화면에 쌓고 서버로 보내지 않아서,
+                "올렸는데 반영이 안 된다" 는 상태였습니다.
+                이제 선택/드롭 → 사전 검사 → 업로드 → 결과 표시까지 한 카드에서
+                처리하고, 반영된 장치는 아래 목록에 즉시 나타납니다. */}
+            <OfflineImportCard />
           </div>
         </div>
       </div>

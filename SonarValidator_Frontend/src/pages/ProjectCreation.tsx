@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
+import Branch_Divider from "../components/common/Branch_Divider";
 import OPNsenseConfigModal from "../components/opnsense/OPNsenseConfigModal";
 
 /**
@@ -16,6 +17,17 @@ import OPNsenseConfigModal from "../components/opnsense/OPNsenseConfigModal";
  * <p>모달에서 저장하면 서버가 즉시 연결을 확인하고 결과를 화면에 돌려줍니다.
  * 저장만 하고 끝내면 운영자가 "등록됐다" 고 믿고 넘어갔다가 정책 푸시
  * 단계에서야 처음 실패를 보게 됩니다.
+ *
+ * <h2>환경 구성 방식이 둘로 갈리는 이유</h2>
+ * 프로버를 배포한 뒤 절차는 <b>서버에 닿는지</b>에 따라 완전히 달라집니다.
+ * <ol>
+ *   <li><b>온라인</b> — 좌측에 IP/Port 를 넣으면 30초 주기로 자동 전송</li>
+ *   <li><b>오프라인</b> — 설정을 JSON 으로 남기고, 다음 단계에서 업로드</li>
+ * </ol>
+ * <p>이 갈림길을 표시하지 않으면 운영자는 두 절차를 동시에 하는 것으로
+ * 오해하고, 연결되지 않는 장비에 IP 를 넣고 "왜 안 올라오지" 를 반복합니다.
+ * 그래서 우측 카드에 {@link Branch_Divider} 로 분기 지점을 명시하고,
+ * 각 갈래에 다음 행동을 적어 두었습니다.
  */
 export default function ProjectCreation() {
   const [searchParams] = useSearchParams();
@@ -119,22 +131,85 @@ export default function ProjectCreation() {
             </form>
           </div>
 
-          {/* 우측: Prober Guide 박스 (요청하신 문구 반영) */}
+          {/* 우측: 환경 구성 방식 카드
+              프로버를 배포한 뒤 갈래가 둘로 나뉩니다.
+                (A) 서버에 연결 가능 → 텔레메트리를 서버로 직접 전송
+                (B) 서버에 연결 불가 → 설정을 JSON 으로 남겨 나중에 업로드
+              이 갈림길을 그냥 여백으로 두면 운영자가 두 절차를 동시에 하는 것으로
+              오해하고, 연결이 안 되는 장비에 IP/Port 를 넣고 "왜 안 올라오지" 를
+              반복합니다. 그래서 분기 지점을 Branch_Divider 로 명시합니다. */}
           <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-transparent">
             <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
               <h3 className="mb-4 text-center text-base font-semibold text-gray-800 dark:text-white/90">
-                Prober Guide
+                환경 구성 방식
               </h3>
-              <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                <p className="flex items-start gap-2">
-                  <span className="font-semibold">1.</span> 
-                  <span>네트워크 장비 종류에 맞게 Prober를 다운 받으세요</span>
-                </p>
-                <p className="flex items-start gap-2">
-                  <span className="font-semibold">2.</span> 
-                  <span>Prober와 Management Server 연결이 불가능하다면 Prober를 통해 설정만 별도로 수집할 수 있습니다.</span>
+
+              {/* 공통 선행 단계 */}
+              <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3 dark:border-gray-700 dark:bg-gray-900/40">
+                <p className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <span className="font-semibold">1.</span>
+                  <span>네트워크 장비 종류에 맞게 Prober를 다운로드하세요.</span>
                 </p>
               </div>
+
+              {/* ─────── 분기 지점 ─────── */}
+              <div className="my-4">
+                <Branch_Divider
+                  orientation="horizontal"
+                  label="OR"
+                  hint="서버 연결 가능 여부로 갈립니다"
+                />
+              </div>
+
+              {/* 갈래 A: 온라인 */}
+              <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="font-semibold text-gray-800 dark:text-white/90">
+                    2. 서버에 연결 가능
+                  </span>
+                  <Badge size="sm" color="success">
+                    온라인
+                  </Badge>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  좌측에 Management Server IP 와 Port 를 입력하고{" "}
+                  <span className="font-medium">Create Prober</span> 를 누르세요.
+                  프로버가 30초 주기로 텔레메트리를 자동 전송합니다.
+                </p>
+              </div>
+
+              {/* 갈래 B: 오프라인 */}
+              <div className="mt-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="font-semibold text-gray-800 dark:text-white/90">
+                    또는 연결이 불가능한 경우
+                  </span>
+                  <Badge size="sm" color="info">
+                    오프라인
+                  </Badge>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  프로버가 설정을 JSON 파일로 남깁니다. 그 파일을 다음 단계의{" "}
+                  <span className="font-medium">Import Offline Prober Data</span>{" "}
+                  카드에 끌어다 놓으면 서버가 같은 파서로 변환해 장치 목록에
+                  반영합니다.
+                </p>
+                <code className="mt-2 block rounded bg-gray-100 px-2 py-1.5 font-mono text-[10px] text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                  ./sonar_validator_prober --export-once
+                </code>
+              </div>
+
+              {/* 오프라인 갈래로 바로 이동 — 파일을 만든 운영자가 다음에
+                  어디로 가야 하는지 화면 안에서 알 수 있게 합니다. */}
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(`/project/create/subnet?project_id=${projectId ?? ""}`)
+                }
+                className="mt-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+              >
+                오프라인 데이터 가져오기 화면으로 이동
+              </button>
             </div>
           </div>
 

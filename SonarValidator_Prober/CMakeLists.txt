@@ -91,6 +91,8 @@ add_executable(sonar_validator_prober
     terminal_session.cpp
     vm/vm_service.hpp
     vm/vm_service.cpp
+    offline/offline_export.hpp
+    offline/offline_export.cpp
     collector/command_collector.hpp
     ${SONAR_COLLECTOR_SOURCES}
     ${SONAR_CLI_PARSER_SOURCES}
@@ -100,6 +102,7 @@ target_include_directories(sonar_validator_prober PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/collector
     ${CMAKE_CURRENT_SOURCE_DIR}/database
+    ${CMAKE_CURRENT_SOURCE_DIR}/offline
     ${CMAKE_CURRENT_SOURCE_DIR}/router
     ${CMAKE_CURRENT_SOURCE_DIR}/switch
     ${CMAKE_CURRENT_SOURCE_DIR}/firewall
@@ -179,6 +182,26 @@ add_executable(
     envelope_test
     envelope_test.cpp
 )
+
+# 오프라인 스냅샷 export 단위 테스트.
+# 서버에 연결할 수 없는 장비에서 설정을 파일로 남기는 경로를 검증합니다.
+# 네트워크/SQLite 불필요 → CI 에서 항상 실행됩니다.
+add_executable(
+    offline_export_test
+    offline/offline_export_test.cpp
+    offline/offline_export.cpp
+)
+
+target_include_directories(offline_export_test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/offline
+)
+
+target_link_libraries(offline_export_test PRIVATE
+    nlohmann_json::nlohmann_json
+)
+
+add_test(NAME offline_export_test COMMAND offline_export_test)
 
 # 통신 통합 테스트. mock 서버(Agent_Test/mock_API) 또는 실제 백엔드를 상대로
 # hello -> ack, policy-request -> policy-response 왕복을 검증합니다.

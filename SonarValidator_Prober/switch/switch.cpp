@@ -161,7 +161,11 @@ std::vector<BridgeInfo> OpenVSwitchTopologyParser::parse(const std::string& raw_
 std::vector<BridgeInfo> CiscoTopologyParser::parse(const std::string& raw_output) const
 {
     std::vector<BridgeInfo> bridges;
-    BridgeInfo bridge{"catalyst8000v", {}};
+    // 브리지 이름은 벤더 접두가 아니라 장치 제품명을 씁니다.
+    // (8000v 는 라우터이고, 이 파서는 `show running-config` 의 switchport 라인을
+    //  그대로 옮기는 역할이다. 이름을 catalyst8000v 로 두면 라우터인데
+    //  스위치로 보여 혼동을 만든다.)
+    BridgeInfo bridge{"cisco-ios-xe", {}};
 
     std::istringstream stream(raw_output);
     std::string line;
@@ -221,7 +225,7 @@ void Switch::loadTopology(const std::string& raw_output, SwitchVendor vendor)
             bridges_ = parser.parse(raw_output);
             break;
         }
-        case SwitchVendor::CiscoCatalyst9000v: {
+        case SwitchVendor::CiscoIosXe: {
             CiscoTopologyParser parser;
             bridges_ = parser.parse(raw_output);
             break;
@@ -239,13 +243,14 @@ void Switch::parseOpenVSwitchTopology(const std::string& raw_output)
     loadTopology(raw_output, SwitchVendor::OpenVSwitch);
 }
 
-/*  PoC가 안되는 관계로 주석처리
+// Cisco IOS-XE 토폴로지 파싱입니다.
+// 과거에는 "PoC가 안된다" 는 이유로 주석 처리되어 있었지만,
+// 수집/파싱 자체는 동작하므로 다시 연결했습니다.
+// (정책 적용만 아직 지원하지 않습니다 — management_service 참고)
 void Switch::parseCiscoSwitchTopology(const std::string& raw_output)
 {
-    loadTopology(raw_output, SwitchVendor::CiscoCatalyst8000v);
+    loadTopology(raw_output, SwitchVendor::CiscoIosXe);
 }
-
-*/
 
 void Switch::pasreAristaTopology(const std::string& raw_output)
 {

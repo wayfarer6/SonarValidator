@@ -1,7 +1,10 @@
 package org.sonar.sonarvalidator_backend.Service;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -10,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
+import org.sonar.sonarvalidator_backend.Service.log.LogService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -48,6 +52,18 @@ public class AgentMessageRouterService {
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
+    /**
+     * 한 번의 텔레메트리에서 적재할 수 있는 최대 로그 줄 수입니다.
+     *
+     * <p>프로버가 장비의 로그 버퍼 전체를 매 주기(30초) 보내면 로그가 폭증합니다.
+     * 30초마다 2000줄이면 하루에 약 576만 건입니다. 그대로 두면 DB 가 가득 차고
+     * 조회가 느려집니다. 그래서 한 번에 받는 양을 제한합니다.
+     *
+     * <p>초과분을 버리더라도 <b>경고 로그</b>를 남깁니다. 조용히 버리면 운영자가
+     * 로그가 왜 안 보이는지 알 수 없습니다.
+     */
+    private static final int MAX_TELEMETRY_LOG_LINES = 500;
+
     /** Agent 별 최근 텔레메트리 (DB 도입 전까지의 임시 저장소). */
     private final Map<String, JsonNode> lastTelemetry = new ConcurrentHashMap<>();
 
@@ -69,15 +85,41 @@ public class AgentMessageRouterService {
     /** Agent 별 최근 중립 설정. (분석 계층이 조회하는 지점) */
     private final Map<String, NeutralDeviceConfig> lastConfig = new ConcurrentHashMap<>();
 
+    /**
+     * 파일 업로드로 설정이 들어온 Agent 식별자 집합입니다.
+     *
+     * <p>이 값이 필요한 이유: 오프라인 스냅샷은 세션이 없으므로
+     * {@code registry.connectedAgentIds()} 에 나타나지 않습니다. 그런데 화면에는
+     * "연결은 안 됐지만 설정은 확보된 장비" 로 보여야 운영자가 다음 단계로
+     * 갈 수 있습니다. 그래서 출처를 따로 표시합니다.
+     */
+    private final Set<String> offlineOrigins = ConcurrentHashMap.newKeySet();
+
     private final AgentSessionRegistry registry;
     private final PolicyRegistryService policyRegistry;
 
+    /**
+     * 로그 적재 서비스입니다.
+     *
+     * <p>텔레메트리에 로그가 실려 오면 여기로 넘겨 정규화·저장합니다.
+     * 라우터가 직접 저장하지 않는 이유: 로그 정규화(벤더별 심각도 해석)와
+     * 중복 제거는 로그 도메인의 책임이고, 라우터는 분기만 해야 합니다.
+     *
+     * <p>⚠️ {@code @Lazy} 를 쓰지 않으면 순환 참조가 생깁니다.
+     * ({@code LogService} → 저장소, 라우터 → {@code LogService})
+     * 실제로는 순환이 아니지만, 향후 로그 서비스가 에이전트 정보를 참조하면
+     * 바로 순환이 되므로 미리 끊어 둡니다.
+     */
+    private final LogService logService;
+
     public AgentMessageRouterService(AgentSessionRegistry registry,
                                      PolicyRegistryService policyRegistry,
-                                     DeviceConfigService deviceConfigService) {
+                                     DeviceConfigService deviceConfigService,
+                                     LogService logService) {
         this.registry = registry;
         this.policyRegistry = policyRegistry;
         this.deviceConfigService = deviceConfigService;
+        this.logService = logService;
     }
 
     /**
@@ -200,7 +242,103 @@ public class AgentMessageRouterService {
             log.warn("config parse failed for agent={}: {}", agentId, ex.getMessage());
             log.info("telemetry from agent={} keys={}", agentId, payload.size());
         }
+
+        // 텔레메트리에 로그가 실려 오면 적재합니다.
+        // 로그 적재 실패가 텔레메트리 수신을 막으면 안 되므로 예외를 흡수합니다.
+        ingestTelemetryLogs(agentId, payload);
+
         return null;
+    }
+
+    /**
+     * 텔레메트리 payload 에서 로그를 꺼내 적재합니다.
+     *
+     * <h2>왜 payload 키를 여러 개 확인하는가</h2>
+     * <p>프로버 버전과 장치 유형에 따라 로그 키가 다를 수 있습니다.
+     * 하나만 보면 장치에 따라 조용히 로그를 잃습니다.
+     * ({@code log_status} → {@code logs} → {@code syslog} 순으로 시도)
+     *
+     * <p>지원하는 형태:
+     * <pre>
+     *   {"log_status": {"entries": [{"raw": "..."}, ...]}}
+     *   {"log_status": {"lines": ["...", "..."]}}
+     *   {"logs": ["...", "..."]}
+     * </pre>
+     *
+     * @param agentId 장비 식별자
+     * @param payload 텔레메트리 payload
+     */
+    private void ingestTelemetryLogs(String agentId, JsonNode payload) {
+        if (payload == null || payload.isNull()) {
+            return;
+        }
+
+        try {
+            final List<String> lines = extractLogLines(payload);
+            if (lines.isEmpty()) {
+                return;
+            }
+
+            // 가드: 프로버가 장비 버퍼 전체를 매 주기 보내면 로그가 폭증합니다.
+            // 30초 주기로 2000줄을 계속 받으면 하루에 수백만 건이 됩니다.
+            // 그래서 한 번에 받는 줄 수를 제한합니다.
+            final List<String> bounded = lines.size() > MAX_TELEMETRY_LOG_LINES
+                    ? lines.subList(0, MAX_TELEMETRY_LOG_LINES)
+                    : lines;
+
+            final String product = text(payload, "product", text(payload, "vendor", null));
+
+            logService.ingest(agentId, product, null, "agent", bounded);
+
+            if (lines.size() > bounded.size()) {
+                log.warn("telemetry log truncated for agent={}: received={} kept={}",
+                        agentId, lines.size(), bounded.size());
+            }
+        } catch (RuntimeException ex) {
+            // 로그 적재 실패가 텔레메트리 처리 전체를 막지 않게 합니다.
+            log.warn("log ingestion failed for agent={}: {}", agentId, ex.getMessage());
+        }
+    }
+
+    /** 텔레메트리 payload 에서 로그 줄 목록을 꺼냅니다. */
+    private List<String> extractLogLines(JsonNode payload) {
+        final List<String> lines = new ArrayList<>();
+
+        for (final String key : new String[]{"log_status", "logs", "syslog", "device_logs"}) {
+            final JsonNode node = payload.path(key);
+            if (node.isMissingNode() || node.isNull()) {
+                continue;
+            }
+
+            // 배열이면 각 항목을, 객체면 entries/lines 를 봅니다.
+            final JsonNode entries = node.isArray()
+                    ? node
+                    : (node.path("entries").isArray() ? node.path("entries")
+                    : (node.path("lines").isArray() ? node.path("lines") : null));
+
+            if (entries == null || !entries.isArray()) {
+                continue;
+            }
+
+            for (final JsonNode item : entries) {
+                if (item.isString()) {
+                    lines.add(item.asString(""));
+                    continue;
+                }
+                // 객체면 raw > line > message 순으로 씁니다.
+                String value = item.path("raw").asString("");
+                if (value.isBlank()) value = item.path("line").asString("");
+                if (value.isBlank()) value = item.path("message").asString("");
+                if (!value.isBlank()) {
+                    lines.add(value);
+                }
+            }
+
+            // 첫 번째로 찾은 키만 씁니다. 여러 키에 같은 로그가 중복될 수 있습니다.
+            break;
+        }
+
+        return lines;
     }
 
     /**
@@ -211,6 +349,53 @@ public class AgentMessageRouterService {
      */
     public NeutralDeviceConfig lastConfigOf(String agentId) {
         return lastConfig.get(agentId);
+    }
+
+    /**
+     * 오프라인 스냅샷의 payload 를 <b>온라인 텔레메트리와 같은 방식</b>으로 반영합니다.
+     *
+     * <h2>왜 라우터 서비스에 두는가</h2>
+     * <p>오프라인 경로(파일 업로드)가 {@code onTelemetry} 와 다른 코드로 변환하면
+     * 두 경로가 조용히 어긋납니다. 예를 들어 오프라인 쪽에서만 {@code product}
+     * 폴백을 빠뜨리면, 화면에는 어떤 장비는 보이고 어떤 장비는 안 보이게 됩니다.
+     * 그래서 변환·저장 지점을 이 한 곳으로 모읍니다.
+     *
+     * <p>차이는 <b>연결 상태</b>뿐입니다. 파일로 들어온 설정은 현재 세션이
+     * 없으므로 {@code lastSeen} 을 채우지 않습니다 — 채우면 UI 가 "연결됨" 으로
+     * 잘못 표시합니다. 대신 오프라인 표시는
+     * {@link #isOfflineOrigin(String)} 로 따로 조회합니다.
+     *
+     * @param agentId Agent 식별자
+     * @param product 제품명 (없으면 payload 에서 추론)
+     * @param payload 텔레메트리 payload
+     * @return 변환된 중립 설정 (null 이 아님)
+     */
+    public NeutralDeviceConfig acceptOfflineTelemetry(String agentId, String product, JsonNode payload) {
+        final String resolvedProduct = (product == null || product.isBlank())
+                ? text(payload, "product", text(payload, "vendor", "unknown"))
+                : product;
+
+        final NeutralDeviceConfig config =
+                deviceConfigService.parse(agentId, resolvedProduct, payload);
+
+        lastTelemetry.put(agentId, payload);
+        lastConfig.put(agentId, config);
+        // 오프라인에서 온 설정임을 기록합니다. (UI 가 "연결 끊김 + 파일 업로드" 로 표시)
+        offlineOrigins.add(agentId);
+
+        log.info("offline telemetry accepted: agent={} product={} format={} keys={}",
+                agentId, resolvedProduct, config.getFormat(), payload == null ? 0 : payload.size());
+        return config;
+    }
+
+    /**
+     * 이 Agent 의 최근 설정이 파일 업로드로 들어왔는지 확인합니다.
+     *
+     * @param agentId Agent 식별자
+     * @return 오프라인 업로드로 반영된 설정이면 true
+     */
+    public boolean isOfflineOrigin(String agentId) {
+        return offlineOrigins.contains(agentId);
     }
 
     /**

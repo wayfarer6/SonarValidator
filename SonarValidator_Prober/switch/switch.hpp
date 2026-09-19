@@ -24,8 +24,12 @@ struct BridgeInfo {
 };
 
 // 지원하는 스위치 벤더를 구분합니다.
+//
+// Cisco 는 이 랩에서 **8000v(IOS-XE 라우터)** 만 씁니다.
+// Catalyst 9000v 는 사용하지 않으므로 이름에 넣지 않습니다.
+// (과거에 9000v 로 적혀 있어 "지원 예정인 스위치" 로 오해를 만들었다.)
 enum class SwitchVendor {
-    CiscoCatalyst9000v,
+    CiscoIosXe,
     AristavEOS,
     OpenVSwitch
 };

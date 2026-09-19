@@ -33,6 +33,7 @@ import ComplianceExporter from "./pages/ComplianceExporter";
 import PolicyManagement from "./pages/ PolicyManagement";
 import PolicyExporter from "./pages/PolicyExporter";
 import NetwworkManagement from "./pages/NetworkManagement";
+import LogManagement from "./pages/LogManagement";
 
 export default function App() {
   // 인증 상태는 서버 세션을 따릅니다. (기존 쿠키 방식은 검증 없이 통과했습니다)
@@ -87,6 +88,11 @@ export default function App() {
             <Route path="/compliance/export" element={<ComplianceExporter/>}/>
             <Route path="/policy" element={<PolicyManagement/>}/>
             <Route path="/policy/export" element={<PolicyExporter/>}/>
+            {/* 로그 관리: 로그 조회/필터 + AI 분석 + 공급자 설정을 한 화면에서 다룹니다.
+                /log/export 는 이력이 쌓이기 전까지 같은 화면으로 보냅니다. */}
+            <Route path="/log" element={<LogManagement/>}/>
+            <Route path="/log/export" element={<LogManagement/>}/>
+            <Route path="/*/log" element={<LogManagement/>}/>
             <Route path="/network" element={<NetwworkManagement/>}/>
             
             

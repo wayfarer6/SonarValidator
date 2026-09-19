@@ -109,3 +109,29 @@ cd SonarValidator_Prober/build && ctest --output-on-failure
 | `invalid JSON envelope` | 프레임이 JSON 이 아님 | Agent 가 `dump()` 결과를 그대로 보내는지 확인 |
 | `unsupported message type` | `type` 오타/누락 | `envelope::k*` 상수 사용 |
 | 애플리케이션 기동 실패 (`No qualifying bean`) | 설정 클래스가 생성자 파라미터를 요구 | `@Value` 로 프로퍼티 주입 |
+
+## 오프라인 환경 (서버 미도달)
+
+관리 서버에 연결할 수 없는 장비에서는 프로버가 수집 결과를 JSON 파일로 남기고,
+운영자가 그것을 프론트엔드에 올려 반영합니다. 자세한 절차는
+[06. 오프라인 설정 내보내기 / 가져오기](./06-offline-config-export.md) 를 보세요.
+
+핵심만 요약하면 다음과 같습니다.
+
+```bash
+# 한 번만 수집해 스냅샷 파일 생성 (서버 연결 시도 없음)
+./sonar_validator_prober --export-once
+
+# 저장 위치를 바꾸려면
+./sonar_validator_prober --export-once --export-dir /mnt/flash/snapshots
+
+# 파일을 만들 수 없는 환경(원격 콘솔)에서는 표준출력으로 인쇄
+./sonar_validator_prober --export-once --export-stdout
+```
+
+업로드 경로는 `POST /api/v1/offline/import` 이고, 프론트엔드에서는
+**Project Create → Subnet Advance Configuration** 화면의
+**Import Offline Prober Data** 카드가 이 엔드포인트를 씁니다.
+
+> 주의: `/api/v1/offline/**` 는 **인증이 필요합니다.** (`/api/v1/telemetry` 같은
+> Agent 경로와 달리 예외가 아님) 업로드는 운영자 조작이므로 세션 쿠키가 필요합니다.

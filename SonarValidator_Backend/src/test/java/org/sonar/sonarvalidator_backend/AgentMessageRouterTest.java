@@ -38,8 +38,39 @@ class AgentMessageRouterTest {
     void setUp() {
         mapper = JsonMapper.builder().build();
         registry = new AgentSessionRegistry(mapper);
+        // 라우터는 텔레메트리 로그를 LogService 로 넘깁니다.
+        // 이 테스트는 봉투 처리 계약만 보므로 로그 적재는 스텁으로 대체합니다.
+        // (실제 LogService 는 저장소가 필요해 단위 테스트에 부적합합니다)
         router = new AgentMessageRouterService(
-                registry, new PolicyRegistryService(), new DeviceConfigService(java.util.List.of()));
+                registry,
+                new PolicyRegistryService(),
+                new DeviceConfigService(java.util.List.of()),
+                new NoopLogService());
+    }
+
+    /**
+     * 로그 적재를 하지 않는 스텁입니다.
+     *
+     * <p>라우터 테스트의 관심사는 "봉투 → 응답 봉투" 변환이므로
+     * DB 쓰기는 끼어들지 않아야 합니다.
+     */
+    private static class NoopLogService
+            extends org.sonar.sonarvalidator_backend.Service.log.LogService {
+
+        NoopLogService() {
+            super(null, new org.sonar.sonarvalidator_backend.Service.log.LogNormalizer());
+        }
+
+        @Override
+        public java.util.Map<String, Object> ingest(String agentId,
+                                                    String product,
+                                                    String projectKey,
+                                                    String source,
+                                                    java.util.List<String> lines) {
+            // 아무것도 저장하지 않습니다.
+            return java.util.Map.of("received", lines == null ? 0 : lines.size(),
+                    "inserted", 0, "duplicated", 0, "skipped", 0);
+        }
     }
 
     /**

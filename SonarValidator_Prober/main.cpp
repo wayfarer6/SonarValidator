@@ -18,6 +18,7 @@
 #include "database/database_service.hpp"
 #include "init.hpp"
 #include "management_service.hpp"
+#include "offline/offline_export.hpp"
 #include "policy/policy_receiver.hpp"
 #include "prober_config.hpp"
 #include "telemetry/telemetry_monitor.hpp"
@@ -30,6 +31,23 @@ namespace
 {
     // 기본 데이터 디렉터리(설치 시 systemd 로 root 권한으로 실행되는 것을 전제).
     const fs::path kDefaultDataDirectory = "/var/lib/sonar_validator_prober";
+
+    // CLI 로 넘어온 실행 옵션입니다.
+    //
+    // 프로버는 기본이 "상시 실행" 이지만, 서버에 닿지 않는 장비에서는
+    // 설정만 뽑아 파일로 가져가야 합니다. 그 경로를 CLI 로 노출합니다.
+    //   --export-offline        서버 전송을 시도하지 않고 스냅샷 파일만 남김
+    //   --export-dir <경로>      스냅샷 저장 위치 (기본: <데이터>/offline)
+    //   --export-once           한 번만 수집하고 종료
+    //   --export-stdout         스냅샷을 표준출력으로 인쇄 (파일 없이 복사/붙여넣기용)
+    struct CliOptions
+    {
+        bool offline_only = false;
+        bool export_once = false;
+        bool export_stdout = false;
+        std::string export_dir{};
+        bool show_help = false;
+    };
 
     // 기본 SQLite 템플릿 경로.
     const fs::path kDefaultTemplatePath =
@@ -84,6 +102,70 @@ namespace
         }
         return kDefaultTemplatePath;
     }
+
+    // 사용법을 출력합니다. (오프라인 export 옵션이 추가되어 도움말이 필요해졌습니다)
+    void PrintUsage(const char *program)
+    {
+        std::cout
+            << "SonarValidator Prober\n\n"
+            << "사용법: " << (program == nullptr ? "sonar_validator_prober" : program) << " [옵션]\n\n"
+            << "옵션:\n"
+            << "  --export-offline       서버로 보내지 않고 스냅샷 JSON 파일만 남깁니다.\n"
+            << "                         (관리 서버에 연결할 수 없는 장비용)\n"
+            << "  --export-dir <경로>    스냅샷 저장 위치. 기본값은 <데이터 디렉터리>/offline\n"
+            << "  --export-once          한 번만 수집하고 종료합니다. (--export-offline 과 함께 쓰면\n"
+            << "                         즉시 파일 하나를 만들고 끝납니다)\n"
+            << "  --export-stdout        스냅샷 JSON 을 표준출력으로 인쇄합니다. (파일 없이 복사용)\n"
+            << "  --help, -h             이 도움말을 출력합니다.\n\n"
+            << "환경변수:\n"
+            << "  SONAR_DATA_DIR         데이터(DB/설정) 디렉터리\n"
+            << "  SONAR_TEMPLATE_PATH    SQLite 템플릿 경로\n"
+            << "  SONAR_OFFLINE_DIR      스냅샷 저장 디렉터리 (--export-dir 보다 우선순위 낮음)\n";
+    }
+
+    // 명령줄 인자를 해석합니다. 모르는 인자는 무시하고 경고만 남깁니다.
+    // (설치 스크립트가 옵션을 덧붙여 실행해도 프로버가 죽지 않게 하기 위함)
+    CliOptions ParseArgs(int argc, char **argv)
+    {
+        CliOptions options;
+        for (int index = 1; index < argc; ++index)
+        {
+            const std::string argument = argv[index] == nullptr ? "" : argv[index];
+
+            if (argument == "--export-offline")
+            {
+                options.offline_only = true;
+            }
+            else if (argument == "--export-once")
+            {
+                options.export_once = true;
+            }
+            else if (argument == "--export-stdout")
+            {
+                options.export_stdout = true;
+            }
+            else if (argument == "--export-dir")
+            {
+                if (index + 1 < argc && argv[index + 1] != nullptr)
+                {
+                    options.export_dir = argv[++index];
+                }
+                else
+                {
+                    std::cerr << "[WARN] --export-dir 에 경로가 없습니다. 기본 경로를 사용합니다.\n";
+                }
+            }
+            else if (argument == "--help" || argument == "-h")
+            {
+                options.show_help = true;
+            }
+            else
+            {
+                std::cerr << "[WARN] 알 수 없는 인자: " << argument << '\n';
+            }
+        }
+        return options;
+    }
 }
 
 // 프로세스 전체의 실행 플래그입니다. SIGINT/SIGTERM이 오면 false로 바뀝니다.
@@ -100,7 +182,9 @@ void signalHandler(int signum)
 // (조회 명령 실행 + 파싱 → 서버 전송 + DB 큐 저장, 기본 30초 간격)
 void TelemetryWorker(std::stop_token stop_token,
                      const ProberConfig &config,
-                     DatabaseQueue &database_queue)
+                     DatabaseQueue &database_queue,
+                     const fs::path &offline_directory,
+                     bool offline_only)
 {
     // 장치 조회 명령 실행에 쓰는 서비스입니다.
     // 관리 스레드와 정책 적용은 각자 별도 인스턴스를 씁니다(영속 CLI 세션 공유 방지).
@@ -110,6 +194,11 @@ void TelemetryWorker(std::stop_token stop_token,
         "/api/v1/management");
 
     TelemetryMonitor monitor;
+
+    // 오프라인 폴백 설정입니다. 디렉터리가 비어 있으면 기능이 꺼집니다.
+    monitor.SetOfflineExportDirectory(offline_directory.empty() ? std::string{} : offline_directory.string());
+    monitor.SetOfflineOnly(offline_only);
+
     monitor.Run(stop_token, config, database_queue, management_service);
 }
 
@@ -185,11 +274,20 @@ void DatabaseWorker(
     }
 }
 
-int main()
+int main(int argc, char **argv)
 {
     // SIGINT(Ctrl+C)/SIGTERM을 잡아 graceful shutdown을 시작합니다.
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
+
+    // 오프라인 export 옵션을 먼저 해석합니다.
+    // (설정/DB 를 준비하기 전에 --help 로 끝낼 수 있어야 한다)
+    const CliOptions options = ParseArgs(argc, argv);
+    if (options.show_help)
+    {
+        PrintUsage(argc > 0 ? argv[0] : nullptr);
+        return 0;
+    }
 
     // 데이터 디렉터리와 템플릿 경로를 결정합니다.
     //  환경변수로 오버라이드할 수 있어 root 가 아닌 환경(vEOS bash 등)에서도 실행됩니다.
@@ -219,9 +317,60 @@ int main()
         return 1;
     }
 
+    // 오프라인 폴백 디렉터리를 결정합니다.
+    //  --export-dir > SONAR_OFFLINE_DIR > <데이터 디렉터리>/offline
+    //  (--export-offline 또는 --export-once 일 때만 실제로 쓰입니다)
+    const fs::path offline_directory =
+        (options.offline_only || options.export_once)
+            ? fs::path(offline::ResolveExportDirectory(data_directory.string(), options.export_dir))
+            : fs::path(options.export_dir);
+
+    // --export-once: 수집을 한 번만 하고 결과를 파일/표준출력으로 남긴 뒤 종료합니다.
+    // 서버가 없는 장비에서 설정만 뽑아 가져갈 때 쓰는 경로입니다.
+    if (options.export_once)
+    {
+        ManagementService export_service(
+            config.GetServerIpv4(),
+            static_cast<int>(config.GetServerPort()),
+            "/api/v1/management");
+
+        const Json snapshot = TelemetryMonitor::CollectSnapshotDocument(config, export_service);
+
+        if (options.export_stdout)
+        {
+            // 표준출력으로만 인쇄합니다. (파일 없이 복사/붙여넣기 → 프론트엔드 업로드)
+            std::cout << snapshot.dump(2) << '\n';
+            return 0;
+        }
+
+        std::error_code directory_error;
+        fs::create_directories(offline_directory, directory_error);
+
+        const std::string agent_id =
+            config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
+        const offline::ExportResult export_result = offline::ExportSnapshot(
+            offline_directory.string(),
+            agent_id,
+            snapshot.value("collected_at", std::string{}),
+            snapshot);
+
+        if (!export_result.saved)
+        {
+            std::cerr << "[ERROR] 스냅샷을 저장하지 못했습니다: " << export_result.message << '\n';
+            std::cerr << "        (--export-dir 또는 SONAR_OFFLINE_DIR 로 경로를 지정하세요)\n";
+            return 1;
+        }
+
+        std::cout << "[INFO] 스냅샷을 저장했습니다: " << export_result.path << '\n';
+        std::cout << "       이 파일을 SonarValidator 프론트엔드의 "
+                     "'Import Offline Prober Data' 카드에 끌어다 놓으세요.\n";
+        return 0;
+    }
+
     // 병렬로 돌아갈 스레드들을 생성합니다.
     DatabaseQueue database_queue;  // DB 큐(뮤텍스 + 조건 변수)
-    std::jthread telemetry_thread(TelemetryWorker, std::ref(config), std::ref(database_queue));
+    std::jthread telemetry_thread(TelemetryWorker, std::ref(config), std::ref(database_queue),
+                                 std::cref(offline_directory), options.offline_only);
     std::jthread management_thread(ManagementWorker, std::ref(config));
     std::jthread database_thread(DatabaseWorker, std::ref(database), std::ref(database_queue));
 

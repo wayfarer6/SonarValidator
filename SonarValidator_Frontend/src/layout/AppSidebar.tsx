@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
     name: "Log Management",
     subItems: [
       { name: "View Logs", path: "/log", pro: false },
-      { name: "Export Logs", path: "/log/export", pro: false },
+      { name: "AI Provider", path: "/log/export", pro: false },
     ]
   },
   {

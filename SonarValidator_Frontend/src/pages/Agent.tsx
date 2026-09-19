@@ -6,6 +6,7 @@ import Button from "../components/ui/button/Button";
 import { useApi } from "../hooks/useApi";
 import { getAllDiscoveredDevices, listAgents } from "../lib/api";
 import { API_BASE_URL } from "../lib/api/client";
+import { downloadSnapshot } from "../lib/api/offline";
 import type { ApiDiscoveredDevice } from "../lib/api/types";
 
 /**
@@ -24,12 +25,23 @@ import type { ApiDiscoveredDevice } from "../lib/api/types";
  * 구분해야 하기 때문입니다. 이 상태는 서버 푸시는 되지만 수집이 안 되는
  * 것이므로, 운영자가 바로 알아야 할 신호입니다.
  * (과거에 Tomcat WebSocket 버퍼 크기 때문에 정확히 이 증상이 발생했습니다.)
+ *
+ * <h2>설정 내보내기 (내려받기)</h2>
+ * <p>각 Agent 의 설정을 오프라인 스냅샷 형식으로 내려받을 수 있습니다.
+ * 다른 랩으로 옮기거나 백업을 남길 때 필요하고, 그 파일을 다시
+ * "Import Offline Prober Data" 카드에 올리면 복원됩니다.
+ * (왕복이 되어야 백업이므로 서버는 원본 텔레메트리 payload 를 그대로 싣습니다.)
  */
 export default function Agent() {
   const agents = useApi(() => listAgents(), []);
   const discovered = useApi(() => getAllDiscoveredDevices(), []);
 
   const [onlyIssues, setOnlyIssues] = useState(false);
+
+  /** 내려받기 진행 중인 Agent 식별자. 중복 클릭을 막습니다. */
+  const [downloading, setDownloading] = useState<string | null>(null);
+  /** 내려받기 실패 메시지 (Agent 별). */
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   /** Agent 식별자 → 수집 설정 */
   const configByAgent = useMemo(() => {
@@ -85,6 +97,39 @@ export default function Agent() {
   const loading = agents.loading || discovered.loading;
   const error = agents.error ?? discovered.error;
   const offline = agents.offline || discovered.offline;
+
+  /**
+   * Agent 의 설정을 오프라인 스냅샷 파일로 내려받습니다.
+   *
+   * <p>공유 링크가 아니라 Blob 을 받아 저장하는 이유: 서버가 404/401 을
+   * 돌려줄 때 브라우저가 오류 JSON 을 파일로 저장해 버리면, 운영자는
+   * 그것이 오류인지 설정인지 구분할 수 없습니다. 그래서 실패를 먼저 확인합니다.
+   */
+  const handleDownload = async (agentId: string) => {
+    if (downloading !== null) return;
+
+    setDownloading(agentId);
+    setDownloadError(null);
+
+    try {
+      const { file_name, blob } = await downloadSnapshot(agentId);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file_name;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      // Blob URL 은 명시적으로 해제해야 메모리가 회수됩니다.
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setDownloadError(
+        cause instanceof Error ? cause.message : "스냅샷을 내려받지 못했습니다.",
+      );
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   return (
     <>
@@ -185,6 +230,7 @@ export default function Agent() {
                     <th className="border-b p-3 font-medium dark:border-gray-600">형식</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">수집</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">마지막 수신</th>
+                    <th className="border-b p-3 font-medium dark:border-gray-600">설정 내보내기</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-gray-600 dark:divide-gray-700 dark:text-gray-300">
@@ -231,11 +277,35 @@ export default function Agent() {
                       <td className="p-3 font-mono text-[11px]">
                         {row.lastSeen ? new Date(row.lastSeen).toLocaleString() : "—"}
                       </td>
+                      <td className="p-3">
+                        {/* 설정이 없으면 내보낼 것이 없으므로 비활성화하고 사유를 title 로 알립니다.
+                            (비활성 버튼은 클릭 이벤트가 없어 화면으로 설명할 기회가 없습니다) */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={row.interfaceCount === 0 || downloading !== null}
+                          title={
+                            row.interfaceCount === 0
+                              ? "수집된 설정이 없어 내보낼 수 없습니다"
+                              : "오프라인 스냅샷 JSON 으로 내려받습니다"
+                          }
+                          onClick={() => handleDownload(row.agentId)}
+                        >
+                          {downloading === row.agentId ? "생성 중..." : "JSON"}
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+
+          {/* 내보내기 실패 사유 — 조용히 실패하면 "버튼이 안 먹는다" 로 보입니다. */}
+          {downloadError && (
+            <p className="mt-3 rounded-lg border border-error-200 bg-error-50 p-3 text-xs text-gray-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-gray-300">
+              {downloadError}
+            </p>
           )}
         </div>
       </div>
