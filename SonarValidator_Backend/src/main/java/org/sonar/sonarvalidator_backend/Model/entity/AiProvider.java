@@ -117,11 +117,26 @@ public class AiProvider {
      *
      * <p>여러 공급자를 등록해 두고 상황에 따라 고를 수 있습니다. 분석 요청에
      * 공급자를 지정하지 않으면 이 값이 true 인 것을 씁니다.
+     *
+     * <h3>⚠️ 초기값을 {@code null} 로 두는 이유</h3>
+     * <p>{@code false} 로 초기화하면 <b>"값을 주지 않음" 과 "명시적으로 해제" 를
+     * 구분할 수 없습니다.</b> 그러면 "첫 공급자는 자동으로 기본" 규칙을
+     * 적용할 수 없어, 공급자를 하나만 등록해도 기본이 없어집니다.
+     * (분석이 알파벳순으로 고르게 되어 엉뚱한 공급자로 요청이 갑니다)
+     *
+     * <p>{@code null} 은 "아직 정해지지 않음" 을 뜻하고, 조회 시
+     * {@code Boolean.TRUE.equals(...)} 로 처리해 API 에서는 false 로 보입니다.
      */
     @Column(name = "is_default")
-    private Boolean isDefault = false;
+    private Boolean isDefault;
 
-    /** 사용 여부. 끄면 분석 대상에서 제외됩니다(삭제 대신 보존). */
+    /**
+     * 사용 여부. 끄면 분석 대상에서 제외됩니다(삭제 대신 보존).
+     *
+     * <p>이 필드는 {@code true} 로 초기화해도 안전합니다. "값을 주지 않음" 과
+     * "명시적으로 끔" 을 구분할 필요가 없기 때문입니다. (새 공급자는 사용 상태가
+     * 자연스럽고, 끄는 것은 명시적 행위입니다)
+     */
     @Column(name = "enabled")
     private Boolean enabled = true;
 

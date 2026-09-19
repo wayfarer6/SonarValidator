@@ -173,17 +173,27 @@ public class AiProviderService {
         }
         provider.setUpdatedAt(Instant.now().toString());
 
-        // 기본 공급자는 항상 하나만 유지합니다.
+        // ⚠️ 기본 공급자 플래그는 "명시적으로 보냈을 때만" 바꿉니다.
+        //
+        // 실제로 겪은 버그: 수정 화면이 일부 필드만 보내면(예: 타임아웃만 변경)
+        // 여기서 플래그가 꺼져 <b>기본 공급자가 하나도 없게</b> 되었습니다.
+        // 그러면 분석이 알파벳순 첫 공급자를 골라 엉뚱한 공급자로 요청을 보냅니다.
+        // ("Bad Provider" 로 요청이 가서 연결 거부가 발생)
+        // 증상이 조용해서 원인을 찾기 어렵습니다.
         if (Boolean.TRUE.equals(isDefault)) {
             clearDefaultExcept(provider.getId());
             provider.setIsDefault(true);
-        } else if (id != null) {
-            // 수정에서 플래그를 끄는 경우를 반영합니다.
+        } else if (Boolean.FALSE.equals(isDefault)) {
+            // 명시적으로 해제한 경우에만 끕니다.
             provider.setIsDefault(false);
-        } else if (provider.getIsDefault() == null) {
-            // 첫 공급자는 자동으로 기본이 됩니다. (설정 직후 바로 쓸 수 있게)
-            provider.setIsDefault(repository.count() == 0);
+        } else if (id == null) {
+            // 생성 시 플래그를 주지 않았으면, 첫 공급자를 자동으로 기본으로 삼습니다.
+            // (설정 직후 바로 쓸 수 있게)
+            provider.setIsDefault(provider.getIsDefault() != null
+                    ? provider.getIsDefault()
+                    : repository.count() == 0);
         }
+        // id != null && isDefault == null → 기존 플래그를 그대로 유지합니다.
 
         final AiProvider saved = repository.save(provider);
         log.info("AI provider saved: id={} name={} model={} enabled={} default={}",
