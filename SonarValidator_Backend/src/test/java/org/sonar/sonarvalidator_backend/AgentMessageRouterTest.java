@@ -45,7 +45,36 @@ class AgentMessageRouterTest {
                 registry,
                 new PolicyRegistryService(),
                 new DeviceConfigService(java.util.List.of()),
-                new NoopLogService());
+                new NoopLogService(),
+                new NoopNotificationService());
+    }
+
+    /**
+     * 알림을 저장하지 않는 스텁입니다.
+     *
+     * <p>라우터는 Agent 연결/해제를 알림으로 남기지만, 이 테스트의 관심사는
+     * "봉투 → 응답 봉투" 변환입니다. DB 쓰기가 끼어들면 테스트가 저장소를
+     * 함께 띄워야 하므로 스텁으로 대체합니다.
+     */
+    private static class NoopNotificationService
+            extends org.sonar.sonarvalidator_backend.Service.NotificationService {
+
+        NoopNotificationService() {
+            super(null);
+        }
+
+        @Override
+        public void notifyQuietly(String category,
+                                  String severity,
+                                  String title,
+                                  String message,
+                                  String projectKey,
+                                  String agentId,
+                                  String source,
+                                  String link,
+                                  String dedupeKey) {
+            // 알림을 저장하지 않습니다.
+        }
     }
 
     /**

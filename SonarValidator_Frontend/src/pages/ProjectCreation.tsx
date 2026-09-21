@@ -4,19 +4,21 @@ import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Branch_Divider from "../components/common/Branch_Divider";
-import OPNsenseConfigModal from "../components/opnsense/OPNsenseConfigModal";
+import AgentDeployCard from "../components/project/AgentDeployCard";
 
 /**
  * Agent 배포 화면입니다.
  *
- * <h2>OPNsense 카드의 특별 처리</h2>
- * 다른 장비는 이미지/배포 파일을 받아 설치하지만, <b>OPNsense 는 REST API 로
- * 접속</b>하므로 API Key 와 Secret 을 별도로 등록해야 합니다. 그래서 이
- * 카드만 클릭 시 <b>별도 설정 모달</b>을 엽니다.
+ * <h2>장비 카드는 `AgentDeployCard` 를 씁니다</h2>
+ * 장비 목록, OPNsense 의 자격증명 모달, 온라인/오프라인 분기 안내는
+ * 프로젝트 목록 화면의 <b>Add Agent</b> 와 완전히 같아야 합니다.
+ * 그래서 두 화면이 같은 {@link AgentDeployCard} 를 씁니다. 한쪽에서 장비가
+ * 늘면 다른 쪽도 같이 늘어납니다.
  *
- * <p>모달에서 저장하면 서버가 즉시 연결을 확인하고 결과를 화면에 돌려줍니다.
- * 저장만 하고 끝내면 운영자가 "등록됐다" 고 믿고 넘어갔다가 정책 푸시
- * 단계에서야 처음 실패를 보게 됩니다.
+ * <h2>이 화면에 남아 있는 것</h2>
+ * 좌측의 <b>Management Server IP/Port 입력</b> 과 오른쪽의 <b>절차 안내</b>
+ * 입니다. 즉 "처음 배포하는 사람에게 순서를 알려주는" 역할에 집중합니다.
+ * (목록 화면은 이미 프로젝트가 있는 상태라 순서 안내 없이 카드만 펼칩니다)
  *
  * <h2>환경 구성 방식이 둘로 갈리는 이유</h2>
  * 프로버를 배포한 뒤 절차는 <b>서버에 닿는지</b>에 따라 완전히 달라집니다.
@@ -36,14 +38,8 @@ export default function ProjectCreation() {
 
   const [managementServerIPAddr, setManagementServerIPAddr] = useState("");
   const [managementServerPort, setManagementServerPort] = useState("");
-  // 카드(모달 역할)의 노출 여부를 제어하는 상태
+  // 장비 카드 목록(Deploy & Download)의 노출 여부
   const [showDeployCard, setShowDeployCard] = useState(false);
-
-  // OPNsense 설정 모달의 열림 여부와 대상 Agent
-  const [opnsenseOpen, setOpnsenseOpen] = useState(false);
-  const [opnsenseAgentId, setOpnsenseAgentId] = useState("");
-  const [opnsenseSavedCount, setOpnsenseSavedCount] = useState(0);
-
 
   //project 이름없으면 지정해주는거 필요
 
@@ -215,156 +211,18 @@ export default function ProjectCreation() {
 
         </div>
         {showDeployCard && (
-          <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50 lg:p-6">
-            <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3 dark:border-gray-700">
-              <h4 className="font-semibold text-gray-800 dark:text-white/90">
-                Deploy & Download
-              </h4>
-              <button
-                onClick={() => setShowDeployCard(false)}
-                className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                닫기 ✕
-              </button>
-            </div>
-
-            {/* 안내 문구 */}
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-              <p>네트워크 장비 유형을 선택하세요</p>
-            </div>
-
-            {/* 장비 카드들을 가로로 묶어주는 Flex 컨테이너 */}
-            <div className="flex flex-wrap items-center gap-4">
-
-              {/* Cisco Router */}
-              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
-                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
-                  <img
-                    src="https://companieslogo.com/img/orig/CSCO-187e9f61.png?t=1728111511"
-                    alt="Cisco Router"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  Cisco Router
-                </span>
-              </div>
-
-              {/* Arista Switch */}
-              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
-                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
-                  <img
-                    src="https://companieslogo.com/img/orig/ANET_BIG-150f82cc.png?t=1720244490"
-                    alt="Arista Switch"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  Arista Switch
-                </span>
-              </div>
-
-              {/* OPNsense Firewall — 다른 카드와 달리 API 자격증명이 필요하므로
-                  클릭 시 별도 설정 모달을 엽니다. */}
-              <div
-                onClick={() => {
-                  setOpnsenseAgentId(managementServerIPAddr.trim() || "opnsense-1");
-                  setOpnsenseOpen(true);
-                }}
-                title="클릭하면 API Key / Secret 을 등록하는 화면이 열립니다"
-                className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group relative"
-              >
-                {opnsenseSavedCount > 0 && (
-                  <span className="absolute right-2 top-2">
-                    <Badge size="sm" color="success">
-                      {opnsenseSavedCount}
-                    </Badge>
-                  </span>
-                )}
-                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
-                  <img
-                    src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/opnsense.png"
-                    alt="OPNsense Firewall"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  OPNsense Firewall
-                </span>
-                <span className="mt-1 text-[10px] text-brand-500">API 설정 필요</span>
-              </div>
-
-              {/* Linux VM */}
-              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
-                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
-                  <img
-                    src="https://img.icons8.com/color/150/linux.png"
-                    alt="Linux VM"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  Linux VM
-                </span>
-              </div>
-
-              {/* Poc OpenvSwitch */}
-              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
-                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
-                  <img
-                    src="https://images.seeklogo.com/logo-png/27/1/open-vswitch-logo-png_seeklogo-271617.png"
-                    alt="OpenvSwitch"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  Open vSwitch(for poc)
-                </span>
-              </div>
-
-
-              {/* Alpine Based Firewall */}
-              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
-                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
-                  <img
-                    src="https://cdn-icons-png.flaticon.com/512/6071/6071236.png"
-                    alt="Alpine Based Firewall"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  Alpine Based Firewall (for poc)
-                </span>
-              </div>
-
-              {/* FRRouting */}
-              <div className="flex flex-col items-center justify-center p-4 w-[150px] h-[170px] border border-gray-200 rounded-xl bg-white dark:bg-gray-800 dark:border-gray-700 hover:border-brand-500 dark:hover:border-brand-500 cursor-pointer transition-all shadow-theme-xs group">
-                <div className="w-[100px] h-[100px] flex items-center justify-center mb-2">
-                  <img
-                    src="https://docs.frrouting.org/en/stable-8.5/_static/frr-icon.svg"
-                    alt="FRRouting (for poc)"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-                <span className="text-xs font-semibold text-gray-800 dark:text-white/90 text-center">
-                  FRRouting (for poc)
-                </span>
-              </div>
-
-            </div>
-          </div>
+          <AgentDeployCard
+            projectId={projectId ?? "(프로젝트 미지정)"}
+            initialServerIp={managementServerIPAddr}
+            initialServerPort={managementServerPort}
+            onClose={() => setShowDeployCard(false)}
+            onImportOffline={() =>
+              navigate(`/project/create/subnet?project_id=${projectId ?? ""}`)
+            }
+          />
         )}
 
       </div>
-
-      {/* OPNsense 설정 모달 — 기존 Modal 컴포넌트를 재사용합니다. */}
-      <OPNsenseConfigModal
-        isOpen={opnsenseOpen}
-        onClose={() => setOpnsenseOpen(false)}
-        agentId={opnsenseAgentId}
-        deviceLabel={managementServerIPAddr || null}
-        onSaved={() => setOpnsenseSavedCount((count) => count + 1)}
-      />
     </>
   );
 }

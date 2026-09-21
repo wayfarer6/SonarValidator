@@ -12,6 +12,7 @@ import org.sonar.sonarvalidator_backend.Policy.PolicyRule;
 import org.sonar.sonarvalidator_backend.Policy.PolicyViolation;
 import org.sonar.sonarvalidator_backend.Policy.SegmentationBddEngine;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
+import org.sonar.sonarvalidator_backend.Service.NotificationService;
 import org.sonar.sonarvalidator_backend.Service.ProjectService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,12 +60,25 @@ public class PolicyManagement {
     private final AgentSessionRegistry registry;
 
     /**
-     * @param projectService 프로젝트 서비스 (검증 엔진 접근)
-     * @param registry       Agent 세션 레지스트리 (푸시 대상)
+     * 알림 기록기입니다.
+     *
+     * <p>푸시는 "지금 장치에 반영했는가" 를 답하는 작업입니다. 성공/실패 모두
+     * 운영자가 나중에 확인할 가치가 있으므로 알림으로 남깁니다.
+     * 특히 <b>푸시 거부와 전달 0대</b>는 화면을 닫으면 사라지므로 반드시 기록합니다.
      */
-    public PolicyManagement(ProjectService projectService, AgentSessionRegistry registry) {
+    private final NotificationService notificationService;
+
+    /**
+     * @param projectService      프로젝트 서비스 (검증 엔진 접근)
+     * @param registry            Agent 세션 레지스트리 (푸시 대상)
+     * @param notificationService 알림 서비스
+     */
+    public PolicyManagement(ProjectService projectService,
+                            AgentSessionRegistry registry,
+                            NotificationService notificationService) {
         this.projectService = projectService;
         this.registry = registry;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -174,6 +188,21 @@ public class PolicyManagement {
             body.put("violated_rule_ids", new ArrayList<>(report.getViolatedRuleIds()));
             log.warn("policy push rejected for project={} violations={}",
                     projectId, report.getViolationCount());
+
+            // 거부는 운영자가 즉시 알아야 하는 사건입니다. 그리고 같은 위반이
+            // 반복되면 합쳐야 목록이 의미를 유지합니다. 그래서 dedupeKey 를
+            // 프로젝트+위반건수로 둡니다. (건수가 바뀌면 다른 문제로 봅니다)
+            notificationService.notifyQuietly(
+                    "POLICY",
+                    "critical",
+                    "정책 푸시 거부: " + project.getName(),
+                    "망분리 위반 " + report.getViolationCount()
+                            + "건으로 푸시가 차단되었습니다. 위반을 수정하거나 강제 전송하세요.",
+                    projectId,
+                    null,
+                    "system",
+                    "/project/editor/" + projectId,
+                    "policy-push-rejected:" + projectId + ":" + report.getViolationCount());
             return body;
         }
 
@@ -231,6 +260,52 @@ public class PolicyManagement {
         body.put("deliveries", deliveries);
         log.info("policy pushed for project={} delivered={}/{}",
                 projectId, sent, deliveries.size());
+
+        // 전달 결과를 세 갈래로 나눠 남깁니다. "푸시 완료" 라고 뭉뚱그리면
+        // 대상이 하나도 없었던 경우까지 성공으로 보여 운영자가 오해합니다.
+        //   (A) 대상 없음   — 서브넷에 agent_id 가 없어 보낼 곳이 없음
+        //   (B) 전달 실패   — 대상은 있는데 0대 전송 (프로버가 꺼져 있음)
+        //   (C) 전달 성공   — 일부 또는 전부 전송
+        if (deliveries.isEmpty()) {
+            notificationService.notifyQuietly(
+                    "POLICY",
+                    "warning",
+                    "정책 푸시 대상 없음: " + project.getName(),
+                    "서브넷에 연결된 Agent 가 없어 아무 장치에도 전달되지 않았습니다. "
+                            + "Agent 배포 후 서브넷에 매핑하세요.",
+                    projectId,
+                    null,
+                    "system",
+                    "/project/editor/" + projectId,
+                    "policy-push-no-target:" + projectId);
+        } else if (sent == 0) {
+            notificationService.notifyQuietly(
+                    "POLICY",
+                    "warning",
+                    "정책 푸시 실패: " + project.getName(),
+                    "대상 " + deliveries.size() + "대 중 0대에 전달되었습니다. "
+                            + "장치의 프로버가 연결되어 있는지 확인하세요.",
+                    projectId,
+                    null,
+                    "system",
+                    "/project/editor/" + projectId,
+                    "policy-push-none-delivered:" + projectId);
+        } else {
+            // 강제 전송은 위반 상태로 내려간 것이므로 심각도를 올립니다.
+            // (성공으로만 보이면 "위반을 고쳤다" 는 오해를 낳습니다)
+            final boolean forced = force && !report.isCompliant();
+            notificationService.notifyQuietly(
+                    "POLICY",
+                    forced ? "warning" : "info",
+                    "정책 푸시 " + (forced ? "강제 완료: " : "완료: ") + project.getName(),
+                    "대상 " + deliveries.size() + "대 중 " + sent + "대에 전달되었습니다."
+                            + (forced ? " (망분리 위반이 남은 상태로 강제 전송됨)" : ""),
+                    projectId,
+                    null,
+                    "system",
+                    "/project/editor/" + projectId,
+                    null);
+        }
         return body;
     }
 

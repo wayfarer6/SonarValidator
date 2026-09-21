@@ -125,15 +125,31 @@ export default function ProjectEditor() {
   const validateAction = useApiAction(() => validateProject(projectId));
   const pushAction = useApiAction(() => pushPolicy(projectId, false));
 
-  /** 저장 후 검증까지 한 번에 수행합니다. */
+  /**
+   * 저장 후 검증까지 한 번에 수행합니다.
+   *
+   * <h2>성공 시에만 목록으로 돌아가는 이유</h2>
+   * 저장·검증이 <b>모두 성공</b>하고 위반이 하나도 없을 때만 편집을 끝난 것으로
+   * 보고 프로젝트 목록으로 보냅니다. 위반이 남아 있으면 화면에 그대로 머무릅니다.
+   * 그래야 사용자가 반례 패킷을 보면서 고칠 수 있습니다. (여기서 이동해 버리면
+   * 무엇을 고쳐야 하는지 알 수 없습니다)
+   *
+   * <p>검증이 실패(네트워크/서버 오류)한 경우에도 이동하지 않습니다. 저장만
+   * 되고 검증이 안 된 상태는 "통과" 가 아니기 때문입니다.
+   */
   const handleSave = useCallback(async () => {
     const saved = await saveAction.run();
     if (!saved) return;
     setDirty(false);
     // 저장이 성공했으므로 이제 서버 상태 기준으로 검증할 수 있습니다.
     const validation = await validateAction.run();
-    if (validation) setReport(validation);
-  }, [saveAction, validateAction]);
+    if (!validation) return;
+    setReport(validation);
+    // 위반이 0건일 때만 목록으로 리다이렉트합니다.
+    if (validation.compliant) {
+      navigate("/project");
+    }
+  }, [saveAction, validateAction, navigate]);
 
   /** 검증만 실행합니다. 저장하지 않은 변경이 있으면 먼저 알립니다. */
   const handleValidate = useCallback(async () => {

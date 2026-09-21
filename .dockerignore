@@ -1,0 +1,63 @@
+# =============================================================================
+# Docker 빌드 컨텍스트 제외 목록
+# =============================================================================
+# 이 파일은 저장소 루트를 컨텍스트로 쓰는 backend/frontend 빌드에 적용된다.
+# (docker/base 는 컨텍스트가 ./docker/base 라 이 파일의 영향을 받지 않는다)
+#
+# 목적 두 가지:
+#   1) 빌드 컨텍스트 전송 시간 단축 (node_modules/target 이 수백 MB)
+#   2) 호스트 산출물이 이미지에 섞여 들어가 "왜 로컬에선 되는데" 를 만드는 것 방지
+
+# --- 형상관리 / 편집기 ---
+.git
+.gitignore
+.github
+.idea
+.vscode
+*.iml
+
+# --- 문서 (이미지에 필요 없음) ---
+docs
+PoC용 네트워크 구성하기
+Poc용 네트워크-D-AI-PBL
+Agent_Test
+docker_images
+Workspace
+*.md
+
+# --- 백엔드 빌드 산출물 ---
+SonarValidator_Backend/target
+SonarValidator_Backend/data
+SonarValidator_Backend/.mvn/wrapper/maven-wrapper.jar
+SonarValidator_Backend/*.mv.db
+SonarValidator_Backend/*.trace.db
+
+# ⚠️ ANTLR 플러그인 생성물(.antlr)은 패키지 선언이 없어 컴포넌트 스캔을
+#    깨뜨린다. 손으로 작성한 파서가 이것을 쓰지 않으므로 이미지에 넣지 않는다.
+SonarValidator_Backend/src/main/java/org/sonar/sonarvalidator_backend/ANTLR4/.antlr
+
+# --- 프론트엔드 빌드 산출물 ---
+SonarValidator_Frontend/node_modules
+SonarValidator_Frontend/dist
+SonarValidator_Frontend/.vite
+SonarValidator_Frontend/coverage
+
+# --- C++ 프로버 (이미지와 무관) ---
+SonarValidator_Prober
+
+# --- Windows 메타데이터 잔재 ---
+# 이 저장소에는 파일마다 "파일명:Zone.Identifier" 가 섞여 있다.
+# 빌드에 필요 없고 Docker 로그만 어지럽히므로 제외한다.
+#
+# ⚠️ `*:Zone.Identifier` 만 쓰면 하위 디렉터리를 잡지 못한다.
+#    dockerignore 의 패턴은 컨텍스트 루트 기준이고 `*` 가 `/` 를 넘지 않기
+#    때문에, SonarValidator_Frontend/favicon.png:Zone.Identifier 같은 파일이
+#    그대로 이미지에 복사된다. `**/` 를 반드시 붙일 것.
+**/*:Zone.Identifier
+
+# --- 환경 파일 ---
+# ⚠️ .env 를 이미지에 넣으면 시크릿이 레이어에 남는다.
+#    compose 가 env_file 로 런타임에 주입하므로 빌드 컨텍스트에는 불필요하다.
+.env
+.env.local
+*.env.bak

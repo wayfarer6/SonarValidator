@@ -68,3 +68,9 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Docker / Compose 환경변수 (시크릿 포함) — 커밋 금지
+.env
+.env.local
+.env.*.local
+*.env.bak

@@ -258,6 +258,71 @@ export interface ApiRouteTable {
 }
 
 // ---------------------------------------------------------------------------
+// 알림
+// ---------------------------------------------------------------------------
+
+/**
+ * 알림 분류입니다. 화면의 필터 탭과 1:1 로 대응합니다.
+ *
+ * <p>서버가 허용 값 집합으로 좁혀 두었으므로({@code NotificationService})
+ * 프론트에서도 같은 집합을 씁니다. 자유 문자열로 두면 오타 분류가 생겨
+ * 필터 탭이 비어 보입니다.
+ */
+export type NotificationCategory =
+  | "POLICY"
+  | "AGENT"
+  | "PROJECT"
+  | "SECURITY"
+  | "SYSTEM";
+
+/** 알림 심각도. 장비 로그와 같은 표기를 씁니다. */
+export type NotificationSeverity = "critical" | "warning" | "info";
+
+/** 알림 한 건. */
+export interface ApiNotification {
+  /** 외부 식별자 (예: `NTF-3F9A21B4`). */
+  id: string;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
+  title: string;
+  message: string | null;
+  /** 관련 프로젝트 키. 무관하면 null. */
+  project_id: string | null;
+  /** 관련 장치 식별자. 무관하면 null. */
+  agent_id: string | null;
+  /** 발생 주체 (`system`, `scheduler`, 사용자 id …). */
+  source: string | null;
+  /** 발생 시각 (ISO-8601, UTC). */
+  occurred_at: string;
+  /** 읽음 여부. */
+  read: boolean;
+  /** 상세 화면 경로 (예: `/project/editor/PRJ-1`). */
+  link: string | null;
+  /**
+   * 같은 원인이 반복된 횟수입니다.
+   *
+   * <p>서버가 5분 안의 동일 알림을 하나로 합치면서 횟수를 셉니다.
+   * 1보다 크면 "한 번 있었던 일" 이 아니라 <b>진행 중인 문제</b>입니다.
+   */
+  repeat_count: number;
+}
+
+/** 알림 목록 응답. */
+export interface ApiNotificationList {
+  total: number;
+  /** 전체 안읽음 건수 (필터와 무관한 값). */
+  unread: number;
+  notifications: ApiNotification[];
+}
+
+/** 알림 요약 응답 (배지 + 필터 탭 숫자). */
+export interface ApiNotificationSummary {
+  unread: number;
+  by_category: Partial<Record<NotificationCategory, number>>;
+  by_severity: Partial<Record<NotificationSeverity, number>>;
+}
+
+// ---------------------------------------------------------------------------
 // 변경 이력 (Compliance)
 // ---------------------------------------------------------------------------
 

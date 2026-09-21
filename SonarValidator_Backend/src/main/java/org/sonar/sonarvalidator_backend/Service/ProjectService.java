@@ -55,12 +55,26 @@ public class ProjectService {
     private final ComplianceService complianceService;
 
     /**
-     * @param repository        프로젝트 저장소
-     * @param complianceService 변경 이력 서비스 (null 허용 — 테스트 편의)
+     * 알림 기록기입니다.
+     *
+     * <p>{@code complianceService} 와 같은 이유로 {@code null} 을 허용합니다.
+     * 프로젝트 변경처럼 <b>운영자가 나중에 확인해야 하는 사건</b>을 알림으로도
+     * 남깁니다. 변경 이력은 "무엇이 바뀌었나" 를, 알림은 "언제 알려졌나" 를
+     * 담당하므로 목적이 다릅니다.
      */
-    public ProjectService(ProjectRepository repository, ComplianceService complianceService) {
+    private final NotificationService notificationService;
+
+    /**
+     * @param repository          프로젝트 저장소
+     * @param complianceService   변경 이력 서비스 (null 허용 — 테스트 편의)
+     * @param notificationService 알림 서비스 (null 허용 — 테스트 편의)
+     */
+    public ProjectService(ProjectRepository repository,
+                          ComplianceService complianceService,
+                          NotificationService notificationService) {
         this.repository = repository;
         this.complianceService = complianceService;
+        this.notificationService = notificationService;
     }
 
     // ------------------------------------------------------------------
@@ -119,6 +133,20 @@ public class ProjectService {
 
         final Project saved = repository.save(project);
         log.info("project created: key={} name={}", saved.getProjectKey(), saved.getName());
+
+        if (notificationService != null) {
+            notificationService.notifyQuietly(
+                    "PROJECT",
+                    "info",
+                    "프로젝트 생성: " + saved.getName(),
+                    "카테고리 " + (saved.getCategory() == null ? "-" : saved.getCategory())
+                            + ", 상태 " + saved.getStatus(),
+                    saved.getProjectKey(),
+                    null,
+                    "system",
+                    "/project/editor/" + saved.getProjectKey(),
+                    null);
+        }
         return saved;
     }
 
@@ -175,6 +203,23 @@ public class ProjectService {
                     "system",
                     null);
         }
+
+        // 정책 변경은 나중에 "언제 무엇을 고쳤나" 를 확인해야 하는 사건이므로
+        // 알림으로도 남깁니다. dedupeKey 를 두지 않는 이유: 정책 수정은 운영자가
+        // 의도해서 하는 행동이고, 반복돼도 합치면 이력을 잃습니다.
+        if (notificationService != null) {
+            notificationService.notifyQuietly(
+                    "POLICY",
+                    "info",
+                    "정책 수정: " + saved.getName(),
+                    "서브넷 " + saved.getSubnets().size() + "건, 규칙 "
+                            + saved.getRules().size() + "건으로 갱신되었습니다.",
+                    saved.getProjectKey(),
+                    null,
+                    "system",
+                    "/project/editor/" + saved.getProjectKey(),
+                    null);
+        }
         return saved;
     }
 
@@ -187,8 +232,24 @@ public class ProjectService {
     @Transactional
     public void delete(String projectKey) {
         final Project project = getByKey(projectKey);
+        final String name = project.getName();
         repository.delete(project);
         log.info("project deleted: key={}", projectKey);
+
+        // 삭제는 되돌릴 수 없으므로 warning 으로 남깁니다.
+        // (info 로 두면 목록에서 묻혀 "그 프로젝트 어디 갔지" 를 놓칩니다)
+        if (notificationService != null) {
+            notificationService.notifyQuietly(
+                    "PROJECT",
+                    "warning",
+                    "프로젝트 삭제: " + (name == null ? projectKey : name),
+                    "프로젝트 " + projectKey + " 가 삭제되었습니다.",
+                    projectKey,
+                    null,
+                    "system",
+                    "/project",
+                    null);
+        }
     }
 
     // ------------------------------------------------------------------

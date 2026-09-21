@@ -72,7 +72,7 @@ const navItems: NavItem[] = [
     icon: <DocsIcon />,
     name: "Notification",
     subItems: [
-      { name: "View Notifiaction", path: "/notification", pro: false },
+      { name: "View Notification", path: "/notification", pro: false },
       { name: "Export Logs", path: "/notification/export", pro: false },
     ]
   },

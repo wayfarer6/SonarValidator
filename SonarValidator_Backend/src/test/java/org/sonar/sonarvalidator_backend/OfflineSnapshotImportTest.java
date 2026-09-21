@@ -49,8 +49,39 @@ class OfflineSnapshotImportTest {
                 new org.sonar.sonarvalidator_backend.Service.PolicyRegistryService(),
                 deviceConfigService,
                 // 오프라인 가져오기 테스트는 로그 적재와 무관하므로 스텁을 씁니다.
-                new NoopLogService());
+                new NoopLogService(),
+                // 라우터가 Agent 연결을 알림으로 남기지만, 이 테스트는 스냅샷
+                // 파싱/가져오기 계약만 봅니다. DB 쓰기가 끼어들면 저장소를
+                // 함께 띄워야 하므로 알림도 스텁으로 대체합니다.
+                new NoopNotificationService());
         service = new OfflineSnapshotService(deviceConfigService, router);
+    }
+
+    /**
+     * 알림을 저장하지 않는 스텁입니다. (DB 불필요)
+     *
+     * <p>{@code NotificationService} 는 저장소만 의존하므로 null 을 넘겨도
+     * 생성되지만, 호출되면 NPE 가 납니다. 그래서 기록 지점을 덮어씁니다.
+     */
+    private static class NoopNotificationService
+            extends org.sonar.sonarvalidator_backend.Service.NotificationService {
+
+        NoopNotificationService() {
+            super(null);
+        }
+
+        @Override
+        public void notifyQuietly(String category,
+                                  String severity,
+                                  String title,
+                                  String message,
+                                  String projectKey,
+                                  String agentId,
+                                  String source,
+                                  String link,
+                                  String dedupeKey) {
+            // 알림을 저장하지 않습니다.
+        }
     }
 
     /** 로그 적재를 하지 않는 스텁입니다. (DB 불필요) */

@@ -112,14 +112,27 @@ public class AgentMessageRouterService {
      */
     private final LogService logService;
 
+    /**
+     * 알림 기록기입니다.
+     *
+     * <p>Agent 연결/해제는 운영자가 기다리는 사건입니다. "프로버를 띄웠는데
+     * 왜 안 보이지" 를 확인할 수 있는 유일한 기록이므로 알림으로 남깁니다.
+     *
+     * <p>{@link NotificationService} 는 저장소만 의존하므로 순환 참조가
+     * 생기지 않습니다.
+     */
+    private final NotificationService notificationService;
+
     public AgentMessageRouterService(AgentSessionRegistry registry,
                                      PolicyRegistryService policyRegistry,
                                      DeviceConfigService deviceConfigService,
-                                     LogService logService) {
+                                     LogService logService,
+                                     NotificationService notificationService) {
         this.registry = registry;
         this.policyRegistry = policyRegistry;
         this.deviceConfigService = deviceConfigService;
         this.logService = logService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -160,7 +173,27 @@ public class AgentMessageRouterService {
      * @return ack 봉투
      */
     private Envelope onHello(WebSocketSession session, Envelope envelope, String agentId) {
+        final boolean firstConnect = agentId != null
+                && !registry.connectedAgentIds().contains(agentId);
+
         registry.register(agentId, session);
+
+        // 새 장치가 붙는 것은 운영자가 기다리는 사건입니다.
+        // (재접속마다 알리면 하트비트처럼 쌓여 쓸모가 없어집니다)
+        if (firstConnect) {
+            // payloadOrEmpty() 는 JsonNode 를 돌려주므로 text() 헬퍼로 읽습니다.
+            final String hostname = text(envelope.payloadOrEmpty(), "hostname", null);
+            notificationService.notifyQuietly(
+                    "AGENT",
+                    "info",
+                    "Agent 연결: " + (hostname == null ? agentId : hostname),
+                    "프로버 " + agentId + " 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.",
+                    null,
+                    agentId,
+                    "agent",
+                    "/agent",
+                    "agent-connected:" + agentId);
+        }
 
         final ObjectNode payload = JSON.objectNode();
         payload.put("agent_id", agentId == null ? "" : agentId);

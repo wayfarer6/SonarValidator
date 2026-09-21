@@ -11,6 +11,7 @@ import { Link, useNavigate } from "react-router";
 import { useApi } from "../hooks/useApi";
 import { useApiAction } from "../hooks/useApiAction";
 import { createProject, listProjects } from "../lib/api/projects";
+import AgentDeployCard from "../components/project/AgentDeployCard";
 
 /**
  * 프로젝트 목록 화면입니다.
@@ -29,6 +30,16 @@ import { createProject, listProjects } from "../lib/api/projects";
  * <h2>오프라인 안내를 넣은 이유</h2>
  * 백엔드가 꺼져 있으면 화면이 그냥 비어 보입니다. "왜 프로젝트가 안 보이지"
  * 로 오해하지 않도록 연결 실패를 구분해 실행 방법까지 안내합니다.
+ *
+ * <h2>Manage 와 Add Agent 를 나눈 이유</h2>
+ * 두 동작은 목적이 다릅니다.
+ * <ul>
+ *   <li><b>Manage</b> — 이미 있는 서브넷/규칙을 보고 검증합니다. 편집 화면으로
+ *       이동합니다.</li>
+ *   <li><b>Add Agent</b> — 이 프로젝트에 장비를 붙입니다. 화면을 옮기지 않고
+ *       목록에서 <b>그 행 아래에</b> 배포 카드를 펼칩니다. 여러 프로젝트를
+ *       오가며 배포할 때 목록으로 돌아오는 왕복이 없어집니다.</li>
+ * </ul>
  */
 export default function Project() {
   const navigate = useNavigate();
@@ -39,6 +50,15 @@ export default function Project() {
   const [projectName, setProjectName] = useState("");
   const [categoryName, setCategoryName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+
+  /**
+   * 배포 카드가 펼쳐진 프로젝트 키입니다. 한 번에 하나만 엽니다.
+   *
+   * <p>여러 개를 동시에 열어 두면 어느 카드가 어느 프로젝트의 설정인지
+   * 헷갈립니다. Management Server IP 를 프로젝트마다 다르게 넣는 경우가
+   * 특히 그렇습니다. ("지금 고친 값이 어디에 들어가나")
+   */
+  const [deployingProjectId, setDeployingProjectId] = useState<string | null>(null);
 
   /** 프로젝트를 생성하고 편집 화면으로 이동합니다. */
   const handleCreate = async () => {
@@ -158,6 +178,23 @@ export default function Project() {
                   <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                     {project.status}
                   </span>
+                  {/* Add Agent — 배포 카드를 이 행 아래에 펼칩니다. */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDeployingProjectId((current) =>
+                        current === project.project_id ? null : project.project_id,
+                      )
+                    }
+                    title="이 프로젝트에 Agent(Prober)를 추가합니다"
+                    className={
+                      deployingProjectId === project.project_id
+                        ? "rounded-lg bg-brand-500 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-600"
+                        : "rounded-lg border border-brand-500 bg-brand-50 px-3.5 py-2 text-sm font-medium text-brand-600 hover:bg-brand-100 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
+                    }
+                  >
+                    {deployingProjectId === project.project_id ? "Close" : "Add Agent"}
+                  </button>
                   <Link
                     to={`/project/editor/${encodeURIComponent(project.project_id)}`}
                     className="rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
@@ -166,6 +203,18 @@ export default function Project() {
                   </Link>
                 </div>
               </div>
+
+              {/* 배포 카드 — Manage 옆 버튼으로 펼칩니다. 배포 화면
+                  (ProjectCreation)의 Deploy & Download 와 같은 컴포넌트를 씁니다. */}
+              {deployingProjectId === project.project_id && (
+                <AgentDeployCard
+                  projectId={project.project_id}
+                  onClose={() => setDeployingProjectId(null)}
+                  onImportOffline={() =>
+                    navigate(`/project/create/subnet?project_id=${project.project_id}`)
+                  }
+                />
+              )}
             </div>
           ))}
         </div>
