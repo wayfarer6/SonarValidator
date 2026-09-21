@@ -1,4 +1,4 @@
-package org.sonar.sonarvalidator_backend.Model.entitiy;
+package org.sonar.sonarvalidator_backend.Model.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

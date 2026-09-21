@@ -1,0 +1,8 @@
+{
+  "label": "Common (Prober + Backend)",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "프로버(C++)와 백엔드(Java)를 함께 본 클래스 다이어그램입니다."
+  }
+}
