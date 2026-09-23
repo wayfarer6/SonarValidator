@@ -339,7 +339,7 @@ int main(int argc, char **argv)
         if (options.export_stdout)
         {
             // 표준출력으로만 인쇄합니다. (파일 없이 복사/붙여넣기 → 프론트엔드 업로드)
-            std::cout << snapshot.dump(2) << '\n';
+            std::cout << snapshot.dump(2) << '\n'; // json의 dump 2는 무슨 옵션이지.
             return 0;
         }
 
