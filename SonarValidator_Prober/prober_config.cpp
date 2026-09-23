@@ -17,11 +17,11 @@ namespace
 //  root 로 설치한 경우 /etc/... 를 쓰지만, root 가 아닌 환경(vEOS bash,
 //  사용자 홈 배포 등)에서는 SONAR_CONFIG_PATH 로 지정할 수 있게 한다.
 constexpr const char* kDefaultConfigPath =
-    "/etc/sonar_validator_prober/default.conf";
+    "/etc/sonar_validator_prober/default.conf"; // 하드코딩이 위험함 아마 최초 설치시 환경변수에 지정된 경로에 붙게 고처야 
 
 const char* ResolveConfigPath()
 {
-    if (const char* from_env = std::getenv("SONAR_CONFIG_PATH"))
+    if (const char* from_env = std::getenv("SONAR_CONFIG_PATH")) // 쉘의 기본 환경 변수를 가져옴
     {
         if (from_env[0] != '\0')
         {
@@ -31,7 +31,7 @@ const char* ResolveConfigPath()
     return kDefaultConfigPath;
 }
 
-std::string RemoveQuotes(std::string value)
+std::string RemoveQuotes(std::string value) // 유틸함수 
 {
     if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
     {
@@ -40,7 +40,7 @@ std::string RemoveQuotes(std::string value)
     return value;
 }
 
-struct DConfHandler
+struct DConfHandler // 핸들러.
 {
     void operator()(FILE* file) const
     {
@@ -76,7 +76,7 @@ std::string ReadDefaultValue(const char* key)
         while (!value.empty() &&
                (value.back() == '\n' || value.back() == '\r' || value.back() == ';' ||
                 value.back() == ' ' || value.back() == '\t'))
-        {
+        { // 읽을때 tab, 줄바꿈 공백 문자의 경우에는 무시 하는 기능
             value.pop_back();
         }
         return value;
@@ -86,7 +86,7 @@ std::string ReadDefaultValue(const char* key)
 
 // 주어진 실행 파일이 PATH에 존재하는지 확인합니다. (제품군 탐지용)
 bool CommandExists(const char* command)
-{
+{ // 내가 벡엔드에서 제품마다 agent가 사전 설정된 걸 다운받으라고 하기에 이러는 거임 ()
     const std::string query = std::string("command -v ") + command + " >/dev/null 2>&1";
     return std::system(query.c_str()) == 0;
 }

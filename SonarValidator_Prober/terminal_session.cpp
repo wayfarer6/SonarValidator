@@ -25,7 +25,7 @@ TerminalSession::TerminalSession(TerminalSession&& other) noexcept
     other.child_pid_ = -1;
 }
 
-TerminalSession& TerminalSession::operator=(TerminalSession&& other) noexcept
+TerminalSession& TerminalSession::operator=(TerminalSession&& other) noexcept // noexcept 는 예외 처리 문제 때문인가
 {
     if (this != &other)
     {
@@ -47,19 +47,19 @@ bool TerminalSession::Open(const std::vector<std::string>& argv)
         return false;
     }
 
-    master_fd_ = posix_openpt(O_RDWR | O_NOCTTY);
+    master_fd_ = posix_openpt(O_RDWR | O_NOCTTY); // 리눅스니까 posix 방식으로 
     if (master_fd_ < 0)
     {
-        return false;
+        return false; // 0 보다 작으면 실패한건가?
     }
-    if (grantpt(master_fd_) != 0 || unlockpt(master_fd_) != 0)
+    if (grantpt(master_fd_) != 0 || unlockpt(master_fd_) != 0)  // grantpt 랑 언락은 왜 있지 문서를 봐야한다 sys.h의
     {
         ::close(master_fd_);
         master_fd_ = -1;
         return false;
     }
 
-    const char* slave_name = ptsname(master_fd_);
+    const char* slave_name = ptsname(master_fd_); // slave name은 왜 ? 마스터도 왜 넣었지
     if (slave_name == nullptr)
     {
         ::close(master_fd_);
@@ -67,7 +67,7 @@ bool TerminalSession::Open(const std::vector<std::string>& argv)
         return false;
     }
 
-    const pid_t pid = fork();
+    const pid_t pid = fork(); // 스레드 포크 관련 인듯 터미널은 스레드가 달라야 하니
     if (pid < 0)
     {
         ::close(master_fd_);
@@ -84,7 +84,7 @@ bool TerminalSession::Open(const std::vector<std::string>& argv)
         {
             _exit(127);
         }
-        ioctl(slave_fd, TIOCSCTTY, 0);
+        ioctl(slave_fd, TIOCSCTTY, 0); // slave fd  /dev/pty0,1,2,3 이런걸 읽는데 근데 ioctl은 뭐지?
         dup2(slave_fd, STDIN_FILENO);
         dup2(slave_fd, STDOUT_FILENO);
         dup2(slave_fd, STDERR_FILENO);
@@ -93,7 +93,7 @@ bool TerminalSession::Open(const std::vector<std::string>& argv)
             ::close(slave_fd);
         }
 
-        std::vector<char*> c_argv;
+        std::vector<char*> c_argv; // c_argv를 정의 햇는데 이건 뭐지 const로 들어가는 걸 보면 아마 혹시 환경 변수를 넣어 주는 건가?
         c_argv.reserve(argv.size() + 1);
         for (const auto& arg : argv)
         {
@@ -101,7 +101,7 @@ bool TerminalSession::Open(const std::vector<std::string>& argv)
         }
         c_argv.push_back(nullptr);
 
-        execvp(c_argv[0], c_argv.data());
+        execvp(c_argv[0], c_argv.data()); // execvp 배웠는데 기억이 
         _exit(127);
     }
 
@@ -125,7 +125,7 @@ void TerminalSession::Close()
     }
 }
 
-bool TerminalSession::Write(const std::string& data)
+bool TerminalSession::Write(const std::string& data) // 문자열 크기가 작으면 문제가 안될거 같은데 입력값이 커지면 벡터 쓰는게 안전해 보인다
 {
     if (master_fd_ < 0 || data.empty())
     {
@@ -143,7 +143,7 @@ bool TerminalSession::Write(const std::string& data)
 }
 
 std::string TerminalSession::ReadAvailable(std::chrono::milliseconds timeout)
-{
+{ // readAvailable는 왜 넣은거지?
     if (master_fd_ < 0)
     {
         return {};
