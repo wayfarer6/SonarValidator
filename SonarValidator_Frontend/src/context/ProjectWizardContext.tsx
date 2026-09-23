@@ -14,13 +14,13 @@ interface ProjectWizardContextValue {
 }
 
 // TODO: 추후 백엔드/WebSocket에서 탐지된 서브넷 목록으로 교체
-const INITIAL_SUBNETS: WizardSubnet[] = [
-  { id: "Subnet-0001", cidr: "192.168.0.x/24", subnetClass: "Open" },
-  { id: "Subnet-0002", cidr: "192.168.10.x/24", subnetClass: "Sensitive" },
-  { id: "Subnet-0003", cidr: "192.168.20.x/24", subnetClass: "Sensitive" },
-  { id: "Subnet-0004", cidr: "10.0.0.x/24", subnetClass: "Confidential" },
-  { id: "Subnet-0005", cidr: "172.16.0.x/24", subnetClass: "Open" },
-];
+// const INITIAL_SUBNETS: WizardSubnet[] = [
+//   { id: "Subnet-0001", cidr: "192.168.0.x/24", subnetClass: "Open" },
+//   { id: "Subnet-0002", cidr: "192.168.10.x/24", subnetClass: "Sensitive" },
+//   { id: "Subnet-0003", cidr: "192.168.20.x/24", subnetClass: "Sensitive" },
+//   { id: "Subnet-0004", cidr: "10.0.0.x/24", subnetClass: "Confidential" },
+//   { id: "Subnet-0005", cidr: "172.16.0.x/24", subnetClass: "Open" },
+// ];
 
 const ProjectWizardContext = createContext<ProjectWizardContextValue | null>(null);
 

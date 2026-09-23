@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router"; // go back 이 그거 이전 페이지로 이동하는 훅
 
 const useGoBack = () => {
   const navigate = useNavigate();

@@ -28,7 +28,7 @@ export function useApi<T>(
   offline: boolean;
   reload: () => void;
 } {
-  const [data, setData] = useState<T | null>(null);
+  const [data, setData] = useState<T | null>(null); // 템플릿 관련 문법인가?
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
