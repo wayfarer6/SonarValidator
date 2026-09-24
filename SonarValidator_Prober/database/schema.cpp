@@ -1,4 +1,4 @@
-#include "schema.hpp"
+#include "database/schema.hpp"
 
 namespace database_schema
 {

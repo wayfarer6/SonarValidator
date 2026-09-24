@@ -911,16 +911,24 @@ private:
                     const std::string next_hop = TrimPunct(tokens[j + 1]);
                     route["next_hop"] = next_hop;
                     route["via"] = next_hop;
-                    // via 다음은 `eth0,` 형태의 인터페이스
-                    if (j + 2 < tokens.size())
+                    // via 뒤에서 인터페이스 이름을 찾는다.
+                    //   FRR   : `via <hop>, eth1, weight 1, 00:07:26`
+                    //   Cisco : `via <hop>, 00:07:26, GigabitEthernet0/1`
+                    // 업타임(콜론 포함)·숫자·weight 토큰은 건너뛴다.
+                    for (std::size_t k = j + 2; k < tokens.size(); ++k)
                     {
-                        const std::string iface = TrimPunct(tokens[j + 2]);
-                        if (!iface.empty() && !IsNumber(iface) &&
-                            iface.find('.') == std::string::npos &&
-                            iface.find(':') == std::string::npos)
+                        const std::string iface = TrimPunct(tokens[k]);
+                        if (iface.empty() || iface == "weight" ||
+                            IsNumber(iface) ||
+                            iface.find(':') != std::string::npos)
+                        {
+                            continue;
+                        }
+                        if (iface.find('.') == std::string::npos)
                         {
                             route["interface_name"] = iface;
                         }
+                        break;
                     }
                     break;
                 }
@@ -1764,6 +1772,60 @@ private:
 // SwitchTopology — show vlan brief / show ip interface brief / switchport
 // ============================================================================
 
+// `show running-config` 의 `switchport ...` 설정 줄을 포트 레코드에 반영한다.
+//   switchport mode trunk|access
+//   switchport access vlan 99
+//   switchport trunk allowed vlan 100,110
+//   switchport trunk native vlan 5
+//
+// 이미 토큰화된 결과를 쓰므로 공백 트림/문자열 분해가 필요 없다.
+void ApplySwitchportTokens(const std::vector<std::string>& tokens, Json* port)
+{
+    if (port == nullptr || tokens.size() < 2 || tokens[0] != "switchport")
+    {
+        return;
+    }
+
+    if (tokens[1] == "mode" && tokens.size() >= 3)
+    {
+        (*port)["mode"] = TrimPunct(tokens[2]);
+        return;
+    }
+
+    if (tokens[1] == "access" && tokens.size() >= 4 && tokens[2] == "vlan")
+    {
+        const std::string id = TrimPunct(tokens[3]);
+        if (IsNumber(id))
+        {
+            (*port)["access_vlan"] = std::stoi(id);
+        }
+        return;
+    }
+
+    if (tokens[1] == "trunk" && tokens.size() >= 5 && tokens[3] == "vlan")
+    {
+        Json vlans = Json::array();
+        for (std::size_t i = 4; i < tokens.size(); ++i)
+        {
+            for (const int id : ParseVlanNumbers(TrimPunct(tokens[i])))
+            {
+                vlans.push_back(id);
+            }
+        }
+        if (tokens[2] == "native")
+        {
+            if (!vlans.empty())
+            {
+                (*port)["native_vlan"] = vlans.front();
+            }
+        }
+        else
+        {
+            (*port)["trunk_vlans"] = vlans;
+        }
+    }
+}
+
 class SwitchVisitor : public SwitchTopologyBaseVisitor
 {
 public:
@@ -1869,6 +1931,13 @@ public:
     {
         if (ctx->portEntry() == nullptr)
         {
+            // `show running-config` 의 `switchport ...` 줄은 콜론이 없어
+            // 문법상 genericLine 으로 온다. 직전 포트 레코드에 이어 붙인다.
+            if (ctx->genericLine() != nullptr && current_port != nullptr)
+            {
+                ApplySwitchportTokens(session->TokensOf(ctx->genericLine()),
+                                      current_port);
+            }
             return {};
         }
 
@@ -1994,6 +2063,31 @@ public:
         {
             (*current_port)[key] = Unquote(value);
         }
+        return {};
+    }
+
+    // `show running-config` 의 설정 줄.
+    //   interface Ethernet1      -> 새 포트 레코드
+    //   switchport mode trunk    -> 직전 포트에 반영
+    std::any visitConfigLine(SwitchTopologyParser::ConfigLineContext* ctx) override
+    {
+        const std::vector<std::string> tokens = session->TokensOf(ctx);
+        if (tokens.empty())
+        {
+            return {};
+        }
+
+        if (tokens[0] == "interface" && tokens.size() >= 2)
+        {
+            Json port = Json::object();
+            port["name"] = TrimPunct(tokens[1]);
+            port["trunk_vlans"] = Json::array();
+            ports.push_back(std::move(port));
+            current_port = &ports.back();
+            return {};
+        }
+
+        ApplySwitchportTokens(tokens, current_port);
         return {};
     }
 };
@@ -2683,6 +2777,32 @@ nlohmann::json ParseSwitchPorts(const std::string& raw_output)
         for (auto* item : tree->portItem())
         {
             visitor.visitPortItem(item);
+        }
+
+        Json body = Json::object();
+        body["ports"] = visitor.ports;
+        body["port_count"] = visitor.ports.size();
+        return AttachParseInfo(std::move(body), session);
+    }
+    catch (const std::exception& ex)
+    {
+        return MakeParseFailure(raw_output, ex.what());
+    }
+}
+
+nlohmann::json ParseRunningConfig(const std::string& raw_output)
+{
+    ParseSession<SwitchTopologyLexer, SwitchTopologyParser> session(raw_output);
+    SwitchTopologyParser& parser = session.Parser();
+
+    try
+    {
+        auto* tree = parser.runningDocument();
+        SwitchVisitor visitor;
+        visitor.session = &session;
+        for (auto* line : tree->configLine())
+        {
+            visitor.visitConfigLine(line);
         }
 
         Json body = Json::object();

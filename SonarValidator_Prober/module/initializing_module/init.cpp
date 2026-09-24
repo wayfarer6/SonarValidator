@@ -1,4 +1,4 @@
-#include "init.hpp"
+#include "module/initializing_module/init.hpp"
 #include <iostream>
 #include <chrono>
 #include <ctime>
@@ -8,7 +8,7 @@
 #include <sstream>
 #include <system_error>
 #include "database/schema.hpp"
-#include "network.hpp"
+#include "components/backend_communication/network.hpp"
 namespace fs = std::filesystem;
 
 namespace

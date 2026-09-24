@@ -14,7 +14,7 @@
 #include <iostream>
 #include <string>
 
-#include "offline/offline_export.hpp"
+#include "module/offline_export_module/offline_export.hpp"
 
 namespace fs = std::filesystem;
 

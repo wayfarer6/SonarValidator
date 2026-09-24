@@ -1,4 +1,4 @@
-#include "terminal_session.hpp"
+#include "components/terminal/terminal_session.hpp"
 
 #include <cerrno>
 #include <cstdlib>

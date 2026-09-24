@@ -4,16 +4,16 @@
 #include <chrono>
 #include <string>
 #include <vector>
-#include "network.hpp"
+#include "components/backend_communication/network.hpp"
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
-#include "envelope.hpp"
-#include "switch/switch.hpp"
-#include "firewall/firewall.hpp"
-#include "router/routing_table.hpp"
-#include "prober_config.hpp"
-#include "terminal_session.hpp"
+#include "components/backend_communication/envelope.hpp"
+#include "components/device/switch/switch_interface/switch.hpp"
+#include "components/device/firewall/firewall_interface/firewall.hpp"
+#include "components/device/router/routing_table/routing_table.hpp"
+#include "module/configuration_module/prober_config.hpp"
+#include "components/terminal/terminal_session.hpp"
 #include <thread>
 namespace beast = boost::beast;
 namespace net = boost::asio;

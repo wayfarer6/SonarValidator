@@ -5,7 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "../device_type.hpp"
+#include "components/device/device_type.hpp"
 
 // =============================================================================
 //  CliOutputParser — 벤더 CLI 조회 출력을 JSON 으로 변환하는 ANTLR 기반 파서
@@ -114,10 +114,16 @@ nlohmann::json ParseInterfaceStatus(const std::string& raw_output, Vendor vendor
 //   ParseSwitchPorts   : `show interfaces switchport`
 //     { "ports": [ { "name":"Ethernet1", "mode":"trunk",
 //                    "access_vlan":99, "trunk_vlans":[111,112] } ] }
+//
+//   ParseRunningConfig : `show running-config`
+//     { "ports": [ { "name":"Ethernet1", "mode":"trunk",
+//                    "access_vlan":99, "trunk_vlans":[100,110],
+//                    "native_vlan":5 } ] }
 // ---------------------------------------------------------------------------
 nlohmann::json ParseOvsTopology(const std::string& raw_output);
 nlohmann::json ParseSwitchVlan(const std::string& raw_output);
 nlohmann::json ParseSwitchPorts(const std::string& raw_output);
+nlohmann::json ParseRunningConfig(const std::string& raw_output);
 
 // ---------------------------------------------------------------------------
 // 방화벽 룰셋  —  `nft list ruleset`

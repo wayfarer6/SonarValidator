@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-
+#include <filesystem>
 #include <nlohmann/json.hpp>
 
 // =============================================================================
@@ -23,7 +23,7 @@
 //      "agent_name": "c8000v-1",
 //      "device_type": "ROUTER",
 //      "product": "Cisco 8000v",
-//      "vendor": "Cisco 8000v",
+//      "vendor": "Cisco",
 //      "kernel": "6.5.0",
 //      "collected_at": "2026-09-19T04:00:00Z",
 //      "exported_at": "2026-09-19T04:00:01Z",
@@ -71,6 +71,21 @@ struct ExportResult
     std::string path;        // 저장된 파일 경로(성공 시)
     std::string message;     // 실패/건너뜀 사유(사람이 읽는 문장)
 };
+
+
+// export 기능을 실행하는 함수 입니다.
+//
+//   수집 자체는 호출자(main)가 TelemetryMonitor::CollectSnapshotDocument() 로
+//   끝낸 뒤, 완성된 스냅샷 문서를 여기에 넘긴다.
+//   이렇게 하면 이 모듈은 장치/서버/DB 를 전혀 몰라도 되어
+//   단위 테스트(offline_export_test)가 네트워크 없이 돌아간다.
+//
+//   export_stdout 이 true 면 파일을 만들지 않고 JSON 을 표준출력으로 인쇄한다.
+// 반환값은 프로세스 종료 코드(0=성공, 1=실패)다.
+int ExportOnce(const std::filesystem::path& offline_directory,
+               const std::string& agent_id,
+               const Json& snapshot,
+               bool export_stdout);
 
 // 파일 이름에 쓸 수 없는 문자를 '_' 로 바꿉니다.
 // (에이전트 이름에 ':' '/' 등이 들어가도 파일을 만들 수 있게 한다.)

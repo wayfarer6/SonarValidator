@@ -1,28 +1,8 @@
-#include "switch.hpp"
+#include "components/device/switch/switch_interface/switch.hpp"
 
 #include <cassert>
-#include <cctype>
 #include <cstddef>
 #include <string>
-
-const std::string Trim(const std::string& input)
-{
-    std::size_t start = 0;
-    while (start < input.size() &&
-           std::isspace(static_cast<unsigned char>(input[start])) != 0)
-    {
-        ++start;
-    }
-
-    std::size_t end = input.size();
-    while (end > start &&
-           std::isspace(static_cast<unsigned char>(input[end - 1])) != 0)
-    {
-        --end;
-    }
-
-    return input.substr(start, end - start);
-}
 
 
 int main()

@@ -1,5 +1,5 @@
-#include "management_service.hpp"
-#include "policy/policy_json.hpp"
+#include "module/management_module/management_service.hpp"
+#include "components/policy/policy_json.hpp"
 #include <nlohmann/json.hpp>
 #include <utility>
 #include <sstream>

@@ -1,4 +1,4 @@
-// Generated from /home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Prober/parser/grammar/OvsTopology.g4 by ANTLR 4.13.1
+// Generated from /home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Prober/components/parser/grammar/OvsTopology.g4 by ANTLR 4.13.1
 import org.antlr.v4.runtime.atn.*;
 import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.*;
@@ -111,14 +111,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_showDocument; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterShowDocument(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitShowDocument(this);
-		}
 	}
 
 	public final ShowDocumentContext showDocument() throws RecognitionException {
@@ -170,14 +162,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_listDocument; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterListDocument(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitListDocument(this);
-		}
 	}
 
 	public final ListDocumentContext listDocument() throws RecognitionException {
@@ -229,14 +213,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_flowDocument; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterFlowDocument(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitFlowDocument(this);
-		}
 	}
 
 	public final FlowDocumentContext flowDocument() throws RecognitionException {
@@ -288,14 +264,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_showVlanDocument; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterShowVlanDocument(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitShowVlanDocument(this);
-		}
 	}
 
 	public final ShowVlanDocumentContext showVlanDocument() throws RecognitionException {
@@ -358,14 +326,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_showItem; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterShowItem(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitShowItem(this);
-		}
 	}
 
 	public final ShowItemContext showItem() throws RecognitionException {
@@ -447,14 +407,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_bridgeLine; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterBridgeLine(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitBridgeLine(this);
-		}
 	}
 
 	public final BridgeLineContext bridgeLine() throws RecognitionException {
@@ -514,14 +466,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_portLine; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterPortLine(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitPortLine(this);
-		}
 	}
 
 	public final PortLineContext portLine() throws RecognitionException {
@@ -581,14 +525,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_ifaceLine; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterIfaceLine(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitIfaceLine(this);
-		}
 	}
 
 	public final IfaceLineContext ifaceLine() throws RecognitionException {
@@ -646,14 +582,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_attrLine; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterAttrLine(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitAttrLine(this);
-		}
 	}
 
 	public final AttrLineContext attrLine() throws RecognitionException {
@@ -705,14 +633,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_nameToken; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterNameToken(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitNameToken(this);
-		}
 	}
 
 	public final NameTokenContext nameToken() throws RecognitionException {
@@ -763,14 +683,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_listItem; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterListItem(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitListItem(this);
-		}
 	}
 
 	public final ListItemContext listItem() throws RecognitionException {
@@ -836,14 +748,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_listRecord; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterListRecord(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitListRecord(this);
-		}
 	}
 
 	public final ListRecordContext listRecord() throws RecognitionException {
@@ -894,14 +798,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_recordSep; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterRecordSep(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitRecordSep(this);
-		}
 	}
 
 	public final RecordSepContext recordSep() throws RecognitionException {
@@ -942,14 +838,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_flowItem; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterFlowItem(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitFlowItem(this);
-		}
 	}
 
 	public final FlowItemContext flowItem() throws RecognitionException {
@@ -1010,14 +898,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_flowLine; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterFlowLine(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitFlowLine(this);
-		}
 	}
 
 	public final FlowLineContext flowLine() throws RecognitionException {
@@ -1090,14 +970,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_genericLine; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterGenericLine(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitGenericLine(this);
-		}
 	}
 
 	public final GenericLineContext genericLine() throws RecognitionException {
@@ -1143,14 +1015,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_blank; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterBlank(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitBlank(this);
-		}
 	}
 
 	public final BlankContext blank() throws RecognitionException {
@@ -1181,14 +1045,6 @@ public class OvsTopologyParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_elem; }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).enterElem(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof OvsTopologyListener ) ((OvsTopologyListener)listener).exitElem(this);
-		}
 	}
 
 	public final ElemContext elem() throws RecognitionException {

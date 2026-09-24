@@ -1,3 +1,12 @@
+#ifndef SONAR_VALIDATOR_PROBER_WORKERS_DATABASE_WORKER_HPP_
+#define SONAR_VALIDATOR_PROBER_WORKERS_DATABASE_WORKER_HPP_
+
+#include <exception>
+#include <future>
+#include <stop_token>
+
+#include "database/database_service.hpp"
+
 // 데이터베이스 스레드: 큐에서 태스크를 하나씩 꺼내 순차 실행합니다.
 // sqlite3 핸들을 오직 이 스레드만 만지므로 동시 접근 문제가 없습니다.
 void DatabaseWorker(
@@ -25,3 +34,5 @@ void DatabaseWorker(
         }
     }
 }
+
+#endif // SONAR_VALIDATOR_PROBER_WORKERS_DATABASE_WORKER_HPP_

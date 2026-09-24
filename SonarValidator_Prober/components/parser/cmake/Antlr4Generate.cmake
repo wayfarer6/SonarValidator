@@ -1,11 +1,15 @@
 # =============================================================================
-#  ANTLR4 문법 생성 규칙
+#  ANTLR4 문법 생성 함수 (문법을 실제로 고칠 때만 사용)
 #
-#  grammar/*.g4 -> generated/grammar/*.cpp|*.h (+ visitor)
+#  grammar/*.g4 -> ${SONAR_ANTLR4_GENERATED_DIR}/grammar/*.cpp|*.h (+ visitor)
 #
-#  생성 코드는 저장소에 커밋하지 않고 빌드 시 만든다(툴 버전 편차 방지).
-#  ANTLR4 툴체인이 없는 환경에서는 SONAR_ANTLR4_AVAILABLE=FALSE 이므로
-#  이 파일을 include 하지 말고 정적 파서 폴백을 쓰면 된다.
+#  평상시 빌드 경로에서는 이 함수를 호출하지 않는다.
+#  생성 코드(components/parser/generated/grammar)가 저장소에 커밋되어 있어
+#  Java/jar 없이 그대로 컴파일되기 때문이다.
+#
+#  문법을 수정했을 때는 다음 중 하나를 쓴다.
+#    - cmake --build build --target regenerate_parser
+#    - sh components/parser/cmake/regenerate_parser.sh
 # =============================================================================
 
 function(sonar_add_antlr4_grammar grammar_file)

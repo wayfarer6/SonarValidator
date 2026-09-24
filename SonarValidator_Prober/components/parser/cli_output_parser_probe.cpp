@@ -15,7 +15,7 @@
 #include <sstream>
 #include <string>
 
-#include "parser/cli_output_parser.hpp"
+#include "components/parser/cli_output_parser.hpp"
 
 namespace
 {

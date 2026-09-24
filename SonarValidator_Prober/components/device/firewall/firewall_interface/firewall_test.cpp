@@ -1,4 +1,4 @@
-#include "firewall.hpp"
+#include "components/device/firewall/firewall_interface/firewall.hpp"
 
 #include <cassert>
 #include <string>

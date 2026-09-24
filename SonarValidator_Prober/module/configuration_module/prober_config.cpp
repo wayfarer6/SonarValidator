@@ -1,4 +1,4 @@
-#include "prober_config.hpp"
+#include "module/configuration_module/prober_config.hpp"
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -10,7 +10,7 @@
 #include <memory>
 #include <cstdlib>
 #include <filesystem>
-#include "network.hpp"
+#include "components/backend_communication/network.hpp"
 namespace
 {
 // 기본 설정 파일 경로.

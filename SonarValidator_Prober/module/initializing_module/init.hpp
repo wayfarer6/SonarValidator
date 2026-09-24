@@ -2,9 +2,8 @@
 #define SONAR_VALIDATOR_PROBER_INIT_HPP_
 
 #include <filesystem>
-
 #include "database/database_service.hpp"
-#include "prober_config.hpp"
+#include "module/configuration_module/prober_config.hpp"
 
 // 런타임 준비(디렉터리/설정/DB)를 담당하는 초기화 클래스입니다.
 class AppInitializer

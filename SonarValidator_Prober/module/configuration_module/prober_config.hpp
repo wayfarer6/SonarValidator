@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-#include "device_type.hpp"
+#include "components/device/device_type.hpp"
 
 // 프로버의 시스템 정보와 중앙 서버 접속 설정을 보관하는 클래스입니다.
 // - Get*: 설정 값 조회

@@ -8,7 +8,7 @@
 
 #include <sqlite3.h>
 
-#include "database_service.hpp"
+#include "database/database_service.hpp"
 
 namespace fs = std::filesystem;
 

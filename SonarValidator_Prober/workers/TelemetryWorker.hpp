@@ -1,4 +1,16 @@
 
+#ifndef SONAR_VALIDATOR_PROBER_WORKERS_TELEMETRY_WORKER_HPP_
+#define SONAR_VALIDATOR_PROBER_WORKERS_TELEMETRY_WORKER_HPP_
+
+#include <filesystem>
+#include <stop_token>
+#include <string>
+
+#include "database/database_service.hpp"
+#include "module/configuration_module/prober_config.hpp"
+#include "module/management_module/management_service.hpp"
+#include "module/telemetry_module/telemetry_monitor.hpp"
+
 // 텔레메트리 스레드 진입점입니다. 실제 루프는 TelemetryMonitor가 담당합니다.
 // (조회 명령 실행 + 파싱 → 서버 전송 + DB 큐 저장, 기본 30초 간격)
 void TelemetryWorker(std::stop_token stop_token,
@@ -22,3 +34,5 @@ void TelemetryWorker(std::stop_token stop_token,
 
     monitor.Run(stop_token, config, database_queue, management_service);
 }
+
+#endif // SONAR_VALIDATOR_PROBER_WORKERS_TELEMETRY_WORKER_HPP_

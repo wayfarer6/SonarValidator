@@ -1,11 +1,11 @@
-#include "policy_receiver.hpp"
+#include "components/policy/policy_receiver.hpp"
 
 #include <iostream>
 
-#include "device_type.hpp"
-#include "management_service.hpp"
-#include "policy_json.hpp"
-#include "prober_config.hpp"
+#include "components/device/device_type.hpp"
+#include "module/management_module/management_service.hpp"
+#include "components/policy/policy_json.hpp"
+#include "module/configuration_module/prober_config.hpp"
 
 namespace
 {

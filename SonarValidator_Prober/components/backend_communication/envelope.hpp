@@ -7,7 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "device_type.hpp"
+#include "components/device/device_type.hpp"
 
 // 중앙 서버(Spring Boot)와 주고받는 공통 메시지 봉투입니다.
 //

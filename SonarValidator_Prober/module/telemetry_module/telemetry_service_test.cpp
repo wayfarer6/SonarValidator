@@ -3,9 +3,9 @@
 #include <iostream>
 #include <string>
 
-#include "device_type.hpp"
-#include "envelope.hpp"
-#include "telemetry_service.hpp"
+#include "components/device/device_type.hpp"
+#include "components/backend_communication/envelope.hpp"
+#include "module/telemetry_module/telemetry_service.hpp"
 
 // TelemetryService 가 봉투(telemetry)를 실제로 전송하는지 검증합니다.
 //

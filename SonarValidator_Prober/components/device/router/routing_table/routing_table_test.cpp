@@ -1,4 +1,4 @@
-#include "routing_table.hpp"
+#include "components/device/router/routing_table/routing_table.hpp"
 
 #include <cassert>
 #include <string>

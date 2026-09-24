@@ -4,9 +4,9 @@
 #include <string>
 #include <thread>
 
-#include "device_type.hpp"
-#include "envelope.hpp"
-#include "management_service.hpp"
+#include "components/device/device_type.hpp"
+#include "components/backend_communication/envelope.hpp"
+#include "module/management_module/management_service.hpp"
 
 // 실제 WebSocket 서버(mock 또는 Spring Boot)를 상대로 봉투 왕복을 검증합니다.
 // 서버가 떠 있지 않으면 SKIP(종료 코드 0)으로 처리해 CI를 막지 않습니다.

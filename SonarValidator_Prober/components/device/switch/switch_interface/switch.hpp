@@ -4,20 +4,15 @@
 #include <map>
 #include <string>
 #include <vector>
-#include "../router/routing_table.hpp"
-#include "../network.hpp"
-#include "../portInfo.hpp"
+#include "components/device/router/routing_table/routing_table.hpp"
+#include "components/backend_communication/network.hpp"
+#include "components/device/switch/switch_interface/port_info.hpp"
 
 // 스위치 포트 하나의 정보를 담는 구조체입니다.
-
-// 이거 수정 필요 component에 port class를 상속 받아 구현 되는 식으로
-// struct PortInfo {
-//     std::string name;               // 포트 이름
-//     std::string interface_name;     // 실제 인터페이스 이름
-//     std::vector<int> access_vlans;  // access 모드 VLAN 목록
-//     std::vector<int> trunk_vlans;   // trunk 허용 VLAN 목록
-//     bool is_internal = false;       // 내부 포트 여부
-// };
+//
+// 공통 네트워크 요소는 components/network_object/ 로 분리했습니다.
+//   NetworkInterface(추상) ← Port(L2 스위치 포트) / Nic(호스트·VM NIC)
+// 포트 정보는 이제 port_info.hpp 의 PortInfo(Port 상속) 를 사용합니다.
 
 // 스위치 브리지(브리지 이름 + 포트 목록)를 나타냅니다.
 struct BridgeInfo {

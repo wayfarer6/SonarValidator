@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string>
 
-#include "prober_config.hpp"
+#include "module/configuration_module/prober_config.hpp"
 
 int main()
 {

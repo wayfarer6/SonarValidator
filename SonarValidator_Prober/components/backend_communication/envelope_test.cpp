@@ -1,8 +1,8 @@
 #include <iostream>
 #include <string>
 
-#include "envelope.hpp"
-#include "policy/policy_json.hpp"
+#include "components/backend_communication/envelope.hpp"
+#include "components/policy/policy_json.hpp"
 
 // 네트워크 없이 봉투 생성/파싱 계약만 검증합니다.
 // 서버(Java Envelope.java)와 필드명이 어긋나면 이 테스트가 먼저 깨집니다.

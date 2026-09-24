@@ -1,3 +1,16 @@
+#ifndef SONAR_VALIDATOR_PROBER_WORKERS_MANAGEMENT_WORKER_HPP_
+#define SONAR_VALIDATOR_PROBER_WORKERS_MANAGEMENT_WORKER_HPP_
+
+#include <chrono>
+#include <iostream>
+#include <stop_token>
+#include <string>
+#include <thread>
+
+#include "components/policy/policy_receiver.hpp"
+#include "module/configuration_module/prober_config.hpp"
+#include "module/management_module/management_service.hpp"
+
 // 관리 스레드: 서버로부터 정책을 받아 장치에 적용합니다.
 
 
@@ -33,3 +46,5 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
         std::this_thread::sleep_for(std::chrono::seconds(3));
     }
 }
+
+#endif // SONAR_VALIDATOR_PROBER_WORKERS_MANAGEMENT_WORKER_HPP_

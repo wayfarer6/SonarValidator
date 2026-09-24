@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "parser/cli_output_parser.hpp"
+#include "components/parser/cli_output_parser.hpp"
 
 namespace
 {

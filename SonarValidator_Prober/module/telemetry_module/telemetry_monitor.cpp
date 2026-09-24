@@ -1,17 +1,17 @@
-#include "telemetry_monitor.hpp"
+#include "module/telemetry_module/telemetry_monitor.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>
 #include <nlohmann/json.hpp>
-#include "collector/command_collector.hpp"
+#include "module/telemetry_module/command_collector.hpp"
 #include "database/database_service.hpp"
 #include "database/telemetry_store.hpp"
-#include "device_type.hpp"
-#include "envelope.hpp"
-#include "management_service.hpp"
-#include "offline/offline_export.hpp"
-#include "prober_config.hpp"
-#include "telemetry/telemetry_service.hpp"
+#include "components/device/device_type.hpp"
+#include "components/backend_communication/envelope.hpp"
+#include "module/management_module/management_service.hpp"
+#include "module/offline_export_module/offline_export.hpp"
+#include "module/configuration_module/prober_config.hpp"
+#include "module/telemetry_module/telemetry_service.hpp"
 
 using Json = nlohmann::json;
 
