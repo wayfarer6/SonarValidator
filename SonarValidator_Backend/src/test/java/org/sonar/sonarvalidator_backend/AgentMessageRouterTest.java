@@ -46,7 +46,11 @@ class AgentMessageRouterTest {
                 new PolicyRegistryService(),
                 new DeviceConfigService(java.util.List.of()),
                 new NoopLogService(),
-                new NoopNotificationService());
+                new NoopNotificationService(),
+                // 원문 CLI 폴백 파서. 이 테스트는 구조화된 JSON 만 보내므로
+                // 실제로 호출되지 않습니다.
+                new org.sonar.sonarvalidator_backend.Service.cli.CliIngestionService(
+                        new org.sonar.sonarvalidator_backend.Service.cli.CliOutputParser()));
     }
 
     /**

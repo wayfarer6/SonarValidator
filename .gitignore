@@ -74,3 +74,7 @@ Testing/
 .env.local
 .env.*.local
 *.env.bak
+
+# IntelliJ ANTLR 플러그인이 생성하는 임시 산출물 (빌드마다 재생성됨)
+#   .g4 옆에 .antlr/ 로 만들어지며, 커밋된 적이 있어 Spring 클래스패스 스캔을 깨뜨린 이력이 있습니다.
+.antlr/

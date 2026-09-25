@@ -54,7 +54,8 @@ std::string JsonToText(const Json& value)
     }
     if (value.is_number())
     {
-        // metric 이 "110/200" 같은 문자열로 오지만 간혹 숫자로 올 수 있습니다.
+        // metric/distance 는 파서가 정수로 내보냅니다(Java Backend 계약).
+        // mtu 처럼 문자열로 오는 필드는 위 is_string() 분기가 처리합니다.
         return value.dump();
     }
     return {};
@@ -283,11 +284,12 @@ bool PushRows(DatabaseQueue& database_queue,
 //  테이블별 행 추출
 // ---------------------------------------------------------------------------
 
-// route_table: 한 번 수집분의 라우팅 엔트리를 NULLABLE 컬럼 8개로 옮깁니다.
+// route_table: 한 번 수집분의 라우팅 엔트리를 NULLABLE 컬럼 10개로 옮깁니다.
 // (agent, collected_at 은 PushRows 가 채웁니다.)
 constexpr const char* kInsertRouteSql =
     "INSERT INTO route_table (agent, collected_at, protocol, prefix, next_hop, metric,"
-    " interface_name, selected, fib, connected) VALUES (?,?,?,?,?,?,?,?,?,?)";
+    " interface_name, selected, fib, connected, distance, metric_raw)"
+    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
 
 std::vector<Row> ExtractRouteRows(const Json& route_status)
 {
@@ -314,11 +316,17 @@ std::vector<Row> ExtractRouteRows(const Json& route_status)
             // 다음 홉도 via / next_hop 두 표기가 있다.
             FirstOf(ColumnValue::FromText(route, "next_hop"),
                     ColumnValue::FromText(route, "via")),
-            ColumnValue::FromText(route, "metric"),
+            // metric 은 정수로 저장합니다(Java Backend 계약).
+            // 숫자가 아니면 NULL 이 되고 원문은 metric_raw 에 남습니다.
+            ColumnValue::FromInteger(route, "metric"),
             ColumnValue::FromText(route, "interface_name"),
             ColumnValue::FromBoolean(route, "selected"),
             ColumnValue::FromBoolean(route, "fib"),
             ColumnValue::FromBoolean(route, "connected"),
+            // administrative distance(`[110/200]` 의 앞 값). 커널 `ip route` 에는 없다.
+            ColumnValue::FromInteger(route, "distance"),
+            // 숫자로 읽지 못한 metric 원문. 진단/추적용이며 없으면 NULL 입니다.
+            ColumnValue::FromText(route, "metric_raw"),
         });
     }
     return rows;

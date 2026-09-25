@@ -213,7 +213,9 @@ void TestFrrRoute()
     // O>* 0.0.0.0/0
     CheckEq(routes[0]["protocol"].get<std::string>(), "ospf", "라우트0 protocol=ospf");
     CheckEq(routes[0]["prefix"].get<std::string>(), "0.0.0.0/0", "라우트0 prefix");
-    CheckEq(routes[0]["metric"].get<std::string>(), "110/1", "라우트0 metric=110/1");
+    // `[110/1]` → distance=110, metric=1 (Java Backend 와 같은 정수 표현)
+    Check(routes[0]["distance"].get<int>() == 110, "라우트0 distance=110");
+    Check(routes[0]["metric"].get<int>() == 1, "라우트0 metric=1");
     CheckEq(routes[0]["next_hop"].get<std::string>(), "10.99.10.1", "라우트0 next_hop");
     CheckEq(routes[0]["interface_name"].get<std::string>(), "eth0", "라우트0 인터페이스");
     Check(routes[0]["selected"].get<bool>(), "라우트0 selected(*)");
@@ -222,7 +224,9 @@ void TestFrrRoute()
     // S>* 정적 경로
     CheckEq(routes[1]["protocol"].get<std::string>(), "static", "라우트1 protocol=static");
     CheckEq(routes[1]["prefix"].get<std::string>(), "10.10.128.0/21", "라우트1 prefix(C4I 집계)");
-    CheckEq(routes[1]["metric"].get<std::string>(), "1/0", "라우트1 metric=1/0");
+    // `[1/0]` → distance=1, metric=0
+    Check(routes[1]["distance"].get<int>() == 1, "라우트1 distance=1");
+    Check(routes[1]["metric"].get<int>() == 0, "라우트1 metric=0");
 
     // O directly connected
     CheckEq(routes[3]["protocol"].get<std::string>(), "ospf", "라우트3 protocol=ospf");
@@ -284,7 +288,8 @@ void TestFrrKernelRoute()
             "커널 라우트1 목적지");
     CheckEq(routes[1]["protocol"].get<std::string>(), "ospf", "커널 라우트1 protocol=ospf");
     CheckEq(routes[1]["via"].get<std::string>(), "10.99.10.4", "커널 라우트1 via");
-    CheckEq(routes[1]["metric"].get<std::string>(), "20", "커널 라우트1 metric=20");
+    // `metric 20` 은 브래킷이 아니라 키워드 형태지만 결과는 같은 정수 필드다.
+    Check(routes[1]["metric"].get<int>() == 20, "커널 라우트1 metric=20");
 
     // 직접 연결 경로(src 만 있고 via 없음)
     CheckEq(routes[7]["destination"].get<std::string>(), "10.99.10.0/24",
@@ -609,6 +614,47 @@ void TestRobustness()
           "중괄호 불일치 입력도 결과 반환");
 }
 
+// ---------------------------------------------------------------------------
+//  라우트 오탐 — 주소가 아닌 텍스트는 라우트로 삼키지 않아야 한다
+//
+//  예전 문법은 routeHead 에 IFNAME 을 허용해 아무 단어나 목적지로 받았다.
+//  그래서 `hello world` 가 라우트 2건으로 파싱됐고(parsed:true), 소비자는
+//  "조회했는데 경로 없음" 대신 "경로 2건" 으로 읽었다. 목적지 자리를 커널이
+//  실제로 내는 토큰(DEFAULT | ROUTETYPE ADDR | ADDR)으로 좁혀 이 오탐을
+//  문법 수준에서 제거했다. Java(IpAddr.g4) 와 같은 계약이다.
+// ---------------------------------------------------------------------------
+void TestRouteNoiseIsRejected()
+{
+    std::cout << "\n--- 라우트 오탐 (주소 아닌 텍스트) ---\n";
+
+    const auto noise =
+        cli_parser::ParseRouteStatus("hello world\nthis is not a route\n", Vendor::kFrr);
+    CheckEq(std::to_string(noise["routes"].size()), "0", "잡음은 라우트 0건");
+    Check(noise["routes"].is_array() && noise["routes"].empty(), "잡음 라우트 배열 비어 있음");
+
+    // 문법이 여전히 유효한 라우트는 받아들이는지 확인한다(과잉 축소 방지).
+    const auto ok = cli_parser::ParseRouteStatus(
+        "default via 10.0.0.1 dev eth0 proto static metric 10\n", Vendor::kFrr);
+    Check(ok["routes"].is_array() && !ok["routes"].empty(), "정상 라우트는 유지");
+    CheckEq(ok["routes"][0]["destination"].get<std::string>(), "0.0.0.0/0",
+            "정상 라우트 목적지=default");
+
+    // blackhole 은 타입 키워드이므로 목적지는 뒤 주소여야 한다.
+    // 타입 키워드 자체는 목적지도 필드도 아니므로 버린다(Java 계약과 동일).
+    const auto bh =
+        cli_parser::ParseRouteStatus("blackhole 10.0.0.0/8 \n", Vendor::kFrr);
+    Check(bh["routes"].is_array() && bh["routes"].size() == 1,
+          "blackhole 1건 (got=" + std::to_string(bh["routes"].size()) + ")");
+    if (bh["routes"].is_array() && bh["routes"].size() == 1)
+    {
+        CheckEq(bh["routes"][0]["destination"].get<std::string>(), "10.0.0.0/8",
+                "blackhole 목적지는 주소");
+        Check(!bh["routes"][0]["is_default"].get<bool>(), "blackhole 은 default 아님");
+        Check(!bh["routes"][0].contains("extras"),
+              "blackhole 키워드는 extras 로 새지 않음");
+    }
+}
+
 }  // namespace
 
 int main()
@@ -627,6 +673,7 @@ int main()
     TestAristaVlan();
     TestArpTables();
     TestRobustness();
+    TestRouteNoiseIsRejected();
 
     std::cout << "\n=== 결과: " << (g_checks - g_failures) << "/" << g_checks
               << " 통과, 실패 " << g_failures << " ===\n";

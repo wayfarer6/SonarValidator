@@ -70,7 +70,13 @@ briefAddr  : ADDR | MAC ;
  * ----------------------------------------------------------------- */
 
 routeEntry : routeHead elem* NEWLINE ;
-routeHead  : DEFAULT | ADDR | IFNAME ;
+/* 라우트 줄의 첫 토큰 = "목적지 자리"
+ *
+ * 여기에 IFNAME 을 넣으면 아무 단어나 라우트 줄로 인정된다. `hello world`
+ * 같은 텍스트도 라우트로 파싱돼 parsed:true / 건수가 부풀려지고, 소비자는
+ * "조회했는데 경로 없음" 대신 "경로 N건" 으로 읽는다. 목적지 자리를 커널이
+ * 실제로 내는 토큰으로 좁히면 잡음은 genericLine 으로 빠져 무시된다. */
+routeHead  : DEFAULT | ROUTETYPE ADDR | ADDR ;
 
 /* ------------------------------ 공통 ----------------------------- */
 
@@ -99,6 +105,16 @@ LIFETIME : 'valid_lft' | 'preferred_lft' ;
 UP       : 'UP' ;
 DOWN     : 'DOWN' ;
 UNKNOWN  : 'UNKNOWN' ;
+
+/* `ip route` 의 경로 타입 키워드. 목적지 앞에 온다.
+ *
+ * 이 목록이 곧 "라우트 줄의 첫 토큰이 될 수 있는 단어" 다. IFNAME 을 routeHead
+ * 에 두는 대신 전용 토큰으로 좁히면 라우트가 아닌 텍스트가 라우트로 오인되지
+ * 않는다. IFNAME 과 문자집합이 같으므로 최장일치 동점에서 이기도록 반드시
+ * IFNAME 보다 먼저 선언한다. (뒤에 두면 `blackhole` 이 IFNAME 으로 렉싱돼
+ * routeHead 가 매칭되지 않고 조용히 0건이 된다.) */
+ROUTETYPE : 'blackhole' | 'unreachable' | 'prohibit' | 'throw'
+          | 'broadcast' | 'local' | 'multicast' | 'anycast' | 'nat' ;
 
 IFNAME : [a-zA-Z_] [a-zA-Z0-9_.@-]* ;
 

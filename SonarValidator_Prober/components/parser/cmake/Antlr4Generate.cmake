@@ -29,6 +29,7 @@ function(sonar_add_antlr4_grammar grammar_file)
                 -Dlanguage=Cpp
                 -visitor
                 -no-listener
+                -lib "${CMAKE_CURRENT_SOURCE_DIR}/components/parser/grammar"
                 -o "${SONAR_ANTLR4_GENERATED_DIR}"
                 -Xexact-output-dir
                 "${grammar_file}"

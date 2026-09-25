@@ -13,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
+import org.sonar.sonarvalidator_backend.Service.cli.CliIngestionService;
+import org.sonar.sonarvalidator_backend.Service.cli.CliVendor;
 import org.sonar.sonarvalidator_backend.Service.log.LogService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.WebSocketSession;
@@ -123,16 +125,27 @@ public class AgentMessageRouterService {
      */
     private final NotificationService notificationService;
 
+    /**
+     * 원문 CLI 문자열을 내부 계약 형태로 되돌리는 폴백 파서입니다.
+     *
+     * <p>정상 경로에서는 Prober 가 이미 파싱한 JSON 이 오므로 이 서비스는
+     * 아무 일도 하지 않습니다. 구버전 Prober 나 운영자가 붙여 넣은 원문처럼
+     * <b>파싱되지 않은 문자열</b>이 들어올 때만 동작합니다.
+     */
+    private final CliIngestionService cliIngestionService;
+
     public AgentMessageRouterService(AgentSessionRegistry registry,
                                      PolicyRegistryService policyRegistry,
                                      DeviceConfigService deviceConfigService,
                                      LogService logService,
-                                     NotificationService notificationService) {
+                                     NotificationService notificationService,
+                                     CliIngestionService cliIngestionService) {
         this.registry = registry;
         this.policyRegistry = policyRegistry;
         this.deviceConfigService = deviceConfigService;
         this.logService = logService;
         this.notificationService = notificationService;
+        this.cliIngestionService = cliIngestionService;
     }
 
     /**
@@ -263,7 +276,11 @@ public class AgentMessageRouterService {
             // 봉투의 device_type 과 payload 의 product 를 함께 씁니다.
             final String product = text(payload, "product",
                     text(payload, "vendor", envelope.getDevice_type()));
-            final NeutralDeviceConfig config = deviceConfigService.parse(agentId, product, payload);
+            // Prober 버전에 따라 payload 에 원문 CLI 문자열만 실려 올 수 있습니다.
+            // 그 경우 여기서 ANTLR 문법으로 파싱해 내부 계약 형태로 맞춥니다.
+            // (정상 경로처럼 이미 구조화된 JSON 이면 아무 일도 하지 않습니다)
+            final JsonNode normalized = normalizedPayload(payload, product);
+            final NeutralDeviceConfig config = deviceConfigService.parse(agentId, product, normalized);
             lastConfig.put(agentId, config);
 
             log.info("telemetry from agent={} keys={} format={} ifaces={} routes={} vlans={}",
@@ -281,6 +298,40 @@ public class AgentMessageRouterService {
         ingestTelemetryLogs(agentId, payload);
 
         return null;
+    }
+
+    /**
+     * payload 에 원문 CLI 문자열이 섞여 있으면 파싱 결과를 덧붙인 새 노드를 만듭니다.
+     *
+     * <h2>왜 원본을 그대로 쓰지 않는가</h2>
+     * <p>payload 는 {@code lastTelemetry} 에 그대로 보관되어 조회 API 로도 나갑니다.
+     * 원본을 제자리에서 고치면 "Agent 가 보낸 그대로" 라는 보관 의미가 깨집니다.
+     * 그래서 추가할 파싱 결과가 있을 때만 <b>얕은 복사</b>를 만들어 씁니다.
+     *
+     * @param payload 텔레메트리 payload
+     * @param product 제품명 (벤더 판별용)
+     * @return 파싱 결과가 덧붙은 payload (추가분이 없으면 원본)
+     */
+    private JsonNode normalizedPayload(JsonNode payload, String product) {
+        if (payload == null || payload.isNull() || !payload.isObject()) {
+            return payload;
+        }
+        try {
+            final CliVendor vendor = cliIngestionService.vendorOf(product);
+            final ObjectNode extra = cliIngestionService.extractParsed(payload, vendor);
+            if (extra.isEmpty()) {
+                return payload;
+            }
+            final ObjectNode merged = JSON.objectNode();
+            merged.setAll((ObjectNode) payload);
+            // 추가분이 우선합니다 — 원문이 곧 "이 대상의 진짜 내용" 이기 때문입니다.
+            merged.setAll(extra);
+            return merged;
+        } catch (RuntimeException ex) {
+            // 폴백 파싱 실패가 텔레메트리 처리 전체를 막지 않게 합니다.
+            log.warn("cli fallback failed for product={}: {}", product, ex.getMessage());
+            return payload;
+        }
     }
 
     /**
@@ -408,8 +459,12 @@ public class AgentMessageRouterService {
                 ? text(payload, "product", text(payload, "vendor", "unknown"))
                 : product;
 
+        // 온라인 경로와 같은 폴백 파싱을 거칩니다. 오프라인 스냅샷에는
+        // 원문 CLI 가 그대로 들어 있는 경우가 더 흔하므로 여기서도 필요합니다.
+        final JsonNode normalized = normalizedPayload(payload, resolvedProduct);
+
         final NeutralDeviceConfig config =
-                deviceConfigService.parse(agentId, resolvedProduct, payload);
+                deviceConfigService.parse(agentId, resolvedProduct, normalized);
 
         lastTelemetry.put(agentId, payload);
         lastConfig.put(agentId, config);

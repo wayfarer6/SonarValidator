@@ -1,5 +1,5 @@
 
-// Generated from grammar/IpAddr.g4 by ANTLR 4.13.2
+// Generated from /home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Prober/components/parser/grammar/IpAddr.g4 by ANTLR 4.13.2
 
 #pragma once
 
@@ -14,7 +14,7 @@ public:
   enum {
     NEWLINE = 1, WS = 2, INDEX = 3, MAC = 4, ADDR = 5, DEFAULT = 6, LINK = 7, 
     INET = 8, INET6 = 9, LIFETIME = 10, UP = 11, DOWN = 12, UNKNOWN = 13, 
-    IFNAME = 14, COLON = 15, SLASH = 16, WORD = 17
+    ROUTETYPE = 14, IFNAME = 15, COLON = 16, SLASH = 17, WORD = 18
   };
 
   explicit IpAddrLexer(antlr4::CharStream *input);

@@ -23,7 +23,11 @@
 //                            "addresses":[{"family","address","prefix_len",
 //                                          "scope","interface"}]}]}
 //  - Route  : {"routes":[{"protocol","selected","fib","prefix","metric",
-//                         "next_hop","interface_name","connected"}]}
+//                         "distance","metric_raw","next_hop","interface_name",
+//                         "connected"}]}
+//             metric/distance 는 정수입니다(Java Backend 계약). `[110/200]` 은
+//             distance=110, metric=200 으로 나뉘고, 숫자로 못 읽은 원문만
+//             metric_raw(문자열) 로 남깁니다.
 //  - VLAN   : {"vlans":[{"vlan_id","name","status","ports":[]}]}
 //  - Switch : {"ports":[{"name","mode","access_vlan","trunk_vlans":[],
 //                        "vlan_mode","admin_enabled"}]}

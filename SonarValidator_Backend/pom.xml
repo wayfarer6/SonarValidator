@@ -160,13 +160,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- ANTLR4 런타임 -->
-        <dependency>
-            <groupId>org.antlr</groupId>
-            <artifactId>antlr4-runtime</artifactId>
-            <version>4.13.1</version>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -183,9 +176,13 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <!-- Visitor 패턴 사용 여부 설정 -->
+                    <!--
+                      Visitor 패턴만 사용합니다. 순회는 ANTLR 이 자동 생성한
+                      <Name>BaseVisitor 를 그대로 쓰고, Listener 는 쓰지 않으므로
+                      생성을 끄어 불필요한 클래스를 만들지 않습니다.
+                    -->
                     <visitor>true</visitor>
-                    <listener>true</listener>
+                    <listener>false</listener>
                 </configuration>
             </plugin>
             <plugin>

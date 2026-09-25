@@ -53,7 +53,11 @@ class OfflineSnapshotImportTest {
                 // 라우터가 Agent 연결을 알림으로 남기지만, 이 테스트는 스냅샷
                 // 파싱/가져오기 계약만 봅니다. DB 쓰기가 끼어들면 저장소를
                 // 함께 띄워야 하므로 알림도 스텁으로 대체합니다.
-                new NoopNotificationService());
+                new NoopNotificationService(),
+                // 스냅샷 payload 는 이미 구조화된 JSON 이므로 폴백 파서는
+                // 동작하지 않습니다.
+                new org.sonar.sonarvalidator_backend.Service.cli.CliIngestionService(
+                        new org.sonar.sonarvalidator_backend.Service.cli.CliOutputParser()));
         service = new OfflineSnapshotService(deviceConfigService, router);
     }
 

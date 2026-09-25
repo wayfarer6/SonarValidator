@@ -7,6 +7,18 @@ namespace database_schema
 //  스키마 버전
 //
 //  DDL 을 바꿀 때는 여기 문자열도 함께 고치고, 아래 표의 "변경 이력"에 남깁니다.
+//
+//  변경 이력
+//  ─────────────────────────────────────────────────────────────────────────
+//  2026-09-25  route_table.metric 을 TEXT → INTEGER 로 바꿨습니다.
+//              `[110/200]` 은 administrative distance(110)와 metric(200)
+//              두 값입니다. Backend(Java) 계약이 정수 필드로 나누어 담기
+//              때문에 파서도 `distance` / `metric` 을 정수로 냅니다.
+//              숫자로 해석할 수 없는 원문만 `metric_raw`(문자열)로 남깁니다.
+//              이 DDL 은 CREATE TABLE IF NOT EXISTS 라서 이미 만들어진 DB 에는
+//              적용되지 않습니다. 기존 DB 는 컬럼 타입 TEXT 로 남지만 SQLite 는
+//              타입 친화도(affinity) 로 값을 저장하므로 정수를 넣어도 그대로
+//              동작합니다. 새로 만드는 DB 부터 INTEGER 입니다.
 // ---------------------------------------------------------------------------
 const std::string& CreateTablesSql()
 {
@@ -39,11 +51,13 @@ const std::string& CreateTablesSql()
         "protocol TEXT,"             // ospf, connected, kernel ...
         "prefix TEXT,"               // 10.20.111.0/24
         "next_hop TEXT,"             // 10.99.10.5 (direct 는 NULL/빈 값)
-        "metric TEXT,"               // "110/200" 처럼 문자열로 오는 경우가 있어 TEXT
+        "metric INTEGER,"            // 파서가 정수로 내보냄(Java 계약). 원문은 metric_raw 참고
         "interface_name TEXT,"
         "selected INTEGER,"          // FIB 설치 여부(선택된 경로) 0/1
         "fib INTEGER,"               // fib 플래그 0/1
-        "connected INTEGER"          // directly connected 여부 0/1
+        "connected INTEGER,"         // directly connected 여부 0/1
+        "distance INTEGER,"          // administrative distance (예: 110). 없으면 NULL
+        "metric_raw TEXT"            // 숫자로 못 읽은 원문(예: "foo/bar"). 없으면 NULL
         ");"
         "CREATE INDEX IF NOT EXISTS idx_route_table_snapshot "
         "ON route_table (agent, collected_at);"

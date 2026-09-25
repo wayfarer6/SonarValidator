@@ -16,6 +16,13 @@
 #           /usr/local/lib/antlr-4.13.2-complete.jar
 #           /usr/share/java/antlr4.jar
 #
+#  ⚠️ jar 버전
+#    저장소에 커밋된 생성 소스는 ANTLR 4.13.2 로 만들어진다.
+#    다른 버전으로 재생성하면 커밋 diff 가 통째로 뒤집힌다.
+#    스크립트가 버전을 확인하므로, 정말 다른 버전을 쓸 때만
+#      ANTLR4_EXPECTED_VERSION=<버전> sh ...regenerate_parser.sh
+#    로 실행한다.
+#
 #  사용법
 #    sh components/parser/cmake/regenerate_parser.sh
 #    ANTLR4_JAR=/path/to/antlr.jar sh components/parser/cmake/regenerate_parser.sh
@@ -53,9 +60,24 @@ if ! command -v java >/dev/null 2>&1; then
     exit 1
 fi
 
+# jar 버전을 확인한다. 저장소에 커밋된 생성 소스는 4.13.2 로 만들어졌으므로,
+# 다른 버전으로 재생성하면 커밋 diff 가 통째로 뒤집힌다(런타임 API 가 달라진다).
+# 참고: ~/tools/antlr.jar 라는 이름의 antlr4ng 4.13.2-SNAPSHOT 포크가
+#       "Version 4.13.1" 로 보고되는 사례가 있어 이름만 믿으면 안 된다.
+ANTLR_VERSION=$(java -jar "$ANTLR4_JAR" 2>&1 | sed -n 's/.*Version \([0-9][0-9.]*\).*/\1/p' | head -1)
+EXPECTED_VERSION=${ANTLR4_EXPECTED_VERSION:-4.13.2}
+
 echo "[INFO] jar      : $ANTLR4_JAR"
+echo "[INFO] version  : ${ANTLR_VERSION:-unknown} (기대: $EXPECTED_VERSION)"
 echo "[INFO] grammars : $GRAMMAR_DIR"
 echo "[INFO] output   : $GENERATED_DIR"
+
+if [ -z "$ANTLR_VERSION" ] || [ "$ANTLR_VERSION" != "$EXPECTED_VERSION" ]; then
+    echo "[WARN] ANTLR 버전이 $EXPECTED_VERSION 이 아닙니다." >&2
+    echo "       저장소의 생성 소스는 $EXPECTED_VERSION 기준이므로 diff 가 크게 뒤집힙니다." >&2
+    echo "       계속하려면 ANTLR4_EXPECTED_VERSION=$ANTLR_VERSION 로 실행하세요." >&2
+    exit 1
+fi
 
 # 생성 디렉터리는 항상 비우고 다시 만든다.
 # (이전 버전에서 만들어진 파일이 남아 링크 오류를 내는 것을 막는다)
@@ -72,6 +94,7 @@ for grammar in "$GRAMMAR_DIR"/*.g4; do
         -Dlanguage=Cpp \
         -visitor \
         -no-listener \
+        -lib "$GRAMMAR_DIR" \
         -o "$GENERATED_DIR" \
         -Xexact-output-dir \
         "$grammar"

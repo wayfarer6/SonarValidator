@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -127,6 +128,93 @@ bool IsNumber(const std::string& text)
            std::all_of(text.begin(), text.end(), [](unsigned char ch) {
                return std::isdigit(ch) != 0;
            });
+}
+
+//  라우트 metric 표현 — Java Backend 계약
+//
+//  `show ip route` 의 `[110/200]` 은 두 값을 뜻한다.
+//    앞 = administrative distance, 뒤 = metric
+//  Backend(Java) 는 이 둘을 정수 필드로 나눠 담는다.
+//    distance : 110   metric : 200
+//  같은 JSON 을 두 파서가 내야 하므로 여기서도 같은 모양으로 담는다.
+//
+//  나눈 결과가 숫자가 아니면(예: `[foo/bar]`) 원문을 살리기 위해
+//  `metric_raw` 에 문자열로 남긴다. 정보를 버리지 않기 위함이다.
+void ApplyMetricBracket(Json& route, const std::string& token)
+{
+    const std::string inner = TrimPunct(token);
+    std::string body = inner;
+    if (body.size() >= 2 && body.front() == '[' && body.back() == ']')
+    {
+        body = body.substr(1, body.size() - 2);
+    }
+    else if (!body.empty() && body.front() == '[')
+    {
+        body = body.substr(1);
+    }
+
+    const std::size_t slash = body.find('/');
+    const std::string distance = slash == std::string::npos ? body : body.substr(0, slash);
+    const std::string metric = slash == std::string::npos ? std::string() : body.substr(slash + 1);
+
+    if (IsNumber(distance))
+    {
+        route["distance"] = std::stoi(distance);
+    }
+    if (IsNumber(metric))
+    {
+        route["metric"] = std::stoi(metric);
+    }
+    if (!IsNumber(distance) || (slash != std::string::npos && !IsNumber(metric)))
+    {
+        route["metric_raw"] = body;
+    }
+}
+
+// `metric 20` (키워드 + 스칼라) 을 정수로 담는다.
+//
+//  커널 `ip route show` / `ip -6 route` 는 브래킷 대신 `metric` 키워드를 쓴다.
+//  Backend(Java) 는 이 값도 정수로 내보내므로 문자열로 담으면 계약이 어긋난다.
+//  숫자가 아니면 원문을 `metric_raw` 에 남긴다.
+void ApplyMetricKeyword(Json& route, const std::string& value)
+{
+    const std::string metric = TrimPunct(value);
+    if (IsNumber(metric))
+    {
+        route["metric"] = std::stoi(metric);
+        return;
+    }
+    route["metric_raw"] = metric;
+}
+
+// `ip route` 의 경로 타입 키워드인지 판단한다.
+//   `blackhole 10.0.0.0/8` → 목적지는 두 번째 토큰이다.
+// 문법(routeHead : DEFAULT | ROUTETYPE ADDR | ADDR)이 목적지 자리를 이미 좁혔으므로
+// 여기서는 "첫 토큰을 목적지로 쓰면 안 되는 경우" 만 가려낸다.
+bool IsRouteTypeKeyword(const std::string& token)
+{
+    static const std::set<std::string> kTypes = {
+        "blackhole", "unreachable", "prohibit", "throw",     "broadcast",
+        "local",     "multicast",   "anycast",   "nat"};
+    return kTypes.count(token) > 0;
+}
+
+// 라우트 목적지 문자열을 뽑는다. 타입 키워드가 앞에 있으면 건너뛴다.
+std::string RouteDestinationOf(const std::vector<std::string>& tokens)
+{
+    if (tokens.empty())
+    {
+        return {};
+    }
+    if (tokens[0] == "default")
+    {
+        return "0.0.0.0/0";
+    }
+    if (IsRouteTypeKeyword(tokens[0]) && tokens.size() > 1)
+    {
+        return TrimPunct(tokens[1]);
+    }
+    return TrimPunct(tokens[0]);
 }
 
 // `10.10.131.1/24` -> address="10.10.131.1", prefix_len=24 (슬래시 없으면 -1)
@@ -634,10 +722,21 @@ public:
             }
 
             Json route = Json::object();
-            route["is_default"] = (tokens[0] == "default");
-            route["destination"] = (tokens[0] == "default") ? "0.0.0.0/0" : tokens[0];
+            const std::string destination = RouteDestinationOf(tokens);
+            route["is_default"] = (destination == "0.0.0.0/0" || destination == "::/0");
+            route["destination"] = destination;
 
-            for (std::size_t i = 1; i < tokens.size(); ++i)
+            // 목적지 자리에 이미 쓴 토큰은 필드 순회에서 건너뛴다.
+            //   `default ...`        → 1개 (default)
+            //   `blackhole 10.0.0.0/8` → 2개 (blackhole, 10.0.0.0/8)
+            //   `10.99.10.0/24 ...`  → 1개
+            std::size_t fieldStart = 1;
+            if (!tokens.empty() && IsRouteTypeKeyword(tokens[0]) && tokens.size() > 1)
+            {
+                fieldStart = 2;
+            }
+
+            for (std::size_t i = fieldStart; i < tokens.size(); ++i)
             {
                 const std::string token = tokens[i];
                 if (token == "via" && i + 1 < tokens.size())
@@ -654,7 +753,7 @@ public:
                 }
                 else if (token == "metric" && i + 1 < tokens.size())
                 {
-                    route["metric"] = TrimPunct(tokens[++i]);
+                    ApplyMetricKeyword(route, tokens[++i]);
                 }
                 else if (token == "src" && i + 1 < tokens.size())
                 {
@@ -848,21 +947,12 @@ private:
         route["prefix"] = destination;
         ++i;
 
-        // 3) metric: `[110/200]`
+        // 3) metric: `[110/200]` → distance + metric (Java 와 같은 정수 표현)
         for (std::size_t j = i; j < tokens.size(); ++j)
         {
             if (!tokens[j].empty() && tokens[j].front() == '[')
             {
-                std::string metric = tokens[j];
-                if (!metric.empty() && metric.back() == ']')
-                {
-                    metric = metric.substr(1, metric.size() - 2);
-                }
-                else
-                {
-                    metric = metric.substr(1);
-                }
-                route["metric"] = metric;
+                ApplyMetricBracket(route, tokens[j]);
                 break;
             }
         }
