@@ -1,12 +1,20 @@
 package org.sonar.sonarvalidator_backend.Model.entity;
 
+import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -40,10 +48,34 @@ import lombok.Setter;
  * <p>파싱 실패를 오류로 처리하지 않는 이유: 모델이 코드블록으로 감싸거나
  * 앞뒤에 설명을 붙이는 일이 흔합니다. 그때 분석 자체를 버리면 사용자는
  * "분석 실패" 만 보게 됩니다. 원문이라도 보여 주는 편이 낫습니다.
+ *
+ * <h2>식별자 세 가지</h2>
+ * <p>이 테이블에는 서로 다른 목적의 식별자가 함께 있습니다.
+ * <ul>
+ *   <li>{@link #id} — 대리 키. 다른 테이블이 이 행을 가리킬 때 씁니다.</li>
+ *   <li>{@link #analysisId} — 외부 노출용 키({@code AIA-...}). URL 에 써도
+ *       순번이 드러나지 않습니다.</li>
+ *   <li>{@link #logId} — <b>분석 대상 로그의 번호</b>입니다. 별도로 남겨
+ *       "어떤 로그를 분석했나" 를 조인 없이 바로 찾습니다.</li>
+ * </ul>
+ *
+ * <h2>에이전트·프로젝트당 한 건</h2>
+ * <p>{@code (agent_id, project_id)} 에 복합 UNIQUE 를 걸어 <b>같은 장비·같은
+ * 프로젝트의 중복 분석을 막습니다.</b> 같은 입력으로 AI 를 여러 번 부르면
+ * 비용만 쓰고 결론은 같습니다.
+ *
+ * <p>단, 이 제약은 <b>두 값이 모두 있는 경우만</b> 실질적으로 동작합니다.
+ * {@code agent_id} 는 "여러 장비 동시 분석" 이면 {@code null} 이고
+ * {@code project_id} 도 필터가 없으면 비어 있습니다. SQL 의 UNIQUE 는
+ * {@code NULL} 끼리는 충돌로 보지 않으므로(표준 동작), 값이 빈 분석은
+ * 중복 제한 없이 여러 건 쌓입니다. 그것이 의도입니다.
  */
 @Entity
 @Table(
         name = "log_analysis",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_log_analysis_agent_project",
+                columnNames = {"agent_id", "project_id"}),
         indexes = {
                 // 프로젝트별 최신순 조회
                 @Index(name = "idx_log_analysis_project", columnList = "project_key, created_at"),
@@ -64,9 +96,30 @@ public class LogAnalysis {
     @Column(name = "analysis_id", nullable = false, unique = true, length = 60)
     private String analysisId;
 
+    /**
+     * 분석 대상 로그 번호입니다. ({@code device_log.id})
+     *
+     * <p>{@code nullable} 입니다. 여러 줄을 분석하면 대상이 하나로
+     * 정해지지 않고, 그때는 {@link #logIdsJson} 이 정본입니다.
+     */
+    @Column(name = "log_id")
+    private Long logId;
+
     /** 분석 대상 프로젝트 키. (필터에 있었으면 채움) */
     @Column(name = "project_key", length = 120)
     private String projectKey;
+
+    /**
+     * 분석 대상 프로젝트입니다. (외래키)
+     *
+     * <p>{@link #projectKey} 를 그대로 두는 이유: 키는 <b>화면과 API 의
+     * 계약</b>이고 프로젝트 없이도 의미 있는 값입니다. 숫자 FK 는
+     * 무결성과 조인을 담당합니다. 두 표현을 함께 두면 기존 API 를
+     * 깨지 않으면서 관계를 맺을 수 있습니다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
 
     /** 분석 대상 장비 식별자. (여러 장비면 null — {@code scope} 참고) */
     @Column(name = "agent_id", length = 120)
@@ -87,13 +140,15 @@ public class LogAnalysis {
     @Column(name = "severity_filter", length = 20)
     private String severityFilter;
 
-    /** 분석에 사용한 기간 시작 (ISO-8601). */
-    @Column(name = "period_from", length = 40)
-    private String periodFrom;
+    /** 분석에 사용한 기간 시작. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "period_from")
+    private Date periodFrom;
 
-    /** 분석에 사용한 기간 끝 (ISO-8601). */
-    @Column(name = "period_to", length = 40)
-    private String periodTo;
+    /** 분석에 사용한 기간 끝. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "period_to")
+    private Date periodTo;
 
     /** 필터 전체 조건 (재현용 JSON). */
     @Column(name = "filter_json", length = 4000)
@@ -165,7 +220,8 @@ public class LogAnalysis {
     @Column(name = "succeeded")
     private Boolean succeeded = true;
 
-    /** 생성 시각 (ISO-8601). */
-    @Column(name = "created_at", nullable = false, length = 40)
-    private String createdAt;
+    /** 생성 시각. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "created_at", nullable = false)
+    private Date createdAt;
 }

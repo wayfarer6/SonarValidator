@@ -7,9 +7,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Date;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.sonar.sonarvalidator_backend.Model.entity.AppUser;
+import org.sonar.sonarvalidator_backend.Model.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -145,9 +147,9 @@ class AuthenticationTest {
     @DisplayName("기본 관리자 계정이 만들어진다")
     void defaultAdminIsCreated() {
         // AdminAccountInitializer 가 기동 시 만든 계정입니다.
-        final AppUser admin = userService.findByUsername("admin");
+        final User admin = userService.findByUsername("admin");
         assertThat(admin).isNotNull();
-        assertThat(admin.getRole()).isEqualTo(AppUser.Role.ADMIN);
+        assertThat(admin.getRole()).isEqualTo(User.Role.ADMIN);
         assertThat(admin.isEnabled()).isTrue();
         // 평문이 아니라 BCrypt 해시여야 합니다.
         assertThat(admin.getPasswordHash()).startsWith("$2");
@@ -160,7 +162,7 @@ class AuthenticationTest {
         final String password = "hash-check-password";
         createUserIfAbsent(username, password);
 
-        final AppUser user = userService.findByUsername(username);
+        final User user = userService.findByUsername(username);
         assertThat(user).isNotNull();
         // 평문이 그대로 저장되면 안 됩니다.
         assertThat(user.getPasswordHash()).isNotEqualTo(password);
@@ -174,25 +176,28 @@ class AuthenticationTest {
     }
 
     @Test
-    @DisplayName("연속 실패하면 계정이 잠긴다")
-    void repeatedFailuresLockAccount() {
+    @DisplayName("연속 실패해도 계정은 잠기지 않는다")
+    void repeatedFailuresDoNotLockAccount() {
         final String username = "test-lock-user";
         createUserIfAbsent(username, "lock-test-password");
 
-        // 5회 실패하면 잠깁니다. (UserService.MAX_ATTEMPTS_BEFORE_LOCK)
+        // 계정 잠금 정책은 제거되었습니다. (SONAR-19)
+        // 실패 횟수를 세지 않으므로 몇 번을 실패해도 잠기지 않습니다.
         for (int i = 0; i < 5; i++) {
             userService.recordLoginFailure(username);
         }
 
-        final AppUser user = userService.findByUsername(username);
+        final User user = userService.findByUsername(username);
         assertThat(user).isNotNull();
-        assertThat(user.isLocked()).as("5회 실패 후 잠겨야 합니다").isTrue();
-        assertThat(user.getLockedUntil()).isNotNull();
+        assertThat(user.isLocked()).as("잠금 정책이 제거되어 잠기지 않습니다").isFalse();
 
-        // 성공하면 잠금이 풀립니다.
+        // 성공하면 마지막 로그인 시각만 갱신됩니다.
+        final Date before = user.getLastLoginAt();
         user.recordSuccess();
-        assertThat(user.isLocked()).isFalse();
-        assertThat(user.getFailedAttempts()).isZero();
+        assertThat(user.getLastLoginAt()).isNotNull();
+        if (before != null) {
+            assertThat(user.getLastLoginAt()).isAfterOrEqualTo(before);
+        }
     }
 
     @Test
@@ -291,7 +296,7 @@ class AuthenticationTest {
         createUserIfAbsent(username, "dup-password-1234");
 
         assertThatThrownBy(() ->
-                userService.create(username, "another-password", null, AppUser.Role.VIEWER))
+                userService.create(username, "another-password", null, User.Role.VIEWER))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("already exists");
     }
@@ -304,14 +309,14 @@ class AuthenticationTest {
         assertThatThrownBy(() -> userService.create("test-blank-pw", "", null, null))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() ->
-                userService.create("test-short-pw-only", null, null, AppUser.Role.VIEWER))
+                userService.create("test-short-pw-only", null, null, User.Role.VIEWER))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     /** 사용자가 없을 때만 만듭니다. (테스트 간 간섭 방지) */
     private void createUserIfAbsent(String username, String password) {
         if (userService.findByUsername(username) == null) {
-            userService.create(username, password, null, AppUser.Role.OPERATOR);
+            userService.create(username, password, null, User.Role.OPERATOR);
         }
     }
 

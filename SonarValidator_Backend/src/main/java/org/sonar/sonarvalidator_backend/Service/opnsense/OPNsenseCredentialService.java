@@ -117,7 +117,7 @@ public class OPNsenseCredentialService {
                 .orElseGet(() -> {
                     final OPNsenseCredential created = new OPNsenseCredential();
                     created.setAgentId(agentId.trim());
-                    created.setCreatedAt(Instant.now().toString());
+                    created.setCreatedAt(new java.util.Date());
                     return created;
                 });
 
@@ -134,7 +134,7 @@ public class OPNsenseCredentialService {
         if (apiSecret != null && !apiSecret.isBlank()) {
             credential.setSecret(secretCipher.encrypt(apiSecret.trim()));
         }
-        credential.setUpdatedAt(Instant.now().toString());
+        credential.setUpdatedAt(new java.util.Date());
 
         OPNsenseCredential saved = repository.save(credential);
 
@@ -268,10 +268,10 @@ public class OPNsenseCredentialService {
         body.put("has_secret", secretCipher.isPresent(credential.getSecret()));
         body.put("allow_insecure_tls", credential.isAllowInsecureTls());
         body.put("status", credential.getStatus() == null ? null : credential.getStatus().name());
-        body.put("last_checked_at", credential.getLastCheckedAt());
+        body.put("last_checked_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(credential.getLastCheckedAt()));
         body.put("last_error", credential.getLastError());
         body.put("detected_version", credential.getDetectedVersion());
-        body.put("created_at", credential.getCreatedAt());
+        body.put("created_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(credential.getCreatedAt()));
         body.put("updated_at", credential.getUpdatedAt());
         return body;
     }

@@ -1,5 +1,6 @@
 package org.sonar.sonarvalidator_backend.Repository;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +26,13 @@ import org.springframework.data.repository.query.Param;
  * <p>syslog 는 <b>숫자가 낮을수록 심각</b>합니다. 그래서 "warning 이상" 은
  * {@code severity_num <= 4} 입니다. 부등호 방향을 반대로 쓰면 정반대 결과가
  * 나오는데, 결과가 그럴듯해 보여 알아채기 어렵습니다.
+ *
+ * <h2>기간 파라미터가 문자열에서 날짜로 바뀐 이유</h2>
+ * <p>컬럼이 ISO-8601 문자열이던 시절에는 파라미터도 문자열이었습니다.
+ * 이제 컬럼이 날짜 타입이므로 파라미터도 {@link Date} 여야 합니다.
+ * 문자열을 그대로 넘기면 비교 시 형 변환이 일어나 인덱스를 타지 못하거나
+ * 형식에 따라 결과가 달라집니다. <b>API 경계는 문자열로 유지</b>하고
+ * 이 저장소에 들어오기 전에 변환합니다.
  */
 public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long> {
 
@@ -35,8 +43,8 @@ public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long> {
      *
      * @param agentId       장비 식별자 (null 이면 전체)
      * @param projectKey    프로젝트 키 (null 이면 전체)
-     * @param from          기간 시작 ISO-8601 (null 이면 제한 없음)
-     * @param to            기간 끝 ISO-8601 (null 이면 제한 없음)
+     * @param from          기간 시작 (null 이면 제한 없음)
+     * @param to            기간 끝 (null 이면 제한 없음)
      * @param maxSeverity   최대 심각도 번호 (0~7). "warning 이상"이면 4
      * @param search        본문/원문 부분 일치 검색어 (null 이면 전체)
      * @param highlightedOnly true 면 사용자가 표시한 로그만
@@ -58,8 +66,8 @@ public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long> {
             """)
     List<DeviceLog> search(@Param("agentId") String agentId,
                            @Param("projectKey") String projectKey,
-                           @Param("from") String from,
-                           @Param("to") String to,
+                           @Param("from") Date from,
+                           @Param("to") Date to,
                            @Param("maxSeverity") Integer maxSeverity,
                            @Param("search") String search,
                            @Param("highlightedOnly") boolean highlightedOnly,
@@ -94,8 +102,8 @@ public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long> {
             """)
     long countMatching(@Param("agentId") String agentId,
                        @Param("projectKey") String projectKey,
-                       @Param("from") String from,
-                       @Param("to") String to,
+                       @Param("from") Date from,
+                       @Param("to") Date to,
                        @Param("maxSeverity") Integer maxSeverity,
                        @Param("search") String search,
                        @Param("highlightedOnly") boolean highlightedOnly);
@@ -141,5 +149,5 @@ public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long> {
     List<String> distinctAgentIds();
 
     /** 오래된 로그를 정리할 때 씁니다. */
-    List<DeviceLog> findByLoggedAtBefore(String cutoff);
+    List<DeviceLog> findByLoggedAtBefore(Date cutoff);
 }

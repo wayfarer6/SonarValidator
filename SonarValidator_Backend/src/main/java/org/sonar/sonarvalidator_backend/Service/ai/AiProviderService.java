@@ -169,9 +169,9 @@ public class AiProviderService {
         }
 
         if (provider.getCreatedAt() == null) {
-            provider.setCreatedAt(Instant.now().toString());
+            provider.setCreatedAt(new java.util.Date());
         }
-        provider.setUpdatedAt(Instant.now().toString());
+        provider.setUpdatedAt(new java.util.Date());
 
         // 기본 공급자는 항상 하나만 유지합니다.
         if (Boolean.TRUE.equals(isDefault)) {
@@ -223,7 +223,7 @@ public class AiProviderService {
         final AiProvider provider = repository.findById(id).orElseThrow(
                 () -> new IllegalArgumentException("AI 공급자를 찾을 수 없습니다: " + id));
         provider.setEnabled(enabled);
-        provider.setUpdatedAt(Instant.now().toString());
+        provider.setUpdatedAt(new java.util.Date());
         return toView(repository.save(provider));
     }
 
@@ -240,7 +240,7 @@ public class AiProviderService {
 
         clearDefaultExcept(provider.getId());
         provider.setIsDefault(true);
-        provider.setUpdatedAt(Instant.now().toString());
+        provider.setUpdatedAt(new java.util.Date());
 
         final AiProvider saved = repository.save(provider);
         log.info("AI provider set as default: id={} name={}", saved.getId(), saved.getName());
@@ -266,8 +266,8 @@ public class AiProviderService {
 
         provider.setLastStatus(result.ok() ? "ok" : "failed");
         provider.setLastMessage(result.text());
-        provider.setLastCheckedAt(Instant.now().toString());
-        provider.setUpdatedAt(Instant.now().toString());
+        provider.setLastCheckedAt(new java.util.Date());
+        provider.setUpdatedAt(new java.util.Date());
         repository.save(provider);
 
         final Map<String, Object> body = new LinkedHashMap<>();
@@ -386,8 +386,8 @@ public class AiProviderService {
         view.put("api_key_masked", maskApiKey(provider.getApiKeyEncrypted()));
         view.put("last_status", provider.getLastStatus());
         view.put("last_message", provider.getLastMessage());
-        view.put("last_checked_at", provider.getLastCheckedAt());
-        view.put("created_at", provider.getCreatedAt());
+        view.put("last_checked_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(provider.getLastCheckedAt()));
+        view.put("created_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(provider.getCreatedAt()));
         view.put("updated_at", provider.getUpdatedAt());
         return view;
     }

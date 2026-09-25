@@ -103,7 +103,7 @@ public class NotificationService {
                                String source,
                                String link,
                                String dedupeKey) {
-        final String now = Instant.now().toString();
+        final java.util.Date now = new java.util.Date();
 
         // 같은 원인이 최근에 있었다면 새로 만들지 않고 횟수만 올립니다.
         final Notification existing = findRecentDuplicate(dedupeKey, now);
@@ -173,10 +173,10 @@ public class NotificationService {
      * 최근 중복 알림을 찾습니다.
      *
      * @param dedupeKey 중복 키 (null/빈 값이면 검사하지 않음)
-     * @param now       현재 시각 (ISO-8601)
+     * @param now       현재 시각
      * @return 합칠 대상, 없으면 null
      */
-    private Notification findRecentDuplicate(String dedupeKey, String now) {
+    private Notification findRecentDuplicate(String dedupeKey, java.util.Date now) {
         if (dedupeKey == null || dedupeKey.isBlank()) {
             return null;
         }
@@ -185,15 +185,12 @@ public class NotificationService {
             return null;
         }
         final Notification candidate = found.get();
-        try {
-            final Instant previous = Instant.parse(candidate.getOccurredAt());
-            if (Duration.between(previous, Instant.parse(now)).compareTo(DEDUPE_WINDOW) <= 0) {
-                return candidate;
-            }
-        } catch (RuntimeException ex) {
-            // 시각 형식이 깨진 기존 행은 합치지 않습니다. (새로 만드는 편이 안전)
-            log.warn("notification {} has unparsable occurred_at '{}'",
-                    candidate.getNotificationId(), candidate.getOccurredAt());
+        // 시각 컬럼이 문자열이던 시절에는 형식이 깨진 행을 방어해야 했습니다.
+        // 이제 날짜 타입이므로 저장소가 돌려주는 값은 항상 유효하거나 null 입니다.
+        if (candidate.getOccurredAt() != null && now != null
+                && Duration.between(candidate.getOccurredAt().toInstant(), now.toInstant())
+                        .compareTo(DEDUPE_WINDOW) <= 0) {
+            return candidate;
         }
         return null;
     }
@@ -418,7 +415,7 @@ public class NotificationService {
             entry.put("project_id", notification.getProjectKey());
             entry.put("agent_id", notification.getAgentId());
             entry.put("source", notification.getSource());
-            entry.put("occurred_at", notification.getOccurredAt());
+            entry.put("occurred_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(notification.getOccurredAt()));
             entry.put("read", notification.isRead());
             entry.put("link", notification.getLink());
             entry.put("repeat_count", notification.getRepeatCount());

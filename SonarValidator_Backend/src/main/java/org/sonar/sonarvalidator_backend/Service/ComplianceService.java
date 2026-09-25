@@ -68,7 +68,7 @@ public class ComplianceService {
         change.setType(type);
         change.setSummary(summary);
         change.setChangedBy(changedBy == null || changedBy.isBlank() ? "system" : changedBy);
-        change.setTimestamp(Instant.now().toString());
+        change.setTimestamp(new java.util.Date());
         change.setStatus(status == null ? "Applied" : status);
         change.setDetail(detail);
         return repository.save(change);
@@ -151,7 +151,7 @@ public class ComplianceService {
             entry.put("type", change.getType());
             entry.put("summary", change.getSummary());
             entry.put("changed_by", change.getChangedBy());
-            entry.put("timestamp", change.getTimestamp());
+            entry.put("timestamp", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(change.getTimestamp()));
             entry.put("status", change.getStatus());
             result.add(entry);
         }

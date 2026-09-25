@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.sonar.sonarvalidator_backend.Model.entity.AppUser;
+import org.sonar.sonarvalidator_backend.Model.entity.User;
 import org.sonar.sonarvalidator_backend.Service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +82,7 @@ public class UserController {
      */
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me(Authentication authentication) {
-        final AppUser user = userService.findByUsername(authentication.getName());
+        final User user = userService.findByUsername(authentication.getName());
         if (user == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("message", "사용자를 찾을 수 없습니다."));
@@ -139,7 +139,7 @@ public class UserController {
                     .body(Map.of("message", "관리자만 사용자 목록을 조회할 수 있습니다."));
         }
         final List<Map<String, Object>> users = new ArrayList<>();
-        for (final AppUser user : userService.listAll()) {
+        for (final User user : userService.listAll()) {
             users.add(UserService.toResponse(user));
         }
         final Map<String, Object> body = new LinkedHashMap<>();
@@ -170,7 +170,7 @@ public class UserController {
                     .body(Map.of("message", "비밀번호는 8자 이상이어야 합니다."));
         }
         try {
-            final AppUser created = userService.create(
+            final User created = userService.create(
                     body.username(),
                     body.password(),
                     body.displayName(),
@@ -283,14 +283,14 @@ public class UserController {
      * @param role 역할 문자열 (null 허용)
      * @return 역할 (알 수 없으면 OPERATOR)
      */
-    private AppUser.Role parseRole(String role) {
+    private User.Role parseRole(String role) {
         if (role == null || role.isBlank()) {
-            return AppUser.Role.OPERATOR;
+            return User.Role.OPERATOR;
         }
         try {
-            return AppUser.Role.valueOf(role.trim().toUpperCase(java.util.Locale.ROOT));
+            return User.Role.valueOf(role.trim().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            return AppUser.Role.OPERATOR;
+            return User.Role.OPERATOR;
         }
     }
 }

@@ -2,6 +2,7 @@ package org.sonar.sonarvalidator_backend.Model.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -21,9 +22,13 @@ public class RestAPIConnectionConfig {
     /**
      * 기본 키. JPA 는 모든 @Entity 에 식별자를 요구합니다.
      * (없으면 기동 시 AnnotationException 으로 컨텍스트가 뜨지 않습니다.)
+     *
+     * <p>전략을 {@code AUTO} 로 두면 H2 에서 시퀀스 기반(
+     * {@code REST_API_NODE_CONFIG_SEQ}) 으로 생성되어 다른 테이블과
+     * 번호 체계가 갈라집니다. IDENTITY 를 명시해 통일합니다.
      */
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /**

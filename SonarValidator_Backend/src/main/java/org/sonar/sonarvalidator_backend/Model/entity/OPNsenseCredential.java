@@ -1,6 +1,8 @@
 package org.sonar.sonarvalidator_backend.Model.entity;
 
-import java.time.Instant;
+import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -100,8 +102,9 @@ public class OPNsenseCredential {
     private Status status = Status.UNVERIFIED;
 
     /** 마지막 확인 시각. */
-    @Column(name = "last_checked_at", length = 40)
-    private String lastCheckedAt;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "last_checked_at")
+    private Date lastCheckedAt;
 
     /** 마지막 오류 메시지 (실패 시). */
     @Column(name = "last_error", length = 500)
@@ -111,13 +114,15 @@ public class OPNsenseCredential {
     @Column(name = "detected_version", length = 64)
     private String detectedVersion;
 
-    /** 생성/수정 시각. */
-    @Column(name = "created_at", length = 40)
-    private String createdAt;
+    /** 생성 시각. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "created_at")
+    private Date createdAt;
 
     /** 수정 시각. */
-    @Column(name = "updated_at", length = 40)
-    private String updatedAt;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "updated_at")
+    private Date updatedAt;
 
     /**
      * 연결 확인 결과를 반영합니다.
@@ -128,7 +133,7 @@ public class OPNsenseCredential {
      */
     public void markChecked(boolean ok, String version, String error) {
         this.status = ok ? Status.OK : Status.FAILED;
-        this.lastCheckedAt = Instant.now().toString();
+        this.lastCheckedAt = new Date();
         this.detectedVersion = ok ? version : this.detectedVersion;
         this.lastError = ok ? null : truncate(error);
     }

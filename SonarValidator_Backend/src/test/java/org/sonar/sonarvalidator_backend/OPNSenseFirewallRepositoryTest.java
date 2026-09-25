@@ -2,7 +2,6 @@ package org.sonar.sonarvalidator_backend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -30,17 +29,21 @@ class OPNSenseFirewallRepositoryTest {
     private OPNSenseFirewallRepository repository;
 
     /**
-     * 저장 후 기본 키가 채워지고 다시 조회되는지 확인합니다.
+     * 저장 후 기본 키({@code node_id})가 그대로 유지되고 다시 조회되는지
+     * 확인합니다.
+     *
+     * <p>대리 키를 쳐다보지 않으므로 <b>IDENTITY 가 아니어도</b> 됩니다.
+     * 저장 전에 넣은 노드 번호가 그대로 키가 되는지가 핵심입니다.
      */
     @Test
-    @DisplayName("엔티티를 저장하면 id 가 생성되고 조회된다")
+    @DisplayName("엔티티를 저장하면 node_id 로 조회된다")
     void savesAndFindsById() {
         final OPNSenseFirewall saved = repository.save(
-                new OPNSenseFirewall("fw-01", "DMZ 방화벽"));
+                new OPNSenseFirewall(101, "fw-01", "DMZ 방화벽"));
 
-        assertNotNull(saved.getId(), "IDENTITY 전략으로 id 가 채워져야 합니다");
+        assertEquals(101, saved.getNodeId(), "넣은 노드 번호가 그대로 키가 되어야 합니다");
 
-        final Optional<OPNSenseFirewall> found = repository.findById(saved.getId());
+        final Optional<OPNSenseFirewall> found = repository.findById(101);
         assertTrue(found.isPresent());
         assertEquals("fw-01", found.get().getAgentId());
         assertEquals("DMZ 방화벽", found.get().getName());
@@ -52,7 +55,7 @@ class OPNSenseFirewallRepositoryTest {
     @Test
     @DisplayName("agentId 로 조회할 수 있다")
     void findsByAgentId() {
-        repository.save(new OPNSenseFirewall("fw-02", "내부 방화벽"));
+        repository.save(new OPNSenseFirewall(102, "fw-02", "내부 방화벽"));
 
         final Optional<OPNSenseFirewall> found = repository.findByAgentId("fw-02");
         assertTrue(found.isPresent());
@@ -69,12 +72,13 @@ class OPNSenseFirewallRepositoryTest {
     @Test
     @DisplayName("name, managementIp, version 컬럼이 모두 왕복한다")
     void persistsAllColumns() {
-        final OPNSenseFirewall entity = new OPNSenseFirewall("fw-03", "경계 방화벽");
+        final OPNSenseFirewall entity = new OPNSenseFirewall(103, "fw-03", "경계 방화벽");
         entity.setManagementIp("10.0.0.1");
         entity.setVersion("24.7");
         repository.save(entity);
 
         final OPNSenseFirewall found = repository.findByAgentId("fw-03").orElseThrow();
+        assertEquals(103, found.getNodeId());
         assertEquals("10.0.0.1", found.getManagementIp());
         assertEquals("24.7", found.getVersion());
 

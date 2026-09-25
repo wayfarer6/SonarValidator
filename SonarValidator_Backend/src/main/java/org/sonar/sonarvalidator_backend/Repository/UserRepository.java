@@ -3,7 +3,7 @@ package org.sonar.sonarvalidator_backend.Repository;
 import java.util.List;
 import java.util.Optional;
 
-import org.sonar.sonarvalidator_backend.Model.entity.AppUser;
+import org.sonar.sonarvalidator_backend.Model.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -12,7 +12,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * <p>파생 쿼리만 쓰므로 구현 코드가 없습니다. 조회 키는 항상
  * {@code username} 입니다. (숫자 PK 는 외부에 노출하지 않습니다.)
  */
-public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
      * 아이디로 사용자를 찾습니다. (인증 시 사용)
@@ -20,7 +20,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
      * @param username 로그인 아이디
      * @return 사용자 (없으면 비어 있음)
      */
-    Optional<AppUser> findByUsername(String username);
+    Optional<User> findByUsername(String username);
 
     /**
      * 아이디 존재 여부를 확인합니다. (중복 확인)
@@ -35,5 +35,5 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
      *
      * @return 사용자 목록
      */
-    List<AppUser> findAllByOrderByIdAsc();
+    List<User> findAllByOrderByIdAsc();
 }

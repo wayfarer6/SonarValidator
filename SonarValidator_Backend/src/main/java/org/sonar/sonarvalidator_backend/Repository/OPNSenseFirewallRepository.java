@@ -13,9 +13,12 @@ import org.springframework.stereotype.Repository;
  * <p>{@link JpaRepository} 를 상속하면 저장/조회/삭제와 페이징이 자동으로
  * 제공됩니다. 아래 메서드들은 이름 규칙(파생 쿼리)만으로 SQL 이 생성되므로
  * 구현 코드가 필요 없습니다.
+ *
+ * <p>식별자 타입은 {@code Integer} 입니다. 엔티티의 PK 가 대리 키가 아니라
+ * {@code configuration.node_id} 를 그대로 쓰는 {@code node_id} 이기 때문입니다.
  */
 @Repository
-public interface OPNSenseFirewallRepository extends JpaRepository<OPNSenseFirewall, Long> {
+public interface OPNSenseFirewallRepository extends JpaRepository<OPNSenseFirewall, Integer> {
 
     /**
      * Agent 식별자로 방화벽 노드를 찾습니다.

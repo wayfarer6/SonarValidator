@@ -1,5 +1,9 @@
 package org.sonar.sonarvalidator_backend.Model.entity;
 
+import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -133,15 +137,18 @@ public class AiProvider {
     @Column(name = "last_message", length = 1000)
     private String lastMessage;
 
-    /** 마지막 연결 확인 시각 (ISO-8601). */
-    @Column(name = "last_checked_at", length = 40)
-    private String lastCheckedAt;
+    /** 마지막 연결 확인 시각. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "last_checked_at")
+    private Date lastCheckedAt;
 
-    /** 생성 시각 (ISO-8601). */
-    @Column(name = "created_at", length = 40)
-    private String createdAt;
+    /** 생성 시각. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "created_at")
+    private Date createdAt;
 
-    /** 수정 시각 (ISO-8601). */
-    @Column(name = "updated_at", length = 40)
-    private String updatedAt;
+    /** 수정 시각. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "updated_at")
+    private Date updatedAt;
 }

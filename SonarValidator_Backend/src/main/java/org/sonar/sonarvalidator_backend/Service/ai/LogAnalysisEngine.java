@@ -170,10 +170,10 @@ public class LogAnalysisEngine {
         record.setAgentId(blankToNull(agentId));
         record.setScope(scope == null || scope.isBlank() ? "filter" : scope);
         record.setSeverityFilter(blankToNull(severity));
-        record.setPeriodFrom(blankToNull(from));
-        record.setPeriodTo(blankToNull(to));
+        record.setPeriodFrom(org.sonar.sonarvalidator_backend.Util.Timestamps.parse(blankToNull(from)));
+        record.setPeriodTo(org.sonar.sonarvalidator_backend.Util.Timestamps.parse(blankToNull(to)));
         record.setRequestedBy(requestedBy == null || requestedBy.isBlank() ? "system" : requestedBy);
-        record.setCreatedAt(Instant.now().toString());
+        record.setCreatedAt(new java.util.Date());
         record.setTotalLogCount((int) Math.min(Integer.MAX_VALUE, totalMatching));
         record.setIncludedLogCount(logs.size());
         record.setProviderName(null);
@@ -506,8 +506,8 @@ public class LogAnalysisEngine {
         view.put("agent_id", record.getAgentId());
         view.put("scope", record.getScope());
         view.put("severity_filter", record.getSeverityFilter());
-        view.put("period_from", record.getPeriodFrom());
-        view.put("period_to", record.getPeriodTo());
+        view.put("period_from", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(record.getPeriodFrom()));
+        view.put("period_to", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(record.getPeriodTo()));
         view.put("provider_name", record.getProviderName());
         view.put("model", record.getModel());
         view.put("succeeded", Boolean.TRUE.equals(record.getSucceeded()));
@@ -525,7 +525,7 @@ public class LogAnalysisEngine {
         view.put("log_ids", readJsonList(record.getLogIdsJson()));
         view.put("elapsed_ms", record.getElapsedMs());
         view.put("requested_by", record.getRequestedBy());
-        view.put("created_at", record.getCreatedAt());
+        view.put("created_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(record.getCreatedAt()));
         // 파싱 성공 여부를 알려 화면이 원문을 보여줄지 판단하게 합니다.
         view.put("structured", record.getSummary() != null && !record.getSummary().isBlank());
         view.put("raw_response", record.getRawResponse());

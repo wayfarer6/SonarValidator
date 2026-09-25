@@ -1,11 +1,18 @@
 package org.sonar.sonarvalidator_backend.Model.entity;
 
+import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,6 +47,19 @@ import lombok.Setter;
  * </pre>
  * <p>{@code project_key} 를 함께 인덱싱하는 이유는 특정 프로젝트의 알림만
  * 보는 화면이 있기 때문입니다. (앞 컬럼이 같아야 범위가 좁혀집니다)
+ *
+ * <h2>장치·프로젝트 참조</h2>
+ * <p>알림은 <b>"어느 장치에서, 어느 프로젝트에서"</b> 생겼는지를 알아야
+ * 쓸모가 있습니다. 그래서 키 문자열뿐 아니라
+ * {@link #nodeId}(장치)와 {@link #project}(프로젝트)를 함께 남깁니다.
+ * <ul>
+ *   <li>{@link #nodeId} — {@code configuration.node_id} 와 같은 값입니다.
+ *       타입이 {@code Integer} 인 이유가 그것입니다.</li>
+ *   <li>{@link #project} — 숫자 FK 입니다. 키 문자열은 화면/API 계약이라
+ *       지우지 않고 남깁니다.</li>
+ * </ul>
+ * <p>둘 다 {@code nullable} 입니다. 시스템/스케줄러가 만드는 알림은
+ * 특정 장치나 프로젝트에 묶이지 않습니다.
  */
 @Entity
 @Table(
@@ -112,9 +132,30 @@ public class Notification {
     @Column(name = "project_key", length = 120)
     private String projectKey;
 
+    /**
+     * 관련 프로젝트입니다. (외래키)
+     *
+     * <p>문자열 키를 남긴 채 숫자 FK 를 더합니다. 알림은 프로젝트가
+     * 삭제된 뒤에도 "그때 무슨 일이 있었다" 를 보여 줘야 하므로
+     * 키 문자열의 수명이 FK 보다 깁니다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
     /** 관련 장치 식별자. 장치와 무관한 알림이면 null. */
     @Column(name = "agent_id", length = 120)
     private String agentId;
+
+    /**
+     * 알림이 발생한 노드 번호입니다. ({@code configuration.node_id})
+     *
+     * <p>{@code agent_id} 는 에이전트가 스스로 보고하는 문자열이고,
+     * {@code node_id} 는 <b>노드망이 부여한 번호</b>입니다. 노드 화면으로
+     * 바로 연결하거나 위상을 그리려면 번호가 있어야 합니다.
+     */
+    @Column(name = "node_id")
+    private Integer nodeId;
 
     /**
      * 알림을 만든 주체입니다. ({@code system}, {@code scheduler}, 사용자 id …)
@@ -125,14 +166,16 @@ public class Notification {
     private String source = "system";
 
     /**
-     * 발생 시각 (ISO-8601, UTC).
+     * 발생 시각입니다.
      *
-     * <p>문자열로 두는 이유는 다른 테이블({@code device_log},
-     * {@code compliance_change})과 같습니다. ISO-8601 은 사전순 정렬이
-     * 시간순 정렬과 일치하므로 DB 종류와 무관하게 동작합니다.
+     * <p>저장은 시각 타입({@link Date})이고, JSON 으로 나갈 때
+     * {@code @JsonFormat} 이 <b>ISO-8601 문자열</b> 로 직렬화합니다.
+     * 문자열 컬럼이던 시절에는 형식이 섞여 들어오면 사전순 정렬이
+     * 시간순과 어긋났습니다.
      */
-    @Column(name = "occurred_at", nullable = false, length = 40)
-    private String occurredAt;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "occurred_at", nullable = false)
+    private Date occurredAt;
 
     /**
      * 읽음 여부.

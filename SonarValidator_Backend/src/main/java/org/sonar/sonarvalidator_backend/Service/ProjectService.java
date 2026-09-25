@@ -127,7 +127,7 @@ public class ProjectService {
         project.setDescription(request.description());
         project.setStatus(defaultIfBlank(request.status(), "Planning"));
 
-        final String now = Instant.now().toString();
+        final java.util.Date now = new java.util.Date();
         project.setCreatedAt(now);
         project.setUpdatedAt(now);
 
@@ -186,7 +186,7 @@ public class ProjectService {
                 : mapRules(request.rules());
 
         project.replacePolicy(subnets, rules);
-        project.setUpdatedAt(Instant.now().toString());
+        project.setUpdatedAt(new java.util.Date());
 
         final Project saved = repository.save(project);
         log.info("project updated: key={} subnets={} rules={}",

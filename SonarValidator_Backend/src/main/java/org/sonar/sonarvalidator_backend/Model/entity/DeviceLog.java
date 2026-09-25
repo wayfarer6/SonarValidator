@@ -1,5 +1,9 @@
 package org.sonar.sonarvalidator_backend.Model.entity;
 
+import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -43,6 +47,13 @@ import lombok.Setter;
  * <p>원문을 그대로 두면 "warning 이상만" 같은 필터를 벤더별로 따로 구현해야
  * 합니다. 그래서 수집 시점에 <b>숫자 등급(0~7, 낮을수록 심각)</b> 으로
  * 정규화해 저장하고, 화면과 AI 는 이 값만 봅니다.
+ *
+ * <h2>시각을 문자열에서 날짜 타입으로 바꾼 이유</h2>
+ * <p>예전에는 ISO-8601 문자열로 저장했습니다. "사전순 정렬 = 시간순 정렬"
+ * 이라 동작은 했지만, <b>형식이 하나라도 어긋나면</b>(오프셋 표기 누락,
+ * 공백 구분자 등) 정렬과 범위 비교가 조용히 틀렸습니다. 이제는 날짜
+ * 타입으로 저장하고, JSON 으로 나갈 때 {@code @JsonFormat} 이 다시
+ * ISO-8601 문자열로 직렬화합니다. (프론트 계약은 그대로 유지)
  */
 @Entity
 @Table(
@@ -78,13 +89,15 @@ public class DeviceLog {
     @Column(name = "product", length = 120)
     private String product;
 
-    /** 로그 발생 시각 (ISO-8601, UTC). 정렬·범위 필터의 기준입니다. */
-    @Column(name = "logged_at", nullable = false, length = 40)
-    private String loggedAt;
+    /** 로그 발생 시각. 정렬·범위 필터의 기준입니다. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "logged_at", nullable = false)
+    private Date loggedAt;
 
-    /** 수집 시각 (ISO-8601, UTC). 장비 시계가 틀렸을 때를 구분하기 위함입니다. */
-    @Column(name = "collected_at", length = 40)
-    private String collectedAt;
+    /** 수집 시각. 장비 시계가 틀렸을 때를 구분하기 위함입니다. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "collected_at")
+    private Date collectedAt;
 
     /**
      * 정규화된 심각도 등급입니다. syslog 표준을 따릅니다.

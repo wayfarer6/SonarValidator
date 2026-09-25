@@ -1,10 +1,13 @@
 package org.sonar.sonarvalidator_backend.Model.entity;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.sonar.sonarvalidator_backend.Policy.PolicyRule;
 import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -14,6 +17,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
@@ -37,6 +41,24 @@ import lombok.Setter;
  *
  * <p>{@code cascade = ALL, orphanRemoval = true} 이므로 프로젝트를 지우면
  * 하위 행도 함께 정리됩니다.
+ *
+ * <h2>소유자</h2>
+ * <p>프로젝트는 {@link User} 한 명이 소유합니다({@link #owner}).
+ * 컬럼 이름은 {@code user_id} 입니다. 한동안 {@code app_user_id} 로
+ * 두었던 적이 있는데, 그건 테이블 이름이 {@code app_user} 이던 시절의
+ * 흔적입니다. 지금은 테이블 이름이 설계 ERD 와 같은 {@code USER} 이므로
+ * <b>컬럼 이름만 다를 이유가 없어</b> 원래 이름으로 되돌렸습니다.
+ *
+ * <p><b>nullable</b> 입니다. 소유자를 알 수 없는 기존 행을 지우거나
+ * 가짜 소유자를 만들 필요가 없고, 인증을 붙이기 전에 만들어진
+ * 데이터도 그대로 살아 있습니다.
+ *
+ * <h2>날짜 타입</h2>
+ * <p>{@link #createdAt}/{@link #updatedAt} 은 {@link Date} 입니다.
+ * DB 에는 TIMESTAMP 로 들어가고, JSON 으로 나갈 때
+ * {@code @JsonFormat} 이 <b>ISO-8601 문자열</b> 로 직렬화합니다.
+ * 문자열 컬럼으로 두면 형식이 제각각으로 섞여 들어와 정렬·비교가
+ * 어긋나므로, 저장은 시각 타입으로 합니다.
  */
 @Entity
 @Table(name = "project")
@@ -76,23 +98,42 @@ public class Project {
     @Column(length = 50)
     private String status = "Planning";
 
-    /** 생성 시각 (ISO-8601 문자열). */
-    @Column(name = "created_at", length = 40)
-    private String createdAt;
+    /**
+     * 소유자입니다.
+     *
+     * <p>{@code nullable} 입니다. 소유자가 없는 기존 행(인증 도입 전
+     * 생성분)을 살리기 위해서입니다. 조회는 지연 로딩으로 두어
+     * 목록 화면이 사용자 테이블까지 매번 읽지 않게 합니다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User owner;
 
-    /** 마지막 수정 시각 (ISO-8601 문자열). */
-    @Column(name = "updated_at", length = 40)
-    private String updatedAt;
+    /** 생성 시각. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "created_at")
+    private Date createdAt;
 
-    /** 소속 서브넷. */
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "project_id")
+    /** 마지막 수정 시각. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "updated_at")
+    private Date updatedAt;
+
+    /**
+     * 소속 서브넷.
+     *
+     * <p>{@code mappedBy} 입니다. 외래키는 자식({@link ProjectSubnet#getProject()})
+     * 이 소유하므로, 여기서 {@code @JoinColumn} 을 또 쓰면 같은 컬럼이 두 번
+     * 매핑되어 기동에 실패합니다.
+     */
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true,
+            fetch = FetchType.EAGER)
     @OrderColumn(name = "ordinal")
     private List<ProjectSubnet> subnets = new ArrayList<>();
 
-    /** 연결 규칙. */
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "project_id")
+    /** 연결 규칙. ({@link #subnets} 와 같은 구조) */
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true,
+            fetch = FetchType.EAGER)
     @OrderColumn(name = "ordinal")
     private List<ProjectRule> rules = new ArrayList<>();
 
@@ -131,6 +172,10 @@ public class Project {
      *
      * <p>{@code orphanRemoval = true} 이므로 목록을 clear 하면 삭제가 전파됩니다.
      *
+     * <p>자식이 외래키를 소유하므로 <b>부모를 반드시 넣어 줍니다</b>.
+     * 빠뜨리면 {@code project_id} 가 NULL 인 행이 생겨 정책이 고아가 됩니다.
+     * ({@code @OneToMany(mappedBy)} 는 자식 필드를 자동으로 채우지 않습니다)
+     *
      * @param newSubnets 반영할 서브넷 (null 이면 무시)
      * @param newRules   반영할 규칙 (null 이면 무시)
      */
@@ -138,13 +183,17 @@ public class Project {
         if (newSubnets != null) {
             subnets.clear();
             for (final PolicySubnet subnet : newSubnets) {
-                subnets.add(ProjectSubnet.from(subnet));
+                final ProjectSubnet entity = ProjectSubnet.from(subnet);
+                entity.setProject(this);
+                subnets.add(entity);
             }
         }
         if (newRules != null) {
             rules.clear();
             for (final PolicyRule rule : newRules) {
-                rules.add(ProjectRule.from(rule));
+                final ProjectRule entity = ProjectRule.from(rule);
+                entity.setProject(this);
+                rules.add(entity);
             }
         }
     }

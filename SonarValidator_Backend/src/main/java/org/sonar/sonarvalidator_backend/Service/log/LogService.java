@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -114,7 +116,7 @@ public class LogService {
                 final DeviceLog log = existing.get();
                 log.setRepeatCount((log.getRepeatCount() == null ? 1 : log.getRepeatCount()) + 1);
                 // 반복이 늘면 최근 발생 시각도 갱신합니다. (정렬 상단으로)
-                log.setLoggedAt(normalized.loggedAt);
+                log.setLoggedAt(org.sonar.sonarvalidator_backend.Util.Timestamps.parse(normalized.loggedAt));
                 toSave.add(log);
                 duplicated++;
                 continue;
@@ -124,8 +126,8 @@ public class LogService {
             entity.setAgentId(agentId);
             entity.setProjectKey(projectKey);
             entity.setProduct(product);
-            entity.setLoggedAt(normalized.loggedAt);
-            entity.setCollectedAt(normalized.collectedAt);
+            entity.setLoggedAt(org.sonar.sonarvalidator_backend.Util.Timestamps.parse(normalized.loggedAt));
+            entity.setCollectedAt(org.sonar.sonarvalidator_backend.Util.Timestamps.parse(normalized.collectedAt));
             entity.setSeverityNum(normalized.severityNum);
             entity.setSeverity(normalized.severity);
             entity.setFacility(normalized.facility);
@@ -187,11 +189,16 @@ public class LogService {
                 ? DEFAULT_PAGE_SIZE
                 : Math.min(MAX_PAGE_SIZE, limit);
 
+        // 저장소 파라미터는 날짜 타입입니다. API 경계는 문자열로 유지하고
+        // 여기서 한 번만 변환합니다. (형식이 깨진 값은 null = 제한 없음)
+        final Date fromDate = org.sonar.sonarvalidator_backend.Util.Timestamps.parse(from);
+        final Date toDate = org.sonar.sonarvalidator_backend.Util.Timestamps.parse(to);
+
         final List<DeviceLog> logs = repository.search(
                 blankToNull(agentId),
                 blankToNull(projectKey),
-                blankToNull(from),
-                blankToNull(to),
+                fromDate,
+                toDate,
                 maxSeverity,
                 blankToNull(search),
                 highlightedOnly,
@@ -200,8 +207,8 @@ public class LogService {
         final long total = repository.countMatching(
                 blankToNull(agentId),
                 blankToNull(projectKey),
-                blankToNull(from),
-                blankToNull(to),
+                fromDate,
+                toDate,
                 maxSeverity,
                 blankToNull(search),
                 highlightedOnly);
@@ -256,8 +263,9 @@ public class LogService {
         // 사용자가 특정 로그를 골랐으면 그것만 씁니다.
         if (ids != null && !ids.isEmpty()) {
             final List<DeviceLog> selected = repository.findAllById(ids);
-            selected.sort(java.util.Comparator.comparing(
-                    (DeviceLog l) -> l.getLoggedAt() == null ? "" : l.getLoggedAt()));
+            selected.sort(Comparator.comparing(
+                    DeviceLog::getLoggedAt,
+                    Comparator.nullsFirst(Comparator.naturalOrder())));
             return selected.size() > maxCount ? selected.subList(0, maxCount) : selected;
         }
 
@@ -268,8 +276,8 @@ public class LogService {
         final List<DeviceLog> recent = repository.search(
                 blankToNull(agentId),
                 blankToNull(projectKey),
-                blankToNull(from),
-                blankToNull(to),
+                org.sonar.sonarvalidator_backend.Util.Timestamps.parse(from),
+                org.sonar.sonarvalidator_backend.Util.Timestamps.parse(to),
                 maxSeverity,
                 null,
                 false,
@@ -286,8 +294,8 @@ public class LogService {
         return repository.countMatching(
                 blankToNull(agentId),
                 blankToNull(projectKey),
-                blankToNull(from),
-                blankToNull(to),
+                org.sonar.sonarvalidator_backend.Util.Timestamps.parse(from),
+                org.sonar.sonarvalidator_backend.Util.Timestamps.parse(to),
                 normalizer.parseSeverity(severity),
                 null,
                 false);
@@ -367,8 +375,8 @@ public class LogService {
         view.put("agent_id", log.getAgentId());
         view.put("project_id", log.getProjectKey());
         view.put("product", log.getProduct());
-        view.put("logged_at", log.getLoggedAt());
-        view.put("collected_at", log.getCollectedAt());
+        view.put("logged_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(log.getLoggedAt()));
+        view.put("collected_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(log.getCollectedAt()));
         view.put("severity", log.getSeverity());
         view.put("severity_num", log.getSeverityNum());
         view.put("facility", log.getFacility());

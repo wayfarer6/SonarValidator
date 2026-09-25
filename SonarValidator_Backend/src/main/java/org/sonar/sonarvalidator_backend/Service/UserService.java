@@ -4,8 +4,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 
-import org.sonar.sonarvalidator_backend.Model.entity.AppUser;
-import org.sonar.sonarvalidator_backend.Repository.AppUserRepository;
+import org.sonar.sonarvalidator_backend.Model.entity.User;
+import org.sonar.sonarvalidator_backend.Repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,13 +13,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 사용자 조회/생성과 로그인 실패 기록을 담당합니다.
+ * 사용자 조회/생성과 로그인 성공 기록을 담당합니다.
  *
  * <h2>인증 로직과 분리한 이유</h2>
  * <p>실제 인증 판정은 {@code SecurityConfig} 의
  * {@code DaoAuthenticationProvider}(+ {@code UserDetailsService}) 가 합니다.
- * 이 서비스는 <b>데이터와 잠금 상태</b> 만 다룹니다. 두 관심사를 나눠 두면
- * 잠금 정책을 바꿔도 인증 흐름이 흔들리지 않습니다.
+ * 이 서비스는 <b>데이터</b> 만 다룹니다. 두 관심사를 나눠 두면 인증 흐름이
+ * 흔들리지 않습니다.
+ *
+ * <h2>계정 잠금 정책 제거</h2>
+ * <p>요구사항 변경으로 잠금 정책을 없앴습니다. 그래서 로그인 실패는
+ * <b>기록만</b> 남기고 상태를 바꾸지 않습니다. (실패 횟수 컬럼 자체가 사라짐)
  *
  * <h2>기본 관리자 계정</h2>
  * <p>사용자가 하나도 없으면 기동 시 기본 관리자를 만듭니다. 이렇게 하지 않으면
@@ -31,17 +35,14 @@ public class UserService {
 
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
-    /** 잠금을 시작할 실패 횟수. */
-    private static final int MAX_ATTEMPTS_BEFORE_LOCK = 5;
-
-    private final AppUserRepository repository;
+    private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
 
     /**
      * @param repository      사용자 저장소
      * @param passwordEncoder BCrypt 인코더 (SecurityConfig 에서 빈으로 등록)
      */
-    public UserService(AppUserRepository repository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository repository, PasswordEncoder passwordEncoder) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -53,7 +54,7 @@ public class UserService {
      * @return 사용자 (없으면 {@code null})
      */
     @Transactional(readOnly = true)
-    public AppUser findByUsername(String username) {
+    public User findByUsername(String username) {
         if (username == null || username.isBlank()) {
             return null;
         }
@@ -66,7 +67,7 @@ public class UserService {
      * @return 사용자 목록
      */
     @Transactional(readOnly = true)
-    public List<AppUser> listAll() {
+    public List<User> listAll() {
         return repository.findAllByOrderByIdAsc();
     }
 
@@ -81,7 +82,7 @@ public class UserService {
      * @throws IllegalArgumentException 아이디가 비었거나 이미 존재하는 경우
      */
     @Transactional
-    public AppUser create(String username, String rawPassword, String displayName, AppUser.Role role) {
+    public User create(String username, String rawPassword, String displayName, User.Role role) {
         final String normalized = normalize(username);
         if (normalized.isBlank()) {
             throw new IllegalArgumentException("username must not be blank");
@@ -92,12 +93,12 @@ public class UserService {
         if (repository.existsByUsername(normalized)) {
             throw new IllegalArgumentException("username already exists: " + normalized);
         }
-        final AppUser user = AppUser.of(
+        final User user = User.of(
                 normalized,
                 passwordEncoder.encode(rawPassword),
                 displayName == null || displayName.isBlank() ? normalized : displayName,
                 role);
-        final AppUser saved = repository.save(user);
+        final User saved = repository.save(user);
         log.info("user created: username={} role={}", saved.getUsername(), saved.getRole());
         return saved;
     }
@@ -117,7 +118,7 @@ public class UserService {
         if (rawPassword == null || rawPassword.isEmpty()) {
             return false;
         }
-        final AppUser user = findByUsername(username);
+        final User user = findByUsername(username);
         if (user == null || user.getPasswordHash() == null) {
             return false;
         }
@@ -136,13 +137,11 @@ public class UserService {
         if (rawPassword == null || rawPassword.isBlank()) {
             return false;
         }
-        final AppUser user = findByUsername(username);
+        final User user = findByUsername(username);
         if (user == null) {
             return false;
         }
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
-        // 비밀번호를 바꾸면 잠금과 실패 카운터를 함께 푸는 것이 자연스럽습니다.
-        user.recordSuccess();
         repository.save(user);
         log.info("password changed for username={}", user.getUsername());
         return true;
@@ -157,7 +156,7 @@ public class UserService {
      */
     @Transactional
     public boolean setEnabled(String username, boolean enabled) {
-        final AppUser user = findByUsername(username);
+        final User user = findByUsername(username);
         if (user == null) {
             return false;
         }
@@ -175,7 +174,7 @@ public class UserService {
      */
     @Transactional
     public boolean delete(String username) {
-        final AppUser user = findByUsername(username);
+        final User user = findByUsername(username);
         if (user == null) {
             return false;
         }
@@ -195,7 +194,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public long countAdmins() {
         return repository.findAll().stream()
-                .filter(user -> user.getRole() == AppUser.Role.ADMIN && user.isEnabled())
+                .filter(user -> user.getRole() == User.Role.ADMIN && user.isEnabled())
                 .count();
     }
 
@@ -205,7 +204,7 @@ public class UserService {
      * @param user 사용자
      */
     @Transactional
-    public void recordLoginSuccess(AppUser user) {
+    public void recordLoginSuccess(User user) {
         if (user == null) {
             return;
         }
@@ -214,7 +213,10 @@ public class UserService {
     }
 
     /**
-     * 로그인 실패를 기록하고 필요하면 계정을 잠급니다.
+     * 로그인 실패를 남깁니다.
+     *
+     * <p>잠금 정책이 없어 DB 상태는 바꾸지 않습니다. 실패 횟수를 세지도
+     * 않으므로 <b>로그만</b> 남깁니다. (공격 시도를 관측하는 목적은 유지)
      *
      * <p>존재하지 않는 아이디로도 호출될 수 있으므로 사용자가 없으면 조용히
      * 넘어갑니다. (아이디 존재 여부를 응답으로 알려주지 않기 위함)
@@ -223,18 +225,8 @@ public class UserService {
      */
     @Transactional
     public void recordLoginFailure(String username) {
-        final AppUser user = findByUsername(username);
-        if (user == null) {
-            return;
-        }
-        user.recordFailure(MAX_ATTEMPTS_BEFORE_LOCK);
-        repository.save(user);
-        if (user.isLocked()) {
-            log.warn("user {} locked until {} after {} failed attempts",
-                    user.getUsername(), user.getLockedUntil(), user.getFailedAttempts());
-        } else {
-            log.info("login failed for {} (attempt {})", user.getUsername(), user.getFailedAttempts());
-        }
+        final User user = findByUsername(username);
+        log.info("login failed for {}", user == null ? "(unknown user)" : user.getUsername());
     }
 
     /**
@@ -248,7 +240,7 @@ public class UserService {
         if (repository.count() > 0) {
             return false;
         }
-        create("admin", defaultPassword, "Default Administrator", AppUser.Role.ADMIN);
+        create("admin", defaultPassword, "Default Administrator", User.Role.ADMIN);
         log.warn("=================================================================");
         log.warn(" Default admin account created (username=admin).");
         log.warn(" CHANGE THIS PASSWORD IMMEDIATELY in any shared environment.");
@@ -263,16 +255,18 @@ public class UserService {
      * @param user 사용자
      * @return 요약 맵
      */
-    public static java.util.Map<String, Object> toResponse(AppUser user) {
+    public static java.util.Map<String, Object> toResponse(User user) {
         final java.util.Map<String, Object> body = new java.util.LinkedHashMap<>();
         body.put("username", user.getUsername());
         body.put("display_name", user.getDisplayName());
         body.put("role", user.getRole() == null ? null : user.getRole().name());
         body.put("enabled", user.isEnabled());
-        body.put("locked", user.isLocked());
-        body.put("locked_until", user.getLockedUntil() == null ? null : user.getLockedUntil().toString());
-        body.put("last_login_at", user.getLastLoginAt() == null ? null : user.getLastLoginAt().toString());
-        body.put("created_at", user.getCreatedAt());
+        // 잠금 표시는 후속 작업에서 화면과 함께 걷어냅니다.
+        // 그때까지 응답 키를 남겨 두어 프론트엔드가 깨지지 않게 합니다.
+        body.put("locked", false);
+        body.put("locked_until", null);
+        body.put("last_login_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(user.getLastLoginAt()));
+        body.put("created_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(user.getCreatedAt()));
         return body;
     }
 

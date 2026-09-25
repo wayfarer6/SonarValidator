@@ -3,7 +3,7 @@ package org.sonar.sonarvalidator_backend.Controller;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import org.sonar.sonarvalidator_backend.Model.entity.AppUser;
+import org.sonar.sonarvalidator_backend.Model.entity.User;
 import org.sonar.sonarvalidator_backend.Service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -44,10 +43,12 @@ import jakarta.servlet.http.HttpSession;
  * <h2>실패 사유를 구분해 주는 이유</h2>
  * <ul>
  *   <li>{@link BadCredentialsException} -> 401 "아이디 또는 비밀번호가 올바르지 않습니다"</li>
- *   <li>{@link LockedException} -> 423 "계정이 잠겼습니다" (남은 시간 안내)</li>
  *   <li>{@link DisabledException} -> 403 "비활성 계정입니다"</li>
  * </ul>
  * <p>아이디 존재 여부는 드러내지 않습니다. (아이디/비밀번호 오류를 한 문구로 통일)
+ *
+ * <p><b>계정 잠금(423)은 제거되었습니다.</b> 서버가 잠금 상태를 두지 않으므로
+ * {@code LockedException} 분기도 없습니다.
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -60,7 +61,7 @@ public class AuthController {
 
     /**
      * @param authenticationManager 인증 관리자
-     * @param userService           사용자/잠금 상태 서비스
+     * @param userService           사용자 서비스
      */
     public AuthController(AuthenticationManager authenticationManager, UserService userService) {
         this.authenticationManager = authenticationManager;
@@ -117,23 +118,12 @@ public class AuthController {
             final Map<String, Object> body2 = new LinkedHashMap<>();
             body2.put("authenticated", true);
             body2.put("username", authentication.getName());
-            final AppUser user = userService.findByUsername(username);
+            final User user = userService.findByUsername(username);
             if (user != null) {
                 body2.put("display_name", user.getDisplayName());
                 body2.put("role", user.getRole() == null ? null : user.getRole().name());
             }
             return ResponseEntity.ok(body2);
-
-        } catch (LockedException ex) {
-            // 잠금 상태는 사용자가 조치할 수 있으므로 알려줍니다.
-            final AppUser user = userService.findByUsername(username);
-            final String until = (user != null && user.getLockedUntil() != null)
-                    ? user.getLockedUntil().toString()
-                    : null;
-            final Map<String, Object> error = new LinkedHashMap<>();
-            error.put("message", "계정이 잠겼습니다. 잠시 후 다시 시도하세요.");
-            error.put("locked_until", until);
-            return ResponseEntity.status(HttpStatus.LOCKED).body(error);
 
         } catch (DisabledException ex) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -163,7 +153,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("authenticated", false));
         }
-        final AppUser user = userService.findByUsername(authentication.getName());
+        final User user = userService.findByUsername(authentication.getName());
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("authenticated", true);
         body.put("username", authentication.getName());
@@ -171,7 +161,7 @@ public class AuthController {
             body.put("display_name", user.getDisplayName());
             body.put("role", user.getRole() == null ? null : user.getRole().name());
             body.put("last_login_at",
-                    user.getLastLoginAt() == null ? null : user.getLastLoginAt().toString());
+                    org.sonar.sonarvalidator_backend.Util.Timestamps.iso(user.getLastLoginAt()));
         }
         return ResponseEntity.ok(body);
     }

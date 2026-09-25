@@ -32,7 +32,6 @@ export interface LoginResponse {
 /** 서버가 돌려주는 오류 본문입니다. */
 interface ErrorBody {
   message?: string;
-  locked_until?: string;
 }
 
 /**
@@ -136,8 +135,6 @@ export interface ManagedUser {
   display_name: string | null;
   role: string | null;
   enabled: boolean;
-  locked: boolean;
-  locked_until: string | null;
   last_login_at: string | null;
   created_at: string | null;
 }

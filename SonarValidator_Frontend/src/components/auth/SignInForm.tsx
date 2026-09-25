@@ -147,12 +147,12 @@ export default function SignInForm() {
                       로그인 상태 유지하기
                     </span>
                   </div>
-                  <Link
-                    to="/reset-password"
-                    className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                  >
-                    비밀번호를 잊으셨습니까?
-                  </Link>
+                  {/* "비밀번호를 잊으셨습니까?" 링크는 제거했습니다.
+                       /reset-password 라우트가 없어서 404 로 떨어졌을 뿐 아니라,
+                       이 앱은 이메일 기반 재설정(메일 발송)을 하지 않습니다.
+                       비밀번호는 관리자가 변경합니다. (프로필 > 계정 관리에서
+                       본인이 직접 변경하는 API 는 이미 있습니다)
+                       되살리려면 라우트와 재설정 흐름을 먼저 만들어야 합니다. */}
                 </div>
                 <div>
                   <Button className="w-full" size="sm" type="submit" disabled={submitting}>

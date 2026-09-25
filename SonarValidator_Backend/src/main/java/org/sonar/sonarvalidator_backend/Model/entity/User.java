@@ -1,6 +1,7 @@
 package org.sonar.sonarvalidator_backend.Model.entity;
 
 import java.time.Instant;
+import java.util.Date;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -28,18 +29,25 @@ import lombok.Setter;
  * BCrypt 는 의도적으로 느리고, 같은 비밀번호라도 매번 다른 해시가 나오도록
  * salt 를 포함합니다.
  *
- * <h2>계정 잠금 필드를 두는 이유</h2>
- * <p>{@link #failedAttempts} 와 {@link #lockedUntil} 로 무차별 대입을 늦춥니다.
- * 실제로 방어 효과가 크면서 구현 비용이 낮은 축에 속합니다.
- * (스프링 시큐리티의 {@code DaoAuthenticationProvider} 와 별개로,
- * 우리가 직접 세는 값입니다.)
+ * <h2>계정 잠금 정책</h2>
+ * <p>한때 {@code failed_attempts} / {@code locked_until} 로 무차별 대입을
+ * 늦췄으나, 요구사항 변경으로 <b>잠금 정책을 두지 않습니다</b>.
+ * 잠금 관련 컬럼과 로직은 제거했고, 코드 정리(사용자 관리 화면의 잠금
+ * 표시 제거)는 후속 작업에서 진행합니다.
+ *
+ * <h2>테이블 이름이 {@code USER} 인 이유</h2>
+ * <p>설계 ERD 와 동일하게 맞추기 위해 테이블 이름은 {@code USER} 입니다.
+ * 다만 {@code USER} 는 H2 와 PostgreSQL 에서 <b>예약어(reserved word)</b>
+ * 이므로 따옴표 없이 쓰면 {@code CREATE TABLE user (...)} 가 문법 오류로
+ * 실패합니다. 그래서 {@code name} 값에 이스케이프한 따옴표를 포함해
+ * <b>항상</b> {@code "USER"} 로 인용되게 합니다.
  */
 @Entity
-@Table(name = "app_user")
+@Table(name = "\"USER\"")
 @Getter
 @Setter
 @NoArgsConstructor
-public class AppUser {
+public class User {
 
     /** 사용자 권한. */
     public enum Role {
@@ -88,21 +96,13 @@ public class AppUser {
     @Column(nullable = false)
     private boolean enabled = true;
 
-    /** 연속 로그인 실패 횟수. */
-    @Column(name = "failed_attempts", nullable = false)
-    private int failedAttempts;
-
-    /** 잠금 해제 시각. null 이면 잠기지 않은 상태입니다. */
-    @Column(name = "locked_until")
-    private Instant lockedUntil;
-
     /** 마지막 로그인 시각. */
     @Column(name = "last_login_at")
-    private Instant lastLoginAt;
+    private Date lastLoginAt;
 
     /** 생성 시각. */
-    @Column(name = "created_at", length = 40)
-    private String createdAt;
+    @Column(name = "created_at")
+    private Date createdAt;
 
     /**
      * 계정 생성 헬퍼.
@@ -113,47 +113,47 @@ public class AppUser {
      * @param role          권한
      * @return 저장 전 엔티티
      */
-    public static AppUser of(String username, String passwordHash, String displayName, Role role) {
-        final AppUser user = new AppUser();
+    public static User of(String username, String passwordHash, String displayName, Role role) {
+        final User user = new User();
         user.setUsername(username);
         user.setPasswordHash(passwordHash);
         user.setDisplayName(displayName);
         user.setRole(role == null ? Role.OPERATOR : role);
         user.setEnabled(true);
-        user.setCreatedAt(Instant.now().toString());
+        user.setCreatedAt(new Date());
         return user;
+    }
+
+    /**
+     * 로그인 성공을 기록합니다.
+     *
+     * <p>마지막 로그인 시각만 갱신합니다. (실패 카운터/잠금은 제거됨)
+     */
+    public void recordSuccess() {
+        lastLoginAt = new Date();
     }
 
     /**
      * 지금 잠긴 상태인지 알려줍니다.
      *
-     * @return 잠겨 있으면 {@code true}
+     * <p>잠금 정책이 제거되어 <b>항상 {@code false}</b> 입니다. 인증
+     * 구성과 사용자 관리 응답이 아직 이 메서드를 호출하므로, 호출부를
+     * 전부 고치는 후속 작업까지 <b>컴파일 호환용</b> 으로 남겨 둡니다.
+     *
+     * @return 항상 {@code false}
+     * @deprecated 잠금 정책 제거에 따라 후속 작업에서 삭제 예정입니다.
      */
+    @Deprecated
     public boolean isLocked() {
-        return lockedUntil != null && lockedUntil.isAfter(Instant.now());
+        return false;
     }
 
     /**
-     * 로그인 실패를 기록하고 필요하면 잠급니다.
+     * 마지막 로그인 시각을 돌려줍니다. (편의용, {@link Date} 그대로)
      *
-     * <p>5회 실패마다 잠금 시간을 늘립니다(1분, 2분, 4분 ... 최대 30분).
-     * 고정 시간으로 두면 공격자가 그 주기만 기다리면 되므로 지수적으로 늘립니다.
-     *
-     * @param maxAttemptsBeforeLock 잠금을 시작할 실패 횟수
+     * @return 마지막 로그인 시각 (없으면 null)
      */
-    public void recordFailure(int maxAttemptsBeforeLock) {
-        failedAttempts++;
-        if (failedAttempts >= maxAttemptsBeforeLock) {
-            final int over = failedAttempts - maxAttemptsBeforeLock;
-            final long minutes = Math.min(30L, 1L << Math.min(over, 5));
-            lockedUntil = Instant.now().plusSeconds(minutes * 60L);
-        }
-    }
-
-    /** 로그인 성공을 기록하고 실패 카운터를 초기화합니다. */
-    public void recordSuccess() {
-        failedAttempts = 0;
-        lockedUntil = null;
-        lastLoginAt = Instant.now();
+    public Instant lastLoginInstant() {
+        return lastLoginAt == null ? null : lastLoginAt.toInstant();
     }
 }

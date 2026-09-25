@@ -1,4 +1,4 @@
-package org.sonar.sonarvalidator_backend.Model.Vendors;
+package org.sonar.sonarvalidator_backend.Model.vendors;
 
 
 public class CiscoSwitch {

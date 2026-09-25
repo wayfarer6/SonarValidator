@@ -1,5 +1,9 @@
 package org.sonar.sonarvalidator_backend.Model.entity;
 
+import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -67,9 +71,10 @@ public class ComplianceChange {
     @Column(name = "changed_by", length = 200)
     private String changedBy;
 
-    /** 변경 시각 (ISO-8601). */
-    @Column(length = 40)
-    private String timestamp;
+    /** 변경 시각. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+    @Column(name = "timestamp")
+    private Date timestamp;
 
     /** 적용 상태 ({@code Applied} / {@code Pending} / {@code Rejected}). */
     @Column(length = 20)

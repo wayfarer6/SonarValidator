@@ -3,8 +3,8 @@ package org.sonar.sonarvalidator_backend.Config;
 import java.io.IOException;
 import java.util.List;
 
-import org.sonar.sonarvalidator_backend.Model.entity.AppUser;
-import org.sonar.sonarvalidator_backend.Repository.AppUserRepository;
+import org.sonar.sonarvalidator_backend.Model.entity.User;
+import org.sonar.sonarvalidator_backend.Repository.UserRepository;
 import org.sonar.sonarvalidator_backend.Service.UserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -19,7 +19,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -104,34 +103,33 @@ public class SecurityConfig {
      * 사용자 조회를 담당합니다.
      *
      * <p>{@link UserService} 를 거치지 않고 저장소를 직접 쓰는 이유는
-     * 인증 시점에 트랜잭션/잠금 로직이 끼어들지 않게 하기 위함입니다.
-     * 잠금 판정은 별도로 {@code AuthenticationFailureHandler} 에서 합니다.
+     * 인증 시점에 트랜잭션이 끼어들지 않게 하기 위함입니다.
      *
      * @param repository 사용자 저장소
      * @return UserDetailsService
      */
     @Bean
-    public UserDetailsService userDetailsService(AppUserRepository repository) {
+    public UserDetailsService userDetailsService(UserRepository repository) {
         return username -> {
             final String normalized = username == null
                     ? ""
                     : username.trim().toLowerCase(java.util.Locale.ROOT);
-            final AppUser user = repository.findByUsername(normalized)
+            final User user = repository.findByUsername(normalized)
                     .orElseThrow(() -> new UsernameNotFoundException("user not found"));
 
-            // 잠긴 계정과 비활성 계정을 스프링 시큐리티에 알려줍니다.
-            // 이렇게 하면 DisabledException / LockedException 이 발생해
-            // 인증 실패로 처리됩니다.
+            // 아직은 비활성 계정만 스프링 시큐리티에 알려 줍니다.
+            // (계정 잠금 정책은 제거되었습니다 - disabled 만 남습니다)
             final List<SimpleGrantedAuthority> authorities = List.of(
                     new SimpleGrantedAuthority("ROLE_" + (user.getRole() == null
-                            ? AppUser.Role.VIEWER.name()
+                            ? User.Role.VIEWER.name()
                             : user.getRole().name())));
 
-            return User.withUsername(user.getUsername())
+            // 엔티티의 User 와 이름이 같아 스프링 시큐리티의 User 는
+            // 정규화 이름으로 씁니다. (import 하면 서로 가립니다)
+            return org.springframework.security.core.userdetails.User.withUsername(user.getUsername())
                     .password(user.getPasswordHash())
                     .authorities(authorities)
                     .disabled(!user.isEnabled())
-                    .accountLocked(user.isLocked())
                     .build();
         };
     }

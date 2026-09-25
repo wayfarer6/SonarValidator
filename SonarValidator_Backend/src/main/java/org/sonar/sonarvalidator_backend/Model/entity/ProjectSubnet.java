@@ -7,9 +7,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,6 +24,15 @@ import lombok.Setter;
  * <p>{@link PolicySubnet} 은 검증 엔진이 쓰는 <b>순수 도메인 객체</b>이고,
  * 이 클래스는 그것을 저장하기 위한 <b>영속 표현</b>입니다. 둘을 나눠 두면
  * 검증 로직이 JPA 에 묶이지 않고, 스키마 변경이 엔진에 영향을 주지 않습니다.
+ *
+ * <h2>프로젝트와의 관계</h2>
+ * <p>{@link #project} 가 <b>외래키를 소유</b>합니다({@code project_id}).
+ * 부모인 {@link Project#getSubnets()} 는 {@code mappedBy} 로 반대편을
+ * 가리키므로, FK 컬럼은 DB 에 한 번만 생깁니다. (양쪽 모두
+ * {@code @JoinColumn} 을 쓰면 같은 컬럼을 두 번 매핑해 기동에 실패합니다)
+ *
+ * <p>서브넷은 프로젝트 없이 존재할 수 없습니다. 다만 {@code nullable} 로
+ * 두어 스키마 진화(Hibernate {@code ddl-auto=update})가 막히지 않게 했습니다.
  */
 @Entity
 @Table(name = "project_subnet")
@@ -33,6 +45,16 @@ public class ProjectSubnet {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * 소속 프로젝트입니다. (외래키 소유)
+     *
+     * <p>지연 로딩입니다. 서브넷을 쓸 때 프로젝트 전체를 끌어오면
+     * 순환 참조와 불필요한 조회가 생깁니다.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
 
     /** 프로젝트 안에서의 서브넷 식별자 (예: {@code Subnet-0004}). */
     @Column(name = "subnet_id", nullable = false, length = 80)
