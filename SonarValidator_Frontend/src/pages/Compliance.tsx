@@ -1,20 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
-import {
-  MOCK_AGENTS,
-  MOCK_PROJECTS,
-  formatTimestamp,
-  getChangesByAgent,
-  getChangesByProject,
-  type ComplianceChange,
-  type DeviceType,
-} from "../lib/mockData";
+import { useApi } from "../hooks/useApi";
+import { getDiscoveredDevices, listComplianceChanges } from "../lib/api";
+import type { ApiComplianceChange } from "../lib/api/types";
+import { listProjects } from "../lib/api/projects";
+import { deviceViews, formatTimestamp } from "../lib/agentView";
 
 const STATUS_COLOR: Record<
-  ComplianceChange["status"],
+  ApiComplianceChange["status"],
   "success" | "warning" | "error"
 > = {
   Applied: "success",
@@ -22,47 +18,73 @@ const STATUS_COLOR: Record<
   Rejected: "error",
 };
 
-const DEVICE_COLOR: Record<DeviceType, "info" | "success" | "error" | "primary"> =
-  {
-    Router: "info",
-    Switch: "success",
-    Firewall: "error",
-    VM: "primary",
-  };
+const DEVICE_COLOR: Record<string, "info" | "success" | "error" | "primary"> = {
+  Router: "info",
+  Switch: "success",
+  Firewall: "error",
+  VM: "primary",
+};
 
 export default function Compliance() {
   const navigate = useNavigate();
 
-  // 기본 선택: 가장 최근 프로젝트
+  const projects = useApi(() => listProjects(), []);
+  const projectList = useMemo(
+    () => projects.data?.projects ?? [],
+    [projects.data],
+  );
+
+  // 기본 선택: 가장 최근 프로젝트. 서버 목록이 바뀌면 자동으로 교정합니다.
   const latestProjectId = useMemo(
     () =>
-      [...MOCK_PROJECTS].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
-        ?.id ?? null,
-    [],
+      [...projectList].sort((a, b) =>
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+      )[0]?.project_id ?? null,
+    [projectList],
   );
 
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
-    latestProjectId,
-  );
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
+  // 서버 응답이 처음 도착하면 기본 프로젝트를 선택합니다.
+  useEffect(() => {
+    if (selectedProjectId === null && latestProjectId) {
+      setSelectedProjectId(latestProjectId);
+    }
+  }, [latestProjectId, selectedProjectId]);
+
   const selectedProject =
-    MOCK_PROJECTS.find((p) => p.id === selectedProjectId) ?? null;
-  const projectAgents = useMemo(
-    () => MOCK_AGENTS.filter((a) => a.projectId === selectedProjectId),
+    projectList.find((p) => p.project_id === selectedProjectId) ?? null;
+
+  // 프로젝트에 속한 장치를 서버에서 받아옵니다(수집 장치 기준).
+  const devices = useApi(
+    () =>
+      selectedProjectId
+        ? getDiscoveredDevices(selectedProjectId)
+        : Promise.resolve(null),
     [selectedProjectId],
   );
+  const projectAgents = useMemo(
+    () => deviceViews(devices.data?.devices ?? []),
+    [devices.data],
+  );
   const selectedAgent =
-    projectAgents.find((a) => a.id === selectedAgentId) ?? null;
+    projectAgents.find((a) => a.agentId === selectedAgentId) ?? null;
 
-  // 현재 선택(프로젝트 or Agent)에 따른 변경 내역
-  const changes = useMemo(() => {
-    if (selectedAgentId) return getChangesByAgent(selectedAgentId);
-    if (selectedProjectId !== null) return getChangesByProject(selectedProjectId);
-    return [];
-  }, [selectedProjectId, selectedAgentId]);
+  // 현재 선택(프로젝트 or Agent)에 따른 변경 내역 — 서버 조회
+  const changes = useApi(
+    () =>
+      selectedProjectId
+        ? listComplianceChanges({
+            projectId: selectedProjectId,
+            agentId: selectedAgentId ?? undefined,
+          })
+        : Promise.resolve(null),
+    [selectedProjectId, selectedAgentId],
+  );
+  const changeList = changes.data?.changes ?? [];
 
-  const handleSelectProject = (id: number) => {
+  const handleSelectProject = (id: string) => {
     setSelectedProjectId(id);
     setSelectedAgentId(null);
   };
@@ -96,12 +118,12 @@ export default function Compliance() {
               Project Name
             </h3>
             <ul className="flex flex-col gap-1">
-              {MOCK_PROJECTS.map((project) => {
-                const active = project.id === selectedProjectId;
+              {projectList.map((project) => {
+                const active = project.project_id === selectedProjectId;
                 return (
-                  <li key={project.id}>
+                  <li key={project.project_id}>
                     <button
-                      onClick={() => handleSelectProject(project.id)}
+                      onClick={() => handleSelectProject(project.project_id)}
                       className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
                         active
                           ? "bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400"
@@ -110,12 +132,21 @@ export default function Compliance() {
                     >
                       <span className="truncate">{project.name}</span>
                       <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
-                        #{project.id}
+                        {project.subnet_count} subnet
                       </span>
                     </button>
                   </li>
                 );
               })}
+
+              {projects.loading && (
+                <li className="px-3 py-2 text-xs text-gray-400">불러오는 중...</li>
+              )}
+              {!projects.loading && projectList.length === 0 && (
+                <li className="px-3 py-2 text-xs text-gray-400">
+                  프로젝트가 없습니다.
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -128,16 +159,16 @@ export default function Compliance() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
                   {selectedAgent
-                    ? `${selectedAgent.name} 변경 내역`
+                    ? `${selectedAgent.hostname} 변경 내역`
                     : selectedProject
                       ? `${selectedProject.name} 변경 내역`
                       : "프로젝트를 선택하세요"}
                 </h3>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   {selectedAgent
-                    ? `Agent ${selectedAgent.id} · ${selectedAgent.ip}`
+                    ? `Agent ${selectedAgent.agentId} · ${selectedAgent.primaryIp}`
                     : selectedProject
-                      ? `Project #${selectedProject.id} · 변경 ${changes.length}건`
+                      ? `Project ${selectedProject.name} · 변경 ${changeList.length}건`
                       : "왼쪽 목록에서 프로젝트를 선택하면 Agent 목록이 표시됩니다."}
                 </p>
               </div>
@@ -158,24 +189,29 @@ export default function Compliance() {
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                   {projectAgents.map((agent) => (
                     <button
-                      key={agent.id}
-                      onClick={() => setSelectedAgentId(agent.id)}
+                      key={agent.agentId}
+                      onClick={() => setSelectedAgentId(agent.agentId)}
                       className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 text-left transition hover:border-brand-300 hover:bg-brand-50/50 dark:border-gray-800 dark:hover:border-brand-500/40 dark:hover:bg-white/5"
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium text-gray-800 dark:text-white/90">
-                          {agent.name}
+                          {agent.hostname}
                         </span>
                         <span className="block truncate text-xs text-gray-500 dark:text-gray-400">
-                          {agent.id} · {agent.ip}
+                          {agent.agentId} · {agent.primaryIp}
                         </span>
                       </span>
-                      <Badge size="sm" color={DEVICE_COLOR[agent.deviceType]}>
+                      <Badge size="sm" color={DEVICE_COLOR[agent.deviceType] ?? "info"}>
                         {agent.deviceType}
                       </Badge>
                     </button>
                   ))}
-                  {projectAgents.length === 0 && (
+                  {devices.loading && (
+                    <p className="col-span-full text-xs text-gray-400">
+                      장치를 불러오는 중...
+                    </p>
+                  )}
+                  {!devices.loading && projectAgents.length === 0 && (
                     <p className="col-span-full rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-500 dark:bg-white/5 dark:text-gray-400">
                       이 프로젝트에 등록된 Agent가 없습니다.
                     </p>
@@ -199,7 +235,7 @@ export default function Compliance() {
                   </tr>
                 </thead>
                 <tbody>
-                  {changes.map((change) => (
+                  {changeList.map((change) => (
                     <tr
                       key={change.id}
                       className="border-b border-gray-100 last:border-0 dark:border-gray-800/60"
@@ -208,7 +244,7 @@ export default function Compliance() {
                         {change.id}
                       </td>
                       <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">
-                        {change.scope === "Agent" ? change.agentId : "Project"}
+                        {change.scope === "Agent" ? change.agent_id : "Project"}
                       </td>
                       <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">
                         {change.type}
@@ -217,7 +253,7 @@ export default function Compliance() {
                         <span className="line-clamp-2">{change.summary}</span>
                       </td>
                       <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">
-                        {change.changedBy}
+                        {change.changed_by}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-gray-600 dark:text-gray-400">
                         {formatTimestamp(change.timestamp)}
@@ -229,7 +265,17 @@ export default function Compliance() {
                       </td>
                     </tr>
                   ))}
-                  {changes.length === 0 && (
+                  {changes.loading && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-3 py-8 text-center text-sm text-gray-400"
+                      >
+                        변경 내역을 불러오는 중...
+                      </td>
+                    </tr>
+                  )}
+                  {!changes.loading && changeList.length === 0 && (
                     <tr>
                       <td
                         colSpan={7}

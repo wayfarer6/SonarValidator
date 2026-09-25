@@ -1,9 +1,25 @@
-import {
-  BoxIconLine,
-  GroupIcon,
-} from "../../../icons";
+import { BoxIconLine, GroupIcon } from "../../../icons";
+import { useApi } from "../../../hooks/useApi";
+import { listAgents } from "../../../lib/api";
+import { listProjects } from "../../../lib/api/projects";
 
+/**
+ * 대시보드 상단 지표 카드입니다.
+ *
+ * <h2>하드코딩 상수를 걷어낸 자리</h2>
+ * 이전에는 Projects=3, Connected Agents=30 이 코드에 박혀 있었고
+ * "나중에 API 로 교체" 라는 주석만 남아 있었습니다. 이제 서버에서 실제 값을
+ * 받아옵니다. 값이 0 이면 0 을 그대로 보여줍니다 — 0 을 가리는 것이 가장
+ * 흔한 거짓말입니다.
+ */
 export default function AgentList() {
+  const projects = useApi(() => listProjects(), []);
+  const agents = useApi(() => listAgents(), []);
+
+  // 로딩 중에는 숫자 대신 점을 보여 "0" 으로 오해하지 않게 합니다.
+  const projectsValue = projects.loading ? "…" : (projects.data?.total ?? "–");
+  const connectedValue = agents.loading ? "…" : (agents.data?.connected ?? "–");
+
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
       {/* <!-- Metric Item Start --> */}
@@ -18,7 +34,7 @@ export default function AgentList() {
               Projects
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              3 {/* 나중에 API 서버로 부터 프로젝트 갯수 받을 수 있도록 */}
+              {projectsValue}
             </h4>
           </div>
         </div>
@@ -36,7 +52,7 @@ export default function AgentList() {
               Connected Agents 
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              30 {/* 현재 연결된 에이전트 수 api로 가져오기 */}
+              {connectedValue}
             </h4>
           </div>
         </div>

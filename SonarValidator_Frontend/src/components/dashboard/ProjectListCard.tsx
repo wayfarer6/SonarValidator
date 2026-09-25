@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { FolderIcon } from "../../icons";
-import { MOCK_PROJECTS } from "../../lib/mockData";
+import { useApi } from "../../hooks/useApi";
+import { listProjects } from "../../lib/api/projects";
 
 const STATUS_STYLE: Record<string, string> = {
   "In Progress":
@@ -11,8 +12,11 @@ const STATUS_STYLE: Record<string, string> = {
     "bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400",
 };
 
-// 현재 프로젝트 리스트 카드
+// 현재 프로젝트 리스트 카드 (백엔드 프로젝트 목록)
 export default function ProjectListCard() {
+  const { data, loading, error } = useApi(() => listProjects(), []);
+  const projects = data?.projects ?? [];
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -33,9 +37,9 @@ export default function ProjectListCard() {
       </div>
 
       <div className="space-y-3">
-        {MOCK_PROJECTS.map((project) => (
+        {projects.map((project) => (
           <div
-            key={project.id}
+            key={project.project_id}
             className="flex items-center justify-between rounded-xl border border-gray-100 p-3 transition hover:border-gray-200 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/40"
           >
             <div className="min-w-0">
@@ -43,7 +47,9 @@ export default function ProjectListCard() {
                 {project.name}
               </p>
               <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
-                {project.category} · {project.description}
+                {[project.category, project.description]
+                  .filter(Boolean)
+                  .join(" · ") || "—"}
               </p>
             </div>
             <span
@@ -55,6 +61,20 @@ export default function ProjectListCard() {
             </span>
           </div>
         ))}
+
+        {loading && (
+          <p className="py-6 text-center text-xs text-gray-400">불러오는 중...</p>
+        )}
+
+        {!loading && error && (
+          <p className="py-6 text-center text-xs text-red-500">{error}</p>
+        )}
+
+        {!loading && !error && projects.length === 0 && (
+          <p className="py-6 text-center text-xs text-gray-400">
+            프로젝트가 없습니다.
+          </p>
+        )}
       </div>
     </div>
   );

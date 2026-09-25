@@ -1,20 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
-import {
-  MOCK_AGENTS,
-  MOCK_PROJECTS,
-  formatTimestamp,
-  getChangesByAgent,
-  getChangesByProject,
-  type ComplianceChange,
-} from "../lib/mockData";
+import { useApi } from "../hooks/useApi";
+import { getDiscoveredDevices, listComplianceChanges } from "../lib/api";
+import type { ApiComplianceChange } from "../lib/api/types";
+import { listProjects } from "../lib/api/projects";
+import { deviceViews, formatTimestamp } from "../lib/agentView";
 import { exportComplianceReportPdf } from "../lib/pdf/compliancePdf";
 
 const STATUS_COLOR: Record<
-  ComplianceChange["status"],
+  ApiComplianceChange["status"],
   "success" | "warning" | "error"
 > = {
   Applied: "success",
@@ -27,43 +24,74 @@ export default function ComplianceExporter() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
+  const projects = useApi(() => listProjects(), []);
+  const projectList = useMemo(
+    () => projects.data?.projects ?? [],
+    [projects.data],
+  );
+
   // /compliance 에서 전달받은 선택값(state) → 쿼리스트링 → 최신 프로젝트 순 폴백
   const navState = (location.state ?? {}) as {
-    projectId?: number | null;
+    projectId?: string | null;
     agentId?: string | null;
   };
   const initialProjectId =
-    navState.projectId ??
-    (searchParams.get("project_id")
-      ? Number(searchParams.get("project_id"))
-      : null) ??
-    [...MOCK_PROJECTS].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
-      ?.id ??
-    null;
+    navState.projectId ?? searchParams.get("project_id") ?? null;
   const initialAgentId =
     navState.agentId ?? searchParams.get("agent_id") ?? null;
 
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     initialProjectId,
   );
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(
     initialAgentId,
   );
 
+  // 선택값이 없으면 서버 목록에서 가장 최근 프로젝트로 채웁니다.
+  const latestProjectId = useMemo(
+    () =>
+      [...projectList].sort((a, b) =>
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+      )[0]?.project_id ?? null,
+    [projectList],
+  );
+  useEffect(() => {
+    if (selectedProjectId === null && latestProjectId) {
+      setSelectedProjectId(latestProjectId);
+    }
+  }, [latestProjectId, selectedProjectId]);
+
   const selectedProject =
-    MOCK_PROJECTS.find((p) => p.id === selectedProjectId) ?? null;
-  const projectAgents = useMemo(
-    () => MOCK_AGENTS.filter((a) => a.projectId === selectedProjectId),
+    projectList.find((p) => p.project_id === selectedProjectId) ?? null;
+
+  const devices = useApi(
+    () =>
+      selectedProjectId
+        ? getDiscoveredDevices(selectedProjectId)
+        : Promise.resolve(null),
     [selectedProjectId],
   );
+  const projectAgents = useMemo(
+    () => deviceViews(devices.data?.devices ?? []),
+    [devices.data],
+  );
   const selectedAgent =
-    projectAgents.find((a) => a.id === selectedAgentId) ?? null;
+    projectAgents.find((a) => a.agentId === selectedAgentId) ?? null;
 
-  const changes = useMemo(() => {
-    if (selectedAgentId) return getChangesByAgent(selectedAgentId);
-    if (selectedProjectId !== null) return getChangesByProject(selectedProjectId);
-    return [];
-  }, [selectedProjectId, selectedAgentId]);
+  const changesResult = useApi(
+    () =>
+      selectedProjectId
+        ? listComplianceChanges({
+            projectId: selectedProjectId,
+            agentId: selectedAgentId ?? undefined,
+          })
+        : Promise.resolve(null),
+    [selectedProjectId, selectedAgentId],
+  );
+  const changes = useMemo(
+    () => changesResult.data?.changes ?? [],
+    [changesResult.data],
+  );
 
   const counts = useMemo(() => {
     const base = { total: changes.length, Applied: 0, Pending: 0, Rejected: 0 };
@@ -76,7 +104,7 @@ export default function ComplianceExporter() {
   const generatedAt = formatTimestamp(new Date().toISOString());
 
   const handleProjectChange = (value: string) => {
-    setSelectedProjectId(value === "" ? null : Number(value));
+    setSelectedProjectId(value === "" ? null : value);
     setSelectedAgentId(null);
   };
 
@@ -133,9 +161,9 @@ export default function ComplianceExporter() {
                 className="h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:outline-hidden focus:ring-3 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
               >
                 <option value="">선택 안 함</option>
-                {MOCK_PROJECTS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} (#{p.id})
+                {projectList.map((p) => (
+                  <option key={p.project_id} value={p.project_id}>
+                    {p.name}
                   </option>
                 ))}
               </select>
@@ -154,8 +182,8 @@ export default function ComplianceExporter() {
               >
                 <option value="">프로젝트 전체</option>
                 {projectAgents.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.id})
+                  <option key={a.agentId} value={a.agentId}>
+                    {a.hostname} ({a.agentId})
                   </option>
                 ))}
               </select>
@@ -205,9 +233,9 @@ export default function ComplianceExporter() {
               <dt className="shrink-0 text-gray-500 dark:text-gray-400">대상:</dt>
               <dd className="font-medium text-gray-800 dark:text-white/90">
                 {selectedAgent
-                  ? `${selectedAgent.name} (${selectedAgent.id})`
+                  ? `${selectedAgent.hostname} (${selectedAgent.agentId})`
                   : selectedProject
-                    ? `${selectedProject.name} (#${selectedProject.id})`
+                    ? selectedProject.name
                     : "-"}
               </dd>
             </div>
@@ -225,7 +253,7 @@ export default function ComplianceExporter() {
                   IP / 대역:
                 </dt>
                 <dd className="font-medium text-gray-800 dark:text-white/90">
-                  {selectedAgent.ip} / {selectedAgent.ipRange}
+                  {selectedAgent.primaryIp}
                 </dd>
               </div>
             )}
@@ -265,7 +293,7 @@ export default function ComplianceExporter() {
                     {change.id}
                   </td>
                   <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">
-                    {change.scope === "Agent" ? change.agentId : "Project"}
+                    {change.scope === "Agent" ? change.agent_id : "Project"}
                   </td>
                   <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">
                     {change.type}
@@ -274,7 +302,7 @@ export default function ComplianceExporter() {
                     {change.summary}
                   </td>
                   <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">
-                    {change.changedBy}
+                    {change.changed_by}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-gray-600 dark:text-gray-400">
                     {formatTimestamp(change.timestamp)}
@@ -286,7 +314,17 @@ export default function ComplianceExporter() {
                   </td>
                 </tr>
               ))}
-              {changes.length === 0 && (
+              {changesResult.loading && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-3 py-8 text-center text-sm text-gray-400"
+                  >
+                    변경 내역을 불러오는 중...
+                  </td>
+                </tr>
+              )}
+              {!changesResult.loading && changes.length === 0 && (
                 <tr>
                   <td
                     colSpan={7}

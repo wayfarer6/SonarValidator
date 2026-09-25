@@ -1,10 +1,6 @@
 import type { jsPDF } from "jspdf";
-import {
-  formatTimestamp,
-  type AgentInfo,
-  type ComplianceChange,
-  type ProjectInfo,
-} from "../mockData";
+import type { ApiComplianceChange, ApiProjectSummary } from "../api/types";
+import { formatTimestamp, type AgentView } from "../agentView";
 
 /**
  * Compliance 변경 내역 보고서를 "텍스트 기반" PDF로 생성한다.
@@ -48,7 +44,7 @@ const COLOR = {
 } as const;
 
 const STATUS_STYLE: Record<
-  ComplianceChange["status"],
+  ApiComplianceChange["status"],
   { text: string; bg: string }
 > = {
   Applied: { text: "#027A48", bg: "#ECFDF3" },
@@ -68,9 +64,9 @@ const COLUMNS = [
 ] as const;
 
 export interface ComplianceReportInput {
-  project: ProjectInfo | null;
-  agent: AgentInfo | null;
-  changes: ComplianceChange[];
+  project: ApiProjectSummary | null;
+  agent: AgentView | null;
+  changes: ApiComplianceChange[];
   counts: { total: number; Applied: number; Pending: number; Rejected: number };
   generatedAt: string;
 }
@@ -243,16 +239,26 @@ function drawReportHeader(
   // 메타 정보 (2열)
   const metaRows: Array<Array<[string, string]>> = [
     [
-      ["대상", agent ? `${agent.name} (${agent.id})` : project ? `${project.name} (#${project.id})` : "-"],
+      [
+        "대상",
+        agent
+          ? `${agent.hostname} (${agent.agentId})`
+          : project
+            ? project.name
+            : "-",
+      ],
       ["생성 일시", generatedAt],
     ],
   ];
   if (agent) {
-    metaRows.push([["IP / 대역", `${agent.ip} / ${agent.ipRange}`], ["디바이스 유형", agent.deviceType]]);
+    metaRows.push([
+      ["IP 주소", agent.primaryIp],
+      ["디바이스 유형", agent.deviceType],
+    ]);
   } else if (project) {
     metaRows.push([
       ["프로젝트 설명", project.description || "-"],
-      ["생성일", project.createdAt.slice(0, 10)],
+      ["생성일", (project.created_at ?? "").slice(0, 10) || "-"],
     ]);
   }
   metaRows.push([
@@ -260,7 +266,7 @@ function drawReportHeader(
       "변경 건수",
       `${counts.total}건  (Applied ${counts.Applied} · Pending ${counts.Pending} · Rejected ${counts.Rejected})`,
     ],
-    ["추출 범위", agent ? `Agent ${agent.id}` : "프로젝트 전체"],
+    ["추출 범위", agent ? `Agent ${agent.agentId}` : "프로젝트 전체"],
   ]);
 
   const colWidth = layout.contentWidth / 2;
@@ -355,12 +361,12 @@ export async function exportComplianceReportPdf(
       wrap(pdf, change.id, COLUMNS[0].width - CELL_PADDING_X * 2),
       wrap(
         pdf,
-        change.scope === "Agent" ? (change.agentId ?? "Agent") : "Project",
+        change.scope === "Agent" ? (change.agent_id ?? "Agent") : "Project",
         COLUMNS[1].width - CELL_PADDING_X * 2,
       ),
       wrap(pdf, change.type, COLUMNS[2].width - CELL_PADDING_X * 2),
       wrap(pdf, change.summary, COLUMNS[3].width - CELL_PADDING_X * 2),
-      wrap(pdf, change.changedBy, COLUMNS[4].width - CELL_PADDING_X * 2),
+      wrap(pdf, change.changed_by, COLUMNS[4].width - CELL_PADDING_X * 2),
       wrap(pdf, formatTimestamp(change.timestamp), COLUMNS[5].width - CELL_PADDING_X * 2),
       [change.status],
     ];
@@ -422,7 +428,9 @@ export async function exportComplianceReportPdf(
 
   drawFooter(pdf, input, layout);
 
-  const scope = input.agent ? `agent_${input.agent.id}` : `project_${input.project?.id ?? "all"}`;
+  const scope = input.agent
+    ? `agent_${input.agent.agentId}`
+    : `project_${input.project?.project_id ?? "all"}`;
   const date = new Date().toISOString().slice(0, 10);
   const fileName = `compliance-report_${scope}_${date}.pdf`;
   pdf.save(fileName);

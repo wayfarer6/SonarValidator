@@ -1,16 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { BoxIconLine } from "../../icons";
-import { MOCK_AGENTS, type DeviceType } from "../../lib/mockData";
+import { useApi } from "../../hooks/useApi";
+import { getAllDiscoveredDevices, listAgents } from "../../lib/api";
+import { buildAgentViews } from "../../lib/agentView";
 
-const DEVICE_STYLE: Record<DeviceType, string> = {
+const DEVICE_STYLE: Record<string, string> = {
   Router: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
   Switch: "bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400",
   Firewall: "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400",
   VM: "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
 };
 
-const DEVICE_FILTERS: ("All" | DeviceType)[] = [
+const DEVICE_FILTERS: ("All" | "Router" | "Switch" | "Firewall" | "VM")[] = [
   "All",
   "Router",
   "Switch",
@@ -18,14 +20,22 @@ const DEVICE_FILTERS: ("All" | DeviceType)[] = [
   "VM",
 ];
 
-// Agent 리스트 카드: id, 이름, IP, 대역대, 장비 타입
+// Agent 리스트 카드: id, 이름, IP, 장비 타입, 연결 상태
 export default function AgentTableCard() {
-  const [filter, setFilter] = useState<"All" | DeviceType>("All");
+  const [filter, setFilter] = useState<"All" | "Router" | "Switch" | "Firewall" | "VM">("All");
 
-  const agents =
-    filter === "All"
-      ? MOCK_AGENTS
-      : MOCK_AGENTS.filter((agent) => agent.deviceType === filter);
+  const agents = useApi(() => listAgents(), []);
+  const devices = useApi(() => getAllDiscoveredDevices(), []);
+
+  const rows = useMemo(
+    () => buildAgentViews(agents.data?.agents ?? [], devices.data?.devices ?? []),
+    [agents.data, devices.data],
+  );
+
+  const filtered =
+    filter === "All" ? rows : rows.filter((row) => row.deviceType === filter);
+
+  const onlineCount = rows.filter((row) => row.connected).length;
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
@@ -39,8 +49,8 @@ export default function AgentTableCard() {
               Agents
             </h4>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {MOCK_AGENTS.filter((a) => a.status === "online").length} online /{" "}
-              {MOCK_AGENTS.length} total
+              {onlineCount} online /{" "}
+              {agents.data?.connected ?? rows.length} total
             </p>
           </div>
         </div>
@@ -78,44 +88,56 @@ export default function AgentTableCard() {
               <th className="px-4 py-3 font-medium">Agent ID</th>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">IP</th>
-              <th className="px-4 py-3 font-medium">IP Range</th>
               <th className="px-4 py-3 font-medium">Device</th>
+              <th className="px-4 py-3 font-medium">Telemetry</th>
               <th className="px-4 py-3 font-medium">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-gray-700 dark:divide-gray-800 dark:text-gray-300">
-            {agents.map((agent) => (
+            {filtered.map((agent) => (
               <tr
-                key={agent.id}
+                key={agent.agentId}
                 className="transition hover:bg-gray-50/70 dark:hover:bg-gray-800/40"
               >
-                <td className="px-4 py-3 font-mono text-xs">{agent.id}</td>
-                <td className="px-4 py-3 font-medium">{agent.name}</td>
-                <td className="px-4 py-3 font-mono text-xs">{agent.ip}</td>
-                <td className="px-4 py-3 font-mono text-xs">{agent.ipRange}</td>
+                <td className="px-4 py-3 font-mono text-xs">{agent.agentId}</td>
+                <td className="px-4 py-3 font-medium">{agent.hostname}</td>
+                <td className="px-4 py-3 font-mono text-xs">{agent.primaryIp}</td>
                 <td className="px-4 py-3">
                   <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${DEVICE_STYLE[agent.deviceType]}`}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      DEVICE_STYLE[agent.deviceType] ??
+                      "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                    }`}
                   >
                     {agent.deviceType}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                  {agent.hasTelemetry ? "수집됨" : "대기"}
                 </td>
                 <td className="px-4 py-3">
                   <span className="flex items-center gap-1.5 text-xs">
                     <span
                       className={`size-2 rounded-full ${
-                        agent.status === "online" ? "bg-green-500" : "bg-gray-400"
+                        agent.connected ? "bg-green-500" : "bg-gray-400"
                       }`}
                     />
-                    {agent.status}
+                    {agent.connected ? "online" : "offline"}
                   </span>
                 </td>
               </tr>
             ))}
-            {agents.length === 0 && (
+            {agents.loading && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
-                  No agents found
+                  불러오는 중...
+                </td>
+              </tr>
+            )}
+            {!agents.loading && filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                  {agents.error ?? "No agents found"}
                 </td>
               </tr>
             )}
