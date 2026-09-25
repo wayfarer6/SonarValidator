@@ -44,10 +44,34 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     /**
      * @param allowedOriginPatterns 허용 출처 패턴 (쉼표 구분 문자열)
+     *
+     * <h2>⚠️ 기본값에 중괄호({@code {}}) 를 넣지 마세요</h2>
+     * <p>스프링의 플레이스홀더 문법은 <b>첫 번째</b> {@code :} 뒤부터를
+     * 기본값으로 봅니다. 그래서 문자열 끝에 {@code }} 가 남아 있으면 그것도
+     * 기본값의 일부가 되어, 마지막 출처 패턴이
+     * {@code "http://127.0.0.1:5173}"} 처럼 <b>따옴표 문자를 포함한 채</b>
+     * 매칭됩니다. 그 출처는 영원히 허용되지 않아 조용히 403 이 됩니다.
+     * (CORS 거부는 브라우저에서만 보이므로 원인을 찾기 어렵습니다)
+     *
+     * <p>그래서 기본값은 한 문자열 안에서 시작과 끝을 맞춰 {@code }} 를
+     * 남기지 않습니다.
+     *
+     * <h2>환경변수 이름이 두 개인 이유</h2>
+     * <p>Spring 의 완화 바인딩은 {@code sonar.cors.allowed-origins} 를
+     * {@code SONAR_CORS_ALLOWED-ORIGINS} 로 바꿉니다(점만 밑줄로 치환).
+     * 대시는 그대로 남아 셸 환경변수로 쓸 수 없습니다. 반면
+     * {@code docker-compose.yml} 과 {@code .env.example} 은
+     * {@code SONAR_CORS_ALLOWED_ORIGINS} 를 씁니다. 그래서 그 이름을
+     * 중첩 기본값으로 <b>명시적으로</b> 받습니다. 이렇게 하지 않으면
+     * 컨테이너에서 출처를 추가해도 <b>조용히 무시</b>됩니다.
+     *
+     * @param allowedOriginPatterns 허용 출처 패턴 (쉼표 구분 문자열)
      */
     public WebMvcConfig(
-            @Value("${sonar.cors.allowed-origins:http://localhost:5173,http://localhost:4173}"
-                    + ",http://127.0.0.1:5173}") String allowedOriginPatterns) {
+            @Value("${sonar.cors.allowed-origins:${SONAR_CORS_ALLOWED_ORIGINS:"
+                    + "http://localhost:5173,http://localhost:4173,"
+                    + "http://127.0.0.1:5173,http://127.0.0.1:4173}}")
+                    String allowedOriginPatterns) {
         this.allowedOriginPatterns = allowedOriginPatterns.split("\\s*,\\s*");
     }
 

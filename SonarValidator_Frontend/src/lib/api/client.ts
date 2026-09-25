@@ -75,6 +75,55 @@ interface RequestOptions {
    * 전부 401" 이 되는 증상이 나타납니다.
    */
   credentials?: RequestCredentials;
+  /**
+   * 요청 전체 제한 시간(ms)입니다. 기본값 {@link DEFAULT_TIMEOUT_MS}.
+   *
+   * <p>fetch 는 기본적으로 타임아웃이 없습니다. 그래서 서버가 응답하지
+   * 않으면 <b>영원히 pending</b> 이 되고, 그 promise 를 기다리는 화면은
+   * 스피너에 갇힙니다. (예: "로그인 상태를 확인하는 중..." 무한 표시)
+   * 여기서 시간을 끊어 오류로 바꿉니다.
+   */
+  timeoutMs?: number;
+  /**
+   * 복구 시도 횟수입니다.
+   *
+   * <p>기본값은 <b>GET 이면 {@link DEFAULT_RETRIES}, 그 외 메서드면 0</b>
+   * 입니다. POST 는 재전송하면 중복 생성/중복 처리가 될 수 있어 자동
+   * 재시도하지 않습니다.
+   *
+   * <p>백엔드(특히 Spring Boot)는 시작 직후 몇 초 동안 포트가 열려 있어도
+   * 응답하지 못합니다. 그 순간의 한 번 실패로 화면이 굳으면 안 되므로
+   * GET 은 타임아웃/일시적 서버 오류에 한해 짧게 재시도합니다.
+   */
+  retries?: number;
+}
+
+/** 요청 제한 시간 기본값(ms). 이 시간 안에 응답이 없으면 끊습니다. */
+const DEFAULT_TIMEOUT_MS = 8_000;
+
+/** GET 의 복구 시도 기본 횟수. 최초 시도를 포함해 최대 {@code retries + 1} 번 요청합니다. */
+const DEFAULT_RETRIES = 2;
+
+/** 재시도 사이 대기 시간(ms). */
+const RETRY_BASE_DELAY_MS = 400;
+
+/**
+ * 타임아웃 전용 표식 오류입니다.
+ *
+ * <p>{@code AbortController} 를 쓰면 "호출자가 취소" 와 "시간 초과" 를
+ * 구분할 수 없습니다. 그래서 시간이 다 되면 이 표식으로 abort 하고,
+ * catch 에서 이 표식 여부로 재시도 가능성을 판단합니다.
+ */
+class RequestTimeoutError extends Error {
+  constructor() {
+    super("request timed out");
+    this.name = "RequestTimeoutError";
+  }
+}
+
+/** {@code ms} 만큼 기다립니다. 재시도 백오프에 씁니다. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -97,45 +146,85 @@ function buildQuery(params?: RequestOptions["params"]): string {
 /**
  * 백엔드에 JSON 요청을 보냅니다.
  *
+ * <p>타임아웃과 재시도를 포함합니다. 서버가 응답하지 않을 때 promise 가
+ * 영원히 pending 이 되지 않도록 반드시 시간을 끊습니다.
+ *
  * @param path    `/api/v1/...` 로 시작하는 경로
- * @param options 메서드/본문/쿼리
+ * @param options 메서드/본문/쿼리/타임아웃
  * @returns 파싱된 응답 (빈 본문이면 null)
- * @throws ApiError 실패 시 (상태 코드 보존)
+ * @throws ApiError 실패 시 (상태 코드 보존, 시간 초과/연결 실패는 0)
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, params, credentials = "include" } = options;
+  const {
+    method = "GET",
+    body,
+    params,
+    credentials = "include",
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    // POST/PUT/PATCH/DELETE 는 중복 부작용을 피하려고 자동 재시도하지 않습니다.
+    retries = method === "GET" ? DEFAULT_RETRIES : 0,
+  } = options;
   const url = `${API_BASE_URL}${path}${buildQuery(params)}`;
+  const headers = body === undefined ? undefined : { "Content-Type": "application/json" };
+  const payloadBody = body === undefined ? undefined : JSON.stringify(body);
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method,
-      // 세션 쿠키를 주고받으려면 필수입니다. (다른 출처 + 세션 인증)
-      credentials,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch (cause) {
-    // fetch 는 네트워크 실패 시에만 던집니다. 백엔드가 꺼져 있으면 여기로 옵니다.
-    throw new ApiError(
-      0,
-      `백엔드에 연결할 수 없습니다 (${API_BASE_URL}). 서버가 실행 중인지 확인하세요.`,
-      cause,
-    );
+  const attempts = Math.max(0, retries) + 1;
+  let lastError: ApiError | null = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    // 요청마다 새 컨트롤러가 필요합니다. abort 된 컨트롤러는 재사용할 수 없습니다.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new RequestTimeoutError()), timeoutMs);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method,
+        // 세션 쿠키를 주고받으려면 필수입니다. (다른 출처 + 세션 인증)
+        credentials,
+        headers,
+        body: payloadBody,
+        signal: controller.signal,
+      });
+    } catch (cause) {
+      clearTimeout(timer);
+      // 시간 초과(AbortError + 표식) 또는 네트워크 실패입니다.
+      lastError = new ApiError(
+        0,
+        `백엔드에 연결할 수 없습니다 (${API_BASE_URL}). 서버가 실행 중인지 확인하세요.`,
+        cause,
+      );
+      if (attempt < attempts) {
+        await delay(RETRY_BASE_DELAY_MS * attempt);
+        continue;
+      }
+      throw lastError;
+    }
+    clearTimeout(timer);
+
+    const text = await response.text();
+    const payload = text ? safeParse(text) : null;
+
+    if (!response.ok) {
+      const detail =
+        (payload && typeof payload === "object" && "message" in payload
+          ? String((payload as { message: unknown }).message)
+          : null) ?? `${response.status} ${response.statusText}`;
+      // 500/502/503/504 는 백엔드가 기동 중일 때 흔하므로 재시도합니다.
+      // 4xx 는 요청 자체의 문제라 다시 보내도 같은 결과입니다.
+      if (response.status >= 500 && attempt < attempts) {
+        lastError = new ApiError(response.status, detail, payload);
+        await delay(RETRY_BASE_DELAY_MS * attempt);
+        continue;
+      }
+      throw new ApiError(response.status, detail, payload);
+    }
+
+    return payload as T;
   }
 
-  const text = await response.text();
-  const payload = text ? safeParse(text) : null;
-
-  if (!response.ok) {
-    const detail =
-      (payload && typeof payload === "object" && "message" in payload
-        ? String((payload as { message: unknown }).message)
-        : null) ?? `${response.status} ${response.statusText}`;
-    throw new ApiError(response.status, detail, payload);
-  }
-
-  return payload as T;
+  // 위 루프는 항상 return 하거나 throw 합니다. 여기는 타입 만족용입니다.
+  throw lastError ?? new ApiError(0, `요청에 실패했습니다 (${API_BASE_URL}).`);
 }
 
 /**
