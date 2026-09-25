@@ -3,16 +3,11 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import {
-  splitDisplayName,
-  useDisplayName,
-  useUserEmail,
-} from "../../lib/userInfo";
+import { splitDisplayName, useDisplayName } from "../../lib/userInfo";
 
 export default function UserInfoCard() {
   const { isOpen, openModal, closeModal } = useModal();
   const displayName = useDisplayName();
-  const userEmail = useUserEmail();
   const { first: firstName, last: lastName } = splitDisplayName(displayName);
   const handleSave = () => {
     // Handle save logic here
@@ -43,33 +38,6 @@ export default function UserInfoCard() {
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                 {lastName}
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Email address
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {userEmail}
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Phone
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                +09 363 398 46
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                직책
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Team Manager
               </p>
             </div>
           </div>
@@ -157,21 +125,6 @@ export default function UserInfoCard() {
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
                     <Input type="text" value={lastName} />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Email Address</Label>
-                    <Input type="text" value={userEmail} />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Phone</Label>
-                    <Input type="text" value="+09 363 398 46" />
-                  </div>
-
-                  <div className="col-span-2">
-                    <Label>직책</Label>
-                    <Input type="text" value="Team Manager" />
                   </div>
                 </div>
               </div>

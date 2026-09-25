@@ -3,16 +3,11 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import {
-  splitDisplayName,
-  useDisplayName,
-  useUserEmail,
-} from "../../lib/userInfo";
+import { splitDisplayName, useDisplayName } from "../../lib/userInfo";
 
 export default function UserMetaCard() {
   const { isOpen, openModal, closeModal } = useModal();
   const displayName = useDisplayName();
-  const userEmail = useUserEmail();
   const { first: firstName, last: lastName } = splitDisplayName(displayName);
   const handleSave = () => {
     // Handle save logic here
@@ -28,11 +23,6 @@ export default function UserMetaCard() {
               <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
                 {displayName}
               </h4>
-              <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Team Manager {/* 직책 프롭스로 따로 바꾸기*/}
-                </p>
-              </div>
             </div>
             {/* <div className="flex items-center order-2 gap-2 grow xl:order-3 xl:justify-end">
               <a
@@ -202,21 +192,6 @@ export default function UserMetaCard() {
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
                     <Input type="text" value={lastName} />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Email Address</Label>
-                    <Input type="text" value={userEmail} />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Phone</Label>
-                    <Input type="text" value="+09 363 398 46" />
-                  </div>
-
-                  <div className="col-span-2">
-                    <Label>직책</Label>
-                    <Input type="text" value="Team Manager" />
                   </div>
                 </div>
               </div>
