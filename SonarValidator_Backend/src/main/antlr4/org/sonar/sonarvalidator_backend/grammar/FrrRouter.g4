@@ -105,8 +105,16 @@ WS      : [ \t]+ -> skip ;
  * WORD 가 이기고 routeLine 이 genericLine 으로 떨어진다.
  *
  * 허용 코드: FRR K C S R O I B E N A D L T / Cisco L IA N1 N2 E1 E2 su L1 L2 o P a U H G M m i p s
+ *
+ * ⚠️ 2글자 코드 `IA` 를 `ROUTELETTER [0-9]?` 만으로는 잡지 못한다.
+ *    `ROUTELETTER [0-9]?` 는 1글자(+선택적 숫자)라서 `E1`/`N1`/`L2` 는 되지만
+ *    `IA` 는 **2글자 ATTRWORD 에 최장일치로 진다.** 그러면
+ *    `O IA 10.10.128.0/21 ...` 에서 routeCode+ 가 `O` 뒤에 `IA` 를 받지 못해
+ *    destination(ADDR) 앞에서 매칭이 깨지고 routeLine 전체가 genericLine 으로
+ *    떨어져 **조용히 0건**이 된다. (실측: Cisco OSPF inter-area 경로가 전부 누락)
+ *    ROUTECODE 는 ATTRWORD 보다 먼저 선언되므로, 2글자로 잡아 주면 동점에서 이긴다.
  */
-ROUTECODE : ROUTELETTER [0-9]? [*>&]*
+ROUTECODE : ( ROUTELETTER [0-9]? | 'IA' | 'ia' ) [*>&]*
           | [*>&]+ ;
 
 fragment ROUTELETTER
