@@ -33,7 +33,7 @@
 | Ubuntu-24-VM | `10.0.8.0/24` (Subnet A) | telnet `localhost:5021` | `ubuntu` | `$SONAR_UBUNTU_PW` | 미확인 (직접 라우팅 없음) |
 | Ubuntu-24-VM1 | `10.0.9.100` (Subnet B) | telnet `localhost:5027` | `ubuntu` | `$SONAR_UBUNTU_PW` | 미확인 (Arista 경유 필요) |
 | Management-Console | `10.20.0.3` | vnc `localhost:5900` | — | — | 테스트 실행 호스트 |
-| GNS3 호스트 | `192.168.122.1` | SSH `ssh1032007` | `ssh1032007` | (키 인증) | ⚠️ 키 미등록 |
+| GNS3 호스트 | `192.168.122.1` | SSH `ssh1032007` | `ssh1032007` | (키 인증) | ⚠️ **키 미등록** — 2026-09-26 재확인 |
 
 ### 1.1 GNS3 콘솔 포트 매핑
 
@@ -48,6 +48,43 @@
 > GNS3 호스트(`192.168.122.1`)에 SSH 로 들어간 뒤 `gns3_console.py` 로 접속해야 합니다.
 >
 > 현재 GNS3 호스트 SSH 키가 미등록이라 콘솔 경유 작업은 **보류** 상태입니다.
+
+### 1.1.1 GNS3 호스트 접속 상태 (2026-09-26 실측)
+
+| 확인 | 결과 |
+| --- | --- |
+| SSH 포트 22 | 열려 있음 |
+| 비밀번호 프롬프트 | **응답함** (키 등록 전에도 시도 가능) |
+| 공개키 인증 | ❌ 거부 — `Permission denied (publickey,password)` |
+| GNS3 콘솔 포트 5018/5038/5052/5021/5027 | **전부 closed** (`localhost` 바인딩) |
+
+**즉 GNS3 호스트가 콘솔 경유 작업의 유일한 관문**입니다.
+이 호스트에 접속하지 못하면 다음이 모두 막힙니다.
+
+- Cisco 8000v Agent 배포 (telnet 5018 → guestshell)
+- Ubuntu VM ×2 Agent 배포 (telnet 5021/5027)
+- 컨테이너 노드 접근 (docker exec)
+
+**해결 방법** — 아래 중 하나를 사용자가 실행합니다.
+
+```bash
+# 방법 1: 공개키 등록 (권장)
+ssh-copy-id ssh1032007@192.168.122.1
+
+# 방법 2: 비밀번호를 아는 경우 — 이 대화에 값을 붙이지 말고
+#         직접 로그인해 ~/.ssh/authorized_keys 에 추가
+ssh ssh1032007@192.168.122.1
+```
+
+등록 후 확인:
+
+```bash
+ssh -o BatchMode=yes ssh1032007@192.168.122.1 'echo OK'
+```
+
+> ⚠️ 콘솔 포트가 `localhost` 에만 바인딩되어 있으므로, 이 호스트에서
+> `python3 gns3_console.py <포트>` 를 실행해야 합니다.
+> (`deployment/_shared/gns3_console.py`)
 
 ### 1.2 Arista 접속 절차 (실측 확정)
 
