@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import Badge from "../ui/badge/Badge";
 import Branch_Divider from "../common/Branch_Divider";
 import OPNsenseConfigModal from "../opnsense/OPNsenseConfigModal";
+import { registerExpectedAgent, downloadAgentBundle } from "../../lib/api";
 
 /**
  * 프로젝트에 Agent(Prober)를 추가하는 카드입니다.
@@ -24,13 +25,15 @@ import OPNsenseConfigModal from "../opnsense/OPNsenseConfigModal";
  * 어떻게 넣는지 모릅니다. 그래서 장비를 고르면 <b>실제로 넣을 설정 파일
  * 내용</b>을 그대로 만들어 보여줍니다. 복사해서 그대로 쓸 수 있습니다.
  *
- * <h2>⚠️ 서버에 Agent 를 등록하지는 않습니다</h2>
- * 백엔드에는 Agent <b>등록 API 가 없습니다</b>
- * ({@code AgentStatusController} 는 조회/푸시만 제공). Agent 는 프로버가
- * 먼저 WebSocket 으로 접속해야 나타나므로, 여기서는 <b>배포에 필요한 값과
- * 파일을 안내하는 역할</b>만 합니다. OPNsense 만 예외로, 기존
- * 자격증명 API({@code PUT /api/v1/opnsense/credentials/{agentId}})를 실제로
- * 호출합니다.
+ * <h2>⚠️ 서버 등록은 이 카드가 책임집니다</h2>
+ * 배포 버튼을 눌러도 프로버가 아직 접속하지 않았다면 서버는 아무것도 모릅니다.
+ * 그래서 이 카드는 <b>배포 예정을 서버에 등록</b>
+ * ({@code POST /api/v1/agents/expected}) 합니다. 이 호출이 있어야 Agent 목록
+ * 화면에 장치가 <b>무응답</b> 상태로 미리 나타나고, 배포 실패와 배포 지연을
+ * 구분할 수 있습니다.
+ *
+ * <p>OPNsense 만 예외로, 프로버가 아니라 REST API 접속이므로 기존
+ * 자격증명 API({@code PUT /api/v1/opnsense/credentials/{agentId}}) 를 호출합니다.
  */
 
 /** 배포 가능한 장비 한 종류. */
@@ -107,7 +110,7 @@ export const AGENT_DEVICE_TYPES: AgentDeviceType[] = [
 ];
 
 export interface AgentDeployCardProps {
-  /** 카드가 속한 프로젝트 키. 제목/안내에 사용합니다. */
+  /** 카드가 속한 프로젝트 키. 제목/안내와 배포 예정 등록에 사용합니다. */
   projectId: string;
   /** 카드 접기 콜백. */
   onClose: () => void;
@@ -125,6 +128,25 @@ export interface AgentDeployCardProps {
   onCredentialSaved?: () => void;
   /** 오프라인 데이터 가져오기 화면으로 이동. 없으면 버튼을 숨깁니다. */
   onImportOffline?: () => void;
+}
+
+/**
+ * 장비와 프로젝트로 기본 Agent 이름을 만듭니다.
+ *
+ * <p>배포 스크립트가 쓰는 이름 규칙({@code <장치>-agent})과 맞춥니다.
+ * 이름을 자동으로 채워 주는 이유는, 사람이 매번 다른 이름을 지으면
+ * 목록과 장치가 서로 다른 말을 하게 되기 때문입니다.
+ *
+ * @param device 선택한 장비
+ * @param projectId 프로젝트 키 (프로젝트마다 다른 이름이 필요할 때 대비)
+ */
+function defaultAgentName(device: AgentDeviceType, projectId: string): string {
+  const base = device.label
+    .replace(/\s*\(for poc\)/i, "")
+    .trim()
+    .replace(/\s+/g, "-");
+  // 프로젝트가 여러 개면 같은 장비 이름이 겹칠 수 있으므로 앞머리를 붙입니다.
+  return projectId ? `${projectId}-${base}-agent` : `${base}-agent`;
 }
 
 /** 장비 카드 한 장. */
@@ -197,6 +219,22 @@ export default function AgentDeployCard({
   // 선택한 장비 (라벨로 보관해 장비 목록이 바뀌어도 깨지지 않게 합니다)
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
+  // 서버에 등록할 Agent 식별자. 프로버 `default.conf` 의 이름과 일치해야 합니다.
+  const [agentName, setAgentName] = useState("");
+  // 등록 상태: idle → saving → done/error
+  const [registerState, setRegisterState] = useState<
+    "idle" | "saving" | "done" | "error"
+  >("idle");
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  // 이미 등록한 식별자 목록. 중복 클릭과 같은 이름 재등록을 눈에 보이게 합니다.
+  const [registered, setRegistered] = useState<string[]>([]);
+
+  // 설치 번들(ZIP) 다운로드 상태: idle → downloading → done/error
+  const [bundleState, setBundleState] = useState<
+    "idle" | "downloading" | "done" | "error"
+  >("idle");
+  const [bundleError, setBundleError] = useState<string | null>(null);
+
   // OPNsense 자격증명 모달
   const [opnsenseOpen, setOpnsenseOpen] = useState(false);
   const [opnsenseAgentId, setOpnsenseAgentId] = useState("");
@@ -212,17 +250,65 @@ export default function AgentDeployCard({
    *
    * <p>값을 비워 두면 프로버 기본값을 그대로 씁니다. 사용자가 입력하지 않은
    * 항목을 임의로 채우면 "이 값이 어디서 왔는지" 를 알 수 없게 됩니다.
+   *
+   * <p>{@code AGENT_NAME} 은 프로버가 서버에 보고하는 식별자입니다. 여기 적은
+   * 이름과 서버에 등록한 이름이 <b>같아야</b> 배포 예정과 실제 연결이
+   * 한 줄로 합쳐집니다.
    */
   const configPreview = useMemo(() => {
     const serverIp = managementServerIPAddr.trim() || "localhost";
     const serverPort = managementServerPort.trim() || "3000";
+    const name = agentName.trim() || defaultAgentName(selected ?? AGENT_DEVICE_TYPES[0], projectId);
     return [
       "# agent 생성시 서버측에서 ip, port 인증서 등을 지정함",
       `SERVER_IP=${serverIp};`,
       `SERVER_PORT=${serverPort};`,
       `NODE_TYPE=${selected?.nodeType ?? "VM"};`,
+      `AGENT_NAME=${name};`,
     ].join("\n");
-  }, [managementServerIPAddr, managementServerPort, selected]);
+  }, [managementServerIPAddr, managementServerPort, selected, agentName, projectId]);
+
+  /**
+   * 설정이 미리 채워진 설치 번들을 내려받습니다.
+   *
+   * <h2>⚠️ 왜 손으로 값을 옮기지 않는가</h2>
+   * <p>위 미리보기의 값을 사람이 복사해 넣으면 {@code AGENT_NAME} 이
+   * "배포 예정" 등록 이름과 어긋나기 쉽습니다. 그러면 같은 장치가 목록에
+   * <b>두 줄</b>로 나타나고, 등록한 장치는 영원히 <b>무응답</b>으로 남습니다.
+   * 서버가 이미 아는 값(장치 유형·서버 주소·이름)을 서버가 채우면
+   * 어긋날 여지가 없습니다.
+   */
+  const handleDownloadBundle = async () => {
+    const agentId = agentName.trim();
+    if (agentId === "" || bundleState === "downloading") {
+      return;
+    }
+
+    setBundleState("downloading");
+    setBundleError(null);
+    try {
+      const { fileName, blob } = await downloadAgentBundle(agentId, {
+        nodeType: selected?.nodeType,
+        // 비워 두면 서버 기본값을 씁니다. 입력했다면 그 값을 우선합니다.
+        serverIp: managementServerIPAddr.trim() || undefined,
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      // Blob URL 은 명시적으로 해제해야 메모리가 회수됩니다.
+      URL.revokeObjectURL(url);
+      setBundleState("done");
+    } catch (cause) {
+      setBundleState("error");
+      setBundleError(
+        cause instanceof Error ? cause.message : "설치 번들을 내려받지 못했습니다.",
+      );
+    }
+  };
 
   const handleSelect = (device: AgentDeviceType) => {
     if (device.opensCredentialModal) {
@@ -232,6 +318,48 @@ export default function AgentDeployCard({
       return;
     }
     setSelectedLabel(device.label);
+    // 장비를 고르면 이름을 미리 채워 줍니다. 비워 두면 운영자는
+    // "무슨 이름을 지어야 하는지" 부터 고민하게 됩니다.
+    setAgentName((current) =>
+      current.trim() === "" ? defaultAgentName(device, projectId) : current,
+    );
+    setRegisterState("idle");
+    setRegisterError(null);
+  };
+
+  /**
+   * 배포 예정을 서버에 기록합니다.
+   *
+   * <p>성공하면 목록 화면에 장치가 보입니다. 실패해도 프로버 배포 자체는
+   * 막지 않습니다 — 등록은 <b>가시성</b>을 위한 것이므로, 그것 때문에
+   * 현장 작업을 멈추는 것은 과합니다. 대신 오류를 그대로 보여줍니다.
+   */
+  const handleRegister = async () => {
+    const agentId = agentName.trim();
+    if (agentId === "" || registerState === "saving") {
+      return;
+    }
+
+    setRegisterState("saving");
+    setRegisterError(null);
+    try {
+      await registerExpectedAgent(agentId, {
+        projectId,
+        deviceType: selected?.nodeType,
+        nodeType: selected?.nodeType,
+        expectedIp: managementServerIPAddr.trim() || undefined,
+        note: selected?.label,
+      });
+      setRegistered((current) =>
+        current.includes(agentId) ? current : [...current, agentId],
+      );
+      setRegisterState("done");
+    } catch (cause) {
+      setRegisterState("error");
+      setRegisterError(
+        cause instanceof Error ? cause.message : "서버에 등록하지 못했습니다.",
+      );
+    }
   };
 
   return (
@@ -311,6 +439,61 @@ export default function AgentDeployCard({
             </Badge>
           </div>
 
+          {/* Agent 이름 + 서버 등록. 이 두 가지가 있어야 목록에 나타납니다. */}
+          <div className="mb-4 rounded-lg border border-brand-200 bg-brand-50/60 p-3 dark:border-brand-500/30 dark:bg-brand-500/10">
+            <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200">
+              Agent 이름 (서버 등록 + default.conf 에 함께 들어갑니다)
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={agentName}
+                onChange={(e) => {
+                  setAgentName(e.target.value);
+                  setRegisterState("idle");
+                }}
+                placeholder="예: VDI-1-agent"
+                className="min-w-[200px] flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-xs text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={handleRegister}
+                disabled={agentName.trim() === "" || registerState === "saving"}
+                title={
+                  agentName.trim() === ""
+                    ? "Agent 이름을 먼저 입력하세요"
+                    : "배포 예정으로 서버에 등록합니다"
+                }
+                className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+              >
+                {registerState === "saving"
+                  ? "등록 중..."
+                  : registered.includes(agentName.trim())
+                    ? "다시 등록"
+                    : "서버에 등록"}
+              </button>
+            </div>
+
+            {registerState === "done" && (
+              <p className="mt-2 text-[11px] text-success-600 dark:text-success-400">
+                ✓ <span className="font-mono">{agentName.trim()}</span> 을(를) 배포
+                예정으로 등록했습니다. Agent 목록 화면에서 <b>무응답</b> 상태로
+                보이며, 프로버가 접속하면 자동으로 <b>연결됨</b> 으로 바뀝니다.
+              </p>
+            )}
+            {registerState === "error" && (
+              <p className="mt-2 text-[11px] text-error-600 dark:text-error-400">
+                등록하지 못했습니다: {registerError}
+              </p>
+            )}
+            {registered.length > 0 && (
+              <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                이번 세션에서 등록:{" "}
+                <span className="font-mono">{registered.join(", ")}</span>
+              </p>
+            )}
+          </div>
+
           <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
             프로버의{" "}
             <code className="font-mono">Installer/default.conf</code> 에 아래 값을
@@ -320,6 +503,42 @@ export default function AgentDeployCard({
           <pre className="overflow-x-auto rounded bg-gray-50 p-3 font-mono text-[11px] text-gray-700 dark:bg-gray-900 dark:text-gray-200">
             {configPreview}
           </pre>
+
+          {/* 설정을 손으로 옮기지 않도록 서버가 채운 번들을 내려줍니다. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadBundle}
+              disabled={agentName.trim() === "" || bundleState === "downloading"}
+              title={
+                agentName.trim() === ""
+                  ? "Agent 이름을 먼저 입력하세요 (배포 예정 등록 이름과 같아야 합니다)"
+                  : "default.conf / README.txt / 스크립트가 담긴 ZIP 을 내려받습니다"
+              }
+              className="rounded-lg bg-brand-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {bundleState === "downloading"
+                ? "번들 생성 중..."
+                : "설정 포함 설치 번들 받기 (ZIP)"}
+            </button>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+              서버가 <b>이 장치에 맞는 값</b>을 채워 넣습니다. 손으로 옮기면
+              AGENT_NAME 이 어긋나 같은 장치가 두 줄로 보일 수 있습니다.
+            </span>
+          </div>
+
+          {bundleState === "done" && (
+            <p className="mt-2 text-[11px] text-success-600 dark:text-success-400">
+              ✓ 설치 번들을 내려받았습니다. 안에 있는{" "}
+              <span className="font-mono">README.txt</span> 를 순서대로 따르세요.
+              바이너리는 번들에 없고 서버에서 HTTP 로 내려받습니다.
+            </p>
+          )}
+          {bundleState === "error" && (
+            <p className="mt-2 text-[11px] text-error-600 dark:text-error-400">
+              번들을 만들지 못했습니다: {bundleError}
+            </p>
+          )}
 
           {/* 배포 뒤 갈래 — 배포 화면과 같은 기준으로 안내합니다. */}
           <div className="my-4">

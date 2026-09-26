@@ -9,17 +9,41 @@
  * <h2>base URL 결정 순서</h2>
  * <ol>
  *   <li>{@code VITE_API_BASE_URL} 환경변수 (배포 시 주입)</li>
- *   <li>개발 기본값 {@code http://localhost:3000} — Agent 가 붙는 포트와 동일</li>
+ *   <li>개발 기본값 — {@code http://<현재 호스트>:3000}</li>
  * </ol>
  *
- * <p>Vite 개발 서버(5173)와 백엔드(3000)가 다르므로 개발 중에는 CORS 가
+ * <h2>⚠️ 왜 "현재 호스트" 를 쓰는가 (localhost 하드코딩 금지)</h2>
+ * <p>처음에는 {@code http://localhost:3000} 으로 고정했습니다. 그런데 브라우저가
+ * {@code http://127.0.0.1:5173} 으로 접속하면 <b>호스트 이름이 다르므로</b>
+ * 백엔드(3000)와 <b>cross-site</b> 가 됩니다. 세션 쿠키가
+ * {@code SameSite=Lax} 라서 cross-site 요청에는 실리지 않고, 결과는
+ * <b>"로그인은 되는데 그 이후 모든 요청이 401"</b> 입니다.
+ *
+ * <p>원격 개발 환경(VS Code 포트 포워딩)이나 {@code 127.0.0.1} 로 직접 접속하는
+ * 경우가 드물지 않으므로, 현재 페이지와 <b>같은 호스트</b>를 기본으로 씁니다.
+ * 그러면 localhost 로 열든 127.0.0.1 로 열든 항상 same-site 가 됩니다.
+ *
+ * <p>Vite 개발 서버(5173)와 백엔드(3000)는 포트가 다르므로 여전히 CORS 가
  * 필요합니다. 백엔드는 WebSocket 핸들러가 있는 같은 앱이라
- * {@code WebMvcConfigurer} 로 CORS 를 열어 두었습니다.
+ * {@code WebMvcConfigurer} 로 CORS 를 열어 두었고, localhost 와 127.0.0.1
+ * <b>양쪽</b>을 허용합니다.
  */
+
+/**
+ * 현재 페이지의 호스트 이름입니다. (SSR/테스트 환경에서는 localhost)
+ *
+ * @returns 예: {@code "localhost"}, {@code "127.0.0.1"}
+ */
+function currentHostname(): string {
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return window.location.hostname;
+  }
+  return "localhost";
+}
 
 /** API base URL 입니다. 끝의 슬래시는 제거합니다. */
 export const API_BASE_URL: string = (
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"
+  import.meta.env.VITE_API_BASE_URL ?? `http://${currentHostname()}:3000`
 ).replace(/\/+$/, "");
 
 /**

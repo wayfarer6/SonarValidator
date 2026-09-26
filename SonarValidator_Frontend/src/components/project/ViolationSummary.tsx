@@ -28,18 +28,21 @@ const SEVERITY_BADGE: Record<ViolationSeverity, { color: "error" | "warning" | "
 /**
  * 망분리 검증 결과 요약 패널입니다.
  *
- * <h2>BDD 검증 결과를 어떻게 보여주는가</h2>
+ * <h2>무엇을 보여주는가</h2>
  * 단순히 "위반 N건" 만 보여주면 운영자는 무엇을 고쳐야 할지 알 수 없습니다.
  * 그래서 세 가지를 함께 보여줍니다.
  *
  * <ol>
  *   <li><b>심각도별 집계</b>: 즉시 조치할 것(Critical)과 검토할 것(Major)을 분리</li>
- *   <li><b>반례 패킷</b>: "이 주소에서 이 주소로 가는 패킷이 위반" — 재현 가능한 예시</li>
- *   <li><b>BDD 지표</b>: 허용 조합 수와 노드 수 (분석 신뢰도 확인용)</li>
+ *   <li><b>금지된 연결 경로</b>: "어느 서브넷에서 어느 서브넷으로" 가 막히는지</li>
+ *   <li><b>반례 패킷</b>: 그 연결이 실제로 성립하는 구체적 패킷 주소</li>
  * </ol>
  *
- * <p>{@code metrics} 는 검증이 실제로 집합 연산으로 돌았다는 증거입니다.
- * 노드 수가 규칙 수에 비해 작으면 BDD 압축이 잘 되었다는 뜻입니다.
+ * <h2>⚠️ BDD 내부 지표를 뺀 이유</h2>
+ * <p>예전에는 노드 수 / 허용 조합 같은 BDD 내부 수치를 접어서 보여줬습니다.
+ * 운영자에게 필요한 것은 <b>고칠 대상</b>이지, 판정 엔진이 몇 개 노드를
+ * 썼는지가 아닙니다. 숫자가 많으면 오히려 "어디를 봐야 하나" 를 방해합니다.
+ * 엔진 내부 수치는 서버 로그로 남기고 화면에서는 뺐습니다.
  */
 export default function ViolationSummary({
   report,
@@ -192,37 +195,33 @@ export default function ViolationSummary({
         </ul>
       )}
 
-      {/* BDD 지표: 검증이 집합 연산으로 돌았다는 증거 */}
-      {Object.keys(report.metrics).length > 0 && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-[11px] font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-            BDD 분석 지표 보기
-          </summary>
-          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-600 dark:text-gray-300 sm:grid-cols-3">
-            <MetricRow label="BDD 변수" value={report.metrics["bdd_variables"]} />
-            <MetricRow label="허용 노드" value={report.metrics["bdd_nodes_allowed"]} />
-            <MetricRow label="금지 노드" value={report.metrics["bdd_nodes_forbidden"]} />
-            <MetricRow label="위반 노드" value={report.metrics["bdd_nodes_violating"]} />
-            <MetricRow label="허용 조합" value={report.metrics["allowed_combinations"]} />
-            <MetricRow label="위반 조합" value={report.metrics["violating_combinations"]} />
-          </div>
-          <p className="mt-2 text-[10px] text-gray-400">
-            BDD(이진 결정 다이어그램)로 패킷 집합을 표현해 위반 여부를 집합 연산으로
-            판정합니다. 노드 수가 규칙 수에 비해 작으면 중복 함수가 잘 공유되었다는 뜻입니다.
-          </p>
-        </details>
+      {/* 금지된 연결 경로 — 운영자가 고쳐야 할 대상 */}
+      {report.violations.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {report.violations.map((violation, index) => (
+            <li
+              key={`${violation.rule_id}-${index}`}
+              className="flex items-start gap-2 rounded-lg bg-white/70 px-2.5 py-2 text-xs dark:bg-black/20"
+            >
+              <Badge size="sm" color={SEVERITY_BADGE[violation.severity].color}>
+                {violation.severity}
+              </Badge>
+              <div className="min-w-0 flex-1">
+                {/* 사유가 "Subnet A -> Subnet B 연결은 허용되지 않습니다" 형태입니다. */}
+                <p className="font-medium text-gray-800 dark:text-white/90">
+                  {violation.reason}
+                </p>
+                <p className="mt-0.5 font-mono text-[10px] text-gray-500 dark:text-gray-400">
+                  {violation.rule_id}
+                  {violation.sampled_packet && violation.sampled_packet !== "- -> -"
+                    ? ` · ${violation.sampled_packet}`
+                    : ""}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
-  );
-}
-
-/** 지표 한 줄을 렌더링합니다. */
-function MetricRow({ label, value }: { label: string; value: number | string | undefined }) {
-  if (value === undefined) return null;
-  return (
-    <div className="flex justify-between gap-2">
-      <span className="text-gray-400">{label}</span>
-      <span className="font-mono">{String(value)}</span>
     </div>
   );
 }

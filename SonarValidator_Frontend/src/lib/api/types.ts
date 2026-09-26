@@ -150,6 +150,15 @@ export interface ApiTopologyNode {
   level: number | null;
   agent_id: string | null;
   manually_edited: boolean;
+  /**
+   * 이 서브넷을 관리하는 Agent 가 지금 격리 중인지.
+   *
+   * <p>등급 색보다 <b>우선</b>합니다. 운영자가 조치 중인 장치는 무슨 등급이든
+   * 빨간색으로 보여야 "내가 이걸 껐다" 는 사실이 화면에서 확인됩니다.
+   */
+  quarantined?: boolean;
+  /** Agent 의 WebSocket 세션이 살아 있는지. */
+  connected?: boolean;
 }
 
 /** 토폴로지 간선 (연결 규칙). */
@@ -236,6 +245,59 @@ export interface ApiAgentList {
   total_policy_requests: number;
   server_time: string;
   agents: ApiAgentSummary[];
+}
+
+/**
+ * 서버가 아는 장치 한 대의 <b>통합</b> 상태입니다.
+ *
+ * <h2>왜 "예정" 과 "실제" 를 한 줄에 담는가</h2>
+ * <p>배포 버튼을 누른 순간부터 프로버가 첫 텔레메트리를 보낼 때까지
+ * 수 분의 공백이 있습니다. 그 사이에 화면이 아무것도 못 보여주면 운영자는
+ * 배포가 실패했다고 판단합니다. 그래서 배포 <b>예정</b>을 서버에 남기고,
+ * 그 위에 실제 연결/수신 상태를 겹쳐 한 줄로 보여줍니다.
+ *
+ * <h2>{@link ApiAgentSummary} 와의 차이</h2>
+ * <p>{@code ApiAgentSummary} 는 "지금 연결된 Agent" 만 담습니다.
+ * 이 타입은 예정 ∪ 연결 ∪ 텔레메트리의 합집합입니다.
+ *
+ * @property state 서버가 계산한 대표 상태
+ * @property expected 배포 예정 목록에 있었는지 (false 면 예정에 없이 붙은 장치)
+ */
+export interface ApiAgentOverview {
+  agent_id: string;
+  project_id: string | null;
+  device_type: string | null;
+  node_type: string | null;
+  expected_ip: string | null;
+  registered_at: string | null;
+  /** 지금 WebSocket 세션이 살아 있는지. */
+  connected: boolean;
+  /** 텔레메트리를 한 번이라도 보냈는지. */
+  telemetry_seen: boolean;
+  expected: boolean;
+  state: "connected" | "telemetry-only" | "silent" | "unregistered";
+}
+
+/** 통합 장치 현황 응답. 기존 요약 키를 함께 담습니다. */
+export interface ApiAgentOverviewList {
+  total: number;
+  expected_total: number;
+  connected: number;
+  silent: number;
+  agents: ApiAgentOverview[];
+  /** 기존 키 호환 — 연결된 Agent 식별자 목록. */
+  total_policy_requests?: number;
+  server_time?: string;
+}
+
+/** 배포 예정 등록 결과. */
+export interface ApiExpectedAgentRegistered {
+  agent_id: string;
+  project_id: string | null;
+  device_type: string | null;
+  node_type: string | null;
+  status: string;
+  registered: boolean;
 }
 
 /** 라우팅 테이블 한 줄. */
@@ -343,4 +405,84 @@ export interface ApiComplianceChanges {
   agent_id: string | null;
   total: number;
   changes: ApiComplianceChange[];
+}
+
+// ---------------------------------------------------------------------------
+// 격리 (Quarantine)
+// ---------------------------------------------------------------------------
+
+/**
+ * 격리 상태 한 건입니다.
+ *
+ * <h2>{@code command_delivered} 와 {@code applied} 는 다른 값입니다</h2>
+ * <p>{@code command_delivered} 는 서버가 <b>소켓에 써 넣었는지</b>,
+ * {@code applied} 는 Agent 가 <b>실제로 인터페이스를 내렸는지</b> 입니다.
+ * 서버는 장치 내부를 볼 수 없으므로 이 둘을 구분해 보여줍니다.
+ * 둘이 다르면 "장치는 살아 있는데 서버는 격리됐다고 믿는" 위험한 상태입니다.
+ *
+ * @property applied ack 로 확인된 적용 결과 ({@code null} = 아직 ack 없음)
+ * @property rejected 서버가 격리 자체를 <b>거부</b>했는지 (방화벽 등)
+ */
+export interface ApiQuarantineState {
+  agent_id: string;
+  project_id: string | null;
+  reason: string | null;
+  requested_by: string | null;
+  command_delivered: boolean;
+  quarantined_at: string | null;
+  released_at: string | null;
+  released_by: string | null;
+  active: boolean;
+  /** 이번 요청에서 명령이 전달됐는지 (isolate 응답에만 있음). */
+  delivered?: boolean;
+  /** 이미 격리 중이었는지 (isolate 응답에만 있음). */
+  retry?: boolean;
+  /** Agent ack 로 확인된 실제 적용 결과. {@code null} 이면 미확인. */
+  applied?: boolean | null;
+  applied_detail?: string | null;
+  /**
+   * 서버가 요청을 <b>거부</b>했는지.
+   *
+   * <p>방화벽은 격리 대상이 아닙니다 — 트렁크(eth1)에 VLAN
+   * 131/132/133 이 동시에 붙어 있어, 인터페이스를 내리면 무관한 존
+   * 전체가 끊깁니다. 이 경우 서버는 행을 만들지 않고
+   * {@code rejected: true} 와 사유를 돌려줍니다.
+   *
+   * <p>⚠️ {@code rejected} 를 확인하지 않고 "성공" 으로 표시하면
+   * 운영자는 뚫린 망을 방치합니다.
+   */
+  rejected?: boolean;
+  /** 거부 사유 (사람이 읽는 문장). */
+  hint?: string;
+  /** 서버가 판별한 장치 유형 (거부 응답에만 있음). */
+  device_type?: string;
+  available?: unknown;
+  blocked?: unknown;
+  preserved?: unknown;
+  connected?: boolean;
+  /** 명령 미전달 시 이유 설정 (isolate 응답에만 있음). */
+  warning?: string;
+}
+
+/** 격리하면서 해제한 결과입니다. */
+export interface ApiQuarantineRelease {
+  agent_id: string;
+  /** 격리 중이 아니어서 아무것도 하지 않았으면 {@code false}. */
+  released: boolean;
+  reason?: string;
+}
+
+/** 현재 격리 중인 목록. */
+export interface ApiQuarantineList {
+  project_id: string | null;
+  total: number;
+  agent_ids: string[];
+  quarantined: ApiQuarantineState[];
+}
+
+/** 한 Agent 의 격리 여부 + 이력. */
+export interface ApiQuarantineStatus {
+  agent_id: string;
+  quarantined: boolean;
+  history: ApiQuarantineState[];
 }

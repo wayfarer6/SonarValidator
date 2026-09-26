@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router";
 import { useApi } from "../../hooks/useApi";
+import { usePolling } from "../../hooks/usePolling";
 import Badge from "../ui/badge/Badge";
 import {
   listUnreadNotifications,
@@ -27,6 +28,18 @@ import type { ApiNotification } from "../../lib/api/types";
  * <h2>⚠️ 읽음 처리 성공 후에만 새로고침하는 이유</h2>
  * 실패했는데 화면만 지우면, 다시 열었을 때 알림이 되돌아와 "왜 안 사라지지"
  * 가 됩니다. 서버 요청이 성공한 뒤 목록을 다시 읽습니다.
+ *
+ * <h2>⚠️ 폴링을 붙인 이유 (경고 전파)</h2>
+ * <p>Agent 가 위반을 감지하면 서버가 알림을 적재합니다. 그런데 이 컴포넌트는
+ * <b>드롭다운을 열 때만</b> 갱신했습니다. 그래서 운영자가 헤더의 빨간 배지를
+ * 보지 못하고 화면을 계속 쳐다보지 않는 한 위반 사실을 모릅니다.
+ *
+ * <p>실시간 채널 대신 <b>15초 폴링</b>을 씁니다. 경고는 사람이 읽고 판단하는
+ * 정보라 분 단위 신선도로 충분하고, 새 채널을 만드는 비용이 그 이득보다
+ * 큽니다. ({@link usePolling} 참고)
+ *
+ * <p>멈추는 조건: 탭이 숨겨지면 폴링이 자동으로 멈춥니다. 다시 보이면
+ * 즉시 한 번 갱신합니다.
  */
 
 /**
@@ -59,6 +72,10 @@ export default function NotificationDropdown() {
   const unread = useApi(() => listUnreadNotifications(5), []);
   const notifications = unread.data?.notifications ?? [];
   const unreadCount = unread.data?.unread ?? 0;
+
+  // 경고 전파: 드롭다운을 열지 않아도 배지가 스스로 갱신되게 합니다.
+  // 드롭다운이 열려 있으면 사용자가 보고 있으므로 주기를 짧게 가져갑니다.
+  usePolling(() => unread.reload(), isOpen ? 5_000 : 15_000);
 
   const [busyId, setBusyId] = useState<string | null>(null);
 

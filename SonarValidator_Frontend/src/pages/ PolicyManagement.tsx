@@ -6,7 +6,12 @@ import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
 import { useApi } from "../hooks/useApi";
 import { useApiAction } from "../hooks/useApiAction";
-import { getPolicyViolations, pushPolicy } from "../lib/api";
+import {
+  getPolicyViolations,
+  listQuarantined,
+  pushPolicy,
+  releaseQuarantine,
+} from "../lib/api";
 import { listProjects } from "../lib/api/projects";
 import type { ApiPolicyViolations, ViolationSeverity } from "../lib/api/types";
 
@@ -33,6 +38,12 @@ const SEVERITY_COLOR: Record<ViolationSeverity, "error" | "warning" | "info"> = 
  *
  * <p>위반을 없애는 작업은 프로젝트 편집 화면에서 합니다. 이 화면은 <b>현황
  * 파악과 적용</b>에 집중하고, "편집" 링크로 편집 화면을 안내합니다.
+ *
+ * <h2>⚠️ 격리 버튼이 Agent 화면에도 있는 이유</h2>
+ * <p>같은 조치를 두 곳에 둔 것은 중복이 아니라 <b>동선</b> 때문입니다.
+ * 위반을 발견한 자리(이 화면)에서 바로 조치할 수 있어야 하고,
+ * 장치 상태를 보는 자리(Agent 화면)에서도 조치할 수 있어야 합니다.
+ * 둘 다 같은 API 를 부르고 서버가 진실을 가지므로 어긋나지 않습니다.
  */
 export default function PolicyManagement() {
   const [searchParams] = useSearchParams();
@@ -59,6 +70,50 @@ export default function PolicyManagement() {
   const pushAction = useApiAction((force: boolean) =>
     activeProjectId ? pushPolicy(activeProjectId, force) : Promise.resolve({}),
   );
+
+  // 격리 중인 장치: 위반을 발견한 자리에서 바로 조치할 수 있게 합니다.
+  const quarantine = useApi(
+    () => (activeProjectId ? listQuarantined(activeProjectId) : Promise.resolve(null)),
+    [activeProjectId],
+  );
+  /** 해제 진행 중인 Agent 식별자. */
+  const [releasing, setReleasing] = useState<string | null>(null);
+  /** 해제 결과/오류 메시지. */
+  const [releaseNote, setReleaseNote] = useState<string | null>(null);
+
+  /**
+   * 격리를 해제합니다.
+   *
+   * <p>해제 후 <b>두 목록을 모두</b> 새로고침합니다. 격리 목록만 갱신하면
+   * 위반 현황은 "격리됨" 을 반영하지 않은 채 남아 화면이 서로 모순됩니다.
+   *
+   * @param agentId 해제할 Agent
+   */
+  const handleRelease = async (agentId: string) => {
+    if (releasing !== null) return;
+    setReleasing(agentId);
+    setReleaseNote(null);
+    try {
+      const result = await releaseQuarantine(agentId);
+      setReleaseNote(
+        // `released === false` 로만 "아니었다" 를 판정합니다.
+        // 키가 없을 때(구버전 서버) 성공을 실패로 뒤집어 말하지 않도록.
+        result.released === false
+          ? `${agentId} 는 격리 중이 아니었습니다.`
+          : `${agentId} 의 격리를 해제했습니다.`,
+      );
+      quarantine.reload();
+      violations.reload();
+    } catch (cause) {
+      setReleaseNote(
+        cause instanceof Error ? cause.message : "격리 해제에 실패했습니다.",
+      );
+    } finally {
+      setReleasing(null);
+    }
+  };
+
+  const quarantined = quarantine.data?.quarantined ?? [];
 
   const report = violations.data ?? null;
 
@@ -152,6 +207,73 @@ export default function PolicyManagement() {
 
             {report && (
               <>
+                {/* 격리 중인 장치 — 위반 목록보다 먼저 보여줍니다.
+                    이미 조치한 것을 "아직 위반" 처럼 다시 보게 하지 않기 위함입니다. */}
+                {quarantined.length > 0 && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-red-700 dark:text-red-300">
+                        🛑 격리 중인 장치 {quarantined.length}대
+                      </h4>
+                      <span className="text-[11px] text-red-600 dark:text-red-400">
+                        관리 경로를 제외한 모든 데이터 인터페이스가 내려가 있습니다
+                      </span>
+                    </div>
+                    <ul className="mt-3 space-y-2">
+                      {quarantined.map((state) => (
+                        <li
+                          key={state.agent_id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2.5 dark:bg-white/[0.03]"
+                        >
+                          <div className="min-w-0">
+                            <span className="font-mono text-xs font-medium text-gray-800 dark:text-white/90">
+                              {state.agent_id}
+                            </span>
+                            {state.reason && (
+                              <span className="ml-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                {state.reason}
+                              </span>
+                            )}
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {/* 명령 전달 여부와 실제 적용 여부는 다른 사실입니다. */}
+                              <Badge
+                                size="sm"
+                                color={state.command_delivered ? "success" : "warning"}
+                              >
+                                {state.command_delivered ? "명령 전달됨" : "명령 미전달"}
+                              </Badge>
+                              {state.applied === true && (
+                                <Badge size="sm" color="success">
+                                  장치 적용 확인
+                                </Badge>
+                              )}
+                              {state.applied === false && (
+                                <Badge size="sm" color="error">
+                                  적용 실패
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={releasing !== null}
+                            onClick={() => handleRelease(state.agent_id)}
+                          >
+                            {releasing === state.agent_id ? "해제 중..." : "해제"}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {releaseNote && (
+                  <p className="rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-xs text-gray-700 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-300">
+                    {releaseNote}
+                  </p>
+                )}
+
                 {/* 헤더 + 요약 */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4 dark:border-gray-800">
                   <div>
@@ -279,20 +401,12 @@ export default function PolicyManagement() {
                   </div>
                 )}
 
-                {/* BDD 지표 */}
-                <details className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                  <summary className="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300">
-                    BDD 분석 지표
-                  </summary>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-600 dark:text-gray-300 sm:grid-cols-4">
-                    {Object.entries(report.metrics).map(([key, value]) => (
-                      <div key={key} className="flex justify-between gap-2">
-                        <span className="text-gray-400">{key}</span>
-                        <span className="font-mono">{String(value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </details>
+                {/*
+                  BDD 내부 지표(노드 수 / 조합 수)는 화면에서 뺐습니다.
+                  운영자가 고칠 대상은 위반 테이블의 연결 경로이지,
+                  판정 엔진이 몇 개 노드를 썼는지가 아닙니다.
+                  엔진 수치는 서버 로그로 확인할 수 있습니다.
+                */}
 
                 {/* 푸시 결과 */}
                 {pushAction.result && (

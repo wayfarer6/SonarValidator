@@ -4,37 +4,56 @@ import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
 import { useApi } from "../hooks/useApi";
-import { getAllDiscoveredDevices, listAgents } from "../lib/api";
+import {
+  getAllDiscoveredDevices,
+  listAgentOverview,
+  listQuarantined,
+  quarantineAgent,
+  releaseQuarantine,
+} from "../lib/api";
 import { API_BASE_URL } from "../lib/api/client";
 import { downloadSnapshot } from "../lib/api/offline";
-import type { ApiDiscoveredDevice } from "../lib/api/types";
+import type { ApiDiscoveredDevice, ApiQuarantineState } from "../lib/api/types";
 
 /**
  * Agent 목록 화면입니다.
  *
  * <h2>더미 데이터에서 서버 연동으로</h2>
  * 이 화면은 이전에 TailAdmin 의 프로필 카드들을 그대로 렌더링하는 스텁이었고
- * Agent 정보가 전혀 없었습니다. 이제 두 API 를 합쳐 보여줍니다.
+ * Agent 정보가 전혀 없었습니다. 이제 세 API 를 합쳐 보여줍니다.
  *
  * <ul>
- *   <li>{@code GET /api/v1/agents} — 지금 WebSocket 으로 연결된 Agent</li>
+ *   <li>{@code GET /api/v1/agents/overview} — 배포 예정 ∪ 연결 ∪ 텔레메트리</li>
  *   <li>{@code GET /api/v1/network/discovered} — 실제로 수신된 설정</li>
  * </ul>
  *
- * <p>두 정보를 합치는 이유: "연결은 됐는데 텔레메트리가 없는 Agent" 를
- * 구분해야 하기 때문입니다. 이 상태는 서버 푸시는 되지만 수집이 안 되는
- * 것이므로, 운영자가 바로 알아야 할 신호입니다.
- * (과거에 Tomcat WebSocket 버퍼 크기 때문에 정확히 이 증상이 발생했습니다.)
+ * <h2>⚠️ 연결 목록({@code /api/v1/agents})을 1차 자료로 쓰지 않은 이유</h2>
+ * <p>그 엔드포인트는 <b>지금 살아 있는 WebSocket 세션</b>만 돌려줍니다.
+ * 그래서 배포 직후(첫 접속 전)와 네트워크 단절 중에는 <b>목록이 0건</b>이
+ * 됩니다. 운영자는 그것을 "아무것도 배포되지 않았다" 로 읽습니다.
+ * 통합 현황은 배포 예정을 알고 있으므로 그 공백을 {@code 무응답} 같은
+ * 상태로 드러냅니다.
  *
  * <h2>설정 내보내기 (내려받기)</h2>
  * <p>각 Agent 의 설정을 오프라인 스냅샷 형식으로 내려받을 수 있습니다.
  * 다른 랩으로 옮기거나 백업을 남길 때 필요하고, 그 파일을 다시
  * "Import Offline Prober Data" 카드에 올리면 복원됩니다.
  * (왕복이 되어야 백업이므로 서버는 원본 텔레메트리 payload 를 그대로 싣습니다.)
+ *
+ * <h2>⚠️ 격리 버튼이 이 화면에 있는 이유</h2>
+ * <p>격리는 판단이 아니라 <b>조치</b>이고, 조치는 사람이 누릅니다. 그래서 이 화면은
+ * "무슨 일이 일어났나"(위반·경고)와 "지금 내가 뭘 할 수 있나"(격리/해제)를
+ * 한 곳에 둡니다. 위반 목록을 보다가 다른 화면으로 이동해 조치하는 흐름은
+ * 조치를 미루게 만듭니다.
+ *
+ * <p>⚠️ 격리는 <b>업무망 트래픽을 끊습니다.</b> 그래서 버튼은 한 번 더
+ * 확인({@code window.confirm})을 받습니다. 이 장치는 관리망 경로만 남기고
+ * 모든 데이터 인터페이스가 내려갑니다.
  */
 export default function Agent() {
-  const agents = useApi(() => listAgents(), []);
+  const overview = useApi(() => listAgentOverview(), []);
   const discovered = useApi(() => getAllDiscoveredDevices(), []);
+  const quarantine = useApi(() => listQuarantined(), []);
 
   const [onlyIssues, setOnlyIssues] = useState(false);
 
@@ -42,6 +61,23 @@ export default function Agent() {
   const [downloading, setDownloading] = useState<string | null>(null);
   /** 내려받기 실패 메시지 (Agent 별). */
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  /** 격리/해제 진행 중인 Agent 식별자. */
+  const [quarantining, setQuarantining] = useState<string | null>(null);
+  /**
+   * 마지막 격리/해제 결과 메시지입니다.
+   *
+   * <p>조용히 성공하면 운영자는 "눌렀는데 아무 일도 안 일어났다" 로 읽습니다.
+   * 특히 장치가 미연결이면 명령이 전달되지 않으므로 그 사실을 반드시 보여야 합니다.
+   */
+  const [quarantineMessage, setQuarantineMessage] = useState<string | null>(null);
+  const [quarantineError, setQuarantineError] = useState<string | null>(null);
+
+  /** 격리 중인 Agent 식별자 집합. (화면 표시용) */
+  const quarantinedIds = useMemo(
+    () => new Set(quarantine.data?.agent_ids ?? []),
+    [quarantine.data],
+  );
 
   /** Agent 식별자 → 수집 설정 */
   const configByAgent = useMemo(() => {
@@ -54,25 +90,30 @@ export default function Agent() {
 
   /** 화면에 표시할 행 목록을 만듭니다. */
   const rows = useMemo(() => {
-    const connected = agents.data?.agents ?? [];
-    const result = connected.map((agent) => {
+    const result = (overview.data?.agents ?? []).map((agent) => {
       const config = configByAgent.get(agent.agent_id);
       return {
         agentId: agent.agent_id,
-        lastSeen: agent.last_seen,
-        hasTelemetry: agent.has_telemetry,
+        lastSeen: agent.registered_at,
+        hasTelemetry: agent.telemetry_seen,
         format: config?.format ?? null,
         hostname: config?.hostname ?? null,
         interfaceCount: config?.interfaces.length ?? 0,
         vlanCount: config?.vlans.length ?? 0,
         routeCount: config?.route_count ?? 0,
         warnings: config?.warnings ?? [],
-        connected: true,
+        connected: agent.connected,
+        state: agent.state,
+        expected: agent.expected,
+        // ⚠️ 방화벽은 격리 대상이 아닙니다.
+        //    서버도 거부하지만, 버튼을 누를 수 있게 두면 "눌렀는데 안 됨" 이
+        //    됩니다. 비활성화하고 사유를 title 로 알려야 오해가 없습니다.
+        isFirewall: agent.device_type === "FIREWALL",
       };
     });
 
-    // 수집은 됐지만 현재 연결 목록에 없는 Agent 도 보여줍니다.
-    // (연결이 끊겼지만 마지막 설정은 남아 있는 경우)
+    // 수집은 됐지만 통합 현황에 없는 장치도 보여줍니다.
+    // (프로젝트 필터 등으로 서버 목록에서 빠진 경우의 안전망)
     for (const [agentId, config] of configByAgent) {
       if (result.some((row) => row.agentId === agentId)) continue;
       result.push({
@@ -86,17 +127,28 @@ export default function Agent() {
         routeCount: config.route_count ?? 0,
         warnings: config.warnings ?? [],
         connected: false,
+        state: "telemetry-only" as const,
+        expected: false,
+        // 설정의 product 로는 유형을 알 수 없으므로 식별자 관례로 판단합니다.
+        // (서버의 DeviceTypeResolver 와 같은 관례: 이름의 끝 토큰)
+        isFirewall: /firewall/i.test(agentId),
       });
     }
 
     return onlyIssues
-      ? result.filter((row) => !row.hasTelemetry || row.warnings.length > 0 || !row.connected)
+      ? result.filter(
+          (row) =>
+            !row.hasTelemetry ||
+            row.warnings.length > 0 ||
+            !row.connected ||
+            row.expected === false,
+        )
       : result;
-  }, [agents.data, configByAgent, onlyIssues]);
+  }, [overview.data, configByAgent, onlyIssues]);
 
-  const loading = agents.loading || discovered.loading;
-  const error = agents.error ?? discovered.error;
-  const offline = agents.offline || discovered.offline;
+  const loading = overview.loading || discovered.loading;
+  const error = overview.error ?? discovered.error;
+  const offline = overview.offline || discovered.offline;
 
   /**
    * Agent 의 설정을 오프라인 스냅샷 파일로 내려받습니다.
@@ -131,6 +183,104 @@ export default function Agent() {
     }
   };
 
+  /**
+   * Agent 를 격리하거나 해제합니다.
+   *
+   * <h2>왜 응답의 delivered 와 applied 를 나눠 보여주는가</h2>
+   * <p>{@code delivered=false} 는 "장치가 연결되어 있지 않아 명령이 못 갔다"
+   * 입니다. 이때 서버는 상태를 저장하므로, 장치가 재접속하면 차단 정책이
+   * 적용됩니다. 운영자가 이 차이를 모르면 "격리가 안 먹네" 하고 반복 클릭합니다.
+   *
+   * <p>{@code applied=null} 은 "명령은 갔는데 아직 ack 를 못 받았다" 입니다.
+   * 몇 초 뒤 새로고침하면 채워집니다.
+   *
+   * @param agentId 대상 Agent
+   * @param isolate true 면 격리, false 면 해제
+   */
+  const handleQuarantine = async (agentId: string, isolate: boolean) => {
+    if (quarantining !== null) return;
+
+    // 격리는 업무망을 끊는 조치입니다. 되돌릴 수는 있지만 즉시 영향이 큽니다.
+    if (isolate) {
+      const ok = window.confirm(
+        `${agentId} 를 격리합니다.\n\n` +
+          "이 장치는 관리 경로를 제외한 모든 데이터 인터페이스가 내려가 " +
+          "업무망 통신이 끊깁니다.\n계속하시겠습니까?",
+      );
+      if (!ok) return;
+    }
+
+    setQuarantining(agentId);
+    setQuarantineMessage(null);
+    setQuarantineError(null);
+
+    try {
+      if (isolate) {
+        const result: ApiQuarantineState = await quarantineAgent(agentId);
+        setQuarantineMessage(describeIsolation(agentId, result));
+      } else {
+        const result = await releaseQuarantine(agentId);
+        setQuarantineMessage(
+          // ⚠️ `result.released === false` 로만 "아니었다" 를 판정합니다.
+          //    `!result.released` 로 쓰면 키가 없을 때(구버전 서버) 성공을
+          //    실패로 뒤집어 말합니다. (최종 E2E 에서 실제로 재발)
+          result.released === false
+            ? `${agentId} 는 격리 중이 아니어서 아무것도 하지 않았습니다.`
+            : `${agentId} 의 격리를 해제했습니다.`,
+        );
+      }
+      // 서버가 확정한 상태를 다시 받아 화면을 맞춥니다.
+      quarantine.reload();
+      overview.reload();
+    } catch (cause) {
+      setQuarantineError(
+        cause instanceof Error ? cause.message : "격리 요청을 처리하지 못했습니다.",
+      );
+    } finally {
+      setQuarantining(null);
+    }
+  };
+
+  /**
+   * 격리 응답을 사람이 읽는 문장으로 바꿉니다.
+   *
+   * @param agentId 대상 Agent
+   * @param result  서버 응답
+   * @returns 한 줄 요약
+   */
+  function describeIsolation(agentId: string, result: ApiQuarantineState): string {
+    // ⚠️ 거부를 가장 먼저 봅니다. 아래 분기(retry/delivered)는 모두
+    //    "명령을 보냈다" 를 전제로 문장을 만드는데, 거부된 요청은
+    //    명령을 보내지 않았습니다. 순서를 바꾸면 "격리했습니다" 가 나옵니다.
+    if (result.rejected === true) {
+      return `격리할 수 없습니다 — ${result.reason ?? "이 장치는 격리 대상이 아닙니다."}`;
+    }
+
+    const parts: string[] = [];
+    parts.push(
+      result.retry
+        ? `${agentId} 는 이미 격리 중이었습니다. 명령을 다시 보냈습니다.`
+        : `${agentId} 를 격리했습니다.`,
+    );
+
+    if (result.delivered === false) {
+      parts.push(
+        "⚠️ 장치가 연결되어 있지 않아 명령이 전달되지 않았습니다. " +
+          "장치가 재접속하면 차단 정책이 자동 적용됩니다.",
+      );
+    } else if (result.applied === true) {
+      parts.push("장치가 차단을 적용했습니다. (ack 확인)");
+    } else if (result.applied === false) {
+      parts.push(
+        `장치가 차단을 적용하지 못했습니다: ${result.applied_detail ?? "사유 미보고"}`,
+      );
+    } else if (result.delivered === true) {
+      parts.push("명령을 전달했습니다. 장치의 적용 확인(ack)을 기다리는 중입니다.");
+    }
+
+    return parts.join(" ");
+  }
+
   return (
     <>
       <PageMeta title="Agent List | SonarValidator" description="연결된 Agent 와 수집 상태" />
@@ -138,26 +288,46 @@ export default function Agent() {
 
       <div className="space-y-6">
         {/* 요약 카드 */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <SummaryCard
             label="연결된 Agent"
-            value={agents.data?.connected ?? 0}
+            value={rows.filter((row) => row.connected).length}
             hint="WebSocket 세션 기준"
             color="primary"
           />
           <SummaryCard
-            label="수집 완료"
-            value={discovered.data?.parsed_devices ?? 0}
-            hint="설정을 해석한 장치"
-            color="success"
+            label="무응답"
+            value={rows.filter((row) => row.state === "silent").length}
+            hint="배포 예정 · 연결 없음"
+            color="warning"
+          />
+          <SummaryCard
+            label="격리 중"
+            value={quarantinedIds.size}
+            hint="운영자가 수동으로 차단"
+            color="error"
           />
           <SummaryCard
             label="정책 요청"
-            value={agents.data?.total_policy_requests ?? 0}
+            value={overview.data?.total_policy_requests ?? 0}
             hint="누적 처리 건수"
             color="info"
           />
         </div>
+
+        {/* 격리 결과 — 조용히 성공하면 "버튼이 안 먹는다" 로 보입니다. */}
+        {quarantineMessage && (
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-white/[0.03]">
+            <p className="text-sm text-gray-700 dark:text-gray-300">🛑 {quarantineMessage}</p>
+          </div>
+        )}
+        {quarantineError && (
+          <div className="rounded-xl border border-error-200 bg-error-50 p-4 dark:border-error-500/30 dark:bg-error-500/10">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              격리 요청 실패: {quarantineError}
+            </p>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4 dark:border-gray-800">
@@ -181,7 +351,7 @@ export default function Agent() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  agents.reload();
+                  overview.reload();
                   discovered.reload();
                 }}
               >
@@ -216,6 +386,8 @@ export default function Agent() {
               <p className="mt-1 max-w-md text-sm text-gray-400 dark:text-gray-500">
                 Prober 를 실행하면 백엔드로 연결됩니다.
                 (Agent 는 30초 주기로 텔레메트리를 전송합니다)
+                프로젝트에서 장비를 배포하면 여기에 <b>무응답</b> 상태로 먼저
+                나타납니다.
               </p>
             </div>
           )}
@@ -230,6 +402,7 @@ export default function Agent() {
                     <th className="border-b p-3 font-medium dark:border-gray-600">형식</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">수집</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">마지막 수신</th>
+                    <th className="border-b p-3 font-medium dark:border-gray-600">격리</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">설정 내보내기</th>
                   </tr>
                 </thead>
@@ -252,9 +425,18 @@ export default function Agent() {
                             <Badge size="sm" color="success">
                               연결됨
                             </Badge>
+                          ) : row.state === "silent" ? (
+                            <Badge size="sm" color="warning">
+                              무응답
+                            </Badge>
                           ) : (
                             <Badge size="sm" color="light">
                               연결 끊김
+                            </Badge>
+                          )}
+                          {row.expected === false && (
+                            <Badge size="sm" color="info">
+                              예정에 없음
                             </Badge>
                           )}
                           {!row.hasTelemetry && (
@@ -276,6 +458,48 @@ export default function Agent() {
                       </td>
                       <td className="p-3 font-mono text-[11px]">
                         {row.lastSeen ? new Date(row.lastSeen).toLocaleString() : "—"}
+                      </td>
+                      <td className="p-3">
+                        {/*
+                          격리 열입니다.
+
+                          ⚠️ 격리된 Agent 는 연결이 끊긴 것처럼 보입니다(인터페이스가
+                          내려가므로). 그래서 "연결 끊김" 만 표시하면 운영자는
+                          장애로 오해합니다. 이 열이 "내가 껐다" 와 "고장났다" 를
+                          구분해 줍니다.
+                        */}
+                        <div className="flex flex-col gap-1.5">
+                          {quarantinedIds.has(row.agentId) ? (
+                            <>
+                              <Badge size="sm" color="error">
+                                🛑 격리 중
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={quarantining !== null}
+                                title="인터페이스를 다시 올리고 정상 정책을 적용합니다"
+                                onClick={() => handleQuarantine(row.agentId, false)}
+                              >
+                                {quarantining === row.agentId ? "해제 중..." : "해제"}
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={quarantining !== null || row.isFirewall}
+                              title={
+                                row.isFirewall
+                                  ? "방화벽은 격리 대상이 아닙니다 — 트렁크에 연결된 모든 VLAN 이 함께 끊깁니다. 프로젝트 규칙으로 해당 연결만 차단하세요."
+                                  : "관리 경로를 제외한 모든 데이터 인터페이스를 내립니다"
+                              }
+                              onClick={() => handleQuarantine(row.agentId, true)}
+                            >
+                              {quarantining === row.agentId ? "격리 중..." : "격리"}
+                            </Button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3">
                         {/* 설정이 없으면 내보낼 것이 없으므로 비활성화하고 사유를 title 로 알립니다.
@@ -323,7 +547,7 @@ function SummaryCard({
   label: string;
   value: number;
   hint: string;
-  color: "primary" | "success" | "info";
+  color: "primary" | "success" | "info" | "warning" | "error";
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">

@@ -170,6 +170,24 @@ export default function MermaidDiagram({
 
   useEffect(() => {
     let cancelled = false;
+
+    // ⚠️ 빈 차트는 Mermaid 를 부르지 않습니다.
+    //
+    // 렌더러는 빈 문자열에서 "Syntax error in text" 를 던지고, 그 결과가
+    // 화면에 노출됩니다. 정작 원인은 구문이 아니라 "아직 데이터가 없음"
+    // 이므로, 구문 오류를 보여주면 운영자가 데이터 문제를 문법 문제로
+    // 오해합니다. 여기서 끊고 조용히 비워 둡니다.
+    //
+    // (호출부가 loading/no-project 를 이미 처리하지만, 네트워크 응답이
+    //  늦게 도착하는 사이 한 번은 빈 값으로 렌더될 수 있습니다)
+    if (!chart) {
+      setRawSvg("");
+      setError("");
+      return () => {
+        cancelled = true;
+      };
+    }
+
     renderMermaid(chart)
       .then((rendered) => {
         if (!cancelled) {

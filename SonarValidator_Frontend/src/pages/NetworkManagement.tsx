@@ -9,6 +9,7 @@ import { useApi } from "../hooks/useApi";
 import { listRouteTables, getTopology } from "../lib/api";
 import { listProjects } from "../lib/api/projects";
 import type { ApiTopology } from "../lib/api/types";
+import { topologyToMermaid } from "../lib/topology/mermaid";
 
 /**
  * 네트워크 관리 화면입니다.
@@ -26,6 +27,11 @@ import type { ApiTopology } from "../lib/api/types";
  * <h2>노드 모양으로 등급을 구분하는 이유</h2>
  * 색만 다르면 흑백 인쇄나 색각 이상에서 구분이 어렵습니다. 등급별로
  * <b>모양</b>까지 다르게 해서 색 없이도 읽히게 했습니다.
+ *
+ * <h2>변환 로직을 공용 모듈로 옮긴 이유</h2>
+ * 같은 변환이 {@code lib/topology/mermaid.ts} 에도 있습니다. 두 벌을 두면
+ * 등급 색/모양 규칙이 조금씩 어긋나 "같은 데이터인데 다른 그림" 이 됩니다.
+ * 이제는 공용 함수만 호출합니다.
  */
 export default function NetworkManagement() {
   const [searchParams] = useSearchParams();
@@ -49,77 +55,8 @@ export default function NetworkManagement() {
     [activeProjectId],
   );
 
-  /** 토폴로지를 Mermaid flowchart 소스로 변환합니다. */
-  const chart = useMemo(() => {
-    const data = topology.data;
-    if (!data) return "";
-    if (data.nodes.length === 0) {
-      return 'flowchart TD\n  Empty["서브넷이 없습니다"]';
-    }
-
-    const lines: string[] = ["flowchart TD"];
-
-    // 등급별 서브그래프로 묶어 존 경계를 시각화합니다.
-    const byLevel = new Map<number | null, typeof data.nodes>();
-    for (const node of data.nodes) {
-      const key = node.level;
-      const bucket = byLevel.get(key);
-      if (bucket) bucket.push(node);
-      else byLevel.set(key, [node]);
-    }
-
-    const levelLabels: Record<number, string> = {
-      3: "Confidential Zone",
-      2: "Sensitive Zone",
-      1: "Open Zone",
-    };
-
-    for (const [level, nodes] of [...byLevel.entries()].sort((a, b) => (b[0] ?? 0) - (a[0] ?? 0))) {
-      const groupId = `Zone${level ?? "unknown"}`;
-      const groupLabel = level ? levelLabels[level] ?? `Level ${level}` : "미지정";
-      lines.push(`  subgraph ${groupId}["${groupLabel}"]`);
-      for (const node of nodes) {
-        // 등급별로 노드 모양을 다르게 해 색 없이도 구분되게 합니다.
-        const shape =
-          level === 3 ? `{{"${node.label}"}}` : level === 2 ? `(["${node.label}"])` : `["${node.label}"]`;
-        lines.push(`    ${sanitize(node.id)}${shape}`);
-      }
-      lines.push("  end");
-    }
-
-    // 간선: 금지 조합은 굵은 빨간 화살표로 강조합니다.
-    const linkStyles: string[] = [];
-    let linkIndex = 0;
-    for (const edge of data.edges) {
-      const arrow = edge.forbidden ? "==>" : "-->";
-      const label = edge.port ? `:${edge.port}` : "전체";
-      lines.push(`  ${sanitize(edge.source)} ${arrow}|${label}| ${sanitize(edge.target)}`);
-      if (edge.forbidden) {
-        linkStyles.push(`  linkStyle ${linkIndex} stroke:#dc2626,stroke-width:3px;`);
-      }
-      linkIndex++;
-    }
-
-    // 스타일
-    lines.push(
-      "  classDef confidential fill:#fee2e2,stroke:#dc2626,stroke-width:2px;",
-      "  classDef sensitive fill:#f3e8ff,stroke:#9333ea,stroke-width:2px;",
-      "  classDef open fill:#dcfce7,stroke:#16a34a,stroke-width:2px;",
-    );
-    for (const node of data.nodes) {
-      const cls =
-        node.level === 3 ? "confidential" : node.level === 2 ? "sensitive" : "open";
-      lines.push(`  class ${sanitize(node.id)} ${cls};`);
-    }
-    lines.push(...linkStyles);
-
-    return lines.join("\n");
-  }, [topology.data]);
-
-  /** Mermaid 식별자로 안전한 문자열로 바꿉니다. (하이픈은 파싱 오류를 냅니다) */
-  function sanitize(id: string): string {
-    return id.replace(/[^A-Za-z0-9_]/g, "_");
-  }
+  /** 토폴로지를 Mermaid flowchart 소스로 변환합니다. (공용 모듈) */
+  const chart = useMemo(() => topologyToMermaid(topology.data), [topology.data]);
 
   const deviceRoutes = routes.data?.devices ?? [];
 
