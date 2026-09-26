@@ -939,7 +939,6 @@ bool ManagementService::ApplyNftablesPolicy(const Json& policy)
 bool ManagementService::ApplyVmPolicy(const Json& policy)
 {
     const std::string command = policy_json::AsString(policy, "command");
-    const std::string interface = policy_json::AsString(policy, "interface");
 
     // ------------------------------------------------------------------
     //  netplan 경로 (문서: VM_Policy_Design.md "정적 IP 주소 및 게이트웨이 설정")
@@ -956,6 +955,17 @@ bool ManagementService::ApplyVmPolicy(const Json& policy)
     {
         return ApplyNetplanPolicy(policy, command);
     }
+
+    // ⚠️ 폴백 경로(on/off/get)도 자리표시자를 치환해야 합니다.
+    //    VM 전략의 defaultRule() 은 인터페이스 이름을 알 수 없어
+    //    `"interface": "__primary__"` 를 보냅니다(VmPolicyStrategy.PRIMARY_INTERFACE_TOKEN).
+    //    netplan 경로만 ResolveInterfaceName 을 거치고 이 경로는 원문을 그대로
+    //    `ip link set ... up` 에 넣어  `Cannot find device "__primary__"` 로
+    //    실패했습니다. (실측: 기동 직후 정책 수신 시 1회 발생)
+    //    ResolveInterfaceName 은 토큰이 아니면 원문을 그대로 돌려주므로
+    //    일반 정책에는 영향이 없습니다.
+    const std::string requested = policy_json::AsString(policy, "interface");
+    const std::string interface = ResolveInterfaceName(requested);
 
     if (interface.empty())
     {
@@ -998,7 +1008,10 @@ bool ManagementService::ApplyNetplanPolicy(const Json& policy, const std::string
     if (command == "remove")
     {
         // DHCP 로 원복: 기존 파일을 지우고 백엔드 기본값으로 되돌립니다.
-        const std::string iface = policy_json::AsString(policy, "interface");
+        // 자리표시자가 오면 실제 인터페이스로 치환합니다. (그대로 쓰면
+        // `/etc/netplan/99-sonar-__primary__.yaml` 이라는 무의미한 파일이 남습니다)
+        const std::string iface = ResolveInterfaceName(
+            policy_json::AsString(policy, "interface"));
         std::string script =
             "set -e; "
             "rm -f /etc/netplan/99-sonar-*.yaml; ";

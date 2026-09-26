@@ -318,6 +318,14 @@ Outcome Isolate(const ProberConfig& config, ManagementService& mgmt)
     const bool local_server = config.GetServerIpv4().empty() ||
                               IsLoopback(config.GetServerIpv4());
 
+    // ⚠️ "내릴 대상이 없었다" 와 "내리려 했는데 전부 실패했다" 를 반드시 구분해야 합니다.
+    //    실패까지 ok=true 로 보고하면 서버는 **장치가 살아 있는데도 격리됐다고 믿습니다.**
+    //    그것이 이 기능에서 가장 위험한 상태입니다(문서 API_Service_Contracts 참고).
+    //    (실측: 프로버를 비-root 로 실행하면 `ip link set ... down` 이
+    //     `RTNETLINK answers: Operation not permitted` 로 전부 실패하는데도
+    //     서버 로그에 `quarantine ack ... affected=null` 로 INFO(성공)이 남았습니다)
+    int failed = 0;
+
     for (const InterfaceAddress& entry : addresses)
     {
         if (entry.name == "lo")
@@ -341,6 +349,7 @@ Outcome Isolate(const ProberConfig& config, ManagementService& mgmt)
         }
         else
         {
+            ++failed;
             std::cerr << "[QUARANTINE] 인터페이스를 내리지 못했습니다: " << entry.name << '\n';
         }
     }
@@ -356,16 +365,32 @@ Outcome Isolate(const ProberConfig& config, ManagementService& mgmt)
         return outcome;
     }
 
-    if (outcome.affected.empty())
+    // 일부라도 내렸으면 격리는 성립합니다. 실패분은 detail 에 남겨 서버가 알 수 있게 합니다.
+    if (!outcome.affected.empty())
     {
         outcome.ok = true;
-        outcome.detail = "차단할 인터페이스가 없습니다 (이미 격리되었거나 관리 경로만 존재)";
-        std::cout << "[QUARANTINE] " << outcome.detail << '\n';
+        outcome.detail = std::to_string(outcome.affected.size()) + "개 인터페이스를 내렸습니다";
+        if (failed > 0)
+        {
+            outcome.detail += " (" + std::to_string(failed) + "개 실패)";
+        }
+        return outcome;
+    }
+
+    // 하나도 내리지 못했습니다. 대상이 없었던 것인지, 실패한 것인지로 나눕니다.
+    if (failed > 0)
+    {
+        outcome.ok = false;
+        outcome.detail = std::to_string(failed) +
+                         "개 인터페이스를 내리지 못했습니다 (권한 부족 또는 장치 거부). "
+                         "이 장치를 격리된 것으로 보면 안 됩니다.";
+        std::cerr << "[QUARANTINE] " << outcome.detail << '\n';
         return outcome;
     }
 
     outcome.ok = true;
-    outcome.detail = std::to_string(outcome.affected.size()) + "개 인터페이스를 내렸습니다";
+    outcome.detail = "차단할 인터페이스가 없습니다 (이미 격리되었거나 관리 경로만 존재)";
+    std::cout << "[QUARANTINE] " << outcome.detail << '\n';
     return outcome;
 }
 
