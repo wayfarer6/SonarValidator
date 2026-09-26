@@ -17,6 +17,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -102,6 +104,18 @@ public class OPNsenseController {
      * <p>{@code api_secret} 을 비워 보내면 <b>기존 값 유지</b>로 해석합니다.
      * 매번 다시 입력하게 하면 운영자가 평문을 여기저기 붙여 넣게 됩니다.
      *
+     * <h2>⚠️ 모든 필드에 {@link JsonProperty} 를 명시하는 이유</h2>
+     * <p>프론트엔드({@code lib/api/opnsense.ts})는 <b>snake_case</b> 로 보냅니다
+     * ({@code base_url}, {@code api_key}, {@code api_secret},
+     * {@code allow_insecure_tls}, {@code verify_now}).
+     * record 의 기본 바인딩은 <b>camelCase</b> 이름을 그대로 쓰기 때문에,
+     * 명시하지 않으면 전 필드가 {@code null} 로 들어옵니다 — 그리고
+     * {@code base_url} 이 null 이라 <b>400 "주소는 필수입니다"</b> 로만 보여
+     * 원인을 찾기 어렵습니다. (실제로 실장비 검증에서 이 증상으로 발현)
+     *
+     * <p>이 저장소의 다른 요청 DTO 도 같은 이유로 snake_case 필드에
+     * {@link JsonProperty} 를 명시합니다. ({@code ProjectDto} 참고)
+     *
      * @param displayName      표시 이름
      * @param baseUrl          기준 URL (예: {@code https://10.99.143.2})
      * @param apiKey           API Key (비우면 기존 유지)
@@ -110,12 +124,12 @@ public class OPNsenseController {
      * @param verifyNow        저장 직후 연결 확인 여부
      */
     public record CredentialRequest(
-            String displayName,
-            String baseUrl,
-            String apiKey,
-            String apiSecret,
-            Boolean allowInsecureTls,
-            Boolean verifyNow) {
+            @JsonProperty("display_name") String displayName,
+            @JsonProperty("base_url") String baseUrl,
+            @JsonProperty("api_key") String apiKey,
+            @JsonProperty("api_secret") String apiSecret,
+            @JsonProperty("allow_insecure_tls") Boolean allowInsecureTls,
+            @JsonProperty("verify_now") Boolean verifyNow) {
     }
 
     /**
