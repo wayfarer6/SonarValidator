@@ -154,6 +154,7 @@ set(SONAR_DATABASE_SOURCES
 
 set(SONAR_SUPPORT_SOURCES
     components/policy/policy_receiver.cpp
+    components/policy/quarantine_handler.cpp
     components/terminal/terminal_session.cpp
     utils/cli_options.cpp
     utils/data_directory.cpp)
@@ -239,6 +240,21 @@ add_executable(envelope_test
     components/backend_communication/envelope_test.cpp)
 sonar_configure_target(envelope_test)
 add_test(NAME envelope_test COMMAND envelope_test)
+
+# 격리 명령 수신 판정 (장치 조작 없음 — 문자열 계약/오인 방지)
+# Isolate()/Release() 는 실제 ip link 를 건드리므로 호출하지 않습니다.
+add_executable(quarantine_handler_test
+    components/policy/quarantine_handler_test.cpp
+    components/policy/quarantine_handler.cpp
+    components/policy/policy_receiver.cpp
+    ${SONAR_MODULE_SOURCES}
+    ${SONAR_DEVICE_SOURCES}
+    ${SONAR_DATABASE_SOURCES}
+    ${SONAR_PARSER_SOURCES}
+    ${SONAR_SUPPORT_SOURCES})
+sonar_configure_target(quarantine_handler_test)
+target_link_libraries(quarantine_handler_test PRIVATE SQLite::SQLite3)
+add_test(NAME quarantine_handler_test COMMAND quarantine_handler_test)
 
 # 라우팅 테이블 (ANTLR ParseRouteStatus 위임 검증)
 add_executable(routing_table_test

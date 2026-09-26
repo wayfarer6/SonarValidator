@@ -80,6 +80,26 @@ public:
     bool ApplyVmPolicy(const Json& policy);
 
 private:
+    // VM 의 netplan 스키마(network_config)를 /etc/netplan 에 써서 적용합니다.
+    // ApplyVmPolicy 에서 분기하며, 실패 시 기존 설정을 건드리지 않습니다.
+    bool ApplyNetplanPolicy(const Json& policy, const std::string& command);
+
+    // netplan 이 없는 이미지를 위한 폴백: network_config 의 주소/경로를
+    // ip 명령으로 직접 적용합니다. (런타임 적용 — 재부팅 시 소멸)
+    bool ApplyAddressesWithIp(const Json& policy,
+                              const nlohmann::json::const_iterator& ethernets,
+                              const std::string& command);
+
+    // 프로그램이 PATH 에 있는지 확인합니다.
+    bool HasCommand(const std::string& program);
+
+    // 장치의 기본(주소를 가진) 인터페이스 이름을 찾습니다.
+    // netplan 자리표시자(__primary__)를 이 값으로 치환합니다.
+    std::string PrimaryInterface();
+
+    // 정책에 쓰인 인터페이스 이름의 자리표시자를 실제 이름으로 바꿈니다.
+    std::string ResolveInterfaceName(const std::string& name);
+
     // 영속 CLI 세션(pty)으로 명령을 보내고 출력을 받습니다.
     std::string CliCommand(const std::vector<std::string>& argv, const std::string& command);
 
@@ -99,6 +119,7 @@ private:
     std::thread management_thread_;                   // (예약) 관리 스레드
     TerminalSession cli_session_;                     // 영속 CLI 세션(pty)
     std::string cli_program_;                         // 현재 열려 있는 CLI 프로그램명
+    std::string primary_interface_;                   // 캐시된 기본 인터페이스 이름
 
 };
 

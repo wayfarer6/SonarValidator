@@ -8,10 +8,11 @@
 #include <thread>
 
 #include "components/policy/policy_receiver.hpp"
+#include "components/policy/quarantine_handler.hpp"
 #include "module/configuration_module/prober_config.hpp"
 #include "module/management_module/management_service.hpp"
 
-// 관리 스레드: 서버로부터 정책을 받아 장치에 적용합니다.
+// 관리 스레드: 서버로부터 정책과 명령을 받아 장치에 적용합니다.
 
 
 void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
@@ -42,6 +43,42 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
 
         // 장치 유형(DeviceType)별로 정책 처리 함수를 분기합니다.
         ReceivePolicy(config, management_service, policy);
+
+        // 정책 적용 직후 잠깐 수신 창을 엽니다.
+        //
+        // 서버는 격리 명령을 command 봉투로 **비동기**로 보냅니다. fetchPolicy 의
+        // 대기 루프는 correlation_id 가 다른 봉투를 버리므로, 여기서 받지 않으면
+        // 다음 정책 요청까지 최대 3초 동안 아무도 명령을 처리하지 않습니다.
+        // (격리는 "즉시" 가 생명이므로 이 창이 필요합니다.)
+        const auto command_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        while (!stop_token.stop_requested() &&
+               std::chrono::steady_clock::now() < command_deadline)
+        {
+            std::string raw;
+            if (!management_service.TryReceive(raw, std::chrono::milliseconds(200)))
+            {
+                continue;
+            }
+
+            Json message;
+            try
+            {
+                message = Json::parse(raw);
+            }
+            catch (const std::exception&)
+            {
+                std::cerr << "[MGMT] dropped non-JSON frame: " << raw << '\n';
+                continue;
+            }
+
+            // 격리/해제 명령이면 적용하고 ack 로 결과를 보고합니다.
+            if (quarantine::HandleCommand(config, management_service, message))
+            {
+                continue;
+            }
+
+            std::cout << "[MGMT] received server push: " << envelope::Type(message) << '\n';
+        }
 
         std::this_thread::sleep_for(std::chrono::seconds(3));
     }

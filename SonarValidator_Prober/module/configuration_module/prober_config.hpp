@@ -54,6 +54,11 @@ public:
     bool DetectDeviceType();
     void DetectProductName();
 
+    // default.conf 의 AGENT_NAME 을 읽습니다. 없으면 빈 문자열을 돌려주고,
+    // 호출자가 자동 생성 이름으로 대체합니다.
+    // 설정 파일은 장치마다 하나뿐이므로 정적 함수로 둡니다.
+    static std::string DetectAgentName();
+
 private:
     std::string agent_id_;            // 에이전트 고유 ID
     std::string agent_name_;          // 생성된 에이전트 이름

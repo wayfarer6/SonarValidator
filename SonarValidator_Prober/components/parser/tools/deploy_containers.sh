@@ -41,6 +41,9 @@ for full in $(docker ps --format '{{.Names}}' | sort); do
 
     echo "=== $short (NODE_TYPE=$NODE_TYPE, SERVER_IP=$SERVER_IP) ==="
 
+    # 관리 콘솔에서 등록한 이름과 같아야 목록에서 한 장비로 합쳐집니다.
+    AGENT_NAME="${short}-agent"
+
     docker exec "$full" mkdir -p /opt/sonar_validator/data
 
     # 실행 중인 바이너리는 교체할 수 없으므로 먼저 멈춥니다.
@@ -55,8 +58,8 @@ for full in $(docker ps --format '{{.Names}}' | sort); do
     docker cp "$TEMPLATE" "$full:/opt/sonar_validator/default_template.sqlite"
 
     # 노드별 설정을 만들어 넣습니다. settings.conf 는 지워서 새로 생성되게 합니다.
-    printf 'SERVER_IP=%s;\nSERVER_PORT=3000;\nNODE_TYPE=%s;\n' "$SERVER_IP" "$NODE_TYPE" \
-        > /tmp/sonar_default.conf
+    printf 'SERVER_IP=%s;\nSERVER_PORT=3000;\nNODE_TYPE=%s;\nAGENT_NAME=%s;\n' \
+        "$SERVER_IP" "$NODE_TYPE" "$AGENT_NAME" > /tmp/sonar_default.conf
     docker cp /tmp/sonar_default.conf "$full:/opt/sonar_validator/default.conf"
     docker exec "$full" sh -c 'rm -f /opt/sonar_validator/data/settings.conf' 2>/dev/null || true
 

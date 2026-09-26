@@ -33,6 +33,13 @@ inline constexpr const char* kCommand = "command";
 inline constexpr const char* kAck = "ack";
 inline constexpr const char* kError = "error";
 
+// 운영자 격리 명령의 payload.action 값입니다.
+// 서버 QuarantineService.ACTION_QUARANTINE / ACTION_RELEASE 와
+// 문자열이 정확히 일치해야 합니다. 한 글자만 달라도 격리 명령이
+// 조용히 무시되어 "화면은 격리됨, 장치는 정상" 이라는 최악의 상태가 됩니다.
+inline constexpr const char* kActionQuarantine = "quarantine";
+inline constexpr const char* kActionRelease = "release";
+
 using Json = nlohmann::json;
 
 // 장치 유형을 서버가 이해하는 대문자 토큰으로 변환합니다.

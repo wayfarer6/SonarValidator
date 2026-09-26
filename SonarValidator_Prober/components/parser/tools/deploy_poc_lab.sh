@@ -111,7 +111,10 @@ EOS
 deploy_ssh() {
     host="$1"
     node_type="$2"
-    echo "=== $host  (NODE_TYPE=$node_type) ==="
+    # 관리 콘솔에서 "배포 예정" 으로 등록한 이름과 반드시 같아야 합니다.
+    # 다르면 등록한 장치는 영원히 무응답으로 남고, 같은 장비가 두 줄로 보입니다.
+    agent_name="${3:-$(basename "$host")-agent}"
+    echo "=== $host  (NODE_TYPE=$node_type, AGENT_NAME=$agent_name) ==="
 
     # 1) 실행 중이면 먼저 정상 종료시킵니다. (실행 중인 파일은 교체할 수 없음)
     ssh $SSH_OPTS "root@$host" "
@@ -124,11 +127,24 @@ deploy_ssh() {
         rm -f $ROOT/sonar_validator_prober $ROOT/data/settings.conf" >/dev/null 2>&1
 
     # 2) HTTP 로 바이너리/템플릿을 내려받고 설정을 씁니다.
+    #
+    # ⚠️ curl 이 아니라 wget 을 쓰는 이유:
+    #   이 랩의 FRR 라우터(Alpine)에는 curl 이 설치되어 있지 않습니다.
+    #   (실측: wget/nc/busybox/base64 는 있음, curl 은 없음)
+    #   curl 을 그대로 쓰면 배포가 조용히 0바이트 파일을 남깁니다.
+    #
+    # ⚠️ -O 대신 -q -O 를 쓰고, 실패 시 파일을 지웁니다.
+    #   wget 은 404 에서도 빈 파일을 만들 수 있어, 그대로 두면
+    #   다음 기동이 "not executable format" 으로 실패합니다.
     ssh $SSH_OPTS "root@$host" "
         cd $ROOT
-        curl -s -m 180 -o sonar_validator_prober  $HTTP_BASE/sonar_validator_prober  || exit 1
-        curl -s -m 180 -o default_template.sqlite $HTTP_BASE/default_template.sqlite || exit 1
-        printf 'SERVER_IP=$SERVER_IP;\nSERVER_PORT=$SERVER_PORT;\nNODE_TYPE=$node_type;\n' > default.conf
+        rm -f sonar_validator_prober default_template.sqlite
+        wget -q -O sonar_validator_prober  $HTTP_BASE/sonar_validator_prober  || exit 1
+        wget -q -O default_template.sqlite $HTTP_BASE/default_template.sqlite || exit 1
+        # 크기 검증: 다운로드가 잘렸는지 확인합니다.
+        sz=\$(wc -c < sonar_validator_prober)
+        [ \"\$sz\" -gt 1000000 ] || { echo '  [FAIL] prober download truncated ('\$sz' bytes)'; rm -f sonar_validator_prober; exit 1; }
+        printf 'SERVER_IP=$SERVER_IP;\nSERVER_PORT=$SERVER_PORT;\nNODE_TYPE=$node_type;\nAGENT_NAME=$agent_name;\n' > default.conf
         chmod +x sonar_validator_prober
         echo -n '  hash: '; sha256sum sonar_validator_prober | cut -c1-16"
 
@@ -138,17 +154,22 @@ deploy_ssh() {
 }
 
 deploy_all() {
-    deploy_ssh 172.16.255.1 Router      # Gateway-Router
-    deploy_ssh 172.16.255.2 Firewall    # Firewall (컨테이너와 동일 노드)
-    deploy_ssh 172.16.255.3 Router      # DMZ-Router
-    deploy_ssh 172.16.255.4 Router      # C4I-Network-Router
-    deploy_ssh 172.16.255.5 Router      # Survillance-Network-Router
-    deploy_ssh 172.16.255.6 Router      # VDI-Router
+    deploy_ssh 172.16.255.1 Router   Gateway-Router       # Gateway-Router
+    deploy_ssh 172.16.255.3 Router   DMZ-Router           # DMZ-Router
+    deploy_ssh 172.16.255.4 Router   C4I-Network-Router   # C4I-Network-Router
+    deploy_ssh 172.16.255.5 Router   Survillance-Network-Router # Survillance-Network-Router
+    deploy_ssh 172.16.255.6 Router   VDI-Router           # VDI-Router
 }
 
 deploy_all
 
 echo
 echo "완료. 나머지 노드는 GNS3 호스트에서 배포하세요."
-echo "  컨테이너(스위치/VM) : bash deploy_containers.sh <binary> <template>"
-echo "  QEMU VM(서버)       : python3 vmrun.py <console-port> ubuntu ubuntu ..."
+echo "  방화벽(172.16.255.2) : SSH 키 미등록 → 호스트에서 docker exec GNS3.Firewall.* (deploy_containers.sh)"
+echo "  컨테이너(스위치/VM)  : bash deploy_containers.sh <binary> <template>"
+echo "  QEMU VM(서버)        : python3 vmrun.py <console-port> ubuntu ubuntu ..."
+echo
+echo "⚠️ 방화벽을 이 스크립트에 넣지 않는 이유:"
+echo "  172.16.255.2 는 SSH 키가 등록되어 있지 않아 비밀번호를 물어봅니다."
+echo "  대화형 프롬프트가 뜨면 자동 배포가 그 자리에서 멈추므로,",
+echo "  방화벽은 <b>같은 노드의 컨테이너</b>(GNS3.Firewall.*)에 docker exec 으로 넣습니다."

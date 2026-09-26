@@ -14,13 +14,21 @@
 #     그래도 응답이 없을 때만 SIGKILL 로 올리고, 그 경우 손상 DB 를 제거합니다.
 #
 #  사용법 (컨테이너 안에서)
-#    sh /opt/sonar_validator/restart.sh <SERVER_IP> [NODE_TYPE]
+#    sh /opt/sonar_validator/restart.sh <SERVER_IP> [NODE_TYPE] [AGENT_NAME]
 # =============================================================================
 set -u
 
-SERVER_IP="${1:?usage: restart.sh <SERVER_IP> [NODE_TYPE]}"
+SERVER_IP="${1:?usage: restart.sh <SERVER_IP> [NODE_TYPE] [AGENT_NAME]}"
 NODE_TYPE="${2:-VM}"
 ROOT=/opt/sonar_validator
+
+# AGENT_NAME 은 인자 > 기존 default.conf 순으로 결정합니다.
+# 여기서 이름을 잃으면 settings.conf 재생성 때 새 이름이 발급되어,
+# 관리 콘솔의 "배포 예정" 등록과 연결이 끊어집니다.
+AGENT_NAME="${3:-}"
+if [ -z "$AGENT_NAME" ] && [ -f "$ROOT/default.conf" ]; then
+    AGENT_NAME=$(sed -n 's/^AGENT_NAME=//p' "$ROOT/default.conf" | tr -d '; \r')
+fi
 
 # --- 1) SIGTERM 으로 정상 종료 유도 -----------------------------------------
 for p in /proc/[0-9]*; do
@@ -65,6 +73,9 @@ fi
 mkdir -p "$ROOT/data"
 printf 'SERVER_IP=%s;\nSERVER_PORT=3000;\nNODE_TYPE=%s;\n' "$SERVER_IP" "$NODE_TYPE" \
     > "$ROOT/default.conf"
+if [ -n "$AGENT_NAME" ]; then
+    printf 'AGENT_NAME=%s;\n' "$AGENT_NAME" >> "$ROOT/default.conf"
+fi
 rm -f "$ROOT/data/settings.conf"    # 에이전트 ID 를 새로 만들게 합니다
 
 cd "$ROOT" || exit 1

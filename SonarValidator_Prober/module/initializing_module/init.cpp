@@ -257,7 +257,14 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     //  agent_name 이 비어 있으면 LoadConfig() 가 실패해
     //  매 기동마다 설정이 새로 생성되고(에이전트 ID 변경),
     //  텔레메트리/DB 의 agent 컬럼도 빈 값이 됩니다.
-    const std::string generated_agent_name = GenerateAgentName();
+    //
+    //  배포 스크립트가 default.conf 에 AGENT_NAME 을 써 두면 그 값을 우선
+    //  씁니다. 관리 콘솔에서 "배포 예정" 으로 등록한 이름과 실제 접속 이름이
+    //  같아야 목록에서 한 장비로 합쳐지기 때문입니다. 이름을 임의로 만들면
+    //  등록한 장치는 영원히 "무응답" 으로 남고, 별개의 이름으로 또 나타납니다.
+    const std::string detected_agent_name = ProberConfig::DetectAgentName();
+    const std::string generated_agent_name =
+        detected_agent_name.empty() ? GenerateAgentName() : detected_agent_name;
     ProberConfig initial_config(
         generated_agent_name, generated_agent_name, "", "", DeviceType::kSwitch,
         "", 0, "", 0);

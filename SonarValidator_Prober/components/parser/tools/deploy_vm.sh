@@ -13,12 +13,14 @@
 #
 #  사용법 (VM 콘솔에서)
 #    curl -s -o /tmp/d.sh http://192.168.122.58:8099/deploy_vm.sh
-#    echo ubuntu | sudo -S sh /tmp/d.sh http://192.168.122.58:8099 VM
+#    echo ubuntu | sudo -S sh /tmp/d.sh http://192.168.122.58:8099 VM [AGENT_NAME]
 # =============================================================================
 set -eu
 
-HTTP_BASE="${1:?usage: deploy_vm.sh <HTTP_BASE> [NODE_TYPE]}"
+HTTP_BASE="${1:?usage: deploy_vm.sh <HTTP_BASE> [NODE_TYPE] [AGENT_NAME]}"
 NODE_TYPE="${2:-VM}"
+# 관리 콘솔에서 등록한 이름과 같아야 목록에서 한 장비로 합쳐집니다.
+AGENT_NAME="${3:-$(hostname)-agent}"
 ROOT=/opt/sonar_validator
 
 SERVER_IP="${SONAR_SERVER_IP:-192.168.122.58}"
@@ -30,8 +32,8 @@ mkdir -p "$ROOT/data"
 curl -s -m 180 -o "$ROOT/sonar_validator_prober"  "$HTTP_BASE/sonar_validator_prober"
 curl -s -m 180 -o "$ROOT/default_template.sqlite" "$HTTP_BASE/default_template.sqlite"
 
-printf 'SERVER_IP=%s;\nSERVER_PORT=%s;\nNODE_TYPE=%s;\n' \
-    "$SERVER_IP" "$SERVER_PORT" "$NODE_TYPE" > "$ROOT/default.conf"
+printf 'SERVER_IP=%s;\nSERVER_PORT=%s;\nNODE_TYPE=%s;\nAGENT_NAME=%s;\n' \
+    "$SERVER_IP" "$SERVER_PORT" "$NODE_TYPE" "$AGENT_NAME" > "$ROOT/default.conf"
 
 chmod +x "$ROOT/sonar_validator_prober"
 rm -f "$ROOT/data/settings.conf"
