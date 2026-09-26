@@ -92,8 +92,54 @@ docker compose up --build
 
 | 대상 | 명령 | 현재 상태 |
 | --- | --- | --- |
-| Backend | `cd SonarValidator_Backend && ./mvnw test` | **183 tests, 0 failures** |
-| Prober | `cd SonarValidator_Prober && ctest --test-dir build --output-on-failure` | **12 tests, 100% passed** |
+| Backend | `cd SonarValidator_Backend && ./mvnw clean test` | **261 tests, 0 failures** |
+| Prober | `cd SonarValidator_Prober && ctest --test-dir build --output-on-failure` | **13 tests, 100% passed** |
+| Frontend | `cd SonarValidator_Frontend && npx tsc -b && npm run lint` | **tsc clean, lint 0 errors** |
+
+### ⚠️ Frontend 는 `npm run dev` 로 검증하지 않습니다
+
+`dev` 는 **esbuild** 를 써서 **타입 검사를 하지 않습니다.** 개발 중에는 멀쩡해 보이는
+코드가 `tsc -b` 에서 깨집니다. 커밋 전에 반드시 위 명령을 함께 돌리세요.
+
+### ⚠️ Backend 는 `clean` 을 붙입니다
+
+증분 빌드는 이전 산출물이 남아 `NoClassDefFoundError` (예: `CliIngestService$1`)를
+만들 수 있습니다. 실제로 겪은 문제라 CI 도 `clean` 을 씁니다.
+
+---
+
+## CI / CD (GitHub Actions)
+
+계층마다 요구 환경이 완전히 달라 **워크플로를 분리**했습니다. 문서 한 줄을 고쳐도
+ANTLR 런타임 빌드(수 분)까지 돌면 대기 시간만 늘고, 정작 어느 계층이 깨졌는지
+드러나지 않기 때문입니다.
+
+| 워크플로 | 트리거 경로 | 단계 |
+| --- | --- | --- |
+| [`backend.yml`](.github/workflows/backend.yml) | `SonarValidator_Backend/**` | JDK 26 → `./mvnw -B clean test` → surefire 리포트 |
+| [`frontend.yml`](.github/workflows/frontend.yml) | `SonarValidator_Frontend/**` | Node 22 → `npm ci` → `tsc -b` → `lint` → `build` |
+| [`prober.yml`](.github/workflows/prober.yml) | `SonarValidator_Prober/**` | ANTLR4 4.13.2 소스 빌드 → `cmake` → `ctest` |
+
+```mermaid
+flowchart LR
+    PR["Pull Request"] --> P{"변경 경로"}
+    P -->|Backend/**| B["JDK 26<br/>mvnw clean test"]
+    P -->|Frontend/**| F["Node 22<br/>tsc · lint · build"]
+    P -->|Prober/**| C["ANTLR4 4.13.2<br/>cmake · ctest"]
+```
+
+### ⚠️ 워크플로가 잡는 것 중 로컬에서 놓치기 쉬운 것
+
+| 항목 | 왜 놓치는가 |
+| --- | --- |
+| Frontend 타입 오류 | `npm run dev`(esbuild)가 검사하지 않음 |
+| Frontend 린트 오류 | 커밋 전 `npm run lint` 를 안 돌리면 쌓임 |
+| Prober ANTLR 버전 불일치 | 컴파일은 되고 런타임에만 터짐 |
+| 생성 파서 미커밋 | CMake 가 `FATAL_ERROR` 로 멈춤 |
+| Maven 증분 빌드 잔재 | `clean` 없이 돌리면 통과해 버림 |
+
+자세한 설계 근거와 재현 명령은
+[`docs/CICD_GitHub_Actions.md`](docs/CICD_GitHub_Actions.md) 를 참고하세요.
 
 ## CLI 출력 파서 (ANTLR)
 

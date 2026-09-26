@@ -6,6 +6,10 @@
 **범위**: Linux VM (Ubuntu), Cisco 8000v (IOS-XE), Arista vEOS, Alpine 컨테이너.
 Open vSwitch 와 nftables/Alpine 방화벽은 이 문서의 범위가 아닙니다.
 
+> **v1.0 (2026-09-25)** — 격리(quarantine) 기능이 추가되었습니다.
+> §2 에 `quarantine` 네임스페이스와 `ManagementWorker`, §3.1 에 격리 명령 수신
+> 시퀀스가 더해졌습니다. `ctest` 기준은 **13/13** 입니다.
+
 ---
 
 ## 1. 컴포넌트 개요
@@ -285,6 +289,104 @@ classDiagram
     ManagementService --> Firewall : 사용
 ```
 
+### 2.1 격리(Quarantine) 클래스
+
+`quarantine_handler` 는 **네임스페이스 + 자유 함수**입니다. 클래스를 만들지 않은
+이유는 상태를 갖지 않기 때문입니다 — 격리 상태의 소유자는 **서버**이고, Agent 는
+명령을 받아 적용한 뒤 결과만 ack 로 돌려줍니다. 상태를 두면 서버와 어긋납니다.
+
+```mermaid
+classDiagram
+    direction TB
+
+    class ManagementWorker {
+        <<free function>>
+        +ManagementWorker(stop_token, config)
+        -agent_id
+        -command_deadline 1s
+    }
+
+    class quarantine {
+        <<namespace>>
+        +kIsolate = "quarantine"
+        +kRelease = "release"
+        +kManagementPrefix = "172.16.255.0/24"
+        +IsQuarantineCommand(message) bool
+        +Isolate(config, mgmt) Outcome
+        +Release(config, mgmt) Outcome
+        +HandleCommand(config, mgmt, message) bool
+    }
+
+    class Outcome {
+        +bool ok
+        +string action
+        +vector~string~ affected
+        +vector~string~ preserved
+        +string detail
+    }
+
+    class InterfaceAddress {
+        <<internal struct>>
+        +string name
+        +string cidr
+        +string address
+        +int prefix_len
+    }
+
+    class envelope {
+        <<namespace>>
+        +kCommand = "command"
+        +kAck = "ack"
+        +kActionQuarantine = "quarantine"
+        +kActionRelease = "release"
+        +Make(type, agent_id, device_type, correlation_id, payload) Json
+        +Hello(agent_id, device_type) Json
+        +PolicyRequest(agent_id, device_type, device_id) Json
+    }
+
+    class policy_json {
+        <<namespace>>
+        +AsString(json, key) string
+    }
+
+    ManagementWorker --> quarantine : 명령 처리 위임
+    ManagementWorker --> envelope : ack 전송
+    quarantine --> Outcome : 생성
+    quarantine --> InterfaceAddress : 내부 사용
+    quarantine --> envelope : ack 생성
+    quarantine ..> policy_json : action 읽기
+    quarantine ..> ManagementService : RunCommand / SendEnvelope
+```
+
+**⚠️ 문자열 계약**: `quarantine::kIsolate` 는 `envelope::kActionQuarantine` 과,
+그것은 다시 서버 `QuarantineService.ACTION_QUARANTINE` 과 **정확히 같아야**
+합니다. 한 글자만 달라도 격리 버튼은 "명령을 보냈는데 아무 일도 안 일어나는"
+상태가 됩니다. `quarantine_handler_test` 가 이 계약을 못 박습니다.
+
+### 2.2 격리가 실제로 하는 일
+
+```
+격리 전                              격리 후
+  eth0  10.99.143.2/24  (데이터)        ↓ down
+  eth1.131 10.10.131.1/24 (데이터)      ↓ down
+  eth1.132 10.10.132.1/24 (데이터)      ↓ down
+  eth7  172.16.255.4/24  (관리)         — 유지  ← 해제 명령이 들어올 유일한 길
+```
+
+`Isolate()` 는 `ip -o -4 addr show` 로 주소를 가진 인터페이스를 모두 찾고,
+**관리 경로가 아닌 것만** `ip link set <name> down` 합니다.
+
+**⚠️ 안전장치**: 원격 서버인데 관리 경로를 **하나도 찾지 못하면** 격리를
+성공으로 보고하지 않습니다(`ok=false`). 전부 내려버리면 해제 명령이 도달할
+길이 없어 운영자가 콘솔로 들어가야 하기 때문입니다.
+
+**⚠️ nftables 규칙이 아니라 인터페이스를 내리는 이유**: 규칙은 지우면
+되돌아가지만, 그 규칙이 실제로 트래픽을 막는지는 벤더 구현에 의존합니다.
+인터페이스를 내리면 그 위의 모든 트래픽이 **구조적으로** 끊깁니다.
+그리고 서버는 격리된 장치에 차단본 정책도 함께 내려줍니다
+(`PolicyRegistryService.quarantineOverride`) — 재부팅 후 재접속하면
+명령이 아니라 정책으로 다시 격리되는 **두 겹의 안전장치**입니다.
+
 ### 열거형 요약
 
 | 열거형 | 정의 위치 | 값 | 용도 |
@@ -341,6 +443,73 @@ sequenceDiagram
         MS->>SRV: ack 봉투
     end
 ```
+
+---
+
+## 3.1 시퀀스 — 격리 명령 수신 및 적용
+
+**⚠️ 왜 `fetchPolicy` 대기 루프가 아니라 별도 수신 창인가**
+
+서버는 격리 명령을 `command` 봉투로 **비동기**로 밀어 넣습니다. 그런데
+`fetchPolicy` 의 대기 루프는 **같은 `correlation_id` 가 아닌 봉투를 버립니다**.
+그래서 명령을 받지 못하고, 다음 정책 요청까지 **최대 3초** 동안 아무도
+처리하지 않습니다. 격리는 "즉시" 가 생명이므로 `ManagementWorker` 가 정책
+적용 직후 **1초짜리 수신 창**을 엽니다.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant OP as 운영자 (프론트)
+    participant SRV as 중앙 서버
+    participant MW as ManagementWorker
+    participant MS as ManagementService
+    participant QH as quarantine
+    participant CLI as 장치 CLI
+
+    Note over MW: 정책 적용 직후 1초 수신 창
+
+    OP->>SRV: POST /api/v1/quarantine/{agentId}
+    SRV->>SRV: DB 저장 → 이력 → 알림 (전달보다 먼저)
+    SRV->>MS: command 봉투 {action:"quarantine"}
+
+    MW->>MS: TryReceive(raw, 200ms)
+    MS-->>MW: 원문 JSON
+    MW->>QH: HandleCommand(config, mgmt, message)
+    QH->>QH: IsQuarantineCommand(message)
+    Note over QH: type==command && payload.action ∈ {quarantine, release}
+
+    QH->>MS: RunCommandOutput("ip -o -4 addr show")
+    MS->>CLI: 인터페이스 조회
+    CLI-->>MS: eth0 10.99.143.2/24 / eth7 172.16.255.4/24 …
+    MS-->>QH: 주소 목록
+
+    QH->>QH: IsManagementPath() 로 관리 경로 판정
+    Note over QH: ① 172.16.255.0/24 대역인가<br/>② 서버와 같은 대역인가
+
+    loop 관리 경로가 아닌 인터페이스
+        QH->>MS: RunCommand("ip link set eth0 down")
+        MS->>CLI: 인터페이스 down
+    end
+
+    QH->>QH: 관리 경로를 하나도 못 찾았으면 ok=false (안전장치)
+
+    QH->>MS: SendEnvelope(ack {action, ok, affected, preserved, detail})
+    MS->>SRV: ack 봉투
+    SRV->>SRV: recordAck() → applied=true/false
+    SRV->>OP: 응답에 applied/applied_detail 포함
+```
+
+**격리 ack 의 두 값**
+
+| 필드 | 의미 |
+|---|---|
+| `ok` | 격리가 실제로 적용됐는가. `false` 면 서버가 **critical** 알림을 띄웁니다 |
+| `affected` | down 시킨 인터페이스 목록 (`eth0 (10.99.143.2/24)`) |
+| `preserved` | 관리 경로라 **살려 둔** 인터페이스 목록 |
+
+서버 응답의 `delivered`(소켓에 썼나)와 `applied`(ack 로 확인됐나)는
+**다른 값**입니다. 두 값이 다른 상태가 "장치는 살아 있는데 서버는 격리됐다고
+믿는" 최악의 상태이므로 화면에서 구분해 보여줍니다.
 
 ---
 
@@ -699,7 +868,7 @@ flowchart LR
 
 ## 8. 검증 상태
 
-### 8.1 단위 테스트 (`ctest`, 8/8 통과)
+### 8.1 단위 테스트 (`ctest`, 13/13 통과)
 
 | 테스트 | 대상 | 검사 수 |
 |---|---|---|
@@ -708,7 +877,24 @@ flowchart LR
 | `telemetry_store_test` | DB 스키마 및 저장 헬퍼 5종 | - |
 | `database_service_test` | DB 큐/서비스 | - |
 | `envelope_test` | 봉투 직렬화 | - |
-| `routing_table_test`, `prober_config_test`, `telemetry_service_test` | 라우팅 테이블 / 설정 / 텔레메트리 서비스 | - |
+| `quarantine_handler_test` | **격리 명령 수신 판정 / 문자열 계약 / 오인 방지** | **17** |
+| `routing_table_test`, `prober_config_test`, `telemetry_service_test`, `offline_export_test`, `firewall_test`, `switch_test`, `management_service_integration_test` | 라우팅 테이블 / 설정 / 텔레메트리 / 오프라인 스냅샷 / 방화벽 / 스위치 / 관리 통합 | - |
+
+#### `quarantine_handler_test` 가 지키는 것
+
+| 검사 | 이유 |
+|---|---|
+| `kIsolate == envelope::kActionQuarantine == "quarantine"` | 세 곳의 문자열이 어긋나면 격리가 조용히 무시됨 |
+| 서버가 보내는 모양(`payload.action`) 인식 | `QuarantineService.sendCommand()` 와의 계약 |
+| 최상위 `action` 폴백 인식 | 운영자가 손으로 만든 디버깅 봉투 |
+| `telemetry`/`policy-response` 는 **절대** 명령으로 안 봄 | 오인 = 정상 장치 인터페이스를 내리는 사고 |
+| 오타(`quarantin`) / 비문자열 action 거부 | `get<string>` 예외 방지 |
+| `Outcome.ok` 기본값 `false` | 초기화 누락 시 거짓 성공 보고 방지 |
+| `kManagementPrefix == "172.16.255.0/24"` | 이 대역을 놓치면 해제 명령이 도달 못 함 |
+
+> ⚠️ `Isolate()`/`Release()` 자체는 테스트에서 호출하지 않습니다.
+> 실제 `ip link set ... down` 을 실행하므로 **테스트 머신의 인터페이스가
+> 내려갑니다.** 판정 로직만 검증합니다.
 
 ### 8.2 실제 장비 검증 (Arista vEOS 10.20.0.4)
 
