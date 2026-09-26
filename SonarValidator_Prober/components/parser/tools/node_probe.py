@@ -52,10 +52,12 @@ def load_credentials():
         ## cisco Router (Cisco 8000v)
         - 10.20.0.1
         ```bash
-        pw Pa129@YX#143
+        pw <비밀번호>
         telnet localhost:5018
         ```
     섹션 헤더를 만나면 그 뒤 첫 `pw ` 값을 그 섹션의 비밀번호로 본다.
+
+    ⚠️ 이 문서는 **저장소 밖**에 두세요(public 저장소에 비밀번호를 두지 않습니다).
     """
     creds = {}
     try:

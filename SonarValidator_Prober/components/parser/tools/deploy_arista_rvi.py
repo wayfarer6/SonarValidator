@@ -27,7 +27,10 @@ PROBER_DIR = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 
 DEFAULT_HOST = "10.20.0.4"
 DEFAULT_USER = "admin"
-DEFAULT_PASSWORD = "ChangeThisPassword"
+# ⚠️ 비밀번호를 코드에 넣지 않습니다. 이 저장소는 public 입니다.
+#    ARISTA_PASSWORD 환경변수로 주입하세요:
+#      export ARISTA_PASSWORD='...'
+DEFAULT_PASSWORD = os.environ.get("ARISTA_PASSWORD", "")
 DEFAULT_BINARY = os.path.join(PROBER_DIR, "build_static", "sonar_validator_prober")
 DEFAULT_CONF = os.path.join(PROBER_DIR, "Installer", "default.conf")
 DEFAULT_TEMPLATE = os.path.join(PROBER_DIR, "Installer", "default_template.sqlite")
@@ -120,6 +123,10 @@ def main():
     args = ap.parse_args()
 
     print(f"== Arista vEOS 배포: {args.user}@{args.host} → {REMOTE_DIR} ==")
+    if not args.password:
+        print("비밀번호가 필요합니다. ARISTA_PASSWORD 환경변수 또는 --password 로 지정하세요.",
+              file=sys.stderr)
+        return 2
     for path in (args.binary,):
         if not os.path.exists(path):
             print(f"바이너리 없음: {path}", file=sys.stderr)
