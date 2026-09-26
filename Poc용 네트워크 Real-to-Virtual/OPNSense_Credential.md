@@ -108,25 +108,47 @@ Enter an option: 8
 root@OPNsense:~ #          # FreeBSD 14.3-RELEASE-p16 / OPNsense 26.1
 ```
 
+> ⚠️ 초기 셸은 **csh** 입니다. `$(...)`, `2>/dev/null`, `for` 가 동작하지 않으므로
+> (`Illegal variable name`) Linux 명령을 쓰려면 `/bin/sh` 로 전환하세요.
+> Agent 를 배포하지는 않지만, API 키 발급·설정 확인 시 필요합니다.
+
 ---
 
 ## 2. OPNsense API 자격증명
 
-### 2.1 결론 — **API 자격증명 사용 불가 (건너뜀)**
+### 2.1 결론 — ✅ **API 연동 완료** (2026-09-26 정정)
 
 | 항목 | 상태 |
 | --- | --- |
-| 설정(`/conf/config.xml`)의 API 키 항목 | **존재함** (root 사용자 소유) |
-| 실제 API 호출 결과 | **HTTP 401 `Authentication Failed`** |
-| 판정 | **사용 불가** → 이번 RVI 테스트에서 OPNsense 검증 **건너뜀** |
+| 실제 API 호출 | ✅ **HTTP 200** — 정상 동작 |
+| 백엔드 연결 검증 | ✅ `status=OK`, `detected_version=26.1.11_10` |
+| 진단 5개 대상 | ✅ **5/5 PASS** (firmware·interfaces·rules·nat·aliases) |
+| Agent 배포 | ❌ **하지 않음 — REST API 전용** |
 
-### 2.2 실측 근거
+> ⚠️ **이전 판정 정정**: 과거 이 문서는 *"HTTP 401 → 사용 불가 → 건너뜀"* 로 기록했습니다.
+> 실제로는 **키 자체가 무효가 아니라, 다른 키를 사용했기 때문**이었습니다.
+> 유효한 키로 호출하면 관리망(`http://10.20.0.2`)에서 **정상적으로 200** 이 옵니다.
 
-발견한 기존 자격증명 (`~/OPNSense_API_TEST/payload.sh` 에서 확인):
+### 2.1.1 ⚠️ OPNsense 는 Agent 를 배포하지 않습니다
+
+| 항목 | 값 |
+| --- | --- |
+| OS | **FreeBSD 14.3** (Linux 아님) |
+| prober 요구사항 | Linux (`/proc`, `/sys`) |
+| Linux 바이너리 실행 | Linuxulator 커널 모듈 + `/compat/linux` + glibc 트리 필요 |
+| **방침** | **Agent 미배포 · REST API 로만 검증** |
+
+**Agent 는 Linux 계열 노드(Cisco guestshell · Arista vEOS · Ubuntu)에만 배포합니다.**
+OPNsense 는 공식 REST API 가 인터페이스·규칙·NAT 를 **구조화된 형태**로 제공하므로
+Agent 없이 **더 정확한 데이터**를 얻습니다.
+
+### 2.2 실측 근거 (갱신)
+
+검증된 자격증명 (`~/OPNSense_API_TEST/payload.sh`):
 
 ```
-API Key    : jFXy…(masked — 401 무효였으므로 보관 가치 없음)
-API Secret : (masked — 원문 미보관)
+API Key    : jFXy…(masked — 평문 보관 금지)
+API Secret : (masked)
 엔드포인트 : http://10.20.0.2/api/core/firmware/info
 ```
 
@@ -134,46 +156,64 @@ API Secret : (masked — 원문 미보관)
 
 ```bash
 curl -k -u "<KEY>:<SECRET>" http://10.20.0.2/api/core/firmware/info
-# → HTTP 401
-# → {"status":401,"message":"Authentication Failed"}
+# → HTTP 200  ✅  (평문 http 80 만 열려 있음 — 443 closed)
 ```
 
-OPNsense 측 설정 상태:
+**과거 401 의 원인** — 함께 보관돼 있던 **다른 키**를 사용했습니다.
+키 자체가 무효라고 단정한 것이 오진이었습니다.
+
+> 상세 진단 기록: [RVI 실장비 연동 테스트 v2.0](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1704055)
+
+### 2.3 API 인증 방식
+
+OPNsense API 는 **Key 를 사용자 이름 자리에 넣어 Basic 인증**합니다.
 
 ```
-/conf/config.xml 의 <user><name>root</name> 아래:
-  <apikeys>jFXy…(masked — 401 무효였으므로 보관 가치 없음)|$6$$(masked)?</apikeys>
+Authorization: Basic base64(apiKey + ":" + apiSecret)
 ```
 
-- Key 항목은 **설정에 남아 있음** (root 소유)
-- 그러나 위 Secret 으로 인증이 통과하지 않음 → **Key 와 Secret 짝이 현재 유효하지 않음**
-  (Secret 재발급/변경, 또는 Key 만 남고 Secret 원문이 소실된 상태로 추정)
+> ⚠️ Key 와 Secret 을 **반대로** 넣으면 `Authentication Failed` 만 나와
+> 원인을 찾기 어렵습니다. 순서가 중요합니다.
 
-### 2.3 유효한 자격증명을 만들려면 (사용자가 직접 수행)
+### 2.4 UI 검증 결과 (2026-09-26 실측 — 갱신)
 
-OPNsense WebUI (`http://10.20.0.2`, 80 포트만 열려 있음 / 443 closed) 에서:
-
-1. `root` / `$SONAR_OPNSENSE_PW` 로 로그인
-2. **System → Access → Users → root** (또는 전용 API 사용자)
-3. 하단 **API keys** 영역에서 **+** 클릭
-4. 표시되는 **Key / Secret 을 즉시 복사** (Secret 은 다시 표시되지 않음)
-5. 이 문서 §2.4 에 기록
-
-> OPNsense API 는 **Key 를 사용자 이름 자리에 넣어 Basic 인증**합니다:
-> `Authorization: Basic base64(apiKey + ":" + apiSecret)`
-> 반대로 넣으면 `Authentication Failed` 만 나와 원인을 찾기 어렵습니다.
-
-### 2.5 UI 검증 결과 (2026-09-26 실측)
-
-**자격증명 자체는 무효지만, 애플리케이션의 등록·검증 경로는 전부 정상 동작합니다.**
+**등록·검증·진단 전 경로가 실제 데이터로 동작합니다.**
 
 | UI 동작 | 결과 |
 | --- | --- |
-| `/project` → Add Agent → OPNsense 카드 → 모달 | ✅ (API 준비 안내 + Basic 인증 형식 안내 표시) |
-| 주소/Key/Secret 입력 → 저장 | ✅ 200, `status=FAILED` + 사유 표시 |
+| `/project` → Add Agent → OPNsense 카드 → 모달 | ✅ |
+| 주소/Key/Secret 입력 → 저장 | ✅ 200, **`status=OK`** + 버전 감지 |
 | **연결 테스트** 버튼 | ✅ 마지막 확인 시각 갱신 |
-| **원문 조회** 버튼 | ✅ `HTTP 401` + `{"status":401,"message":"Authentication Failed"}` |
-| 저장 후 마스킹 (`jFXy****`) | ✅ Secret 평문 미노출 |
+| **원문 조회** 버튼 | ✅ **HTTP 200** — 인터페이스 8건·규칙 25건 |
+
+**수집된 실제 데이터**
+
+| identifier | description | addr4 | status |
+| --- | --- | --- | --- |
+| wan | WAN | 172.128.0.2/24 | up |
+| opt1 | Data_Plane_Transit | 172.18.10.1/24 | up |
+| **lan** | **LAN** | **`10.20.0.2/24`** | **up** |
+| lo0 | Loopback | 127.0.0.1/8 | up |
+
+> 필터 규칙 **25건**(Default deny 포함), NAT 규칙 **0건** (주소 변환 미사용 구성)
+
+### 2.5 ⚠️ OPNsense API 경로는 버전마다 바뀝니다 (실측)
+
+| 용도 | 26.1 동작 경로 | 비고 |
+| --- | --- | --- |
+| 인터페이스 | `/api/interfaces/overview/interfacesInfo` | `…interface/get` 는 **404** |
+| NAT | `/api/firewall/filter/get` → `filter.snatrules` | `search_nat` **404**, `search_rule?type=nat` 은 **type 무시** |
+| 필터 규칙 | `/api/firewall/filter/search_rule?rowCount=-1` | |
+| 별칭 | `/api/firewall/alias/search_item?rowCount=-1` | |
+
+> 응답이 **200 이어도 의도한 대상이 아닐 수 있습니다**. 실장비 검증이 필요합니다. (`SONAR-31`)
+
+### 2.6 저장 후 마스킹
+
+| 항목 | 결과 |
+| --- | --- |
+| API Key 노출 | `jFXy****` 로 마스킹 |
+| API Secret 노출 | ✅ **평문 미노출** (AES-256-GCM 암호화 저장) |
 
 > ⚠️ **UI 검증 중 실제 결함을 발견했습니다** (커밋 `b9ea29c`).
 > 프론트는 `base_url`(snake_case)로 보내는데 백엔드 `CredentialRequest` record 가
@@ -181,18 +221,15 @@ OPNsense WebUI (`http://10.20.0.2`, 80 포트만 열려 있음 / 443 closed) 에
 > `400 "OPNsense 주소(base_url)는 필수입니다"` 로만 보였습니다.
 > `@JsonProperty` 를 명시해 수정했고, 수정 후 400 → 200 으로 정상화됐습니다.
 
-**재발급 후에는 위 표 그대로 다시 수행하면 probe 까지 종단 검증이 됩니다.**
-
-### 2.4 발급 시 기록 양식 (사용자 입력용)
-
-```
-API Key    :
-API Secret :
-발급일     :
-발급 사용자:
-검증 명령  : curl -k -u "<KEY>:<SECRET>" http://10.20.0.2/api/core/firmware/status
-검증 결과  : (HTTP 200 이면 유효)
-```
+> ⚠️ **백엔드 시크릿 키를 반드시 주입하세요.**
+> `SONAR_SECRET_KEY` 미주입 시 임시 키가 생성되어
+> **재시작하면 저장된 Secret 복호화가 실패**합니다 (`SONAR-32`).
+>
+> ```bash
+> openssl rand -base64 32 > ~/.sonar_secret_key
+> chmod 600 ~/.sonar_secret_key
+> export SONAR_SECRET_KEY="$(cat ~/.sonar_secret_key)"
+> ```
 
 ---
 
@@ -215,16 +252,34 @@ API Secret :
 
 ---
 
-## 4. 이번 테스트에서 자격증명 때문에 **테스트 불가**인 항목
+## 4. 해소 현황 (2026-09-26 갱신)
 
-| # | 항목 | 사유 | 대체 검증 |
+초기 기록의 "테스트 불가" 항목 중 **대부분 해소**되었습니다.
+
+| # | 항목 | 초기 사유 | **현재 상태** |
 | --- | --- | --- | --- |
-| B1 | **OPNsense 자격증명 등록·verify·probe** | API Key/Secret 짝이 401 → 사용 불가. 재발급은 사용자 작업 | `GET /opnsense/credentials` → `{total:0}`, UI 모달 열림/후보 목록만 확인 |
-| B2 | **Cisco 8000v Agent 배포** | SSH 인증 실패 + GNS3 콘솔(telnet 5018) 경유 필요 | guestshell 경로 코드는 존재, 실배포 보류 |
-| B3 | **GNS3 콘솔 경유 모든 작업** | GNS3 호스트(`192.168.122.1`) SSH 키 미등록 | — |
-| B4 | **Ubuntu-24-VM / VM1 Agent 배포** | `10.0.8/9.x` 직접 라우팅 없음 + 콘솔 경유 필요 (B3) | — |
+| B1 | OPNsense 자격증명·verify·probe | API Key 401 → 불가 | ✅ **해소** — `status=OK`, 진단 **5/5 PASS** |
+| B2 | Cisco 8000v Agent 배포 | SSH 인증 실패 | ✅ **해소** — 콘솔 경유 배포 완료, `connected=true` |
+| B3 | GNS3 콘솔 경유 작업 | GNS3 호스트 SSH 키 미등록 | ✅ **해소** — 키 등록 완료, 콘솔 경유 정상 |
+| B4 | Ubuntu-24-VM / VM1 배포 | `10.0.8/9.x` 직접 라우팅 없음 | ⏳ **미해소** — GNS3 콘솔(5021/5027) 경유 필요 |
 
-**대체 검증 가능 항목 (자격증명 확보됨)**: Arista vEOS Agent 배포·텔레메트리, 프론트엔드·백엔드 통합 시나리오(S1~S9), OPNsense UI 존재/모달 동작
+**해소되지 않은 항목**
+
+| # | 항목 | 막힌 지점 | 다음 단계 |
+| --- | --- | --- | --- |
+| B4 | Ubuntu VM 2대 Agent | 관리망 → 데이터평면 경로 없음 | GNS3 콘솔 경유 배포 |
+| B5 | Cisco 관리망 직접 연결 | `Gi4 ip nat inside` 미지정 + 서버 반환 경로 없음 | `SONAR-30` |
+| B6 | Cisco 인터페이스 기반 정책 | guestshell 이 호스트 IOS 포트를 못 봄 | IOS CLI 수집 경로 신설 |
+| B7 | SIGTERM 정상 종료 | connect/handshake 타임아웃 부재 | `SONAR-25` |
+
+**최종 배포·연동 현황**
+
+| 노드 | 방식 | 상태 |
+| --- | --- | --- |
+| CiscoCatalyst8000V-Router | Agent (guestshell) | ✅ 연결·텔레메트리 |
+| AristaEOS-Switch | Agent (SSH) | ✅ 연결 유지 |
+| **OPNsense-Firewall** | **REST API 전용** (Agent 미배포) | ✅ 진단 5/5 |
+| Ubuntu-24-VM / VM1 | Agent | ⏳ 미배포 |
 
 ---
 

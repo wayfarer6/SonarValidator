@@ -168,36 +168,68 @@ scp cisco_console.py ssh1032007@192.168.122.1:/tmp/
 
 ### 4.5 배포 실행 (GNS3 호스트에서)
 
+**방식 A — guestshell curl 직접 다운로드 (권장, 기본값)**
+
 ```bash
 ssh ssh1032007@192.168.122.1 \
   'python3 /tmp/cisco_console.py --action deploy \
      --http 192.168.122.32:8899 \
-     --server-ip 192.168.122.32'
+     --server-ip 192.168.122.32 \
+     --transfer curl'
 ```
 
-### 4.6 정상 배포 출력 (실측)
+> guestshell 에 **HTTP 클라이언트가 내장**되어 있어 IOS copy 없이 직접 받습니다.
+> 단계가 적고 `bootflash` 권한 문제를 우회합니다.
+
+**방식 B — IOS copy 경유 (폴백)**
+
+```bash
+ssh ssh1032007@192.168.122.1 \
+  'python3 /tmp/cisco_console.py --action deploy \
+     --http 192.168.122.32:8899 --server-ip 192.168.122.32 --transfer ios'
+```
+
+guestshell 에 `curl`/`wget` 이 없거나 HTTP 가 막힌 경우에만 씁니다.
+
+### 4.5.1 ⚠️ 긴 전송은 반드시 스크립트 + 폴링
 
 ```
-=== IOS copy → bootflash:guest-share (공유 디렉터리) ===
-  sonar_validator_prober    → 전송 완료
-  default_template.sqlite   → 전송 완료
-=== guestshell 홈 확인 ===
-  home=/home/guestshell
-  → 배포 경로: /home/guestshell/svdir
-=== 디렉터리 준비 ===
-MKDIR_OK
-=== 실행 래퍼 생성 (base64 전송) ===
-B64_OK
-=== 설정 파일 생성 (서버 주소 주입) ===
-  SERVER_IP=192.168.122.32
-  AGENT_NAME=CiscoCatalyst8000V-Router
-=== 파일 배치 (guest-share → guestshell 홈) ===
-  COPIED_sonar_validator_prober
-  COPIED_default_template.sqlite
-B64_OK
+❌ console.send("curl -o big.bin http://...")  → HTTP=200 인데 DL_FAIL
+                                                 파일은 이전 배포본 그대로
+✅ 스크립트로 넘기고 완료를 폴링                 → OK 8023352
+```
+
+8MB 다운로드는 텔넷 콘솔의 **idle 창을 넘기고**, 그 사이 다음 명령이 끼어들어 전송이 잘립니다.
+`curl` 을 **스크립트 파일**로 만들어 백그라운드 실행하고 `FETCH_DONE` 마커를 **폴링**해야 합니다.
+(도구가 이미 이렇게 구현되어 있습니다)
+
+### 4.6 정상 배포 출력 (실측 — curl 방식)
+
+```
+=== 파일 배치 ===
+  방식: guestshell → curl (HTTP 직접, 스크립트+폴링)
+    OK sonar_validator_prober 8023352
+    OK default_template.sqlite 102400
+    FETCH_DONE
+B64_OK          ← run.sh
+B64_OK          ← fetch.sh
+B64_OK          ← default.conf (SERVER_IP 주입)
 === 실행 ===
-STARTED pid=1187
+STARTED pid=2823
 ```
+
+**mojibake 확인 (실측)**
+
+```
+TOOLS: curl=yes  wget=yes  python3=yes  base64=yes  tar=yes
+curl → HTTP=200, 8,023,352 bytes
+```
+
+| 파일 | 크기 | 전송 |
+| --- | --- | --- |
+| `sonar_validator_prober` | 8,023,352 B | `OK` (크기 일치) |
+| `default_template.sqlite` | 102,400 B | `OK` |
+| `default.conf` | 171 B | `B64_OK` |
 
 ### 4.7 검증
 
@@ -263,6 +295,16 @@ curl -s -b /tmp/sv_cookies.txt \
 ---
 
 ## 6. 파일 전송 경로 (핵심 함정)
+
+### 6.1 방식 A — guestshell curl (권장)
+
+```
+guestshell ──curl──► 서버 HTTP (192.168.122.32:8899)
+```
+
+단계가 하나이고 IOS 를 거치지 않습니다.
+
+### 6.2 방식 B — IOS copy (폴백) — 권한 함정
 
 `/bootflash` 루트는 guestshell 이 **읽을 수 없습니다** (`nobody:network-admin` 소유).
 
@@ -347,6 +389,7 @@ ssh ssh1032007@192.168.122.1 \
 | 증상 | 원인 | 대응 |
 | --- | --- | --- |
 | Agent 가 **무응답** | `SERVER_IP` 에 관리 주소 사용 | **NAT 주소**로 바꾸기 (`192.168.122.32`) |
+| `HTTP=200` 인데 `DL_FAIL` | 콘솔 idle 초과로 전송 잘림 | **스크립트 + 폴링** (§4.5.1) |
 | `MISSING_<파일>` | `/bootflash` 루트에 복사함 | `bootflash:guest-share/` 로 |
 | `No such file or directory` | 바이너리 미전송 또는 권한 없음 | `ls -la <dir>`, `chmod +x` |
 | `bash: show: command not found` | guestshell 안에서 IOS 명령 실행 | `exit` 후 IOS 프롬프트에서 |
@@ -354,6 +397,7 @@ ssh ssh1032007@192.168.122.1 \
 | SSH 로그인 거부 | guestshell 격리 (설계) | 콘솔 경유 (제1장) |
 | `nic_status` 가 `Unexpected` | guestshell 은 컨테이너 — 호스트 IOS 인터페이스 안 보임 | 알려진 한계 (§10) |
 | 프로버 종료 안 됨 | SONAR-25 (타임아웃 부재) | `kill -TERM`, 이후 `kill -9` |
+| 정책을 받지만 **응답 timeout** | SONAR-25 와 연관 가능 | 미해결 — 추가 확인 필요 |
 
 ---
 
@@ -396,6 +440,16 @@ ssh ssh1032007@192.168.122.1 \
 | --- | --- |
 | **SONAR-30** | Gi4 관리망 연결 + `ip nat inside` 미지정 → guestshell 관리망 미도달 |
 | SONAR-25 | SIGTERM 으로 프로버가 종료되지 않음 |
+| SONAR-31 | OPNsense 26.1 API 경로 404 (OPNsense 문서 참조) |
+| SONAR-32 | `SONAR_SECRET_KEY` 미주입 시 재시작 후 복호화 실패 |
+
+### 11.4 Confluence
+
+| 문서 | 내용 |
+| --- | --- |
+| [Agent 배포 가이드 v2.0 — RVI 랩](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1769552) | RVI 기준 배포 방법 |
+| [RVI 실장비 연동 테스트 v2.0](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1704055) | 검증 결과·증거 |
+| [OPNsense API 인증·경로 (RVI)](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1704055) | OPNsense 는 API 전용 |
 
 ---
 

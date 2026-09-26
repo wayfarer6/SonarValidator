@@ -240,34 +240,38 @@ def gs_put_file(console, local_path, remote_path):
     return out
 
 
-def action_deploy(console, password, http, agent_name, node_type, server_ip, remote_dir):
-    """정적 프로버를 guestshell 에 배포하고 실행합니다."""
+def action_deploy(console, password, http, agent_name, node_type, server_ip, remote_dir,
+                  transfer="curl"):
+    """정적 프로버를 guestshell 에 배포하고 실행합니다.
+
+    전송 방식 두 가지:
+      - ``curl``(기본): guestshell 이 HTTP 서버에서 **직접** 받습니다.
+        IOS copy·bootflash 경유가 필요 없어 가장 단순합니다. (실측 검증)
+      - ``ios``: IOS ``copy`` → ``/bootflash/guest-share`` 경유.
+        guestshell 에 curl/wget 이 없거나 HTTP 가 막힌 경우의 폴백입니다.
+    """
     enter_enable(console, password)
 
     files = [
         ("sonar_validator_prober", "sonar_validator_prober"),
         ("default_template.sqlite", "default_template.sqlite"),
-        ("default.conf", "default.conf"),
+        # ⚠️ default.conf 는 서버 주소를 주입해야 하므로 아래에서 base64 로 보냅니다.
     ]
 
-    print("=== IOS copy → bootflash:guest-share (공유 디렉터리) ===")
-    # ⚠️ /bootflash 루트는 guestshell 사용자가 읽지 못합니다.
-    #    (소유자 nobody:network-admin 이고, 컨테이너에서 접근이 막힘 — 실측)
-    #    IOS 와 guestshell 이 함께 쓰는 guest-share 로 곧장 넣습니다.
-    for src, target in files:
-        if target == "default.conf":
-            # 설정 파일은 서버 주소를 주입해야 하므로 아래에서 base64 로 보냅니다.
-            continue
-        # confirm=\r\n 으로 덮어쓰기 프롬프트를 자동 승인합니다.
-        out = ios_cmd(
-            console,
-            f"copy http://{http}/{src} bootflash:guest-share/{target}",
-            60,
-            confirm="\r\n")
-        done = "bytes copied" in out.lower() or "copied" in out.lower()
-        print(f"  {src} → {'전송 완료' if done else '확인 필요'}")
-        if not done:
-            print(f"    (출력) {out.strip()[-300:]}")
+    if transfer == "ios":
+        print("=== [폴백] IOS copy → bootflash:guest-share (공유 디렉터리) ===")
+        # ⚠️ /bootflash 루트는 guestshell 사용자가 읽지 못합니다.
+        #    (소유자 nobody:network-admin 이고, 컨테이너에서 접근이 막힘 — 실측)
+        for src, target in files:
+            out = ios_cmd(
+                console,
+                f"copy http://{http}/{src} bootflash:guest-share/{target}",
+                60,
+                confirm="\r\n")
+            done = "bytes copied" in out.lower() or "copied" in out.lower()
+            print(f"  {src} → {'전송 완료' if done else '확인 필요'}")
+            if not done:
+                print(f"    (출력) {out.strip()[-300:]}")
 
     enter_guestshell(console)
 
@@ -337,25 +341,73 @@ def action_deploy(console, password, http, agent_name, node_type, server_ip, rem
     print(f"  SERVER_IP={server_ip}")
     print(f"  AGENT_NAME={agent_name}")
 
-    print("=== 파일 배치 (guest-share → guestshell 홈) ===")
-    # guestshell 쪽에서 guest-share 를 읽을 수 있는지 먼저 확인합니다.
-    check = console.send(
-        "ls -la /bootflash/guest-share/ 2>&1 | head -12", idle=2.0, limit=12)
-    print(check[-600:])
-
-    for src, target in files:
-        if target == "default.conf":
-            continue
-        out = console.send(
-            f"cp -f /bootflash/guest-share/{target} {actual_dir}/{target} && "
-            f"echo COPIED_{target} || echo MISSING_{target}",
-            idle=2.5, limit=25)
-        for line in out.split("\n"):
-            if line.startswith("COPIED_") or line.startswith("MISSING_"):
-                print("  " + line.strip())
+    print("=== 파일 배치 ===")
+    if transfer == "curl":
+        # guestshell 이 HTTP 서버에서 직접 받습니다. (실측: curl=yes, 8MB 성공)
+        #
+        # ⚠️ 명령을 직접 보내면 안 됩니다. 바이너리가 8MB 라 다운로드가
+        #    콘솔의 idle 창을 넘기고, 그 사이 다음 명령이 끼어들어 전송이
+        #    잘립니다(실측: HTTP=200 인데 DL_FAIL, 파일은 이전 배포본 그대로).
+        #    그래서 **스크립트로 넘기고 완료를 폴링**합니다.
+        print("  방식: guestshell → curl (HTTP 직접, 스크립트+폴링)")
+        fetch_script = (
+            "#!/bin/sh\n"
+            "set -u\n"
+            f"DIR='{actual_dir}'\n"
+            f"HTTP='{http}'\n"
+            "cd \"$DIR\" || { echo NO_DIR; exit 1; }\n"
+            "for f in sonar_validator_prober default_template.sqlite; do\n"
+            "  rm -f \"$f.part\"\n"
+            "  if curl -sS --max-time 900 -o \"$f.part\" \"http://$HTTP/$f\"; then\n"
+            "    mv \"$f.part\" \"$f\"\n"
+            "    echo \"OK $f $(wc -c < \"$f\")\"\n"
+            "  else\n"
+            "    echo \"FAIL $f curl_rc=$?\"\n"
+            "  fi\n"
+            "done\n"
+            "chmod +x sonar_validator_prober\n"
+            "echo FETCH_DONE\n"
+        )
+        local_fetch = "/tmp/cisco_fetch.sh"
+        with open(local_fetch, "w", encoding="utf-8") as fh:
+            fh.write(fetch_script)
+        print(gs_put_file(console, local_fetch, f"{actual_dir}/fetch.sh")[-120:])
+        # 백그라운드로 실행하고 완료를 폴링합니다.
+        console.send(
+            f"cd {actual_dir} && rm -f fetch.log && "
+            f"nohup sh fetch.sh > fetch.log 2>&1 & echo FETCH_STARTED",
+            idle=2.5, limit=15)
+        fetch_ok = False
+        for attempt in range(40):          # 최대 200초
+            time.sleep(5)
+            probe = console.send(
+                f"cat {actual_dir}/fetch.log 2>/dev/null; "
+                f"pgrep -f 'curl.*sonar_validator' >/dev/null && echo STILL_RUNNING || echo CURL_IDLE",
+                idle=2.0, limit=12)
+            if "FETCH_DONE" in probe:
+                fetch_ok = True
+                break
+        for line in probe.split("\n"):
+            if line.startswith(("OK ", "FAIL ", "FETCH_DONE", "NO_DIR")):
+                print("    " + line.strip())
+        if not fetch_ok:
+            print(f"    ⚠️ 폴링 시간 초과 (시도 {attempt + 1}) — fetch.log 확인 필요")
+    else:
+        print("  방식: IOS guest-share → guestshell (cp)")
+        check = console.send(
+            "ls -la /bootflash/guest-share/ 2>&1 | head -12", idle=2.0, limit=12)
+        print(check[-500:])
+        for src, target in files:
+            out = console.send(
+                f"cp -f /bootflash/guest-share/{target} {actual_dir}/{target} && "
+                f"echo COPIED_{target} || echo MISSING_{target}",
+                idle=2.5, limit=25)
+            for line in out.split("\n"):
+                if line.startswith("COPIED_") or line.startswith("MISSING_"):
+                    print("  " + line.strip())
 
     # 설정 파일은 값이 주입되어야 하므로 base64 로 전송합니다 (소량).
-    print("  " + gs_put_file(console, local_conf, f"{actual_dir}/default.conf").strip()[-120:])
+    print(gs_put_file(console, local_conf, f"{actual_dir}/default.conf")[-200:])
     print(console.send(f"chmod +x {actual_dir}/sonar_validator_prober; ls -la {actual_dir}",
                        idle=2.5, limit=15)[-800:])
 
@@ -441,6 +493,9 @@ def main():
     ap.add_argument("--node-type", default="Router", choices=["Router", "Switch", "VM", "Firewall"])
     ap.add_argument("--remote-dir", default=None,
                     help="기본: /home/guestshell/svdir (guestshell 절대경로)")
+    ap.add_argument("--transfer", default="curl", choices=["curl", "ios"],
+                    help="curl(기본): guestshell 이 HTTP 직접 다운로드 / "
+                         "ios(폴백): IOS copy → bootflash:guest-share 경유")
     args = ap.parse_args()
 
     password = resolve_password(args.password)
@@ -461,7 +516,8 @@ def main():
             action_inspect(console, password)
         elif args.action == "deploy":
             action_deploy(console, password, args.http,
-                          args.agent_name, args.node_type, args.server_ip, remote_dir)
+                          args.agent_name, args.node_type, args.server_ip, remote_dir,
+                          args.transfer)
         elif args.action == "status":
             action_status(console, password, remote_dir)
         elif args.action == "stop":
