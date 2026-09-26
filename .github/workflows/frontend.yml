@@ -1,0 +1,87 @@
+name: Frontend
+
+# React(TypeScript) 프론트엔드의 타입 검사·린트·프로덕션 빌드를 검증합니다.
+#
+# ⚠️ 세 단계를 모두 도는 이유
+#   `npm run dev` 는 esbuild 를 써서 **타입 검사를 하지 않습니다.**
+#   그래서 개발 중에는 멀쩡해 보여도 `tsc -b` 에서 깨지는 코드가 남습니다.
+#   `npm run build` 는 `tsc -b && vite build` 이므로 빌드만 돌리면
+#   타입 검사가 포함되지만, 실패 원인이 "빌드 실패" 로만 보입니다.
+#   그래서 타입 → 린트 → 빌드로 나눠 어느 단계가 깨졌는지 드러냅니다.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'SonarValidator_Frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'SonarValidator_Frontend/**'
+      - '.github/workflows/frontend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: type check + lint + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ⚠️ Node 22 를 씁니다 (저장소에 engines 가 없어 러너 기본값에 기대면
+      #   Node 버전이 바뀔 때 조용히 달라집니다).
+      #   Vite 6 / React 19 는 Node 20 이상을 요구합니다.
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: SonarValidator_Frontend/package-lock.json
+
+      # ⚠️ `npm ci` 를 씁니다 (`npm install` 이 아니라).
+      #   lock 파일과 package.json 이 어긋나면 즉시 실패하므로,
+      #   "내 컴퓨터에서는 되는데" 를 CI 에서 잡을 수 있습니다.
+      - name: Install dependencies
+        working-directory: SonarValidator_Frontend
+        run: npm ci
+
+      - name: Type check
+        working-directory: SonarValidator_Frontend
+        run: npx tsc -b
+
+      # ⚠️ warnings 는 실패시키지 않습니다 (eslint 는 error 만 0이 아니게 만듭니다).
+      #   react-refresh/only-export-components 경고는 개발 편의 규칙이고
+      #   실제 런타임 영향이 없어, 이것 때문에 PR 이 막히면 우회를 만들게 됩니다.
+      - name: Lint
+        working-directory: SonarValidator_Frontend
+        run: npm run lint
+
+      - name: Production build
+        working-directory: SonarValidator_Frontend
+        run: npm run build
+
+      # 번들 크기를 요약에 남깁니다. 리팩토링이 번들을 키웠는지
+      # 매 PR 마다 사람이 확인하지 않아도 되게 합니다.
+      - name: Bundle size summary
+        if: always()
+        working-directory: SonarValidator_Frontend
+        run: |
+          if [ -d dist ]; then
+            echo "### Frontend 빌드 산출물" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| 파일 | 크기 |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+            du -h dist/assets/* 2>/dev/null | sort -h | tail -10 \
+              | awk '{printf "| `%s` | %s |\n", $2, $1}' >> "$GITHUB_STEP_SUMMARY"
+          fi
