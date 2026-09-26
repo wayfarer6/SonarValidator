@@ -24,7 +24,7 @@ final class ProbeStrategies {
     private ProbeStrategies() {
     }
 
-    /** {@code /api/diagnostics/interface/get} — 인터페이스·주소·게이트웨이. */
+    /** {@code /api/interfaces/overview/interfacesInfo} — 인터페이스·주소·상태. */
     static final class Interfaces implements OPNsenseProbeStrategy {
 
         @Override
@@ -72,7 +72,7 @@ final class ProbeStrategies {
         }
     }
 
-    /** {@code /api/firewall/filter/search_nat} — NAT 규칙. */
+    /** {@code /api/firewall/filter/get} 의 {@code filter.snatrules} — NAT 규칙. */
     static final class NatRules implements OPNsenseProbeStrategy {
 
         @Override

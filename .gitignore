@@ -82,3 +82,26 @@ Testing/
 # 배포 스크립트가 매 실행마다 생성하는 런타임 산출물
 #   (deploy_arista_rvi.py 가 내용을 만들어 원격에 전송하므로 커밋하지 않습니다)
 deployment/real-to-virtual/arista_run.sh
+
+# ─────────────────────────────────────────────
+# 실장비 접속 비밀 — 평문 키/비밀번호 포함, 커밋 금지
+# ─────────────────────────────────────────────
+# OPNsense 실장비 API 테스트 산출물 (payload.sh 안에 API Key/Secret 평문)
+Poc용 네트워크 Real-to-Virtual/OPNSense_API_TEST/
+# ⚠️ OPNSense_Credential.md 는 커밋한다 — 실제 비밀값 없이
+#    환경변수 이름($SONAR_*)만 쓵니다.
+
+# GNS3 호스트 / 장비 접속 키
+*.pem
+id_rsa
+id_ed25519
+id_ecdsa
+known_hosts
+
+# 백엔드 시크릿 암호화 키 로컬 오버라이드
+**/application-local.properties
+**/application-secret.properties
+
+# Python 캐시 (배포 도구 실행 시 생성)
+__pycache__/
+*.pyc

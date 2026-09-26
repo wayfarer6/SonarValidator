@@ -23,6 +23,8 @@ import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * OPNsense REST API 클라이언트입니다.
@@ -163,11 +165,23 @@ public class OPNsenseApiClient {
     /**
      * 인터페이스 목록을 조회합니다.
      *
+     * <p><b>경로가 버전마다 다릅니다</b>(실측).
+     * <ul>
+     *   <li>기존(문서 기준): {@code /api/diagnostics/interface/get}
+     *       → <b>OPNsense 26.1 에서 404</b></li>
+     *   <li>현재: {@code /api/interfaces/overview/interfacesInfo}
+     *       → 주소·설명·상태를 함께 돌려줍니다</li>
+     * </ul>
+     * 그래서 후보를 순서대로 시도합니다.
+     *
      * @param connection 접속 정보
      * @return 호출 결과
      */
     public Result fetchInterfaces(OPNsenseConnection connection) {
-        return get(connection, "/api/diagnostics/interface/get");
+        return getFirstAvailable(connection,
+                "/api/interfaces/overview/interfacesInfo",
+                "/api/diagnostics/interface/getInterfaceConfig",
+                "/api/diagnostics/interface/get");
     }
 
     /**
@@ -183,11 +197,86 @@ public class OPNsenseApiClient {
     /**
      * NAT 규칙을 조회합니다.
      *
+     * <p><b>전용 {@code search_nat} 엔드포인트는 제거되었습니다</b>(실측).
+     * OPNsense 26.1 에서 {@code /api/firewall/filter/search_nat} 은 404 이고,
+     * {@code search_rule?type=nat} 도 <b>type 을 무시</b>해 필터 규칙을 돌려줍니다.
+     *
+     * <p>NAT 규칙은 필터 설정 전체를 주는 {@code /api/firewall/filter/get} 의
+     * {@code filter.snatrules} 에 들어 있습니다. 전용 경로를 먼저 시도하고
+     * 실패하면 그쪽에서 꺼냅니다.
+     *
      * @param connection 접속 정보
      * @return 호출 결과
      */
     public Result fetchNatRules(OPNsenseConnection connection) {
-        return get(connection, "/api/firewall/filter/search_nat?rowCount=-1");
+        final Result dedicated = get(connection, "/api/firewall/filter/search_nat?rowCount=-1");
+        if (dedicated.ok()) {
+            return dedicated;
+        }
+        final Result all = get(connection, "/api/firewall/filter/get");
+        if (!all.ok() || all.body() == null) {
+            return all;
+        }
+        // filter 안의 NAT 계열 세 갈래를 모읍니다. (실측 구조)
+        //   snatrules : { "rule": [ ... ] }  ← Source NAT
+        //   npt       : { "rule": [ ... ] }  ← NPTv6
+        //   onetoone  : { "rule": [ ... ] }  ← 1:1 NAT
+        // ⚠️ 값이 빈 배열이어도 "규칙 없음" 이라는 정상 결과입니다.
+        final JsonNode filter = all.body().path("filter");
+        final ArrayNode rows = objectMapper.createArrayNode();
+        rows.addAll(collectRules(filter.path("snatrules")));
+        rows.addAll(collectRules(filter.path("npt")));
+        rows.addAll(collectRules(filter.path("onetoone")));
+
+        final ObjectNode wrapper = objectMapper.createObjectNode();
+        wrapper.set("rows", rows);
+        wrapper.put("rowCount", rows.size());
+        wrapper.put("total", rows.size());
+        return Result.success(all.statusCode(), wrapper, wrapper.toString());
+    }
+
+    /**
+     * NAT 갈래에서 규칙 배열만 꺼냅니다.
+     *
+     * <p>OPNsense 는 {@code {"rule":[...]}} 로 한 겹 감싸서 주지만,
+     * 버전에 따라 배열을 그대로 줄 수도 있어 둘 다 받습니다.
+     *
+     * @param node {@code snatrules} / {@code npt} / {@code onetoone} 노드
+     * @return 규칙 배열 (없으면 빈 배열)
+     */
+    private ArrayNode collectRules(JsonNode node) {
+        if (node.isArray()) {
+            return (ArrayNode) node;
+        }
+        final JsonNode inner = node.path("rule");
+        return inner.isArray() ? (ArrayNode) inner : objectMapper.createArrayNode();
+    }
+
+    /**
+     * 후보 경로를 순서대로 시도해 <b>처음 성공한</b> 결과를 돌려줍니다.
+     *
+     * <p>OPNsense 는 버전마다 API 경로가 바뀝니다(실측: 26.1 에서
+     * {@code /api/diagnostics/interface/get} 이 404). 한 경로만 박아 두면
+     * 업그레이드 때 진단이 통째로 실패하므로, 여러 후보를 둡니다.
+     *
+     * <p>마지막 실패 결과를 그대로 돌려줍니다 — 그래야 오류 메시지에
+     * 실제 상태 코드가 남습니다.
+     *
+     * @param connection 접속 정보
+     * @param paths      시도할 경로들 (우선순위 순)
+     * @return 처음 성공한 결과, 모두 실패하면 마지막 결과
+     */
+    public Result getFirstAvailable(OPNsenseConnection connection, String... paths) {
+        Result last = null;
+        for (final String path : paths) {
+            last = get(connection, path);
+            if (last.ok()) {
+                return last;
+            }
+        }
+        return last == null
+                ? Result.failure(0, null, "시도한 API 경로가 없습니다.")
+                : last;
     }
 
     /**
