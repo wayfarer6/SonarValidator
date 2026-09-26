@@ -95,6 +95,26 @@ public class NetworkTopologyController {
             byId.put(subnet.getSubnetId(), subnet);
         }
 
+        /*
+         * ⚠️ 간선은 **노드 id** 를 참조해야 합니다.
+         *
+         * 예전에는 규칙의 CIDR(`10.0.8.0/24`)을 그대로 넣었습니다.
+         * 그런데 노드는 `Subnet-0001` 로 선언됩니다. 그래서 Mermaid 가
+         * "없는 노드" 를 자동 생성해 **`10_0_8_0_24` 가 별도 노드로 떠 있었고**,
+         * 서브넷 노드에는 간선이 하나도 안 붙었습니다.
+         *
+         * 또 아래 등급 조회(`byId.get(...)`)가 CIDR 로 조회되어 **항상 null** 이 되고
+         * `forbidden` 이 항상 false 였습니다 — 금지 연결이 강조되지 않았습니다.
+         * 두 증상의 원인이 같습니다.
+         */
+        final Map<String, String> idByCidr = new LinkedHashMap<>();
+        for (final ProjectSubnet subnet : project.getSubnets()) {
+            final String cidr = subnet.getCidr();
+            if (cidr != null) {
+                idByCidr.put(PolicySubnet.normalizeCidr(cidr), subnet.getSubnetId());
+            }
+        }
+
         final Set<String> quarantinedAgents = quarantineService.quarantinedAgentIds();
 
         final List<Map<String, Object>> nodes = new ArrayList<>();
@@ -124,16 +144,27 @@ public class NetworkTopologyController {
             if (!rule.isEnabled()) {
                 continue;
             }
+            // 규칙은 CIDR 로 서브넷을 가리킵니다. 노드 id 로 옮겨 적어야
+            // Mermaid 가 서브넷 노드에 간선을 붙입니다.
+            final String sourceId = idByCidr.getOrDefault(
+                    PolicySubnet.normalizeCidr(rule.getSource()), rule.getSource());
+            final String targetId = idByCidr.getOrDefault(
+                    PolicySubnet.normalizeCidr(rule.getDestination()), rule.getDestination());
+
             final Map<String, Object> edge = new LinkedHashMap<>();
             edge.put("rule_id", rule.getId());
-            edge.put("source", rule.getSource());
-            edge.put("target", rule.getDestination());
+            edge.put("source", sourceId);
+            edge.put("target", targetId);
+            // CIDR 원문도 남깁니다 — 화면이 필요할 때 라벨로 쓸 수 있게 합니다.
+            edge.put("source_cidr", rule.getSource());
+            edge.put("target_cidr", rule.getDestination());
             edge.put("port", rule.hasPort() ? rule.getPort() : null);
             edge.put("protocol", rule.getProtocol());
 
             // 간선의 위험도: 등급을 건너뛰면 forbidden
-            final ProjectSubnet source = byId.get(rule.getSource());
-            final ProjectSubnet target = byId.get(rule.getDestination());
+            // ⚠️ 이제 source/target 이 노드 id 이므로 조회가 성공합니다.
+            final ProjectSubnet source = byId.get(sourceId);
+            final ProjectSubnet target = byId.get(targetId);
             final ZoneClass sourceZone = source == null ? null : source.getZoneClass();
             final ZoneClass targetZone = target == null ? null : target.getZoneClass();
             final boolean forbidden = ZoneClass.forbidsDirectConnection(sourceZone, targetZone);

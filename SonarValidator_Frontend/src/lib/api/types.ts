@@ -164,8 +164,20 @@ export interface ApiTopologyNode {
 /** 토폴로지 간선 (연결 규칙). */
 export interface ApiTopologyEdge {
   rule_id: string;
+  /**
+   * 출발 **노드 id** (`Subnet-0001`).
+   *
+   * <p>⚠️ 예전에는 이 자리에 CIDR(`10.0.8.0/24`)이 들어 있어 Mermaid 가
+   * 없는 노드를 자동 생성했습니다. 원문 주소가 필요하면
+   * {@link source_cidr} 를 쓰세요.
+   */
   source: string;
+  /** 도착 **노드 id** (`Subnet-0002`). */
   target: string;
+  /** 출발 서브넷 CIDR (표시용). */
+  source_cidr?: string | null;
+  /** 도착 서브넷 CIDR (표시용). */
+  target_cidr?: string | null;
   port: number | null;
   protocol: string | null;
   forbidden: boolean;

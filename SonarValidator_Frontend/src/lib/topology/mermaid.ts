@@ -76,14 +76,25 @@ export function topologyToMermaid(data: ApiTopology | null): string {
   }
 
   // 간선: 금지 조합은 굵은 빨간 화살표로 강조합니다.
+  //
+  // ⚠️ 노드에 없는 간선은 **그리지 않습니다.**
+  //    Mermaid 는 선언되지 않은 식별자를 만나면 **노드를 자동 생성**합니다.
+  //    그래서 예전에 서버가 간선에 CIDR 을 넣었을 때 `10_0_8_0_24` 가
+  //    서브넷과 무관한 노드로 떠 있었습니다.
+  //    서버를 고쳤지만, 같은 유형의 어긋남이 다시 생겨도 **그림이 깨지지 않게** 합니다.
+  const nodeIds = new Set(data.nodes.map((node) => sanitizeMermaidId(node.id)));
   const linkStyles: string[] = [];
   let linkIndex = 0;
   for (const edge of data.edges) {
+    const sourceId = sanitizeMermaidId(edge.source);
+    const targetId = sanitizeMermaidId(edge.target);
+    if (!nodeIds.has(sourceId) || !nodeIds.has(targetId)) {
+      // 참조가 깨진 간선은 건너뜁니다 — 떠 있는 노드를 만들지 않습니다.
+      continue;
+    }
     const arrow = edge.forbidden ? "==>" : "-->";
     const label = edge.port ? `:${edge.port}` : "전체";
-    lines.push(
-      `  ${sanitizeMermaidId(edge.source)} ${arrow}|${label}| ${sanitizeMermaidId(edge.target)}`,
-    );
+    lines.push(`  ${sourceId} ${arrow}|${label}| ${targetId}`);
     if (edge.forbidden) {
       linkStyles.push(
         `  linkStyle ${linkIndex} stroke:#dc2626,stroke-width:3px;`,
@@ -184,12 +195,17 @@ export function topologyToDetailedMermaid(data: ApiTopology | null): string {
 
   const linkStyles: string[] = [];
   let linkIndex = 0;
+  // 기본 뷰와 같은 이유로 노드에 없는 간선은 건너뜁니다.
+  const detailedNodeIds = new Set(data.nodes.map((node) => sanitizeMermaidId(node.id)));
   for (const edge of data.edges) {
+    const sourceId = sanitizeMermaidId(edge.source);
+    const targetId = sanitizeMermaidId(edge.target);
+    if (!detailedNodeIds.has(sourceId) || !detailedNodeIds.has(targetId)) {
+      continue;
+    }
     const arrow = edge.forbidden ? "==>" : "-->";
     const label = edge.port ? `:${edge.port}` : "전체";
-    lines.push(
-      `  ${sanitizeMermaidId(edge.source)} ${arrow}|${label}| ${sanitizeMermaidId(edge.target)}`,
-    );
+    lines.push(`  ${sourceId} ${arrow}|${label}| ${targetId}`);
     if (edge.forbidden) {
       linkStyles.push(
         `  linkStyle ${linkIndex} stroke:#dc2626,stroke-width:3px;`,
