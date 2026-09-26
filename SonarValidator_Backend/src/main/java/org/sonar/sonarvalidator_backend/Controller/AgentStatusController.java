@@ -10,9 +10,13 @@ import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
+import org.sonar.sonarvalidator_backend.Service.AgentTelemetryStore;
 import org.sonar.sonarvalidator_backend.Service.DeviceConfigService;
 import org.sonar.sonarvalidator_backend.Service.ExpectedAgentService;
 import org.sonar.sonarvalidator_backend.Service.QuarantineService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,16 +55,26 @@ public class AgentStatusController {
      */
     private final QuarantineService quarantineService;
 
+    /**
+     * 원본·중립 설정·수신 시각 저장소입니다.
+     *
+     * <p>유령 Agent 정리(제거)에 씁니다. 제거 경로가 없으면 목록이 무한
+     * 누적되는 문제를 해결하기 위해 추가했습니다.
+     */
+    private final AgentTelemetryStore telemetryStore;
+
     public AgentStatusController(AgentSessionRegistry registry,
                                  AgentMessageRouterService router,
                                  DeviceConfigService deviceConfigService,
                                  ExpectedAgentService expectedAgentService,
-                                 QuarantineService quarantineService) {
+                                 QuarantineService quarantineService,
+                                 AgentTelemetryStore telemetryStore) {
         this.registry = registry;
         this.router = router;
         this.deviceConfigService = deviceConfigService;
         this.expectedAgentService = expectedAgentService;
         this.quarantineService = quarantineService;
+        this.telemetryStore = telemetryStore;
     }
 
     /**
@@ -265,6 +279,72 @@ public class AgentStatusController {
         result.put("connected", registry.connectedCount());
         return result;
     }
+
+    /**
+     * Agent 하나의 수집 이력을 제거합니다. (유령 정리)
+     *
+     * <h2>왜 필요한가</h2>
+     * <p>한 번이라도 텔레메트리를 보낸 Agent 는 저장소에 영구히 남아
+     * {@code overview} 목록을 계속 차지합니다. 랩에서 프로버를 여러 번
+     * 기동하면 그때마다 새 이름이 생겨 <b>프로세스 1대인데 목록이 10건</b>이
+     * 되는 일이 있었습니다.
+     *
+     * <p>연결 중인 Agent 는 제거하지 않습니다. 살아 있는 세션을 지우면
+     * 다음 텔레메트리(30초 뒤)에 다시 나타나 <b>깜빡임</b>을 만듭니다.
+     *
+     * @param agentId 대상 Agent 식별자
+     * @return 제거 결과 ({@code removed}, {@code connected}, {@code reason})
+     */
+    @DeleteMapping("/{agentId}/telemetry")
+    public ResponseEntity<Map<String, Object>> removeTelemetry(@PathVariable String agentId) {
+        final Map<String, Object> result = new LinkedHashMap<>();
+        result.put("agent_id", agentId);
+
+        if (registry.connectedAgentIds().contains(agentId)) {
+            result.put("removed", false);
+            result.put("connected", true);
+            result.put("reason", "Agent is connected; disconnecting it first would be needed");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(result);
+        }
+
+        final boolean removed = telemetryStore.remove(agentId);
+        result.put("removed", removed);
+        result.put("connected", false);
+        result.put("reason", removed ? null : "no telemetry for this agent");
+        return removed
+                ? ResponseEntity.ok(result)
+                : ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+    }
+
+    /**
+     * 오래된 수신 이력을 일괄 정리합니다.
+     *
+     * <p>{@code older_than_hours} 를 주면 그 시간보다 오래 수신이 없는
+     * Agent 를 제거합니다. 생략하면 기본 24시간을 씁니다.
+     *
+     * @param olderThanHours 기준 시간 (기본 24)
+     * @return 제거 결과 ({@code removed}, {@code remaining})
+     */
+    @DeleteMapping("/stale")
+    public Map<String, Object> pruneStale(
+            @RequestParam(name = "older_than_hours", required = false) Double olderThanHours) {
+        final double hours = (olderThanHours == null || olderThanHours <= 0) ? DEFAULT_STALE_HOURS
+                : olderThanHours;
+        final java.time.Instant cutoff = java.time.Instant.now()
+                .minusMillis((long) (hours * 3_600_000L));
+
+        final int removed = telemetryStore.pruneUnseenSince(cutoff);
+
+        final Map<String, Object> result = new LinkedHashMap<>();
+        result.put("removed", removed);
+        result.put("older_than_hours", hours);
+        result.put("cutoff", cutoff.toString());
+        result.put("remaining_telemetry", telemetryStore.allTelemetryAgentIds().size());
+        return result;
+    }
+
+    /** 유령 정리의 기본 기준 시간(시간 단위). */
+    private static final double DEFAULT_STALE_HOURS = 24;
 
     /**
      * REST 본문을 서버→Agent 푸시용 {@code command} 봉투로 변환합니다.

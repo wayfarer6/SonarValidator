@@ -153,6 +153,60 @@ public class AgentTelemetryStore {
         return offlineOrigins.contains(agentId);
     }
 
+    // ------------------------------------------------------------------
+    //  제거 / 정리
+    //
+    //  ⚠️ 제거 경로가 없으면 유령 Agent 가 영구 누적됩니다.
+    //     실측: 랩에서 프로버를 여러 번 기동할 때마다 새 이름이 생겨
+    //     프로세스 1대인데 목록은 10건이 되었습니다.
+    // ------------------------------------------------------------------
+
+    /**
+     * Agent 하나를 모든 저장소에서 제거합니다.
+     *
+     * <p>유령 정리(수동)에 씁니다. 제거 뒤에는 {@code overview} 에 나타나지
+     * 않습니다.
+     *
+     * @param agentId Agent 식별자 (null/blank 이면 무시)
+     * @return 실제로 무언가 지워졌으면 true
+     */
+    public boolean remove(String agentId) {
+        if (agentId == null || agentId.isBlank()) {
+            return false;
+        }
+        final boolean telemetry = lastTelemetry.remove(agentId) != null;
+        final boolean config = lastConfig.remove(agentId) != null;
+        final boolean seen = lastSeen.remove(agentId) != null;
+        final boolean offline = offlineOrigins.remove(agentId);
+        return telemetry || config || seen || offline;
+    }
+
+    /**
+     * 주어진 시각 이후로 텔레메트리를 보내지 않은 Agent 를 일괄 제거합니다.
+     *
+     * <h2>⚠️ 수신 이력이 아예 없는 Agent 는 건드리지 않습니다</h2>
+     * <p>{@code lastSeen} 이 없는 Agent(오프라인 파일 업로드만 된 장치)는
+     * "오래됐다" 를 판단할 근거가 없으므로 남깁니다. 지우면 운영자가 올린
+     * 스냅샷이 통째로 사라집니다.
+     *
+     * @param cutoff 이 시각보다 오래된 것만 제거 (null 이면 아무것도 안 함)
+     * @return 제거된 Agent 수
+     */
+    public int pruneUnseenSince(Instant cutoff) {
+        if (cutoff == null) {
+            return 0;
+        }
+        int removed = 0;
+        for (final Map.Entry<String, Instant> entry : lastSeen.entrySet()) {
+            final String agentId = entry.getKey();
+            final Instant seen = entry.getValue();
+            if (seen != null && seen.isBefore(cutoff) && remove(agentId)) {
+                removed++;
+            }
+        }
+        return removed;
+    }
+
     /**
      * 진단용 요약입니다. (Agent 수를 로그 한 줄로 봅니다)
      *
