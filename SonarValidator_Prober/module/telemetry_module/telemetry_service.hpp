@@ -25,6 +25,14 @@ private:
     void initialize(std::string host, int port, std::string target);
 
 public:
+    // connect / handshake 제한 시간입니다.
+    //
+    // ⚠️ 이 값이 없으면(또는 expires_after 만 쓰면) 종료가 막힙니다.
+    //    beast::tcp_stream::expires_after() 는 비동기 오퍼레이션에만
+    //    적용되므로 동기 connect/handshake 에는 효과가 없습니다.
+    static constexpr std::chrono::seconds kConnectTimeout{5};
+    static constexpr std::chrono::seconds kHandshakeTimeout{5};
+
     TelemetryService();
     TelemetryService(std::string host, int port, std::string target);
     ~TelemetryService();

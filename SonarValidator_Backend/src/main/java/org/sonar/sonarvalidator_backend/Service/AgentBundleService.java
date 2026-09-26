@@ -2,8 +2,17 @@ package org.sonar.sonarvalidator_backend.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -59,24 +68,226 @@ public class AgentBundleService {
      */
     private final String stageDirectory;
 
-    /** 서버가 Agent 에게 알려줄 주소입니다. (기본: 이 서버의 관리 주소) */
+    /** 서버가 Agent 에게 알려줄 주소입니다. 비어 있으면 자동 감지합니다. */
     private final String serverIp;
 
     /** Agent 가 접속할 포트입니다. */
     private final int serverPort;
 
     /**
-     * @param stageDirectory 배포 자산 디렉터리
-     * @param serverIp       Agent 에 넣을 서버 주소
-     * @param serverPort     Agent 에 넣을 서버 포트
+     * 관리 인터페이스 이름입니다. (선택)
+     *
+     * <p>예: {@code ens3}. 지정하면 그 인터페이스의 IPv4 를 씁니다.
+     * 랩마다 관리망 인터페이스 이름이 다르므로 설정으로 바꿉니다.
+     */
+    private final String managementInterface;
+
+    /**
+     * 관리망 대역 목록입니다. (선택, 쉼표 구분)
+     *
+     * <p>예: {@code 10.20.0.0/24,172.16.255.0/24}.
+     * 인터페이스 이름을 모르거나 DHCP 로 바뀔 때 씁니다.
+     */
+    private final List<String> managementCidrs;
+
+    /**
+     * @param stageDirectory      배포 자산 디렉터리
+     * @param serverIp            Agent 에 넣을 서버 주소 (비우면 자동 감지)
+     * @param serverPort          Agent 에 넣을 서버 포트
+     * @param managementInterface 관리 인터페이스 이름 (선택)
+     * @param managementCidrs     관리망 대역 (선택, 쉼표 구분)
      */
     public AgentBundleService(
             @Value("${sonar.deploy.stage-dir:/tmp/sonar_stage}") String stageDirectory,
-            @Value("${sonar.deploy.server-ip:192.168.122.58}") String serverIp,
-            @Value("${server.port:3000}") int serverPort) {
+            // ⚠️ 여기에 특정 랩 주소를 기본값으로 두지 않습니다.
+            //    (예전 기본값 192.168.122.58 은 D-AI-PBL 랩 전용이었고,
+            //     랩을 바꾸면 **오류 없이** 엉뚱한 주소가 배포되었습니다)
+            @Value("${sonar.deploy.server-ip:}") String serverIp,
+            @Value("${server.port:3000}") int serverPort,
+            @Value("${sonar.deploy.management-interface:}") String managementInterface,
+            @Value("${sonar.deploy.management-cidrs:}") String managementCidrs) {
         this.stageDirectory = stageDirectory;
-        this.serverIp = serverIp;
+        this.serverIp = serverIp == null ? "" : serverIp.trim();
         this.serverPort = serverPort;
+        this.managementInterface = managementInterface == null ? "" : managementInterface.trim();
+        this.managementCidrs = (managementCidrs == null || managementCidrs.isBlank())
+                ? List.of()
+                : List.of(managementCidrs.split("\\s*,\\s*"));
+    }
+
+    /**
+     * 로컬 인터페이스에서 쓸 만한 IPv4 주소를 모읍니다.
+     *
+     * <h2>⚠️ NAT 인터페이스를 먼저 배제하는 이유</h2>
+     *
+     * <p>개발 호스트는 보통 두 망에 동시에 붙습니다.
+     * 예: {@code ens3 = 10.20.0.3/24}(관리망),
+     * {@code ens4 = 192.168.122.32/24}(NAT, 기본 라우트).
+     *
+     * <p>단순히 "첫 번째 주소" 를 쓰면 <b>NAT 주소가 나갈 수 있습니다.</b>
+     * 그러면 관리망만 있는 장치(스위치 등)가 그 주소에 도달하지 못해
+     * 프로버가 조용히 "무응답" 으로 남습니다.
+     *
+     * <p>그래서 <b>기본 라우트가 나가는 인터페이스</b>는 후순위로 둡니다.
+     * 데이터망 노드(라우터/방화벽/VM)는 NAT 로도 닿지만,
+     * 관리망 전용 장치는 관리 주소로만 닿기 때문입니다.
+     *
+     * @return 관리 후보를 앞에 둔 주소 목록
+     */
+    List<String> DetectLocalAddresses() {
+        try {
+            final String defaultRouteIface = DefaultRouteInterface();
+            final List<String> preferred = new ArrayList<>();
+            final List<String> fallback = new ArrayList<>();
+
+            final Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                final NetworkInterface nic = interfaces.nextElement();
+                if (!nic.isUp() || nic.isLoopback() || nic.isVirtual()) {
+                    continue;
+                }
+
+                // 관리 인터페이스를 지정했으면 그것만 봅니다.
+                if (!managementInterface.isBlank()
+                        && !managementInterface.equals(nic.getName())) {
+                    continue;
+                }
+
+                final Enumeration<InetAddress> addresses = nic.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    final InetAddress address = addresses.nextElement();
+                    if (!(address instanceof Inet4Address)
+                            || address.isLoopbackAddress()
+                            || address.isLinkLocalAddress()) {
+                        continue;
+                    }
+
+                    final String host = address.getHostAddress();
+                    if (preferred.contains(host) || fallback.contains(host)) {
+                        continue;
+                    }
+
+                    // 관리 대역으로 지정된 주소는 최우선입니다.
+                    if (!managementCidrs.isEmpty() && MatchesAnyCidr(host, managementCidrs)) {
+                        preferred.add(0, host);
+                    }
+                    else if (!nic.getName().equals(defaultRouteIface)) {
+                        preferred.add(host);
+                    }
+                    else {
+                        fallback.add(host);
+                    }
+                }
+            }
+
+            final List<String> result = new ArrayList<>(preferred);
+            result.addAll(fallback);
+            return result;
+        } catch (SocketException ex) {
+            log.warn("local address detection failed: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * 기본 라우트가 나가는 인터페이스 이름을 구합니다.
+     *
+     * <p>이 인터페이스(NAT 망)는 관리망 전용 장치가 도달하지 못하므로
+     * 자동 감지에서 후순위로 둡니다.
+     *
+     * @return 인터페이스 이름 (판별 실패하면 빈 문자열)
+     */
+    String DefaultRouteInterface() {
+        try (DatagramSocket socket = new DatagramSocket()) {
+            // 라우팅 결정만 필요하므로 실제로 보내지 않습니다(DNS 불필요).
+            socket.connect(InetAddress.getByName("203.0.113.1"), 9);  // TEST-NET-3
+            final InetAddress local = socket.getLocalAddress();
+            if (local == null || local.isAnyLocalAddress()) {
+                return "";
+            }
+            for (final NetworkInterface nic : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (Collections.list(nic.getInetAddresses()).contains(local)) {
+                    return nic.getName();
+                }
+            }
+        } catch (IOException ex) {
+            log.debug("default route interface detection failed: {}", ex.getMessage());
+        }
+        return "";
+    }
+
+    /**
+     * 주소가 CIDR 목록 중 하나에 속하는지 봅니다.
+     *
+     * @param host  IPv4 주소 문자열
+     * @param cidrs CIDR 목록 (예: {@code 10.20.0.0/24})
+     * @return 하나라도 포함되면 true
+     */
+    static boolean MatchesAnyCidr(String host, List<String> cidrs) {
+        try {
+            final byte[] target = InetAddress.getByName(host).getAddress();
+            for (final String cidr : cidrs) {
+                final int slash = cidr.indexOf('/');
+                if (slash < 0) {
+                    continue;
+                }
+                final byte[] network = InetAddress.getByName(cidr.substring(0, slash)).getAddress();
+                final int prefix = Integer.parseInt(cidr.substring(slash + 1).trim());
+                if (network.length != target.length || prefix < 0 || prefix > 32) {
+                    continue;
+                }
+
+                int bits = prefix;
+                boolean same = true;
+                for (int i = 0; i < target.length && same; i++) {
+                    final int take = Math.min(8, Math.max(0, bits));
+                    final int mask = take == 0 ? 0 : (0xFF << (8 - take)) & 0xFF;
+                    if ((target[i] & mask) != (network[i] & mask)) {
+                        same = false;
+                    }
+                    bits -= 8;
+                }
+                if (same) {
+                    return true;
+                }
+            }
+        } catch (Exception ex) {
+            log.debug("cidr match failed for {}: {}", host, ex.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Agent 에게 알릴 서버 주소를 결정합니다.
+     *
+     * <p>우선순위: 장치별 지정 → 설정값 → 자동 감지 → 루프백(개발 편의)
+     *
+     * @param override 장치별 서버 주소 (null/빈 값이면 무시)
+     * @return 결정된 주소와 그 출처 (진단용)
+     */
+    ResolvedServer resolveServer(String override) {
+        final String explicit = blankToNull(override);
+        if (explicit != null) {
+            return new ResolvedServer(explicit, "request", List.of());
+        }
+        if (!serverIp.isBlank()) {
+            return new ResolvedServer(serverIp, "config", List.of());
+        }
+        final List<String> detected = DetectLocalAddresses();
+        if (!detected.isEmpty()) {
+            return new ResolvedServer(detected.get(0), "detected", detected);
+        }
+        return new ResolvedServer("127.0.0.1", "fallback", List.of());
+    }
+
+    /**
+     * 서버 주소와 그 출처입니다.
+     *
+     * @param ip        결정된 주소
+     * @param source    {@code request} / {@code config} / {@code detected} / {@code fallback}
+     * @param candidates 자동 감지에서 발견한 다른 후보들 (운영자가 선택할 수 있게)
+     */
+    record ResolvedServer(String ip, String source, List<String> candidates) {
     }
 
     /**
@@ -91,7 +302,8 @@ public class AgentBundleService {
     public byte[] build(String agentId, String nodeType, String serverIpOverride,
                         String dataDirectory) {
         final String type = normalizeNodeType(nodeType);
-        final String ip = blankToNull(serverIpOverride) == null ? serverIp : serverIpOverride.trim();
+        final ResolvedServer resolved = resolveServer(serverIpOverride);
+        final String ip = resolved.ip();
 
         try (ByteArrayOutputStream buffer = new ByteArrayOutputStream();
              ZipOutputStream zip = new ZipOutputStream(buffer, StandardCharsets.UTF_8)) {
@@ -300,16 +512,45 @@ public class AgentBundleService {
      *
      * @param agentId  Agent 이름
      * @param nodeType 장치 유형
+     * @param serverIpOverride 장치별 서버 주소 (null/빈 값이면 설정·감지)
      * @return 정보 맵
      */
-    public Map<String, Object> describe(String agentId, String nodeType) {
+    public Map<String, Object> describe(String agentId, String nodeType, String serverIpOverride) {
+        final ResolvedServer resolved = resolveServer(serverIpOverride);
+
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("agent_id", agentId);
         body.put("node_type", normalizeNodeType(nodeType));
-        body.put("server_ip", serverIp);
+        body.put("server_ip", resolved.ip());
         body.put("server_port", serverPort);
         body.put("file_name", fileNameFor(agentId));
         body.put("staged_assets", stagedAssets());
+
+        // ⚠️ 스테이징이 빠져도 ZIP 은 200 으로 내려갑니다.
+        //    그래서 자산 누락을 응답에 경고로 실어 화면에서 보이게 합니다.
+        //    (과거: Installer.sh 가 빠진 2파일 ZIP 이 조용히 전달됐습니다)
+        final List<String> missing = new ArrayList<>();
+        stagedAssets().forEach((name, present) -> {
+            if (!present) {
+                missing.add(name);
+            }
+        });
+        if (!missing.isEmpty()) {
+            body.put("warning", "배포 자산이 스테이징되지 않았습니다: " + String.join(", ", missing)
+                    + " (" + stageDirectory + " 를 확인하세요)");
+            body.put("missing_assets", missing);
+        }
+
+        // server_ip 를 어디서 얻었는지 밝힙니다.
+        //   request  = 장치별로 지정됨
+        //   config   = sonar.deploy.server-ip 설정값
+        //   detected = 로컬 인터페이스에서 자동 감지
+        //   fallback = 감지 실패 → 127.0.0.1 (개발 편의)
+        body.put("server_ip_source", resolved.source());
+        if (resolved.candidates().size() > 1) {
+            // 후보가 여럿이면 운영자가 어느 것이 맞는지 골라야 합니다.
+            body.put("server_ip_candidates", resolved.candidates());
+        }
         return body;
     }
 

@@ -6,6 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "components/backend_communication/connect_with_timeout.hpp"
+
 TelemetryService::TelemetryService()
     : host_(""), port_(0), target_(""), ioc_(), resolver_(ioc_), stream_(ioc_), connected_(false)
 {
@@ -35,15 +37,20 @@ bool TelemetryService::connect()
 
         auto const results = resolver_.resolve(host_, std::to_string(port_));
 
-        // connect / handshake 에 제한 시간을 둡니다.
-        // (없으면 SIGTERM 을 받아도 종료되지 않습니다 — management_service.cpp 참고)
-        auto& lowest = beast::get_lowest_layer(stream_);
-        lowest.expires_after(std::chrono::seconds(5));
-        lowest.connect(results);
+        // 제한 시간이 있는 연결입니다. 자세한 이유는
+        // components/backend_communication/connect_with_timeout.hpp 참고
+        // (표준 동기 connect 에는 타임아웃이 없고,
+        //  beast::tcp_stream::expires_after() 는 비동기 전용이며,
+        //  std::async + wait_for 는 future 소멸자에서 다시 블록된다)
+        const boost::system::error_code ec =
+            sonar::net::ConnectWithTimeout(stream_, results, kConnectTimeout);
+        if (ec)
+        {
+            connected_ = false;
+            return false;
+        }
 
-        lowest.expires_after(std::chrono::seconds(5));
         stream_.handshake(host_, target_);
-
         connected_ = true;
         return true;
     }

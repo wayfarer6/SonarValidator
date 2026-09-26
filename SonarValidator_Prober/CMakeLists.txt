@@ -318,6 +318,19 @@ add_executable(cli_output_parser_test
 sonar_configure_target(cli_output_parser_test)
 add_test(NAME cli_output_parser_test COMMAND cli_output_parser_test)
 
+# SIGTERM 종료 회귀 테스트 — ⚠️ 미완 (SONAR-25)
+#   블랙홀 주소를 쓰는 방식이 테스트 자체에서 hang 한다. CI 에 걸지 않는다.
+#   (빌드만 하려면 --target sigterm_shutdown_test)
+add_executable(sigterm_shutdown_test EXCLUDE_FROM_ALL
+    module/management_module/sigterm_shutdown_test.cpp
+    ${SONAR_MODULE_SOURCES}
+    ${SONAR_DEVICE_SOURCES}
+    ${SONAR_SUPPORT_SOURCES}
+    ${SONAR_DATABASE_SOURCES}
+    ${SONAR_PARSER_SOURCES})
+sonar_configure_target(sigterm_shutdown_test)
+target_link_libraries(sigterm_shutdown_test PRIVATE SQLite::SQLite3)
+
 # 실제 장비 출력 검증용 CLI 도구 (probe.py 가 수집한 파일을 먹인다)
 add_executable(cli_output_parser_probe
     components/parser/cli_output_parser_probe.cpp

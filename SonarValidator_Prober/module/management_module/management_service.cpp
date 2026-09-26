@@ -1,7 +1,9 @@
 #include "module/management_module/management_service.hpp"
+#include "components/backend_communication/connect_with_timeout.hpp"
 #include "components/policy/policy_json.hpp"
 #include <nlohmann/json.hpp>
 #include <utility>
+#include <future>
 #include <sstream>
 #include <iostream>
 #include <cstdio>
@@ -11,6 +13,8 @@
 #include <stop_token>
 #include <string>
 #include <vector>
+#include <poll.h>
+#include <sys/socket.h>
 #include <sys/wait.h>
 
 namespace
@@ -251,19 +255,20 @@ bool ManagementService::connect()
 
         auto const results = resolver_.resolve(host_, std::to_string(port_));
 
-        // ⚠️ connect / handshake 는 타임아웃이 없으면 무제한 블록됩니다.
-        //
-        // (실측: 방화벽이 DROP 인 랩에서 프로버가 SIGTERM 을 받아도
-        //  종료되지 않았습니다. main 은 join 에서 대기하고 워커는 소켓 폴링에
-        //  머무르며 TCP 연결이 ESTAB 로 남았습니다.)
-        //
-        // beast::tcp_stream 은 expires_after() 로 제한 시간을 설정해야
-        // connect/handshake/read/write 가 그 시간까지만 블록합니다.
-        auto& lowest = beast::get_lowest_layer(stream_);
-        lowest.expires_after(kConnectTimeout);
-        lowest.connect(results);
+        // 제한 시간이 있는 연결입니다. 자세한 이유는 ConnectWithTimeout 주석 참고
+        // (표준 동기 connect 에는 타임아웃이 없고,
+        //  beast::tcp_stream::expires_after() 는 비동기 전용이며,
+        //  std::async + wait_for 는 future 소멸자에서 다시 블록된다)
+        const boost::system::error_code ec =
+            sonar::net::ConnectWithTimeout(stream_, results, kConnectTimeout);
+        if (ec)
+        {
+            connected_ = false;
+            return false;
+        }
 
-        lowest.expires_after(kHandshakeTimeout);
+        // 핸드셰이크는 ConnectWithTimeout 이 설정한 소켓 타임아웃
+        // (SO_RCVTIMEO/SO_SNDTIMEO) 안에서 끝나거나 예외로 실패합니다.
         stream_.handshake(host_, target_);
 
         connected_ = true;

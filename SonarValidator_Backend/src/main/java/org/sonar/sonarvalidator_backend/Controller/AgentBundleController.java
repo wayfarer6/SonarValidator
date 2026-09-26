@@ -61,8 +61,9 @@ public class AgentBundleController {
      */
     @GetMapping("/info")
     public Map<String, Object> info(@RequestParam("agent_id") String agentId,
-                                    @RequestParam(value = "node_type", required = false) String nodeType) {
-        return bundleService.describe(agentId, nodeType);
+                                    @RequestParam(value = "node_type", required = false) String nodeType,
+                                    @RequestParam(value = "server_ip", required = false) String serverIp) {
+        return bundleService.describe(agentId, nodeType, serverIp);
     }
 
     /**
