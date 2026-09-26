@@ -310,77 +310,73 @@ public final class CliOutputParser {
     /* ==================== 통합 진입점 ==================== */
 
     /**
+     * 대상 이름 → 파싱 절차 선택기입니다.
+     *
+     * <p>상태가 없으므로 인스턴스 하나를 재사용합니다. 이전에는 이 클래스
+     * 안에 대상 {@code switch} 와 벤더 {@code switch} 가 따로 있었습니다.
+     */
+    private static final org.sonar.sonarvalidator_backend.Service.cli.query.CliQueryStrategies
+            QUERY_STRATEGIES =
+            new org.sonar.sonarvalidator_backend.Service.cli.query.CliQueryStrategies();
+
+    /**
      * 벤더와 조회 대상으로 알맞은 파서를 고릅니다.
+     *
+     * <p>해석 결과({@code query} · {@code contractKey} · 본문)를 함께 돌려줍니다.
+     * 세 값을 따로 계산하면 서로 어긋나서 <b>파싱은 성공했는데 화면은 빈</b>
+     * 상태가 됩니다.
      *
      * @param vendor 벤더 (null 이면 {@link CliVendor#UNKNOWN})
      * @param target 조회 대상 (null/빈 문자열이면 벤더 기본 조회)
      * @param raw    원문 CLI 출력
-     * @return 본문
+     * @return 해석 결과 (null 아님)
+     */
+    public org.sonar.sonarvalidator_backend.Service.cli.query.QueryResult parseQuery(String vendor,
+                                                                                    String target,
+                                                                                    String raw) {
+        final CliVendor resolved = CliVendor.parse(vendor);
+        final org.sonar.sonarvalidator_backend.Service.cli.query.CliQueryStrategy strategy =
+                QUERY_STRATEGIES.select(target, resolved);
+        final ObjectNode body = strategy.parse(this, resolved, raw);
+        return new org.sonar.sonarvalidator_backend.Service.cli.query.QueryResult(
+                strategy.primaryTarget(), strategy.contractKey(), body);
+    }
+
+    /**
+     * 벤더와 조회 대상으로 알맞은 파서를 고릅니다. (계약 유지용 진입점)
+     *
+     * <p>대상 이름을 이미 정규화한 호출자를 위해 남겨 둡니다.
+     * 계약 키가 필요하면 {@link #parseQuery} 를 쓰세요 — 이 메서드는 본문만
+     * 돌려주므로 호출자가 키를 다시 계산해야 하고, 그 계산이 어긋나면
+     * 화면이 빕니다.
+     *
+     * @param vendor 벤더 (null 이면 {@link CliVendor#UNKNOWN})
+     * @param target 조회 대상 (null/빈 문자열이면 벤더 기본 조회)
+     * @param raw    원문 CLI 출력
+     * @return 파싱 본문
      */
     public ObjectNode parseQueryOutput(CliVendor vendor, String target, String raw) {
-        CliVendor resolved = vendor == null ? CliVendor.UNKNOWN : vendor;
-        String name = target == null ? "" : target.trim().toLowerCase(java.util.Locale.ROOT);
+        final CliVendor resolved = (vendor == null) ? CliVendor.UNKNOWN : vendor;
+        final org.sonar.sonarvalidator_backend.Service.cli.query.CliQueryStrategy strategy =
+                QUERY_STRATEGIES.select(target, resolved);
+        return strategy.parse(this, resolved, raw);
+    }
 
-        switch (name) {
-            case "nic":
-            case "addr":
-                return parseNicStatus(raw);
-
-            case "brief":
-            case "nic-brief":
-                // `show ip interface brief` 와 `ip -br addr show` 를 모두 지원한다.
-                // IOS 스타일 헤더(`OK?`)가 보이면 인터페이스 상태 출력이다.
-                if (raw != null && raw.contains("Interface") && raw.contains("OK?")) {
-                    return parseInterfaceStatus(raw, resolved);
-                }
-                return parseNicBrief(raw);
-
-            case "route":
-            case "route-table":
-                return parseRouteStatus(raw, resolved);
-
-            case "interface":
-            case "interface-brief":
-                return parseInterfaceStatus(raw, resolved);
-
-            case "topology":
-            case "ovs":
-                return parseOvsTopology(raw);
-
-            case "vlan":
-                return parseSwitchVlan(raw);
-
-            case "switchport":
-            case "port":
-                return parseSwitchPorts(raw);
-
-            case "running":
-            case "running-config":
-                return parseRunningConfig(raw);
-
-            case "chain":
-                return parseFirewallChain(raw);
-
-            case "ruleset":
-            case "nft":
-                return parseFirewallRules(raw);
-
-            case "arp":
-            case "neigh":
-                return parseArpTable(raw, resolved);
-
-            default:
-                break;
-        }
-
-        // target 미지정 → 벤더별 기본 조회로 폴백
-        return switch (resolved) {
-            case OPEN_VSWITCH -> parseOvsTopology(raw);
-            case FRR, CISCO -> parseRouteStatus(raw, resolved);
-            case ARISTA -> parseSwitchVlan(raw);
-            case NFTABLES -> parseFirewallRules(raw);
-            case LINUX, UNKNOWN -> parseNicStatus(raw);
-        };
+    /**
+     * 대상 이름이 어느 계약 키로 해석되는지 미리 봅니다.
+     *
+     * <p>호출자가 파싱 전에 "이 요청이 어떤 키를 채울 것인가" 를 알아야 할 때
+     * 씁니다. 파싱을 두 번 하지 않도록 이름만 해석합니다.
+     *
+     * @param vendor 벤더
+     * @param target 대상 이름
+     * @return 계약 키
+     */
+    public static String contractKeyOf(CliVendor vendor, String target) {
+        final CliVendor resolved = (vendor == null) ? CliVendor.UNKNOWN : vendor;
+        // ⚠️ 계약 키는 <b>이름만</b>으로 정해집니다. 원문 모양에 따라 키가
+        //    달라지면 호출자가 소비 키를 알 수 없습니다.
+        return QUERY_STRATEGIES.select(target, resolved).contractKey();
     }
 
     /* ==================== 내부 도우미 ==================== */

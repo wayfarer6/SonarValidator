@@ -112,26 +112,36 @@ public class CliIngestionService {
             }
 
             final String query = inferTarget(raw, target);
-            final ObjectNode parsed = parser.parseQueryOutput(resolved, query, raw);
-            if (!parsed.path("parsed").asBoolean(false)) {
+
+            // 파싱과 계약 키 판정을 <b>같은 전략</b>이 합니다.
+            // 이전에는 파서가 문법을 고르고 이 메서드가 개수 키를 따로
+            // 계산했는데, 둘이 어긋나면 "파싱은 성공, 화면은 빈" 상태가
+            // 됩니다. QueryResult 가 세 값을 함께 들고 오므로 어긋날 수 없습니다.
+            final org.sonar.sonarvalidator_backend.Service.cli.query.QueryResult outcome =
+                    parser.parseQuery(resolved.name(), query, raw);
+            final ObjectNode parsed = outcome.body();
+
+            if (!outcome.parsed()) {
                 // 실패해도 원문은 버리지 않습니다. 다만 계약 키로는 넣지 않습니다
                 // — 넣으면 소비자가 "빈 인터페이스 목록" 으로 해석합니다.
-                log.warn("cli fallback parse failed: target={} vendor={} error={}",
-                        target, resolved.displayName(), parsed.path("parse_error").asString("?"));
+                log.warn("cli fallback parse failed: target={} vendor={} key={} error={}",
+                        target, resolved.displayName(), outcome.contractKey(),
+                        parsed.path("parse_error").asString("?"));
                 continue;
             }
             // 문법이 "성공" 이라 해도 항목이 0건이면 믿지 않습니다.
             // 문법의 elem 규칙(`~NEWLINE`)은 어떤 줄이든 통과시키므로, 모양이
             // 전혀 다른 텍스트도 parsed:true 로 나옵니다. 그대로 넘기면
             // 소비자는 "조회했는데 인터페이스가 없다" 로 해석합니다.
-            if (countOf(parsed) == 0) {
+            if (outcome.itemCount() == 0) {
                 log.warn("cli fallback produced no items; ignoring: target={} vendor={} query={}",
                         target, resolved.displayName(), query);
                 continue;
             }
             result.set(target, parsed);
-            log.info("cli fallback parse ok: target={} vendor={} query={} count={}",
-                    target, resolved.displayName(), query, countOf(parsed));
+            log.info("cli fallback parse ok: target={} vendor={} query={} key={} count={}",
+                    target, resolved.displayName(), outcome.query(), outcome.contractKey(),
+                    outcome.itemCount());
         }
 
         return result;
@@ -274,13 +284,21 @@ public class CliIngestionService {
     /**
      * 파싱 결과에서 대표 개수를 뽑습니다. (로그용)
      *
+     * <p>⚠️ <b>"0건이면 버린다"</b> 는 판정은 {@code QueryResult.itemCount()} 만
+     * 씁니다. 이 메서드는 로그 문구용이라 더 관대합니다(배열을 직접 세는
+     * 폴백 포함). 두 기준이 다르면 로그에는 개수가 찍히는데 데이터는 버려지는
+     * 상황이 됩니다.
+     *
+     * <p>개수 키 목록이 {@code QueryResult} 와 같아야 하는 이유도 같습니다 —
+     * 한쪽에만 키가 있으면 판정이 갈립니다. ({@code brief_count} 누락 사례)
+     *
      * @param  parsed 파싱 본문
      * @return 항목 수 (없으면 0)
      */
     private static int countOf(ObjectNode parsed) {
         for (final String key : new String[]{
-                "interface_count", "route_count", "entry_count", "vlan_count",
-                "port_count", "bridge_count", "table_count"}) {
+                "interface_count", "brief_count", "route_count", "entry_count",
+                "vlan_count", "port_count", "bridge_count", "table_count"}) {
             final JsonNode value = parsed.path(key);
             if (value.isNumber()) {
                 return value.asInt(0);

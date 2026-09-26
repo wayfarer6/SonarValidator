@@ -66,22 +66,34 @@ public class OPNsenseController {
     private final AgentMessageRouterService router;
 
     /**
+     * 진단 대상 선택기입니다.
+     *
+     * <p>이 컨트롤러가 API 클라이언트의 모든 메서드를 알 필요가 없게 합니다.
+     * 이전에는 {@code probe} 안에 대상 {@code switch} 가 있어서 HTTP 계층이
+     * "인터페이스/규칙/NAT/별칭" 이라는 도메인 개념을 갖고 있었습니다.
+     */
+    private final org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategies probeStrategies;
+
+    /**
      * @param credentialService 자격증명 서비스
      * @param repository        자격증명 저장소 (목록 조회용)
      * @param apiClient         OPNsense API 클라이언트 (probe 용)
      * @param registry          Agent 세션 레지스트리 (대상 Agent 목록)
      * @param router            Agent 설정 보관소 (OPNsense 장치 탐지)
+     * @param probeStrategies   진단 대상 선택기
      */
     public OPNsenseController(OPNsenseCredentialService credentialService,
                               OPNsenseCredentialRepository repository,
                               OPNsenseApiClient apiClient,
                               AgentSessionRegistry registry,
-                              AgentMessageRouterService router) {
+                              AgentMessageRouterService router,
+                              org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategies probeStrategies) {
         this.credentialService = credentialService;
         this.repository = repository;
         this.apiClient = apiClient;
         this.registry = registry;
         this.router = router;
+        this.probeStrategies = probeStrategies;
     }
 
     /**
@@ -241,17 +253,18 @@ public class OPNsenseController {
                             + "Secret 을 다시 입력해 저장하세요."));
         }
 
-        final OPNsenseApiClient.Result result = switch (target == null ? "firmware" : target.trim()) {
-            case "interfaces" -> apiClient.fetchInterfaces(connection);
-            case "rules" -> apiClient.fetchFirewallRules(connection);
-            case "nat" -> apiClient.fetchNatRules(connection);
-            case "aliases" -> apiClient.fetchAliases(connection);
-            default -> apiClient.checkConnection(connection);
-        };
+        // ⚠️ 대상 분기는 전략 선택기가 합니다.
+        //    이 컨트롤러는 "무엇을 조회하는가" 를 모릅니다 — 이름과 결과만
+        //    다룹니다. 그래서 새 대상을 추가해도 이 파일을 고칠 필요가 없습니다.
+        final org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategy strategy =
+                probeStrategies.select(target);
+        final OPNsenseApiClient.Result result = strategy.probe(apiClient, connection);
 
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("agent_id", agentId);
-        body.put("target", target);
+        body.put("target", strategy.name());
+        // 운영자가 "이 조회가 무엇을 보는가" 를 숫자만 보고 추측하지 않게 합니다.
+        body.put("description", strategy.description());
         body.put("base_url", connection.normalizedBaseUrl());
         body.put("ok", result.ok());
         body.put("status_code", result.statusCode());
@@ -262,8 +275,21 @@ public class OPNsenseController {
         // 원문은 앞부분만 돌려줍니다. 규칙 목록은 수백 KB 일 수 있습니다.
         body.put("raw_preview", truncate(result.rawBody(), 4000));
         log.info("opnsense probe: agent={} target={} ok={} status={}",
-                agentId, target, result.ok(), result.statusCode());
+                agentId, strategy.name(), result.ok(), result.statusCode());
         return ResponseEntity.ok(body);
+    }
+
+    /**
+     * 사용 가능한 진단 대상을 반환합니다.
+     *
+     * <p>프론트엔드가 대상 목록을 하드코딩하지 않게 합니다. 서버가 대상을
+     * 늘렸을 때 화면이 뒤처지면, 운영자는 새 대상을 쓸 방법을 알 수 없습니다.
+     *
+     * @return 대상 이름·설명 목록
+     */
+    @GetMapping("/probe-targets")
+    public Map<String, Object> probeTargets() {
+        return Map.of("targets", probeStrategies.describe());
     }
 
     /**

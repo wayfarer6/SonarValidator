@@ -8,6 +8,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.sonarvalidator_backend.Service.ai.LogAnalysisEngine;
+import org.sonar.sonarvalidator_backend.Service.log.LogLineReader;
 import org.sonar.sonarvalidator_backend.Service.log.LogService;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -58,12 +59,24 @@ public class LogController {
     private final LogAnalysisEngine analysisEngine;
 
     /**
+     * 적재 요청의 줄 목록 해석기입니다.
+     *
+     * <p>이 컨트롤러가 "무엇을 한 줄로 볼 것인가" 를 알 필요가 없게 합니다.
+     * 이전에는 {@code ingest} 와 {@code upload} 에 {@code split("\\R")} 이
+     * 각각 있었습니다.
+     */
+    private final LogLineReader lineReader;
+
+    /**
      * @param logService      로그 서비스
      * @param analysisEngine  AI 분석 엔진
+     * @param lineReader      적재 줄 해석기
      */
-    public LogController(LogService logService, LogAnalysisEngine analysisEngine) {
+    public LogController(LogService logService, LogAnalysisEngine analysisEngine,
+                         LogLineReader lineReader) {
         this.logService = logService;
         this.analysisEngine = analysisEngine;
+        this.lineReader = lineReader;
     }
 
     /**
@@ -145,27 +158,23 @@ public class LogController {
             throw new BadLogRequest("agent_id 는 필수입니다.");
         }
 
-        final List<String> lines = new ArrayList<>();
-        final Object rawLines = body.get("lines");
-        if (rawLines instanceof List<?> list) {
-            for (final Object item : list) {
-                if (item != null) {
-                    lines.add(String.valueOf(item));
-                }
-            }
-        } else if (body.get("text") != null) {
-            // "text" 로 한 덩어리를 주면 줄 단위로 쪼갭니다. (붙여넣기 편의)
-            for (final String line : String.valueOf(body.get("text")).split("\\R")) {
-                lines.add(line);
-            }
+        // ⚠️ 줄 쪼개기는 LogLineReader 가 소유합니다.
+        //    이전에는 여기와 upload 에 split("\\R") 이 각각 있었고,
+        //    같은 내용을 두 경로로 넣었을 때 줄 수가 달라질 수 있었습니다.
+        final LogLineReader.LogLines read = lineReader.read(body, null);
+        if (!read.recognized()) {
+            // 모양을 모르는 요청과 "내용이 빈" 요청은 다른 답을 줘야 합니다.
+            throw new BadLogRequest("lines 배열 또는 text 문자열이 필요합니다.");
         }
 
+        final String explicitSource = text(body.get("source"));
         return logService.ingest(
                 agentId,
                 text(body.get("product")),
                 text(body.get("project_id")),
-                text(body.get("source")) == null ? "manual" : text(body.get("source")),
-                lines);
+                // 호출자가 출처를 명시했으면 그것을 씁니다. (예: "agent"/"offline")
+                explicitSource == null ? read.source() : explicitSource,
+                read.immutable().lines());
     }
 
     /**
@@ -191,20 +200,19 @@ public class LogController {
             throw new BadLogRequest("빈 파일입니다.");
         }
 
-        final List<String> lines = new ArrayList<>();
+        // 쪼개기·인코딩 처리는 LogLineReader 한 곳에 있습니다.
+        // 구현체가 IllegalArgument 를 던지면 400 으로 바뀝니다.
+        final LogLineReader.LogLines read;
         try {
-            final String content = new String(file.getBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            for (final String line : content.split("\\R")) {
-                lines.add(line);
-            }
-        } catch (java.io.IOException ex) {
-            throw new BadLogRequest("파일을 읽지 못했습니다: " + ex.getMessage());
+            read = lineReader.read(null, file);
+        } catch (IllegalArgumentException ex) {
+            throw new BadLogRequest(ex.getMessage());
         }
 
         log.info("log file uploaded: name={} agent={} lines={}",
-                file.getOriginalFilename(), agentId, lines.size());
+                file.getOriginalFilename(), agentId, read.count());
 
-        return logService.ingest(agentId, product, projectId, "upload", lines);
+        return logService.ingest(agentId, product, projectId, read.source(), read.immutable().lines());
     }
 
     /**

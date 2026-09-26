@@ -14,6 +14,7 @@ import org.sonar.sonarvalidator_backend.Policy.SegmentationBddEngine;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
 import org.sonar.sonarvalidator_backend.Service.NotificationService;
 import org.sonar.sonarvalidator_backend.Service.ProjectService;
+import org.sonar.sonarvalidator_backend.Service.QuarantineService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -60,6 +61,14 @@ public class PolicyManagement {
     private final AgentSessionRegistry registry;
 
     /**
+     * 격리 상태 조회 통로입니다.
+     *
+     * <p>격리된 장치에는 정상 정책을 밀어 넣지 않습니다. 그렇게 하면 격리가
+     * 풀립니다. 대상에서 빼고 이유를 응답/알림에 남깁니다.
+     */
+    private final QuarantineService quarantineService;
+
+    /**
      * 알림 기록기입니다.
      *
      * <p>푸시는 "지금 장치에 반영했는가" 를 답하는 작업입니다. 성공/실패 모두
@@ -69,16 +78,31 @@ public class PolicyManagement {
     private final NotificationService notificationService;
 
     /**
+     * 푸시 결과 분류기입니다.
+     *
+     * <p>이 컨트롤러가 "어떤 결과에 어떤 문구를 남길 것인가" 를 알 필요가
+     * 없게 합니다. 이전에는 이 파일 끝에 세 갈래
+     * {@code if/else if/else} 와 여덟 인자 알림 호출 네 번이 있었습니다.
+     */
+    private final org.sonar.sonarvalidator_backend.Service.policy.PolicyPushNotifier pushNotifier;
+
+    /**
      * @param projectService      프로젝트 서비스 (검증 엔진 접근)
      * @param registry            Agent 세션 레지스트리 (푸시 대상)
+     * @param quarantineService   격리 상태 서비스 (대상 제외)
      * @param notificationService 알림 서비스
+     * @param pushNotifier        푸시 결과 분류기
      */
     public PolicyManagement(ProjectService projectService,
                             AgentSessionRegistry registry,
-                            NotificationService notificationService) {
+                            QuarantineService quarantineService,
+                            NotificationService notificationService,
+                            org.sonar.sonarvalidator_backend.Service.policy.PolicyPushNotifier pushNotifier) {
         this.projectService = projectService;
         this.registry = registry;
+        this.quarantineService = quarantineService;
         this.notificationService = notificationService;
+        this.pushNotifier = pushNotifier;
     }
 
     /**
@@ -208,11 +232,23 @@ public class PolicyManagement {
 
         final List<PolicyRule> rules = project.toPolicyRules();
         final List<Map<String, Object>> deliveries = new ArrayList<>();
+
+        // 격리된 장치는 한 번만 조회해 집합으로 둡니다. (서브넷 수만큼 DB 를 치지 않기)
+        final var quarantined = quarantineService.quarantinedAgentIds();
+        final List<String> skipped = new ArrayList<>();
         int sent = 0;
 
         for (final var subnet : project.getSubnets()) {
             final String agentId = subnet.getAgentId();
             if (agentId == null || agentId.isBlank()) {
+                continue;
+            }
+            // ⚠️ 격리된 장치에 정상 정책을 보내면 격리가 풀립니다.
+            //    차단본은 장치가 스스로 요청할 때(policy-request) 전달되므로,
+            //    서버발 푸시에서는 제외하는 것이 맞습니다.
+            if (quarantined.contains(agentId)) {
+                skipped.add(agentId);
+                log.info("policy push skipped quarantined agent={} project={}", agentId, projectId);
                 continue;
             }
             final ObjectNode payload = JSON.objectNode();
@@ -257,54 +293,40 @@ public class PolicyManagement {
         body.put("forced", force && !report.isCompliant());
         body.put("delivered", sent);
         body.put("targets", deliveries.size());
+        body.put("skipped_quarantined", skipped);
         body.put("deliveries", deliveries);
-        log.info("policy pushed for project={} delivered={}/{}",
-                projectId, sent, deliveries.size());
+        log.info("policy pushed for project={} delivered={}/{} skipped_quarantined={}",
+                projectId, sent, deliveries.size(), skipped.size());
 
-        // 전달 결과를 세 갈래로 나눠 남깁니다. "푸시 완료" 라고 뭉뚱그리면
-        // 대상이 하나도 없었던 경우까지 성공으로 보여 운영자가 오해합니다.
-        //   (A) 대상 없음   — 서브넷에 agent_id 가 없어 보낼 곳이 없음
-        //   (B) 전달 실패   — 대상은 있는데 0대 전송 (프로버가 꺼져 있음)
-        //   (C) 전달 성공   — 일부 또는 전부 전송
-        if (deliveries.isEmpty()) {
+        // ⚠️ 결과 분기와 알림 문구는 PolicyPushNotifier 가 소유합니다.
+        //    이전에는 여기에 if/else if/else 세 갈래와 notifyQuietly 여덟 인자
+        //    호출 네 번이 있었습니다 ("완료" 라고 뭉뚱그리면 대상이 하나도 없던
+        //    경우까지 성공으로 보여 운영자가 오해합니다).
+        final org.sonar.sonarvalidator_backend.Service.policy.PushOutcomeStrategy.PushOutcome outcome =
+                new org.sonar.sonarvalidator_backend.Service.policy.PushOutcomeStrategy.PushOutcome(
+                        projectId,
+                        project.getName(),
+                        deliveries.size(),
+                        sent,
+                        skipped,
+                        report.getViolationCount(),
+                        force && !report.isCompliant());
+
+        // 결과이름을 응답에 남깁니다. "왜 성공으로 보이는데 알림이 없지" 를
+        // 응답만 보고 판단할 수 있어야 합니다.
+        body.put("outcome", pushNotifier.nameOf(outcome));
+
+        for (final var notice : pushNotifier.classify(outcome)) {
             notificationService.notifyQuietly(
-                    "POLICY",
-                    "warning",
-                    "정책 푸시 대상 없음: " + project.getName(),
-                    "서브넷에 연결된 Agent 가 없어 아무 장치에도 전달되지 않았습니다. "
-                            + "Agent 배포 후 서브넷에 매핑하세요.",
+                    notice.category().value(),
+                    notice.severity().value(),
+                    notice.title(),
+                    notice.message(),
                     projectId,
-                    null,
-                    "system",
-                    "/project/editor/" + projectId,
-                    "policy-push-no-target:" + projectId);
-        } else if (sent == 0) {
-            notificationService.notifyQuietly(
-                    "POLICY",
-                    "warning",
-                    "정책 푸시 실패: " + project.getName(),
-                    "대상 " + deliveries.size() + "대 중 0대에 전달되었습니다. "
-                            + "장치의 프로버가 연결되어 있는지 확인하세요.",
-                    projectId,
-                    null,
-                    "system",
-                    "/project/editor/" + projectId,
-                    "policy-push-none-delivered:" + projectId);
-        } else {
-            // 강제 전송은 위반 상태로 내려간 것이므로 심각도를 올립니다.
-            // (성공으로만 보이면 "위반을 고쳤다" 는 오해를 낳습니다)
-            final boolean forced = force && !report.isCompliant();
-            notificationService.notifyQuietly(
-                    "POLICY",
-                    forced ? "warning" : "info",
-                    "정책 푸시 " + (forced ? "강제 완료: " : "완료: ") + project.getName(),
-                    "대상 " + deliveries.size() + "대 중 " + sent + "대에 전달되었습니다."
-                            + (forced ? " (망분리 위반이 남은 상태로 강제 전송됨)" : ""),
-                    projectId,
-                    null,
-                    "system",
-                    "/project/editor/" + projectId,
-                    null);
+                    notice.agentId(),
+                    notice.source(),
+                    notice.link(),
+                    notice.dedupeKey());
         }
         return body;
     }

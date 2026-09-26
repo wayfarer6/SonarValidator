@@ -12,6 +12,9 @@ import java.util.UUID;
 
 import org.sonar.sonarvalidator_backend.Model.entity.Notification;
 import org.sonar.sonarvalidator_backend.Repository.NotificationRepository;
+import org.sonar.sonarvalidator_backend.Service.notification.NotificationCategory;
+import org.sonar.sonarvalidator_backend.Service.notification.NotificationFilter;
+import org.sonar.sonarvalidator_backend.Service.notification.NotificationSeverity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -57,14 +60,6 @@ public class NotificationService {
      * 너무 길면 서로 다른 시점의 문제가 합쳐집니다.
      */
     private static final Duration DEDUPE_WINDOW = Duration.ofMinutes(5);
-
-    /** 알림 분류 값 집합. 오타로 생긴 분류를 걸러냅니다. */
-    private static final java.util.Set<String> CATEGORIES =
-            java.util.Set.of("POLICY", "AGENT", "PROJECT", "SECURITY", "SYSTEM");
-
-    /** 심각도 값 집합. */
-    private static final java.util.Set<String> SEVERITIES =
-            java.util.Set.of("critical", "warning", "info");
 
     private final NotificationRepository repository;
 
@@ -195,22 +190,29 @@ public class NotificationService {
         return null;
     }
 
-    /** 분류를 허용 값으로 정규화합니다. 모르는 값은 {@code SYSTEM} 으로 둡니다. */
+    /**
+     * 분류를 허용 값으로 정규화합니다. (기록용)
+     *
+     * <p>⚠️ 기록과 필터의 요구가 다릅니다. {@code NotificationCategory.parse}
+     * 는 모르는 값에 {@code null}(=전체) 을 주지만, <b>기록은 반드시 하나로
+     * 확정</b>해야 합니다 — null 을 저장하면 조회가 그 행을 못 찾습니다.
+     * 그래서 {@code parseForWrite} 를 씁니다.
+     *
+     * @param category 입력
+     * @return 저장 값 (모르면 {@code SYSTEM})
+     */
     private String normalizeCategory(String category) {
-        if (category == null) {
-            return "SYSTEM";
-        }
-        final String upper = category.trim().toUpperCase(Locale.ROOT);
-        return CATEGORIES.contains(upper) ? upper : "SYSTEM";
+        return NotificationCategory.parseForWrite(category).value();
     }
 
-    /** 심각도를 허용 값으로 정규화합니다. */
+    /**
+     * 심각도를 허용 값으로 정규화합니다. (기록용)
+     *
+     * @param severity 입력
+     * @return 저장 값 (모르면 {@code info})
+     */
     private String normalizeSeverity(String severity) {
-        if (severity == null) {
-            return "info";
-        }
-        final String lower = severity.trim().toLowerCase(Locale.ROOT);
-        return SEVERITIES.contains(lower) ? lower : "info";
+        return NotificationSeverity.parseForWrite(severity).value();
     }
 
     // ------------------------------------------------------------------
@@ -230,6 +232,40 @@ public class NotificationService {
      * @return 알림 목록 (최신순)
      */
     @Transactional(readOnly = true)
+    public List<Notification> search(NotificationFilter filter) {
+        final NotificationFilter f =
+                (filter == null) ? NotificationFilter.recent(NotificationFilter.DEFAULT_LIMIT) : filter;
+        final Pageable pageable = PageRequest.of(0, f.limit());
+        return repository.search(
+                f.categoryValue(),
+                f.severityValue(),
+                f.readState(),
+                f.projectKey(),
+                f.agentId(),
+                // ⚠️ 패턴 생성은 NotificationFilter 가 담당합니다.
+                //    PostgreSQL 의 LOWER(bytea) 사고를 막는 규칙이므로
+                //    호출부가 각자 만들면 언젠가 빠뜨립니다.
+                f.likePattern(),
+                pageable);
+    }
+
+    /**
+     * 필터 문자열로 알림을 조회합니다. (컨트롤러 편의 진입점)
+     *
+     * <p>정규화·범위 제한을 {@link NotificationFilter#of} 에 맡깁니다.
+     * 인자 일곱 개가 모두 {@code String} 이라 순서를 바꾸면 컴파일러가
+     * 막지 못했던 문제를, 값 객체 하나로 줄였습니다.
+     *
+     * @param category   분류 문자열 (모르면 전체)
+     * @param severity   심각도 문자열 (모르면 전체)
+     * @param readState  읽음 상태 문자열
+     * @param projectKey 프로젝트 키
+     * @param agentId    Agent 식별자
+     * @param search     검색어
+     * @param limit      최대 건수
+     * @return 알림 목록 (최신순)
+     */
+    @Transactional(readOnly = true)
     public List<Notification> search(String category,
                                      String severity,
                                      String readState,
@@ -237,43 +273,8 @@ public class NotificationService {
                                      String agentId,
                                      String search,
                                      int limit) {
-        final Pageable pageable = PageRequest.of(0, Math.max(1, Math.min(limit, 500)));
-        final String term = blankToNull(search);
-        // ⚠️ LIKE 패턴을 Java 에서 미리 만듭니다.
-        //
-        // JPQL 에서 LOWER(CONCAT('%', :search, '%')) 로 쓰면, 검색어가 없을 때
-        // 파라미터가 untyped null 로 바인딩되어 PostgreSQL 이 LOWER(bytea) 로
-        // 해석하고 "function lower(bytea) does not exist" 로 조회가 500 이 됩니다.
-        // (H2 에서는 통과하고 PostgreSQL 에서만 터지므로 놓치기 쉬운 차이입니다)
-        //
-        // 패턴을 먼저 만들어 넘기면 파라미터가 항상 VARCHAR 로 타이핑되고,
-        // 비교 대상 컬럼에만 LOWER 가 적용됩니다.
-        final String pattern = term == null ? null : "%" + term.toLowerCase(Locale.ROOT) + "%";
-        return repository.search(
-                blankToNull(category),
-                blankToNull(severity),
-                normalizeReadState(readState),
-                blankToNull(projectKey),
-                blankToNull(agentId),
-                pattern,
-                pageable);
-    }
-
-    /**
-     * 읽음 상태 문자열을 허용 값으로 정규화합니다.
-     *
-     * <p>모르는 값은 {@code null}(= 전체)로 둡니다. 잘못된 필터로 결과가
-     * 비어 보이는 것보다 전체를 보여주는 편이 안전합니다.
-     *
-     * @param readState {@code "unread"}/{@code "read"}/null
-     * @return 정규화된 값
-     */
-    private static String normalizeReadState(String readState) {
-        if (readState == null || readState.isBlank()) {
-            return null;
-        }
-        final String lower = readState.trim().toLowerCase(Locale.ROOT);
-        return ("unread".equals(lower) || "read".equals(lower)) ? lower : null;
+        return search(NotificationFilter.of(
+                category, severity, readState, projectKey, agentId, search, limit));
     }
 
     /**

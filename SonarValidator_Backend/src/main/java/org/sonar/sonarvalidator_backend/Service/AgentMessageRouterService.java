@@ -66,14 +66,17 @@ public class AgentMessageRouterService {
      */
     private static final int MAX_TELEMETRY_LOG_LINES = 500;
 
-    /** Agent 별 최근 텔레메트리 (DB 도입 전까지의 임시 저장소). */
-    private final Map<String, JsonNode> lastTelemetry = new ConcurrentHashMap<>();
-
-    /** Agent 별 마지막 수신 시각. */
-    private final Map<String, Instant> lastSeen = new ConcurrentHashMap<>();
-
     /** 정책 요청 처리 건수 (모니터링용). */
     private final AtomicLong policyRequestCount = new AtomicLong();
+
+    /**
+     * 최근 관측값 저장소입니다.
+     *
+     * <p>수신은 이 라우터가 하고 <b>보관/조회는 저장소</b>가 합니다.
+     * 조회 API 들이 라우터를 통해 값만 꺼내러 들어오던 것을 끊어,
+     * 라우터가 어떤 봉투를 처리하는지와 무관하게 조회할 수 있게 했습니다.
+     */
+    private final AgentTelemetryStore telemetryStore;
 
     /**
      * 중립 장비 설정 변환 서비스.
@@ -84,9 +87,6 @@ public class AgentMessageRouterService {
      */
     private final DeviceConfigService deviceConfigService;
 
-    /** Agent 별 최근 중립 설정. (분석 계층이 조회하는 지점) */
-    private final Map<String, NeutralDeviceConfig> lastConfig = new ConcurrentHashMap<>();
-
     /**
      * 파일 업로드로 설정이 들어온 Agent 식별자 집합입니다.
      *
@@ -95,8 +95,6 @@ public class AgentMessageRouterService {
      * "연결은 안 됐지만 설정은 확보된 장비" 로 보여야 운영자가 다음 단계로
      * 갈 수 있습니다. 그래서 출처를 따로 표시합니다.
      */
-    private final Set<String> offlineOrigins = ConcurrentHashMap.newKeySet();
-
     private final AgentSessionRegistry registry;
     private final PolicyRegistryService policyRegistry;
 
@@ -134,18 +132,72 @@ public class AgentMessageRouterService {
      */
     private final CliIngestionService cliIngestionService;
 
+    /**
+     * 격리 명령의 적용 결과를 받을 곳입니다.
+     *
+     * <p>Agent 는 격리/해제를 적용한 뒤 결과를 {@code ack} 로 돌려줍니다.
+     * 라우터는 그 ack 를 이 서비스로 넘겨 기록하게 합니다. 라우터가 직접
+     * 저장하지 않는 이유는, 격리 상태의 소유자가 격리 서비스이기 때문입니다
+     * (두 곳이 상태를 가지면 반드시 어긋납니다).
+     *
+     * <p>{@code @Autowired(required = false)} 로 두는 이유는 라우터 단위
+     * 테스트가 격리 서비스 없이도 돌아야 하기 때문입니다.
+     */
+    private QuarantineService quarantineService;
+
     public AgentMessageRouterService(AgentSessionRegistry registry,
                                      PolicyRegistryService policyRegistry,
                                      DeviceConfigService deviceConfigService,
                                      LogService logService,
                                      NotificationService notificationService,
                                      CliIngestionService cliIngestionService) {
+        this(registry, policyRegistry, new AgentTelemetryStore(), deviceConfigService,
+                logService, notificationService, cliIngestionService);
+    }
+
+    /**
+     * 전체 의존을 받는 생성자입니다.
+     *
+     * <p>테스트가 저장소를 <b>직접 관찰</b>할 수 있어야 해서 열어 둡니다.
+     * (라우터를 통해 간접 관찰하면 검증하려는 계약이 흐려집니다)
+     *
+     * @param registry            Agent 세션 레지스트리
+     * @param policyRegistry      정책 생성 서비스
+     * @param telemetryStore      최근 관측값 저장소
+     * @param deviceConfigService 중립 설정 변환 서비스
+     * @param logService          로그 적재 서비스
+     * @param notificationService 알림 서비스
+     * @param cliIngestionService 원문 CLI 폴백 파서
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public AgentMessageRouterService(AgentSessionRegistry registry,
+                                     PolicyRegistryService policyRegistry,
+                                     AgentTelemetryStore telemetryStore,
+                                     DeviceConfigService deviceConfigService,
+                                     LogService logService,
+                                     NotificationService notificationService,
+                                     CliIngestionService cliIngestionService) {
         this.registry = registry;
         this.policyRegistry = policyRegistry;
+        this.telemetryStore = telemetryStore;
         this.deviceConfigService = deviceConfigService;
         this.logService = logService;
         this.notificationService = notificationService;
         this.cliIngestionService = cliIngestionService;
+    }
+
+    /**
+     * 격리 서비스를 연결합니다.
+     *
+     * <p>생성자 주입을 쓰지 않는 이유: {@link QuarantineService} 가
+     * {@link AgentSessionRegistry} 와 알림/이력 서비스에 의존하므로, 생성자로
+     * 엮으면 이 라우터를 쓰는 단위 테스트가 불필요하게 무거워집니다.
+     *
+     * @param quarantineService 격리 서비스 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setQuarantineService(QuarantineService quarantineService) {
+        this.quarantineService = quarantineService;
     }
 
     /**
@@ -157,9 +209,7 @@ public class AgentMessageRouterService {
      */
     public Envelope handle(WebSocketSession session, Envelope envelope) {
         final String agentId = resolveAgentId(session, envelope);
-        if (agentId != null) {
-            lastSeen.put(agentId, Instant.now());
-        }
+        telemetryStore.touch(agentId);
         log.debug("recv {} from agent={}", envelope.summary(), agentId);
 
         return switch (envelope.getType()) {
@@ -245,10 +295,19 @@ public class AgentMessageRouterService {
             deviceType = DeviceType.inferFromDeviceId(deviceId);
         }
 
-        final ObjectNode policy = policyRegistry.forDevice(deviceType, deviceId);
+        // 텔레메트리에서 관측된 벤더/제품을 정책에 실어 보냅니다.
+        // (Agent 가 스스로 보고한 값이 기본값보다 정확합니다)
+        final NeutralDeviceConfig observed = telemetryStore.configOf(agentId);
+        final String vendor = (observed == null) ? null : observed.getVendor();
+        final String product = (observed == null) ? null : observed.getProduct();
+
+        // 배정된 서브넷이 있으면 그 프로젝트의 실제 규칙으로 정책을 만듭니다.
+        // 배정이 없으면 서비스가 내부적으로 기본 선언으로 폴백합니다.
+        final ObjectNode policy = policyRegistry.forAgent(agentId, deviceType, deviceId, vendor, product);
         policyRequestCount.incrementAndGet();
-        log.info("policy-request from agent={} device={} type={} -> {}",
-                agentId, deviceId, deviceType, policy.path("policy_id").asString("?"));
+        log.info("policy-request from agent={} device={} type={} -> {} (source={})",
+                agentId, deviceId, deviceType, policy.path("policy_id").asString("?"),
+                policy.path("summary").path("source").asString("?"));
 
         return Envelope.replyTo(Envelope.Types.POLICY_RESPONSE, envelope, policy);
     }
@@ -269,7 +328,7 @@ public class AgentMessageRouterService {
             return null;
         }
         final JsonNode payload = envelope.payloadOrEmpty();
-        lastTelemetry.put(agentId, payload);
+        telemetryStore.putTelemetry(agentId, payload);
 
         try {
             // Agent 가 payload 에 제품명을 넣지 않는 경우가 있으므로,
@@ -281,7 +340,7 @@ public class AgentMessageRouterService {
             // (정상 경로처럼 이미 구조화된 JSON 이면 아무 일도 하지 않습니다)
             final JsonNode normalized = normalizedPayload(payload, product);
             final NeutralDeviceConfig config = deviceConfigService.parse(agentId, product, normalized);
-            lastConfig.put(agentId, config);
+            telemetryStore.putConfig(agentId, config);
 
             log.info("telemetry from agent={} keys={} format={} ifaces={} routes={} vlans={}",
                     agentId, payload.size(), config.getFormat(),
@@ -432,7 +491,7 @@ public class AgentMessageRouterService {
      * @return 최근 설정 (없으면 {@code null})
      */
     public NeutralDeviceConfig lastConfigOf(String agentId) {
-        return lastConfig.get(agentId);
+        return telemetryStore.configOf(agentId);
     }
 
     /**
@@ -466,10 +525,10 @@ public class AgentMessageRouterService {
         final NeutralDeviceConfig config =
                 deviceConfigService.parse(agentId, resolvedProduct, normalized);
 
-        lastTelemetry.put(agentId, payload);
-        lastConfig.put(agentId, config);
-        // 오프라인에서 온 설정임을 기록합니다. (UI 가 "연결 끊김 + 파일 업로드" 로 표시)
-        offlineOrigins.add(agentId);
+        // 오프라인 출처로 표시합니다. (UI 가 "연결 끊김 + 파일 업로드" 로 표시)
+        // ⚠️ 연결 상태는 채우지 않습니다 — 채우면 UI 가 "연결됨" 으로 잘못 봅니다.
+        telemetryStore.putTelemetry(agentId, payload);
+        telemetryStore.putOfflineConfig(agentId, config);
 
         log.info("offline telemetry accepted: agent={} product={} format={} keys={}",
                 agentId, resolvedProduct, config.getFormat(), payload == null ? 0 : payload.size());
@@ -483,7 +542,7 @@ public class AgentMessageRouterService {
      * @return 오프라인 업로드로 반영된 설정이면 true
      */
     public boolean isOfflineOrigin(String agentId) {
-        return offlineOrigins.contains(agentId);
+        return telemetryStore.isOfflineOrigin(agentId);
     }
 
     /**
@@ -492,7 +551,19 @@ public class AgentMessageRouterService {
      * @return Agent 식별자 → 중립 설정
      */
     public Map<String, NeutralDeviceConfig> allConfigs() {
-        return Map.copyOf(lastConfig);
+        return telemetryStore.allConfigs();
+    }
+
+    /**
+     * 최근 관측값 저장소를 돌려줍니다.
+     *
+     * <p>조회 API 들이 이 저장소를 직접 쓰도록 열어 둡니다. 그래야 다음에
+     * 저장 위치가 DB 로 바뀌어도 이 라우터를 고칠 필요가 없습니다.
+     *
+     * @return 저장소
+     */
+    public AgentTelemetryStore telemetryStore() {
+        return telemetryStore;
     }
 
     /**
@@ -504,6 +575,12 @@ public class AgentMessageRouterService {
      */
     private Envelope onAck(Envelope envelope, String agentId) {
         log.info("ack from agent={} correlation={}", agentId, envelope.getCorrelation_id());
+
+        // 격리/해제 명령의 적용 결과는 격리 서비스가 소유합니다.
+        // 라우터는 전달만 합니다. (두 곳이 상태를 가지면 반드시 어긋납니다)
+        if (quarantineService != null) {
+            quarantineService.recordAck(agentId, envelope.payloadOrEmpty());
+        }
         return null;
     }
 
@@ -526,7 +603,21 @@ public class AgentMessageRouterService {
      * @return 최근 텔레메트리 (없으면 {@code null})
      */
     public JsonNode lastTelemetryOf(String agentId) {
-        return lastTelemetry.get(agentId);
+        return telemetryStore.telemetryOf(agentId);
+    }
+
+    /**
+     * 원본 텔레메트리라도 보낸 적 있는 모든 Agent 식별자를 돌려줍니다.
+     *
+     * <p>{@link #allConfigs()} 는 <b>파싱까지 성공한</b> Agent 만 담습니다.
+     * 그래서 파서가 모르는 벤더의 장치가 붙으면 목록에서 통째로 사라집니다.
+     * 배포 확인 화면은 "서버가 이 장치를 봤는가" 를 알아야 하므로 원본 기준의
+     * 목록도 필요합니다.
+     *
+     * @return 원본 텔레메트리를 보낸 Agent 식별자 집합
+     */
+    public Set<String> allTelemetryAgentIds() {
+        return telemetryStore.allTelemetryAgentIds();
     }
 
     /**
@@ -536,7 +627,7 @@ public class AgentMessageRouterService {
      * @return 마지막 수신 시각 (없으면 {@code null})
      */
     public Instant lastSeenOf(String agentId) {
-        return lastSeen.get(agentId);
+        return telemetryStore.lastSeenOf(agentId);
     }
 
     /**

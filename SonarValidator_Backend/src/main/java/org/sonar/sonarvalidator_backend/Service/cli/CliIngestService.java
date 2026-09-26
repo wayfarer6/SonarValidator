@@ -44,25 +44,22 @@ public class CliIngestService {
 
     private static final Logger log = LoggerFactory.getLogger(CliIngestService.class);
 
-    /**
-     * 조회 대상 이름 → payload 계약 키.
-     *
-     * <p>{@link org.sonar.sonarvalidator_backend.Model.Config.AbstractDeviceConfigParser}
-     * 가 읽는 최상위 키입니다. 두 곳이 어긋나면 파싱은 성공하는데 화면은 비게
-     * 되므로 한 곳에서만 정의합니다.
-     */
-    private static final List<String[]> TARGET_KEYS = List.of(
-            new String[]{"nic", "addr", "brief", "nic_status"},
-            new String[]{"route", "route-table", "route_status"},
-            new String[]{"arp", "neigh", "arp_table"},
-            new String[]{"vlan", "vlan_status"},
-            new String[]{"port", "switchport", "trunk_status"},
-            new String[]{"ruleset", "nft", "firewall", "firewall_rules"},
-            new String[]{"topology", "ovs", "ovs_topology"});
-
     private final CliOutputParser parser;
     private final CliIngestionService ingestion;
     private final DeviceConfigService deviceConfigService;
+
+    /**
+     * 조회 대상 이름 → 계약 키 변환기입니다.
+     *
+     * <p>⚠️ 이전에는 이 클래스가 {@code TARGET_KEYS} 라는 별칭 표와
+     * {@code contractKeyOf} 의 벤더 {@code switch} 를 <b>따로</b> 갖고
+     * 있었습니다. 같은 사실이 파서에도 있어서, 대상 하나를 추가하면 두 곳을
+     * 고쳐야 했고 한 곳을 빠뜨리면 <b>파싱은 되는데 화면은 빈</b> 상태가
+     * 됐습니다. 지금은 파서의 전략이 유일한 출처입니다.
+     */
+    private static final org.sonar.sonarvalidator_backend.Service.cli.query.CliQueryStrategies
+            QUERY_STRATEGIES =
+            new org.sonar.sonarvalidator_backend.Service.cli.query.CliQueryStrategies();
 
     /**
      * @param parser              원문을 구조화하는 ANTLR 기반 파서
@@ -160,29 +157,16 @@ public class CliIngestService {
     /**
      * 정규화된 대상 이름을 payload 계약 키로 바꿉니다.
      *
+     * <p>파서의 전략이 판단한 키와 <b>같은 결과</b>를 돌려줍니다. 여기서
+     * 따로 계산하면 파싱은 어떤 키로 하고 응답에는 다른 키를 적는 일이
+     * 생깁니다.
+     *
      * @param  query  대상 이름 (null 허용)
      * @param  vendor 벤더 (기본값 판정용)
      * @return 계약 키
      */
     private static String contractKeyOf(String query, CliVendor vendor) {
-        if (query != null) {
-            final String lower = query.toLowerCase(Locale.ROOT);
-            for (final String[] group : TARGET_KEYS) {
-                for (int i = 0; i < group.length - 1; i++) {
-                    if (group[i].equals(lower)) {
-                        return group[group.length - 1];
-                    }
-                }
-            }
-        }
-        // 대상이 없으면 파서가 고른 문법과 같은 기본값을 씁니다.
-        return switch (vendor) {
-            case OPEN_VSWITCH -> "ovs_topology";
-            case FRR, CISCO, LINUX -> "route_status";
-            case ARISTA -> "vlan_status";
-            case NFTABLES -> "firewall_rules";
-            case UNKNOWN -> "nic_status";
-        };
+        return QUERY_STRATEGIES.select(query, vendor).contractKey();
     }
 
     /**

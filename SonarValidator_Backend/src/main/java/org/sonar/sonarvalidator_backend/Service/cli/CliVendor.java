@@ -1,5 +1,7 @@
 package org.sonar.sonarvalidator_backend.Service.cli;
 
+import java.util.Locale;
+
 /**
  * CLI 출력 문법을 고르기 위한 장비 종류입니다.
  *
@@ -93,5 +95,41 @@ public enum CliVendor {
             return LINUX;
         }
         return UNKNOWN;
+    }
+
+    /**
+     * 벤더 <b>이름</b> 문자열을 관용적으로 해석합니다. (null 안전)
+     *
+     * <h2>⚠️ 왜 별도 진입점이 필요한가</h2>
+     * <p>호출자는 벤더를 다음 세 형태로 갖습니다.
+     * <ul>
+     *   <li>이미 판별된 enum (텔레메트리 경로)</li>
+     *   <li>{@code null} (대상 생략 — 기본 조회)</li>
+     *   <li>사용자가 적어 넣은 문자열 (진단 API)</li>
+     * </ul>
+     * 호출부마다 {@code vendor == null ? UNKNOWN : vendor} 를 반복하면
+     * 한 곳을 빠뜨렸을 때 NPE 가 나고, 그 NPE 는 수집 경로에서 곧
+     * 데이터 유실입니다.
+     *
+     * <p>{@link #fromProductName(String)} 과 다른 점: 이쪽은 제품명이 아니라
+     * <b>벤더 이름 자체</b>를 받습니다. {@code "frr"} 은 제품명 규칙에서는
+     * {@code UNKNOWN} 이지만 여기서는 {@code FRR} 입니다.
+     *
+     * @param value 벤더 이름 또는 제품명 (null/빈 문자열 허용)
+     * @return 벤더 (해석 실패 시 {@link #UNKNOWN})
+     */
+    public static CliVendor parse(String value) {
+        if (value == null || value.isBlank()) {
+            return UNKNOWN;
+        }
+        final String upper = value.trim().toUpperCase(Locale.ROOT);
+        for (final CliVendor candidate : values()) {
+            if (candidate.name().equals(upper)) {
+                return candidate;
+            }
+        }
+        // 이름이 아니면 제품명 규칙으로 한 번 더 시도합니다.
+        // ("Open vSwitch 3.3" 처럼 이름+버전이 섞여 오는 경우)
+        return fromProductName(value);
     }
 }
