@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -122,6 +122,10 @@ export default function Agent() {
         connected: agent.connected,
         state: agent.state,
         expected: agent.expected,
+        // ⚠️ API 로 관리되는 장치(OPNsense 등)는 프로버가 아니므로
+        //    `connected=false` 입니다. 이를 "무응답" 으로 보여 주면
+        //    정상 동작 중인 방화벽을 고장으로 오해합니다.
+        apiManaged: agent.api_managed === true,
         // ⚠️ 방화벽은 격리 대상이 아닙니다.
         //    서버도 거부하지만, 버튼을 누를 수 있게 두면 "눌렀는데 안 됨" 이
         //    됩니다. 비활성화하고 사유를 title 로 알려야 오해가 없습니다.
@@ -147,37 +151,84 @@ export default function Agent() {
         connected: false,
         state: "telemetry-only" as const,
         expected: false,
+        // 설정만 있고 통합 현황에 없는 장치는 API 관리로 단정할 수 없습니다.
+        apiManaged: false,
         // 설정의 product 로는 유형을 알 수 없으므로 식별자 관례로 판단합니다.
         // (서버의 DeviceTypeResolver 와 같은 관례: 이름의 끝 토큰)
         isFirewall: /firewall/i.test(agentId),
       });
     }
 
-    return onlyIssues
-      ? result.filter(
-          (row) =>
-            !row.hasTelemetry ||
-            row.warnings.length > 0 ||
-            !row.connected ||
-            row.expected === false,
-        )
-      : result;
-  }, [overview.data, configByAgent, onlyIssues]);
+    return result;
+  }, [overview.data, configByAgent]);
 
   /**
-   * 필터가 실제로 몇 건을 걸러내는지 셉니다.
+   * 화면 행 하나의 모양입니다.
+   *
+   * <p>필터 판정 함수가 행을 받으므로 타입이 필요합니다.
+   */
+  type Row = {
+    agentId: string;
+    lastSeen: string | null;
+    hasTelemetry: boolean;
+    product: string | null;
+    format: string | null;
+    hostname: string | null;
+    interfaceCount: number;
+    vlanCount: number;
+    routeCount: number;
+    warnings: string[];
+    connected: boolean;
+    state: string;
+    expected: boolean;
+    /** REST API 로만 관리되는 장치인지(프로버 없음). */
+    apiManaged: boolean;
+    isFirewall: boolean;
+  };
+
+  /**
+   * "문제 있는 항목" 의 판정 기준입니다.
+   *
+   * <p>⚠️ 필터와 라벨 카운트가 <b>같은 함수</b>를 써야 합니다.
+   * 예전에는 두 곳에 조건을 따로 적어서, 필터는 `warnings` 를 포함하고
+   * 카운트는 빠져 있었습니다. 그래서 라벨은 4인데 실제로는 6건이 남았고
+   * "체크했는데 그대로다" 로 읽혔습니다.
+   *
+   * <p>같은 판단을 두 곳에 적으면 <b>반드시 다시 어긍납니다.</b>
+   *
+   * @param row 판정할 행
+   * @return 문제가 있으면 true
+   */
+  const isProblem = useCallback(
+    (row: Row) =>
+      // API 관리 장치는 프로버가 없어 무텔레메트리가 정상입니다.
+      !row.apiManaged &&
+      (!row.connected ||
+        !row.hasTelemetry ||
+        row.warnings.length > 0 ||
+        row.expected === false),
+    [],
+  );
+
+  /** 필터를 적용한 실제 표시 목록입니다. */
+  const visibleRows = useMemo(
+    () => (onlyIssues ? rows.filter(isProblem) : rows),
+    [rows, onlyIssues, isProblem],
+  );
+
+  /**
+   * 필터가 걸러내는 건수입니다. {@link isProblem} 과 같은 기준을 쓴다.
    *
    * <p>라벨에 건수를 안 보여 주면, 대부분의 행이 이미 문제 조건에 해당할 때
    * "체크했는데 그대로다 = 필터가 안 된다" 로 읽힙니다.
-   * (실측: 10건 중 9건이 문제 조건 → 체크 후에도 10건)
    */
   const issueCount = useMemo(
-    () =>
-      (overview.data?.agents ?? []).filter(
-        (row) => !row.connected || !row.telemetry_seen || row.expected === false,
-      ).length,
-    [overview.data],
+    () => rows.filter(isProblem).length,
+    [rows, isProblem],
   );
+
+  /** 필터가 전체를 그대로 볼러오는 경우 경고합니다(필터 고장으로 오해 방지). */
+  const filterMatchesAll = onlyIssues && issueCount === rows.length;
 
   /** 목록을 다시 읽고 갱신 시각·스피너를 관리합니다. */
   const handleRefresh = async () => {
@@ -371,13 +422,13 @@ export default function Agent() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <SummaryCard
             label="연결된 Agent"
-            value={rows.filter((row) => row.connected).length}
+            value={visibleRows.filter((row) => row.connected).length}
             hint="WebSocket 세션 기준"
             color="primary"
           />
           <SummaryCard
             label="무응답"
-            value={rows.filter((row) => row.state === "silent").length}
+            value={visibleRows.filter((row) => row.state === "silent").length}
             hint="배포 예정 · 연결 없음"
             color="warning"
           />
@@ -414,7 +465,19 @@ export default function Agent() {
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Agent</h3>
               <Badge size="sm" color="light">
-                {rows.length}건
+                {visibleRows.length}건
+                {filterMatchesAll && (
+                  /*
+                   * 라벨 숫자와 표시 건수가 같아도 필터가 고장 난 것은 아닙니다.
+                   * 그런데 화면만 보면 구분이 안 되므로 사유를 적어 둡니다.
+                   */
+                  <span
+                    className="ml-1 font-normal text-gray-400"
+                    title="모든 항목이 문제 조건에 해당합니다"
+                  >
+                    (전체가 해당)
+                  </span>
+                )}
               </Badge>
             </div>
             <div className="flex items-center gap-3">
@@ -476,7 +539,7 @@ export default function Agent() {
             </div>
           )}
 
-          {!loading && !error && rows.length === 0 && (
+          {!loading && !error && visibleRows.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-12 text-center dark:border-gray-800">
               <p className="text-base font-medium text-gray-600 dark:text-gray-400">
                 {onlyIssues ? "문제가 있는 Agent 가 없습니다" : "연결된 Agent 가 없습니다"}
@@ -490,7 +553,7 @@ export default function Agent() {
             </div>
           )}
 
-          {!loading && !error && rows.length > 0 && (
+          {!loading && !error && visibleRows.length > 0 && (
             <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-gray-50 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
@@ -505,7 +568,7 @@ export default function Agent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-gray-600 dark:divide-gray-700 dark:text-gray-300">
-                  {rows.map((row) => (
+                  {visibleRows.map((row) => (
                     <tr key={row.agentId}>
                       <td className="p-3">
                         <div className="flex flex-col">
@@ -526,7 +589,17 @@ export default function Agent() {
                          * 그래서 그 배지를 제거하고 상태를 `수신만` 으로 정확히 씁니다.
                          */}
                         <div className="flex flex-wrap gap-1">
-                          {row.connected ? (
+                          {row.apiManaged ? (
+                            /*
+                             * 프로버가 아니라 REST API 로 관리되는 장치입니다.
+                             * WebSocket 세션이 없으므로 `connected=false` 이지만
+                             * 정상 동작 중입니다 — "무응답" 으로 보여 주면
+                             * 살아 있는 방화벽을 고장으로 오해합니다.
+                             */
+                            <Badge size="sm" color="info">
+                              API 연동
+                            </Badge>
+                          ) : row.connected ? (
                             <Badge size="sm" color="success">
                               연결됨
                             </Badge>
@@ -539,7 +612,8 @@ export default function Agent() {
                               수신만
                             </Badge>
                           )}
-                          {!row.hasTelemetry && (
+                          {/* API 관리 장치에는 텔레메트리를 요구하지 않습니다 — 범주 오류입니다. */}
+                          {!row.apiManaged && !row.hasTelemetry && (
                             <Badge size="sm" color="warning">
                               텔레메트리 없음
                             </Badge>

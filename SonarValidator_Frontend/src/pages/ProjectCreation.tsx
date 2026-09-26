@@ -35,6 +35,8 @@ export default function ProjectCreation() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("project_id");
   const navigate = useNavigate();
+  /** project_id 없이 들어온 경우 안내를 띄우기 위한 상태. */
+  const [missingProject, setMissingProject] = useState(false);
 
   const [managementServerIPAddr, setManagementServerIPAddr] = useState("");
   const [managementServerPort, setManagementServerPort] = useState("");
@@ -51,9 +53,13 @@ export default function ProjectCreation() {
   };
 
   const handleContinue = () => {
-    console.log("Proceeding to next step...");
-    // 다음 페이지로 이동하는 로직 (예: navigate(`/project/status/${projectId}`))
-    navigate(`/project/create/ViewNodes?project_id=${projectId ?? ""}`);
+    // ⚠️ project_id 가 없으면 다음 단계가 전부 빈 값이 되고, 마지막 미리보기에서
+    //    "프로젝트가 지정되지 않았습니다" 로 막힙니다. 그 전에 이유를 알려 줍니다.
+    if (!projectId) {
+      setMissingProject(true);
+      return;
+    }
+    navigate(`/project/create/ViewNodes?project_id=${projectId}`);
   };
 
   return (
@@ -82,6 +88,27 @@ export default function ProjectCreation() {
             Continue
           </button>
         </div>
+
+        {/* ⚠️ project_id 없이 들어온 경우 — 다음 단계가 막히므로 이유와 해결을 알려 줍니다. */}
+        {missingProject && (
+          <div className="mb-5 rounded-xl border border-warning-200 bg-warning-50 p-4 dark:border-warning-500/30 dark:bg-warning-500/10">
+            <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+              프로젝트가 지정되지 않았습니다
+            </p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+              이 마법사는 <span className="font-mono">?project_id=</span> 가 있어야 진행할 수
+              있습니다. 프로젝트 목록에서 <b>Create Project</b> 로 시작하거나,
+              기존 프로젝트의 <b>Agent 추가</b> 에서 오프라인 데이터를 가져오세요.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/project")}
+              className="mt-3 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              프로젝트 목록으로
+            </button>
+          </div>
+        )}
 
         {/* 와이어프레임 기반 좌우 2분할 레이아웃 */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -295,6 +295,14 @@ export default function PolicyManagement() {
                     >
                       새로고침
                     </Button>
+                    {!report.compliant && (
+                      <Link
+                        to={`/project/editor/${activeProjectId}`}
+                        className="text-xs font-medium text-brand-500 underline underline-offset-2 hover:text-brand-600 dark:text-brand-400"
+                      >
+                        편집 화면에서 위반 해결
+                      </Link>
+                    )}
                     <Button
                       size="sm"
                       disabled={!report.compliant || pushAction.submitting}
@@ -307,6 +315,31 @@ export default function PolicyManagement() {
                     >
                       {pushAction.submitting ? "전송 중..." : "정책 푸시"}
                     </Button>
+                    {!report.compliant && (
+                      /*
+                       * ⚠️ 백엔드는 `force=true` 를 지원하고 경고 로그를 남깁니다.
+                       *    그런데 화면에 경로가 없어, 위반이 있으면 API 를 직접
+                       *    호출해야만 전송할 수 있었습니다.
+                       *    위험한 동작이므로 눈에 덜 띄게 두고 확인을 받습니다.
+                       */
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pushAction.submitting}
+                        onClick={() => {
+                          const ok = window.confirm(
+                            `위반 ${report.violation_count}건이 있습니다.\n` +
+                              "강제로 전송하시겠습니까?\n\n" +
+                              "· 망분리가 실제로 깨질 수 있습니다.\n" +
+                              "· 서버에 경고 로그가 남습니다.",
+                          );
+                          if (ok) pushAction.run(true);
+                        }}
+                        title="위반을 무시하고 강제로 전송합니다. 경고 로그가 남습니다."
+                      >
+                        강제 푸시
+                      </Button>
+                    )}
                   </div>
                 </div>
 

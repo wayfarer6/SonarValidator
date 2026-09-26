@@ -76,6 +76,8 @@ export default function OPNsenseConfigModal({
   const [apiSecret, setApiSecret] = useState("");
   const [allowInsecureTls, setAllowInsecureTls] = useState(false);
   const [probeResult, setProbeResult] = useState<OPNsenseProbeResult | null>(null);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [apiSecretError, setApiSecretError] = useState<string | null>(null);
 
   /** 모달이 열릴 때 기존 설정을 불러옵니다. */
   useEffect(() => {
@@ -116,10 +118,25 @@ export default function OPNsenseConfigModal({
 
   /** 저장합니다. */
   const handleSave = useCallback(async () => {
+    // ⚠️ 주소와 Key/Secret 을 "같은 무게" 로 검증합니다.
+    //    예전에는 주소만 인라인으로 막고 Key/Secret 은 통과시켜,
+    //    사용할 수 없는 레코드가 목록에 쌓였습니다.
+    let invalid = false;
     if (!baseUrl.trim()) {
       setError("OPNsense 주소를 입력하세요. (예: https://10.99.143.2)");
-      return;
+      invalid = true;
     }
+    // 신규 등록(existing 없음)에는 Key/Secret 이 반드시 필요합니다.
+    // 기존 설정을 수정할 때는 비워 두면 서버가 기존 값을 유지합니다.
+    const needsKey = !existing?.has_api_key && !apiKey.trim();
+    const needsSecret = !existing?.has_secret && !apiSecret.trim();
+    setApiKeyError(
+      needsKey ? "API Key 를 입력하세요. (System > Access > Users > API keys)" : null,
+    );
+    setApiSecretError(needsSecret ? "API Secret 을 입력하세요." : null);
+    if (needsKey || needsSecret) invalid = true;
+    if (invalid) return;
+
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -136,10 +153,14 @@ export default function OPNsenseConfigModal({
       setExisting(saved);
       setApiKey("");
       setApiSecret("");
+      setApiKeyError(null);
+      setApiSecretError(null);
+      // ⚠️ "저장" 과 "연결" 은 다른 사건입니다.
+      //    한 문장에 뭉치면 "저장했는지" 를 알 수 없습니다.
       setSuccess(
         saved.status === "OK"
           ? `저장하고 연결을 확인했습니다.${saved.detected_version ? ` (버전 ${saved.detected_version})` : ""}`
-          : "저장했습니다. 연결 확인에 실패했습니다. 아래 오류를 참고하세요.",
+          : "설정은 저장했습니다. 다만 연결 확인에 실패했습니다 — 아래 오류를 참고하세요.",
       );
       onSaved?.();
     } catch (cause) {
@@ -147,7 +168,7 @@ export default function OPNsenseConfigModal({
     } finally {
       setSaving(false);
     }
-  }, [agentId, displayName, baseUrl, apiKey, apiSecret, allowInsecureTls, onSaved]);
+  }, [agentId, displayName, baseUrl, apiKey, apiSecret, allowInsecureTls, onSaved, existing]);
 
   /** 연결을 다시 확인합니다. */
   const handleVerify = useCallback(async () => {
@@ -278,7 +299,10 @@ export default function OPNsenseConfigModal({
 
             {/* API Key */}
             <div>
-              <Label>API Key</Label>
+              <Label>
+                API Key{" "}
+                {!existing?.has_api_key && <span className="text-error-500">*</span>}
+              </Label>
               <Input
                 type="text"
                 placeholder={
@@ -287,13 +311,26 @@ export default function OPNsenseConfigModal({
                     : "OPNsense API Key"
                 }
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                onChange={(e) => {
+                  setApiKey(e.target.value);
+                  if (apiKeyError) setApiKeyError(null);
+                }}
               />
+              {apiKeyError ? (
+                <p className="mt-1 text-[11px] text-error-500">{apiKeyError}</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-gray-400">
+                  새로 등록할 때는 필수입니다. (기존 설정 수정 시에는 비워두면 유지)
+                </p>
+              )}
             </div>
 
             {/* API Secret */}
             <div>
-              <Label>API Secret</Label>
+              <Label>
+                API Secret{" "}
+                {!existing?.has_secret && <span className="text-error-500">*</span>}
+              </Label>
               <Input
                 type="password"
                 placeholder={
@@ -302,12 +339,19 @@ export default function OPNsenseConfigModal({
                     : "OPNsense API Secret"
                 }
                 value={apiSecret}
-                onChange={(e) => setApiSecret(e.target.value)}
+                onChange={(e) => {
+                  setApiSecret(e.target.value);
+                  if (apiSecretError) setApiSecretError(null);
+                }}
               />
-              <p className="mt-1 text-[11px] text-gray-400">
-                Secret 은 암호화되어 저장되며, 저장 후에는 다시 표시되지 않습니다.
-                비워두면 기존 값이 유지됩니다.
-              </p>
+              {apiSecretError ? (
+                <p className="mt-1 text-[11px] text-error-500">{apiSecretError}</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-gray-400">
+                  Secret 은 암호화되어 저장되며, 저장 후에는 다시 표시되지 않습니다.
+                  비워두면 기존 값이 유지됩니다.
+                </p>
+              )}
             </div>
 
             {/* 자체 서명 인증서 */}

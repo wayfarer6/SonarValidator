@@ -313,7 +313,16 @@ export default function AgentDeployCard({
   const handleSelect = (device: AgentDeviceType) => {
     if (device.opensCredentialModal) {
       // OPNsense 는 프로버 설치가 아니라 REST API 접속이므로 자격증명을 받습니다.
-      setOpnsenseAgentId(managementServerIPAddr.trim() || "opnsense-1");
+      //
+      // ⚠️ 예전에는 `managementServerIPAddr` 를 여기에 썼습니다.
+      //    그런데 그것은 "관리 서버 IP" 이지 OPNsense "장치 이름" 이 아닙니다.
+      //    그래서 IP 가 그대로 agent_id 가 되어(예: 10.20.0.3) 목록에 유령 레코드가
+      //    생겼고, 비워 두면 "opnsense-1" 이 되어 실제 이름(OPNsense-Firewall)과
+      //    어긋나 기존 설정을 불러오지 못했습니다(404).
+      //    다른 장비 카드와 같이 `defaultAgentName` 으로 장치 이름을 만듭니다.
+      setOpnsenseAgentId((current) =>
+        current.trim() === "" ? defaultAgentName(device, projectId) : current,
+      );
       setOpnsenseOpen(true);
       return;
     }

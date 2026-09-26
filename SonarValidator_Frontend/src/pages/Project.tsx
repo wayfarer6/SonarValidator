@@ -60,12 +60,29 @@ export default function Project() {
    */
   const [deployingProjectId, setDeployingProjectId] = useState<string | null>(null);
 
-  /** 프로젝트를 생성하고 편집 화면으로 이동합니다. */
+  /** 이름 검증 실패 문구. `alert()` 대신 인라인으로 보여 줍니다. */
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  /**
+   * 프로젝트를 생성하고 **생성 마법사**로 이동합니다.
+   *
+   * <h2>⚠️ 편집 화면이 아니라 마법사로 가는 이유</h2>
+   * <p>새 프로젝트는 서브넷·분할 규칙이 아직 없습니다. 편집 화면은 <b>이미
+   * 정책이 있는</b> 프로젝트를 고치는 곳이므로, 빈 프로젝트를 거기로 보내면
+   * 사용자가 "이제 뭘 해야 하나" 를 알 수 없습니다.
+   *
+   * <p>예전에는 이 자리가 비어 있어 `project_id` 없이 마법사에 들어가면
+   * 전 단계가 빈 값이 되고 마지막 미리보기에서 막혔습니다.
+   * 여기서 `project_id` 를 붙여 주면 흐름이 끊기지 않습니다.
+   */
   const handleCreate = async () => {
     if (!projectName.trim()) {
-      alert("프로젝트 이름을 입력하세요.");
+      // ⚠️ alert() 는 화면을 막고 스타일도 맞지 않습니다.
+      //    다른 입력 검증과 같이 인라인으로 보여 줍니다.
+      setNameError("프로젝트 이름을 입력하세요.");
       return;
     }
+    setNameError(null);
 
     const created = await createAction.run({
       name: projectName.trim(),
@@ -81,7 +98,7 @@ export default function Project() {
     setProjectDescription("");
     closeModal();
     reload();
-    navigate(`/project/editor/${encodeURIComponent(created.project_id)}`);
+    navigate(`/project/create?project_id=${encodeURIComponent(created.project_id)}`);
   };
 
   const projects = data?.projects ?? [];
@@ -245,8 +262,14 @@ export default function Project() {
                   type="text"
                   placeholder="Enter project name"
                   value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
+                  onChange={(e) => {
+                    setProjectName(e.target.value);
+                    if (nameError) setNameError(null);
+                  }}
                 />
+                {nameError && (
+                  <p className="mt-1 text-xs text-error-500">{nameError}</p>
+                )}
               </div>
               <div>
                 <Label>Category</Label>

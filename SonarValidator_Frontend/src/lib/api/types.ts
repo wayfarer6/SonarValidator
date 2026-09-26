@@ -276,6 +276,14 @@ export interface ApiAgentOverview {
   telemetry_seen: boolean;
   expected: boolean;
   state: "connected" | "telemetry-only" | "silent" | "unregistered";
+  /**
+   * 프로버(Agent)를 올릴 수 없어 **REST API 로만** 관리되는 장치인지.
+   *
+   * <p>OPNsense 가 해당합니다. WebSocket 세션이 없으므로 `connected=false`,
+   * `state=silent` 이지만 **정상 동작 중**입니다. 화면이 이를 "무응답" 으로
+   * 보여 주지 않도록 이 플래그를 봅니다.
+   */
+  api_managed?: boolean;
 }
 
 /** 통합 장치 현황 응답. 기존 요약 키를 함께 담습니다. */

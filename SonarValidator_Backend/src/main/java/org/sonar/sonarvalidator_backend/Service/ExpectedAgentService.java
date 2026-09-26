@@ -164,6 +164,7 @@ public class ExpectedAgentService {
             entry.put("telemetry_seen", seen.contains(key));
             entry.put("expected", true);
             entry.put("state", stateOf(connected.contains(key), seen.contains(key), true));
+            applyApiManaged(entry, item.getAgentId());
             result.put(key, entry);
         }
 
@@ -210,6 +211,7 @@ public class ExpectedAgentService {
             entry.put("telemetry_seen", seen.contains(key));
             entry.put("expected", false);
             entry.put("state", stateOf(connected.contains(key), seen.contains(key), false));
+            applyApiManaged(entry, agentId);
             result.put(key, entry);
         }
 
@@ -300,5 +302,35 @@ public class ExpectedAgentService {
         body.put("silent", silent);
         body.put("agents", new ArrayList<>(overview.values()));
         return body;
+    }
+
+    /**
+     * 행에 <b>API 로 관리되는 장치</b> 여부를 표시합니다.
+     *
+     * <h2>⚠️ 왜 필요한가</h2>
+     * <p>OPNsense 처럼 프로버(Agent)를 올릴 수 없어 <b>REST API 로만</b> 관리하는
+     * 장치는 WebSocket 세션이 없습니다. 그래서 {@code connected=false},
+     * {@code state=silent} 이 되어 화면에 <b>"무응답 / 텔레메트리 없음"</b> 으로
+     * 보입니다 — 실제로는 {@code status=OK} 로 정상 동작 중인데도요.
+     *
+     * <p>설계 방침(Agent 를 못 올리는 장비는 벤더 공식 API 사용)과 화면이
+     * 어긋나는 것이라, 서버가 아는 사실을 서버가 알려 줍니다.
+     *
+     * <p>판정은 식별자와 유형으로 합니다 — 장치 이름에 {@code opnsense} 또는
+     * {@code firewall} 이 들어가거나 유형이 FIREWALL 이면 API 관리로 봅니다.
+     * (이 랩의 OPNsense-Firewall 이 해당)
+     *
+     * @param entry   행 (직접 수정됩니다)
+     * @param agentId Agent 식별자
+     */
+    private static void applyApiManaged(Map<String, Object> entry, String agentId) {
+        final String key = agentId == null
+                ? ""
+                : agentId.toLowerCase(java.util.Locale.ROOT);
+        final String deviceType = String.valueOf(entry.get("device_type"));
+        final boolean managed = key.contains("opnsense")
+                || key.contains("firewall")
+                || "FIREWALL".equalsIgnoreCase(deviceType);
+        entry.put("api_managed", managed);
     }
 }
