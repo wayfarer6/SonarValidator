@@ -50,6 +50,31 @@ public enum DeviceType {
             return VM;
         }
         final String upper = deviceId.trim().toUpperCase();
+
+        // ⚠️ 접두사뿐 아니라 <b>이름의 끝</b>도 봅니다.
+        //   랩의 장치는 이름이 역할로 끝납니다 — Gateway-Router,
+        //   Survillance-Network-Router, DMZ-Router, VDI-Router, GNS3.Firewall.
+        //   접두사만 보면 이것들은 전부 VM 으로 추론되어, 라우터 화면에
+        //   VM 이 표시되고 유형별 정책 분기도 어긋납니다.
+        //   (실측: 배포한 라우터 5대가 전부 VM 으로 나왔습니다)
+        //
+        //   구분자는 하이픈만이 아닙니다. 컨테이너 이름은 점을 씁니다
+        //   (GNS3.Firewall). 그래서 마지막 토큰을 뽑아 비교합니다.
+        final int cut = Math.max(
+                Math.max(upper.lastIndexOf('-'), upper.lastIndexOf('.')),
+                Math.max(upper.lastIndexOf('_'), upper.lastIndexOf('/')));
+        final String last = (cut < 0) ? "" : upper.substring(cut + 1);
+
+        if ("ROUTER".equals(last)) {
+            return ROUTER;
+        }
+        if ("SWITCH".equals(last)) {
+            return SWITCH;
+        }
+        if ("FIREWALL".equals(last)) {
+            return FIREWALL;
+        }
+
         if (upper.startsWith("VIRTUAL") || upper.startsWith("VM")) {
             return VM;
         }

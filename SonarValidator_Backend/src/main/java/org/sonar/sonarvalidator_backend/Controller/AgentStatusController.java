@@ -11,11 +11,14 @@ import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
 import org.sonar.sonarvalidator_backend.Service.DeviceConfigService;
+import org.sonar.sonarvalidator_backend.Service.ExpectedAgentService;
+import org.sonar.sonarvalidator_backend.Service.QuarantineService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import tools.jackson.databind.JsonNode;
@@ -37,13 +40,27 @@ public class AgentStatusController {
     private final AgentSessionRegistry registry;
     private final AgentMessageRouterService router;
     private final DeviceConfigService deviceConfigService;
+    private final ExpectedAgentService expectedAgentService;
+
+    /**
+     * 격리 상태 통로입니다.
+     *
+     * <p>Agent 화면은 "이 장치가 격리 중인가" 를 알아야 격리/해제 버튼 중
+     * 무엇을 보여줄지 정할 수 있습니다. 별도 API 를 부르지 않아도 되게
+     * 목록 응답에 함께 실어 보냅니다.
+     */
+    private final QuarantineService quarantineService;
 
     public AgentStatusController(AgentSessionRegistry registry,
                                  AgentMessageRouterService router,
-                                 DeviceConfigService deviceConfigService) {
+                                 DeviceConfigService deviceConfigService,
+                                 ExpectedAgentService expectedAgentService,
+                                 QuarantineService quarantineService) {
         this.registry = registry;
         this.router = router;
         this.deviceConfigService = deviceConfigService;
+        this.expectedAgentService = expectedAgentService;
+        this.quarantineService = quarantineService;
     }
 
     /**
@@ -53,12 +70,14 @@ public class AgentStatusController {
      */
     @GetMapping
     public Map<String, Object> list() {
+        final java.util.Set<String> quarantined = quarantineService.quarantinedAgentIds();
         final List<Map<String, Object>> agents = new ArrayList<>();
         for (String agentId : registry.connectedAgentIds()) {
             final Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("agent_id", agentId);
             entry.put("last_seen", router.lastSeenOf(agentId));
             entry.put("has_telemetry", router.lastTelemetryOf(agentId) != null);
+            entry.put("quarantined", isQuarantined(quarantined, agentId));
             agents.add(entry);
         }
 
@@ -66,7 +85,70 @@ public class AgentStatusController {
         body.put("connected", registry.connectedCount());
         body.put("total_policy_requests", router.policyRequestCount());
         body.put("server_time", Instant.now().toString());
+        body.put("quarantined_count", quarantined.size());
+        body.put("quarantined", quarantined);
         body.put("agents", agents);
+        return body;
+    }
+
+    /**
+     * Agent 식별자가 격리 집합에 있는지 <b>대소문자 무시</b>로 확인합니다.
+     *
+     * <p>Agent 식별자는 운영자가 적어 넣는 값이라 {@code VDI-1} / {@code vdi-1}
+     * 이 섞입니다. 정확히 비교하면 격리된 장치가 "정상" 으로 보여 버립니다.
+     *
+     * @param quarantined 격리 중인 식별자 집합
+     * @param agentId     확인할 식별자
+     * @return 격리 중이면 {@code true}
+     */
+    private static boolean isQuarantined(java.util.Set<String> quarantined, String agentId) {
+        if (agentId == null) {
+            return false;
+        }
+        return quarantined.stream().anyMatch(id -> id != null && id.equalsIgnoreCase(agentId));
+    }
+
+    /**
+     * 배포 예정 + 실제 관측을 합친 <b>통합 장치 현황</b>을 반환합니다.
+     *
+     * <h2>{@link #list()} 와의 차이</h2>
+     * <p>{@code list()} 는 "지금 붙어 있는 Agent" 만 봅니다. 운영 화면은 그보다
+     * 넓은 시야가 필요합니다 — <i>배포했는데 아직 안 붙은 장치</i>가 보여야
+     * 배포 실패를 알아챌 수 있습니다. 그래서 이 엔드포인트는
+     * 예정({@code expected_agent}) ∪ 연결(WebSocket) ∪ 텔레메트리를 합쳐
+     * {@code state} 로 구분해 돌려줍니다.
+     *
+     * <p>기존 응답 키({@code connected} / {@code agents})는 그대로 유지합니다.
+     * 화면이 두 형태를 모두 소화할 필요가 없도록 하기 위함입니다.
+     *
+     * @param projectId 프로젝트 키 (없으면 전체)
+     * @return 통합 현황 + 기존 요약 키
+     */
+    @GetMapping("/overview")
+    public Map<String, Object> overview(
+            @RequestParam(name = "project_id", required = false) String projectId) {
+        final java.util.Set<String> observed = new java.util.TreeSet<>();
+        for (final String agentId : router.allConfigs().keySet()) {
+            if (agentId != null) {
+                observed.add(agentId);
+            }
+        }
+        for (final String agentId : router.allTelemetryAgentIds()) {
+            if (agentId != null) {
+                observed.add(agentId);
+            }
+        }
+
+        final Map<String, Object> body = new LinkedHashMap<>();
+        body.put("connected", registry.connectedCount());
+        body.put("total_policy_requests", router.policyRequestCount());
+        body.put("server_time", Instant.now().toString());
+        body.put("agents", new ArrayList<>(registry.connectedAgentIds()));
+        final java.util.Set<String> quarantined = quarantineService.quarantinedAgentIds();
+        body.put("quarantined_count", quarantined.size());
+        body.put("quarantined", quarantined);
+        body.putAll(ExpectedAgentService.toResponse(
+                expectedAgentService.list(projectId), registry.connectedAgentIds(), observed));
         return body;
     }
 

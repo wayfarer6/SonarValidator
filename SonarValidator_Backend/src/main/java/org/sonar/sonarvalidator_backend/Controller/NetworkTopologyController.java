@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
 import org.sonar.sonarvalidator_backend.Model.entity.Project;
@@ -13,6 +14,7 @@ import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
 import org.sonar.sonarvalidator_backend.Service.ProjectService;
+import org.sonar.sonarvalidator_backend.Service.QuarantineService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,16 +53,28 @@ public class NetworkTopologyController {
     private final AgentSessionRegistry registry;
 
     /**
+     * 격리 상태 통로입니다.
+     *
+     * <p>격리된 서브넷을 화면에서 <b>빨간색</b>으로 칠하려면 프론트가 그 사실을
+     * 알아야 합니다. 별도 API 를 한 번 더 부르게 하면 두 응답이 서로 다른
+     * 시점의 상태가 되어 화면이 어긋납니다. 그래서 토폴로지 응답에 함께
+     * 실어 보냅니다.
+     */
+    private final QuarantineService quarantineService;
+
+    /**
      * @param projectService 프로젝트 서비스
      * @param router         텔레메트리/설정 보관소
      * @param registry       Agent 세션 레지스트리
      */
     public NetworkTopologyController(ProjectService projectService,
                                      AgentMessageRouterService router,
-                                     AgentSessionRegistry registry) {
+                                     AgentSessionRegistry registry,
+                                     QuarantineService quarantineService) {
         this.projectService = projectService;
         this.router = router;
         this.registry = registry;
+        this.quarantineService = quarantineService;
     }
 
     /**
@@ -81,16 +95,27 @@ public class NetworkTopologyController {
             byId.put(subnet.getSubnetId(), subnet);
         }
 
+        final Set<String> quarantinedAgents = quarantineService.quarantinedAgentIds();
+
         final List<Map<String, Object>> nodes = new ArrayList<>();
         for (final PolicySubnet subnet : project.toPolicySubnets()) {
+            final String agentId = subnet.getAgentId();
+            // ⚠️ Agent 식별자는 운영자가 적어 넣은 값이라 대소문자가 섞입니다.
+            //    (VDI-1 / vdi-1) 그래서 관대하게 비교합니다.
+            final boolean quarantined = agentId != null && quarantinedAgents.stream()
+                    .anyMatch(id -> id != null && id.equalsIgnoreCase(agentId));
             final Map<String, Object> node = new LinkedHashMap<>();
             node.put("id", subnet.getId());
             node.put("label", subnet.getName() == null ? subnet.getId() : subnet.getName());
             node.put("cidr", subnet.getCidr());
             node.put("subnet_class", subnet.getZoneClass() == null ? null : subnet.getZoneClass().label());
             node.put("level", subnet.getZoneClass() == null ? null : subnet.getZoneClass().level());
-            node.put("agent_id", subnet.getAgentId());
+            node.put("agent_id", agentId);
             node.put("manually_edited", subnet.isManuallyEdited());
+            // 격리 여부와 연결 여부를 함께 실어 보냅니다. 프론트는
+            // quarantined 를 최우선으로 빨간색 처리합니다.
+            node.put("quarantined", quarantined);
+            node.put("connected", agentId != null && registry.connectedAgentIds().contains(agentId));
             nodes.add(node);
         }
 

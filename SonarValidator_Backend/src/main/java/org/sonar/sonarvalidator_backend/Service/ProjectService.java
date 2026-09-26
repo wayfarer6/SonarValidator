@@ -2,8 +2,10 @@ package org.sonar.sonarvalidator_backend.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 import org.sonar.sonarvalidator_backend.Model.dto.ProjectDto;
@@ -11,6 +13,7 @@ import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Policy.PacketVariables;
 import org.sonar.sonarvalidator_backend.Policy.PolicyRule;
 import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
+import org.sonar.sonarvalidator_backend.Policy.PolicyViolation;
 import org.sonar.sonarvalidator_backend.Policy.SegmentationBddEngine;
 import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
@@ -220,7 +223,106 @@ public class ProjectService {
                     "/project/editor/" + saved.getProjectKey(),
                     null);
         }
+
+        // ⚠️ 저장 직후 <b>위반을 다시 판정</b>해 경고를 만듭니다.
+        //   저장이 성공했다고 정책이 옳은 것은 아닙니다. 등급을 건너뛰는 연결이
+        //   저장되면 그 상태로 푸시가 거부되고, 장치에는 아무 정책도 내려가지
+        //   않습니다. 운영자는 "저장됐다" 는 성공 메시지만 보고 넘어갑니다.
+        //
+        //   그래서 저장 자체는 막지 않되(초안 작업을 방해하지 않기 위해)
+        //   위험한 상태를 <b>즉시 알립니다.</b>
+        warnOnViolations(saved);
+
         return saved;
+    }
+
+    /**
+     * 저장된 프로젝트의 위반을 판정하고, 위험한 위반에 대해 경고를 만듭니다.
+     *
+     * <h2>⚠️ 왜 CRITICAL 만 경고하는가</h2>
+     * <p>{@code MAJOR}(포트 미지정)는 "검토 대상" 이지 즉시 위험한 상태가
+     * 아닙니다. 랩의 모든 규칙에 {@code any} 포트를 쓰면 매 저장마다 경고가
+     * 쏟아지고, 그러면 진짜 {@code CRITICAL} 이 그 속에 묻힙니다.
+     * {@code CRITICAL} 은 <b>등급을 건너뛰는 직접 연결</b> — 망분리의 정의를
+     * 정면으로 어기는 유일한 경우입니다.
+     *
+     * <h2>dedupeKey 를 프로젝트+건수로 두는 이유</h2>
+     * <p>같은 프로젝트에서 위반 건수가 그대로인데 저장만 반복하면 알림을
+     * 합칩니다(5분 창). 반면 <b>건수가 바뀌면 새 알림</b>입니다 —
+     * 위반을 하나 더 만들었는지 / 하나 고쳤는지가 구분되어야 합니다.
+     *
+     * @param project 저장된 프로젝트
+     */
+    private void warnOnViolations(Project project) {
+        final SegmentationBddEngine.Report report;
+        try {
+            report = engine.validate(project.toPolicySubnets(), project.toPolicyRules());
+        } catch (RuntimeException ex) {
+            // 판정 실패가 저장 결과를 뒤집으면 안 됩니다. 저장은 이미 성공했습니다.
+            log.warn("post-save violation check failed for project={}: {}",
+                    project.getProjectKey(), ex.getMessage());
+            return;
+        }
+
+        final List<PolicyViolation> criticals = new ArrayList<>();
+        for (final PolicyViolation violation : report.getViolations()) {
+            if (violation.severity() == PolicyViolation.Severity.CRITICAL) {
+                criticals.add(violation);
+            }
+        }
+        if (criticals.isEmpty()) {
+            return;
+        }
+
+        // 사람이 읽는 요약: 어떤 등급이 어디로 건너뛰는지 한 줄로 보여줍니다.
+        final StringBuilder summary = new StringBuilder();
+        final Set<String> distinct = new LinkedHashSet<>();
+        for (final PolicyViolation violation : criticals) {
+            final String label = label(violation.sourceZone()) + " → " + label(violation.targetZone());
+            distinct.add(label);
+        }
+        int shown = 0;
+        for (final String label : distinct) {
+            if (shown++ > 0) {
+                summary.append(", ");
+            }
+            summary.append(label);
+            if (shown >= 4) {
+                break;
+            }
+        }
+
+        log.warn("CSO violation detected: project={} critical={} pairs={}",
+                project.getProjectKey(), criticals.size(), summary);
+
+        if (notificationService == null) {
+            return;
+        }
+
+        notificationService.notifyQuietly(
+                // SECURITY 로 두는 이유: 망분리 위반은 보안 사건입니다.
+                // POLICY 는 "정책을 고쳤다" 는 운영 행위 알림이라 성격이 다릅니다.
+                "SECURITY",
+                "critical",
+                "망분리 위반 " + criticals.size() + "건: " + project.getName(),
+                "등급을 건너뛰는 직접 연결이 정책에 포함되어 있습니다 (" + summary + "). "
+                        + "Confidential 과 Open 은 직접 연결할 수 없습니다. "
+                        + "이 상태로는 정책 푸시가 거부됩니다.",
+                project.getProjectKey(),
+                null,
+                "policy",
+                "/policy?project_id=" + project.getProjectKey(),
+                "cso-violation:" + project.getProjectKey() + ":" + criticals.size());
+    }
+
+    /**
+     * 등급을 화면 표기로 바꿉니다. (요약 문장용)
+     *
+     * @param zone 등급 (null 허용)
+     * @return 표기 문자열
+     */
+    private static String label(ZoneClass zone) {
+        return zone == null ? "미지정" : zone.label();
     }
 
     /**

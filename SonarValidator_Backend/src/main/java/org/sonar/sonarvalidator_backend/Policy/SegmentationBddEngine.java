@@ -377,11 +377,57 @@ public class SegmentationBddEngine {
                     sourceIp,
                     targetIp,
                     sampledPort,
-                    source.getZoneClass().label() + " ↔ " + target.getZoneClass().label()
-                            + " 직접 연결은 허용되지 않습니다.",
+                    // ⚠️ 사유는 "어떤 연결이 왜 막히는가" 를 그대로 문장으로 씁니다.
+                    //   이전에는 "Confidential ↔ Open 직접 연결은 허용되지 않습니다."
+                    //   처럼 등급만 말해서, 운영자가 어느 서브넷을 고쳐야 하는지
+                    //   알 수 없었습니다. 위반은 <b>서브넷 사이의 연결</b> 문제이므로
+                    //   출발/도착 서브넷을 이름으로 지목합니다.
+                    describeForbidden(source, target),
                     PolicyViolation.Severity.CRITICAL));
             report.getViolatedRuleIds().add(rule.getId());
         }
+    }
+
+    /**
+     * 금지된 연결을 사람이 읽는 한 문장으로 만듭니다.
+     *
+     * <p>형식: {@code "Subnet A (대역) -> Subnet B (대역) 연결은 허용되지 않습니다.
+     * (기밀 ↔ 공개 — 등급 2단계 차이)"}
+     *
+     * <p>서브넷 표시 이름이 없으면 식별자를 씁니다. 랩에서는
+     * {@code VLAN 131 ATICS} 처럼 운영자가 붙인 이름이 있어 그대로 읽힙니다.
+     *
+     * @param source 출발 서브넷
+     * @param target 도착 서브넷
+     * @return 위반 사유 문장
+     */
+    private static String describeForbidden(PolicySubnet source, PolicySubnet target) {
+        final StringBuilder text = new StringBuilder();
+        text.append(nameOf(source)).append(" -> ").append(nameOf(target))
+                .append(" 연결은 허용되지 않습니다.");
+
+        // 등급을 덧붙여 "왜" 를 남깁니다. 서브넷 이름만으로는 이유를 알 수 없습니다.
+        if (source.getZoneClass() != null && target.getZoneClass() != null) {
+            final int gap = Math.abs(source.getZoneClass().level() - target.getZoneClass().level());
+            text.append(" (").append(source.getZoneClass().label())
+                    .append(" ↔ ").append(target.getZoneClass().label())
+                    .append(" — 등급 ").append(gap).append("단계 차이)");
+        }
+        return text.toString();
+    }
+
+    /**
+     * 서브넷 표시 이름을 만듭니다.
+     *
+     * @param subnet 서브넷
+     * @return 이름(없으면 식별자) + 대역
+     */
+    private static String nameOf(PolicySubnet subnet) {
+        final String name = (subnet.getName() == null || subnet.getName().isBlank())
+                ? subnet.getId()
+                : subnet.getName();
+        final String cidr = subnet.getCidr();
+        return (cidr == null || cidr.isBlank()) ? name : name + " (" + cidr + ")";
     }
 
     /**
