@@ -15,8 +15,13 @@ const CountryMap: React.FC<CountryMapProps> = ({ mapColor }) => {
       markerStyle={{
         initial: {
           fill: "#465FFF",
-          r: 4, // Custom radius for markers
-        } as any, // Type assertion to bypass strict CSS property checks
+          // ⚠️ `as any` 를 쓰지 않습니다.
+          //   CI 의 `npm run lint` 가 @typescript-eslint/no-explicit-any 로
+          //   실패합니다. r 은 jvectormap 고유 속성이라 SVG CSS 타입에 없으므로,
+          //   타입 단언 대신 Record 로 "추가 속성 허용" 을 명시합니다.
+          //   (any 는 오타도 통과시키지만, 이 형태는 키 이름을 검사합니다)
+          ...({ r: 4 } as Record<string, number | string>),
+        },
       }}
       markersSelectable={true}
       markers={[
