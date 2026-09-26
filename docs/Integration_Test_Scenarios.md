@@ -444,7 +444,11 @@ curl -s -b /tmp/c.txt -X POST localhost:3000/api/v1/logs/ingest \
 6. **표시(플래그)**: 특정 행을 표시한 뒤 `POST /api/v1/logs/{id}/flags` 반영,
    `표시한 로그만`(`highlighted_only`) 필터로 그 행만 나오는지 확인.
 7. **파일 업로드**: `POST /api/v1/logs/upload` (multipart) 로 로그 파일 1개 적재.
-8. **Probe**: `POST /api/v1/logs/probe` 로 장치 로그 수집 트리거 (가능한 장비에 한함).
+8. **Probe (진단용)**: `POST /api/v1/logs/probe` 는 **받은 본문 구조를 그대로 되돌려주는
+   진단 엔드포인트**입니다(장치에서 로그를 긁어오는 기능이 아닙니다). 낯선 로그 형식이
+   들어올 때 어떤 필드가 오는지 확인하는 용도이며, 응답은
+   `{"type":"ObjectNode","raw":"<보낸 본문>"}` 형태입니다. 장치 수집 트리거로
+   오해하지 마십시오. (OPNsense 의 `/probe` 와 같은 목적)
 9. **AI 영역 확인(실행 금지)**: AI 공급자 드롭다운이 "등록된 공급자 없음"이고
    분석 버튼이 비활성인지 **존재만** 확인합니다. **분석 실행은 하지 않습니다.**
 
@@ -514,6 +518,17 @@ curl -s -b /tmp/c.txt -X POST localhost:3000/api/v1/logs/ingest \
 8. 삭제 → `DELETE /api/v1/opnsense/credentials/{agentId}` (확인 대화상자)
 
 **절차 C — 격리 / 해제**
+
+> ⚠️ **선행 조건: 프로버가 인터페이스를 내릴 권한을 가져야 합니다.**
+> `ip link set <if> down` 은 root 가 필요합니다. 프로버를 일반 사용자로 실행하면
+> `RTNETLINK answers: Operation not permitted` 로 **모든 대상이 실패**합니다.
+> 이때 서버는 `applied=false` 와 사유를 받아야 하며, "장치가 살아 있는데 격리됐다고
+> 믿는" 상태가 되면 안 됩니다. (문서 §7 참고)
+> 실측: 비-root 실행 시 에이전트 로그에
+> `[QUARANTINE] 3개 인터페이스를 내리지 못했습니다 (권한 부족 또는 장치 거부).` 가 남고,
+> 서버 로그에 `quarantine ack FAILED` 가 기록되었습니다.
+> 따라서 이 절차를 **정상 통과**하려면 프로버를 root(systemd 유닛은 root 로 뜹니다)로
+> 실행하거나, 권한이 없으면 **실패 보고 경로를 검증**하는 것으로 대체합니다.
 
 9. `/agent` 화면에서 **격리 가능한 장비**(Router / Switch / VM)를 골라 **격리** 클릭
 10. 응답 필드를 **구분해서** 확인합니다.
@@ -586,7 +601,9 @@ curl -s -c /tmp/c.txt -X POST localhost:3000/api/v1/auth/login \
 ```
 
 - `/api/v1/auth/**` 를 제외한 **모든 `/api/**` 는 인증 필요**합니다. 401 이면 쿠키를 확인하십시오.
-- `POST /api/v1/auth/logout` 은 **로그인 안 한 상태에서 401** 이 정상입니다(버그 아님).
+- `POST /api/v1/auth/logout` 은 **인증 없이도 200** 입니다. `SecurityConfig.PUBLIC_PATHS` 에
+  `login` / `logout` / `me` 가 함께 들어 있습니다. (로그아웃은 세션이 없어도 무효화할 대상이
+  없을 뿐이라 실패로 볼 이유가 없습니다) 401 이 나오면 `PUBLIC_PATHS` 가 바뀐 것입니다.
 
 ---
 
@@ -641,7 +658,7 @@ ss -ltnp | grep :3000 || echo "3000 free"
 | 7 | Compliance 이력·PDF | ☐ PASS ☐ FAIL | | |
 | 8 | Log 조회·필터·적재·플래그·Probe | ☐ PASS ☐ FAIL | | AI 제외 |
 | 9 | Notification | ☐ PASS ☐ FAIL | | |
-| 10 | Network·격리/해제·OPNsense | ☐ PASS ☐ FAIL | | FW 격리 거부 포함 |
+| 10 | Network·격리/해제·OPNsense | ☐ PASS ☐ FAIL | | FW 거부 포함 · OPNsense 생략 |
 
 | 항목 | 값 |
 | --- | --- |
