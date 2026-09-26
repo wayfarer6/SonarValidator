@@ -291,15 +291,57 @@ public class AiProviderService {
      * <p>아무것도 없으면 예외를 던집니다. 분석은 공급자 없이 진행할 수 없고,
      * 조용히 실패하면 사용자가 이유를 알 수 없기 때문입니다.
      *
+     * <h2>⚠️ 트랜잭션 비참여 ({@code NOT_SUPPORTED}) — 실제 겪은 결함</h2>
+     * <p>이 메서드는 <b>호출자 트랜잭션에 참여하지 않습니다.</b> 이유가 있습니다.
+     *
+     * <p>호출자(로그 분석·정책 조언)는 {@code @Transactional} 이고, 이 메서드가
+     * 예외를 던져 <b>그 예외를 잡아 실패를 기록</b>하려 합니다. 그런데 같은
+     * 트랜잭션에 참여한 내부 메서드가 {@code RuntimeException} 을 던지면,
+     * Spring 은 그 트랜잭션을 <b>{@code rollback-only} 로 마킹</b>합니다.
+     * 호출자가 예외를 삼켜도 <b>마킹은 되돌릴 수 없고</b>, 커밋 시점에
+     * {@code UnexpectedRollbackException} 이 터집니다.
+     *
+     * <p>증상: "사용 가능한 AI 공급자가 없습니다" 라는 <b>친절한 안내가
+     * 500 Internal Server Error 로</b> 나갑니다. 실패 기록도 롤백되어
+     * 화면에 아무 흔적이 남지 않습니다.
+     *
+     * <p>트랜잭션 밖에서 실행하면 마킹할 트랜잭션이 없으므로 이 문제가
+     * 사라집니다. 읽기 전용 조회이고 엔티티에 지연 로딩 연관이 없어
+     * 부작용이 없습니다. (호출자가 <b>예외 없는</b> 조회를 원하면
+     * {@link #resolveOrEmpty} 를 쓰세요 — 그쪽이 더 견고합니다)
+     *
      * @param providerId 지정 공급자 (null 이면 자동)
      * @return 선택된 공급자
      * @throws IllegalStateException 쓸 수 있는 공급자가 없을 때
      */
-    @Transactional(readOnly = true)
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public AiProvider resolve(Long providerId) {
+        return resolveOrEmpty(providerId).orElseThrow(() -> new IllegalStateException(
+                providerId == null
+                        ? "사용 가능한 AI 공급자가 없습니다. 설정에서 AI 공급자를 등록하고 '사용' 을 켜세요."
+                        : "지정한 AI 공급자를 찾을 수 없습니다: " + providerId));
+    }
+
+    /**
+     * 쓸 수 있는 공급자를 찾되, <b>예외를 던지지 않습니다.</b>
+     *
+     * <h2>⚠️ 왜 예외 없는 조회가 필요한가</h2>
+     * <p>호출자가 {@code @Transactional} 인 상태에서 "공급자 없음" 을
+     * <b>정상 응답으로 알려야</b> 하는 경우가 있습니다. 로그 분석과 정책 조언은
+     * 실패도 저장하고 200 으로 돌려주는 것이 계약입니다.
+     *
+     * <p>그때 {@link #resolve} 를 쓰면 예외가 호출자 트랜잭션을 롤백 전용으로
+     * 마킹해 <b>실패 기록까지 사라지고 500 이 나갑니다.</b> 이 메서드는
+     * 예외를 만들지 않으므로 호출자가 안전하게 실패를 기록할 수 있습니다.
+     *
+     * @param providerId 지정 공급자 (null 이면 자동)
+     * @return 선택된 공급자, 없으면 빈 값
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED,
+            readOnly = true)
+    public Optional<AiProvider> resolveOrEmpty(Long providerId) {
         if (providerId != null) {
-            return repository.findById(providerId).orElseThrow(() ->
-                    new IllegalStateException("지정한 AI 공급자를 찾을 수 없습니다: " + providerId));
+            return repository.findById(providerId);
         }
 
         // 기본 플래그가 켜진 것 중 사용 가능한 것
@@ -307,17 +349,12 @@ public class AiProviderService {
                 .filter((p) -> Boolean.TRUE.equals(p.getEnabled()))
                 .findFirst();
         if (defaultProvider.isPresent()) {
-            return defaultProvider.get();
+            return defaultProvider;
         }
 
         // 마지막 폴백: 사용 가능한 첫 공급자
         final List<AiProvider> enabled = repository.findByEnabledTrueOrderByNameAsc();
-        if (!enabled.isEmpty()) {
-            return enabled.get(0);
-        }
-
-        throw new IllegalStateException(
-                "사용 가능한 AI 공급자가 없습니다. 설정에서 AI 공급자를 등록하고 '사용' 을 켜세요.");
+        return enabled.isEmpty() ? Optional.empty() : Optional.of(enabled.get(0));
     }
 
     /**

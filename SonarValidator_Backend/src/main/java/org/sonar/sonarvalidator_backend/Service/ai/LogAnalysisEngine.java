@@ -191,17 +191,28 @@ public class LogAnalysisEngine {
             return toView(record);
         }
 
-        // 3) 공급자를 고릅니다. 없으면 여기서 사유가 담긴 예외가 납니다.
-        final AiProvider provider;
-        try {
-            provider = providerService.resolve(providerId);
-        } catch (IllegalStateException ex) {
+        // 3) 공급자를 고릅니다.
+        //    ⚠️ 예외 없는 조회(resolveOrEmpty)를 씁니다.
+        //    resolve() 는 "공급자 없음" 예외를 던지는데, 같은 트랜잭션에 참여한
+        //    내부 메서드가 RuntimeException 을 던지면 Spring 이 그 트랜잭션을
+        //    rollback-only 로 마킹합니다. 그러면 아래에서 실패를 기록하려는
+        //    save() 까지 롤백되고, 커밋 시 UnexpectedRollbackException 이 터져
+        //    <b>"공급자를 등록하세요" 라는 안내가 500 으로 나갑니다.</b>
+        //    (실측 E2E 에서 확인한 결함 — 정책 조언 경로와 같은 원인)
+        final java.util.Optional<AiProvider> resolved =
+                providerService.resolveOrEmpty(providerId);
+
+        if (resolved.isEmpty()) {
             record.setSucceeded(false);
-            record.setErrorMessage(ex.getMessage());
+            record.setErrorMessage(providerId == null
+                    ? "사용 가능한 AI 공급자가 없습니다. 설정에서 AI 공급자를 등록하고 '사용' 을 켜세요."
+                    : "지정한 AI 공급자를 찾을 수 없습니다: " + providerId);
             record.setElapsedMs(System.currentTimeMillis() - startedAt);
             analysisRepository.save(record);
             return toView(record);
         }
+
+        final AiProvider provider = resolved.get();
 
         record.setProviderName(provider.getName());
         record.setModel(provider.getModel());

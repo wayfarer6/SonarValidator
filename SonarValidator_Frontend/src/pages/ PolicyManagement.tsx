@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
+import PolicyAdviceModal from "../components/policy/PolicyAdviceModal";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
 import { useApi } from "../hooks/useApi";
@@ -20,6 +21,21 @@ const SEVERITY_COLOR: Record<ViolationSeverity, "error" | "warning" | "info"> = 
   MAJOR: "warning",
   MINOR: "info",
 };
+
+/**
+ * AI 조언을 요청할 대상입니다. (SONAR-43)
+ *
+ * <p>{@code ruleId} 가 비면 <b>프로젝트 전체</b>를 묻습니다 — 위반 요약
+ * 메시지 카드가 그 경로입니다. 특정 위반 행을 누르면 그 규칙/쌍으로 좁힙니다.
+ */
+interface AdviceTarget {
+  /** 규칙 식별자. 없으면 프로젝트 전체 조언. */
+  ruleId: string;
+  srcSubnet?: string | null;
+  dstSubnet?: string | null;
+  /** 모달 헤더에 보여줄 사람이 읽는 설명. */
+  label: string;
+}
 
 /**
  * 정책 관리 화면입니다.
@@ -80,6 +96,14 @@ export default function PolicyManagement() {
   const [releasing, setReleasing] = useState<string | null>(null);
   /** 해제 결과/오류 메시지. */
   const [releaseNote, setReleaseNote] = useState<string | null>(null);
+
+  /**
+   * AI 정책 조언 대상입니다. (SONAR-43)
+   *
+   * <p>null 이면 모달이 닫혀 있습니다. 위반 메시지 카드나 위반 행을 누르면
+   * 값이 채워지고 모달이 열립니다.
+   */
+  const [adviceTarget, setAdviceTarget] = useState<AdviceTarget | null>(null);
 
   /**
    * 격리를 해제합니다.
@@ -369,16 +393,38 @@ export default function PolicyManagement() {
                   ))}
                 </div>
 
-                {/* 메시지 */}
+                {/* 메시지 — 각 카드를 누르면 그 위반에 대한 AI 정책 조언이 열립니다.
+                    (SONAR-43) 메시지는 "무엇이 잘못됐나" 만 말하므로,
+                    "그래서 어떻게 고치나" 로 이어지는 동선이 필요합니다. */}
                 {report.messages.length > 0 && (
-                  <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-200">
+                  <div className="space-y-2">
                     {report.messages.map((message) => (
-                      <li key={message} className="flex items-start gap-2">
+                      <button
+                        key={message}
+                        type="button"
+                        onClick={() =>
+                          setAdviceTarget({
+                            ruleId: "",
+                            label: `${report.project_name} — 위반 ${report.violation_count}건`,
+                          })
+                        }
+                        title="누르면 AI 가 이 위반의 해결 선택지를 제안합니다"
+                        className="group flex w-full items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-left text-sm text-gray-700 transition hover:border-brand-300 hover:bg-brand-50/50 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-200 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10"
+                      >
                         <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-current opacity-40" />
-                        <span>{message}</span>
-                      </li>
+                        <span className="min-w-0 flex-1 whitespace-pre-wrap">
+                          {message}
+                        </span>
+                        <span className="shrink-0 self-center rounded-md bg-brand-50 px-2 py-1 text-[11px] font-medium text-brand-600 transition group-hover:bg-brand-100 dark:bg-brand-500/15 dark:text-brand-400">
+                          AI 조언
+                        </span>
+                      </button>
                     ))}
-                  </ul>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                      메시지를 누르면 AI 가 근본 원인과 해결 선택지를 제안합니다.
+                      아래 위반 행을 누르면 그 위반만 집중해서 묻습니다.
+                    </p>
+                  </div>
                 )}
 
                 {/* 위반 목록 */}
@@ -394,11 +440,17 @@ export default function PolicyManagement() {
                           <th className="border-b p-3 font-medium dark:border-gray-600">
                             반례 패킷
                           </th>
+                          <th className="border-b p-3 font-medium dark:border-gray-600">
+                            조언
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 text-gray-600 dark:divide-gray-700 dark:text-gray-300">
                         {report.violations.map((violation, index) => (
-                          <tr key={`${violation.rule_id}-${index}`}>
+                          <tr
+                            key={`${violation.rule_id}-${index}`}
+                            className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]"
+                          >
                             <td className="p-3">
                               <Badge size="sm" color={SEVERITY_COLOR[violation.severity]}>
                                 {violation.severity}
@@ -417,6 +469,25 @@ export default function PolicyManagement() {
                               {violation.sampled_packet && violation.sampled_packet !== "- -> -"
                                 ? violation.sampled_packet
                                 : "—"}
+                            </td>
+                            {/* 위반 행에서 바로 AI 조언으로 갈 수 있게 합니다.
+                                요약 카드는 "전체", 여기는 "이 한 건" 입니다. */}
+                            <td className="p-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAdviceTarget({
+                                    ruleId: violation.rule_id,
+                                    srcSubnet: violation.src_subnet,
+                                    dstSubnet: violation.dst_subnet,
+                                    label: `${report.project_name} — ${violation.rule_id} (${violation.src_class} → ${violation.dst_class})`,
+                                  })
+                                }
+                                title="이 위반만 집중해서 AI 조언을 받습니다"
+                                className="whitespace-nowrap rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-600 dark:text-gray-300 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10 dark:hover:text-brand-400"
+                              >
+                                AI 조언
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -461,6 +532,24 @@ export default function PolicyManagement() {
           </div>
         </div>
       </div>
+
+      {/*
+        AI 정책 조언 모달 (SONAR-43).
+
+        ⚠️ report 가 null 이어도 렌더링하지 않습니다. 조언은 서버가 다시 판정한
+        결과를 근거로 하므로, 화면에 위반이 보이는 상태에서만 열려야 합니다.
+      */}
+      {activeProjectId && adviceTarget && (
+        <PolicyAdviceModal
+          isOpen
+          onClose={() => setAdviceTarget(null)}
+          projectId={activeProjectId}
+          ruleId={adviceTarget.ruleId}
+          srcSubnet={adviceTarget.srcSubnet ?? null}
+          dstSubnet={adviceTarget.dstSubnet ?? null}
+          violationLabel={adviceTarget.label}
+        />
+      )}
     </>
   );
 }
