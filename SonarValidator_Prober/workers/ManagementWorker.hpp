@@ -31,7 +31,8 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
     while (!stop_token.stop_requested())
     {
         // 서버에 policy-request 봉투를 보내고 같은 correlation_id 의 응답을 기다립니다.
-        const Json policy = management_service.fetchPolicy(config.GetDeviceType(), agent_id);
+        const Json policy =
+            management_service.fetchPolicy(config.GetDeviceType(), agent_id, stop_token);
 
         if (policy.is_null() || policy.is_boolean())
         {

@@ -2,6 +2,7 @@
 #define SONAR_VALIDATOR_PROBER_MANAGEMENT_SERVICE_HPP_
 
 #include <chrono>
+#include <stop_token>
 #include <string>
 #include <vector>
 #include "components/backend_communication/network.hpp"
@@ -44,9 +45,21 @@ public:
     // fetchPolicy 가 응답을 기다리는 최대 시간입니다.
     static constexpr std::chrono::seconds kResponseTimeout{5};
 
+    // TCP 연결 수립 / WebSocket 핸드셰이크 제한 시간입니다.
+    //
+    // ⚠️ 이 값이 없으면 connect/handshake 가 무제한 블록되어, SIGTERM 을 받아도
+    //    프로세스가 종료되지 않습니다(워커가 join 에서 멈춤).
+    static constexpr std::chrono::seconds kConnectTimeout{5};
+    static constexpr std::chrono::seconds kHandshakeTimeout{5};
+
     // 정책을 요청하고(policy-request) 같은 correlation_id 의 응답(policy-response)을 기다립니다.
     // 실패하면 null JSON(Json())을 반환합니다.
-    nlohmann::json fetchPolicy(const DeviceType device_type, const std::string& device_id);
+    //
+    // stop_token 이 있으면 대기 중 stop 요청을 확인해 즉시 빈 JSON 을 돌려줍니다.
+    // (없으면 SIGTERM 후에도 최대 kResponseTimeout{5}초를 기다립니다)
+    nlohmann::json fetchPolicy(const DeviceType device_type,
+                               const std::string& device_id,
+                               std::stop_token stop_token = {});
 
     // 정책 적용이 끝났음을 서버에 알립니다. (ack 봉투, 일방향)
     bool ReportPolicyApplied(const DeviceType device_type,

@@ -8,6 +8,7 @@
 #include <array>
 #include <chrono>
 #include <fstream>
+#include <stop_token>
 #include <string>
 #include <vector>
 #include <sys/wait.h>
@@ -249,8 +250,22 @@ bool ManagementService::connect()
         }
 
         auto const results = resolver_.resolve(host_, std::to_string(port_));
-        beast::get_lowest_layer(stream_).connect(results);
+
+        // ⚠️ connect / handshake 는 타임아웃이 없으면 무제한 블록됩니다.
+        //
+        // (실측: 방화벽이 DROP 인 랩에서 프로버가 SIGTERM 을 받아도
+        //  종료되지 않았습니다. main 은 join 에서 대기하고 워커는 소켓 폴링에
+        //  머무르며 TCP 연결이 ESTAB 로 남았습니다.)
+        //
+        // beast::tcp_stream 은 expires_after() 로 제한 시간을 설정해야
+        // connect/handshake/read/write 가 그 시간까지만 블록합니다.
+        auto& lowest = beast::get_lowest_layer(stream_);
+        lowest.expires_after(kConnectTimeout);
+        lowest.connect(results);
+
+        lowest.expires_after(kHandshakeTimeout);
         stream_.handshake(host_, target_);
+
         connected_ = true;
         return true;
     }
@@ -376,7 +391,8 @@ std::string ManagementService::ResolveAgentId(const std::string& device_id) cons
 }
 
 nlohmann::json ManagementService::fetchPolicy(const DeviceType device_type,
-                                              const std::string& device_id)
+                                              const std::string& device_id,
+                                              std::stop_token stop_token)
 {
     if (!connected_ && !connect())
     {
@@ -426,6 +442,12 @@ nlohmann::json ManagementService::fetchPolicy(const DeviceType device_type,
     const auto deadline = std::chrono::steady_clock::now() + kResponseTimeout;
     while (std::chrono::steady_clock::now() < deadline)
     {
+        // 정지 요청이 오면 남은 대기를 버리고 즉시 돌아갑니다.
+        if (stop_token.stop_requested())
+        {
+            return {};
+        }
+
         std::string raw;
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
             deadline - std::chrono::steady_clock::now());

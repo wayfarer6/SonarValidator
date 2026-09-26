@@ -34,8 +34,16 @@ bool TelemetryService::connect()
         }
 
         auto const results = resolver_.resolve(host_, std::to_string(port_));
-        beast::get_lowest_layer(stream_).connect(results); // 근데 연결 수립 할때 getlowerlayer 왜 쓰지
+
+        // connect / handshake 에 제한 시간을 둡니다.
+        // (없으면 SIGTERM 을 받아도 종료되지 않습니다 — management_service.cpp 참고)
+        auto& lowest = beast::get_lowest_layer(stream_);
+        lowest.expires_after(std::chrono::seconds(5));
+        lowest.connect(results);
+
+        lowest.expires_after(std::chrono::seconds(5));
         stream_.handshake(host_, target_);
+
         connected_ = true;
         return true;
     }
