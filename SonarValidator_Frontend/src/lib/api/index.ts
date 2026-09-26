@@ -97,6 +97,34 @@ export function deleteExpectedAgent(agentId: string): Promise<Record<string, unk
   );
 }
 
+/**
+ * Agent 하나의 수집 이력을 제거합니다. (유령 정리)
+ *
+ * <p>한 번이라도 텔레메트리를 보낸 Agent 는 저장소에 영구히 남아 목록을
+ * 차지합니다. 연결 중인 Agent 는 서버가 거부합니다(409).
+ *
+ * @param agentId 대상 Agent 식별자
+ */
+export function removeAgentTelemetry(
+  agentId: string,
+): Promise<{ agent_id: string; removed: boolean; reason: string | null }> {
+  return apiRequest(`/api/v1/agents/${encodeURIComponent(agentId)}/telemetry`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * 오래 수신이 없는 Agent 이력을 일괄 정리합니다.
+ *
+ * @param olderThanHours 기준 시간 (기본 24시간)
+ */
+export function pruneStaleAgents(
+  olderThanHours?: number,
+): Promise<{ removed: number; remaining_telemetry: number; older_than_hours: number }> {
+  const suffix = olderThanHours ? `?older_than_hours=${olderThanHours}` : "";
+  return apiRequest(`/api/v1/agents/stale${suffix}`, { method: "DELETE" });
+}
+
 // ---------------------------------------------------------------------------
 // Agent 설치 번들 (설정이 미리 채워진 다운로드)
 // ---------------------------------------------------------------------------

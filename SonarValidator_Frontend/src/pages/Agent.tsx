@@ -8,6 +8,7 @@ import {
   getAllDiscoveredDevices,
   listAgentOverview,
   listQuarantined,
+  pruneStaleAgents,
   quarantineAgent,
   releaseQuarantine,
 } from "../lib/api";
@@ -57,6 +58,19 @@ export default function Agent() {
 
   const [onlyIssues, setOnlyIssues] = useState(false);
 
+  /**
+   * 마지막으로 목록을 서버에서 다시 읽은 시각입니다.
+   *
+   * <p>새로고침은 요청이 즉시 끝나고 데이터가 같으면 <b>화면에 아무 변화가
+   * 없어</b> "버튼이 죽었다" 로 보입니다. 그래서 갱신 시각을 남깁니다.
+   */
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  /** 재요청 진행 중 여부 (버튼 스피너용). */
+  const [refreshing, setRefreshing] = useState(false);
+  /** 유령 정리 진행 중 여부. */
+  const [pruning, setPruning] = useState(false);
+  const [pruneMessage, setPruneMessage] = useState<string | null>(null);
+
   /** 내려받기 진행 중인 Agent 식별자. 중복 클릭을 막습니다. */
   const [downloading, setDownloading] = useState<string | null>(null);
   /** 내려받기 실패 메시지 (Agent 별). */
@@ -96,6 +110,9 @@ export default function Agent() {
         agentId: agent.agent_id,
         lastSeen: agent.registered_at,
         hasTelemetry: agent.telemetry_seen,
+        // 화면에는 제품명을 씁니다. 형식(파서 키)은 내부 이름이라 운영자에게 의미가 약합니다.
+        // product 가 없으면 vendor 로, 그것도 없으면 format 으로 내려갑니다.
+        product: config?.product ?? config?.vendor ?? null,
         format: config?.format ?? null,
         hostname: config?.hostname ?? null,
         interfaceCount: config?.interfaces.length ?? 0,
@@ -120,6 +137,7 @@ export default function Agent() {
         agentId,
         lastSeen: config.last_seen ?? null,
         hasTelemetry: true,
+        product: config.product ?? config.vendor ?? null,
         format: config.format,
         hostname: config.hostname,
         interfaceCount: config.interfaces.length,
@@ -145,6 +163,68 @@ export default function Agent() {
         )
       : result;
   }, [overview.data, configByAgent, onlyIssues]);
+
+  /**
+   * 필터가 실제로 몇 건을 걸러내는지 셉니다.
+   *
+   * <p>라벨에 건수를 안 보여 주면, 대부분의 행이 이미 문제 조건에 해당할 때
+   * "체크했는데 그대로다 = 필터가 안 된다" 로 읽힙니다.
+   * (실측: 10건 중 9건이 문제 조건 → 체크 후에도 10건)
+   */
+  const issueCount = useMemo(
+    () =>
+      (overview.data?.agents ?? []).filter(
+        (row) => !row.connected || !row.telemetry_seen || row.expected === false,
+      ).length,
+    [overview.data],
+  );
+
+  /** 목록을 다시 읽고 갱신 시각·스피너를 관리합니다. */
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      overview.reload();
+      discovered.reload();
+      quarantine.reload();
+      // reload 는 비동기 resolve 를 돌려주지 않으므로 한 박자 뒤 시각을 찍습니다.
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      setLastRefreshedAt(new Date());
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  /**
+   * 오래된 수신 이력(유령 Agent)을 서버에서 일괄 정리합니다.
+   *
+   * <p>연결 중인 Agent 는 서버가 거부합니다(409).
+   */
+  const handlePruneStale = async () => {
+    if (pruning) return;
+    if (!window.confirm(
+      "오래 수신이 없는 Agent 이력을 정리합니다.\n연결 중인 Agent 는 제외됩니다. 계속할까요?",
+    )) {
+      return;
+    }
+    setPruning(true);
+    setPruneMessage(null);
+    try {
+      const result = await pruneStaleAgents();
+      setPruneMessage(
+        result.removed > 0
+          ? `${result.removed}건을 정리했습니다.`
+          : "정리할 항목이 없습니다.",
+      );
+      await handleRefresh();
+    } catch (cause) {
+      setPruneMessage(
+        cause instanceof Error ? `정리에 실패했습니다: ${cause.message}` : "정리에 실패했습니다.",
+      );
+    } finally {
+      setPruning(false);
+    }
+  };
 
   const loading = overview.loading || discovered.loading;
   const error = overview.error ?? discovered.error;
@@ -345,20 +425,38 @@ export default function Agent() {
                   onChange={(e) => setOnlyIssues(e.target.checked)}
                   className="size-3.5 rounded border-gray-300"
                 />
-                문제 있는 항목만
+                문제 있는 항목만 ({issueCount})
               </label>
+              {lastRefreshedAt && (
+                <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                  마지막 갱신 {lastRefreshedAt.toLocaleTimeString()}
+                </span>
+              )}
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  overview.reload();
-                  discovered.reload();
-                }}
+                onClick={handleRefresh}
+                disabled={refreshing}
               >
-                새로고침
+                {refreshing ? "새로고침 중..." : "새로고침"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handlePruneStale}
+                disabled={pruning}
+                title="오래 수신이 없는 Agent 이력을 정리합니다 (연결 중인 Agent 는 제외)"
+              >
+                {pruning ? "정리 중..." : "오래된 항목 정리"}
               </Button>
             </div>
           </div>
+
+          {pruneMessage && (
+            <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-200">
+              {pruneMessage}
+            </div>
+          )}
 
           {loading && (
             <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
@@ -399,7 +497,7 @@ export default function Agent() {
                   <tr>
                     <th className="border-b p-3 font-medium dark:border-gray-600">Agent</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">상태</th>
-                    <th className="border-b p-3 font-medium dark:border-gray-600">형식</th>
+                    <th className="border-b p-3 font-medium dark:border-gray-600">제품명</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">수집</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">마지막 수신</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">격리</th>
@@ -420,6 +518,13 @@ export default function Agent() {
                         </div>
                       </td>
                       <td className="p-3">
+                        {/*
+                         * ⚠️ `telemetry-only` 는 "과거에 수신했으나 지금 세션 없음" 입니다.
+                         * 이전에는 여기에 `예정에 없음`(expected=false) 배지를 함께 띄웠는데,
+                         * 그 뜻은 "배포 예정에 등록하지 않음" 일 뿐이라
+                         * "지금 연결이 끊겼다" 와 혼동되었습니다.
+                         * 그래서 그 배지를 제거하고 상태를 `수신만` 으로 정확히 씁니다.
+                         */}
                         <div className="flex flex-wrap gap-1">
                           {row.connected ? (
                             <Badge size="sm" color="success">
@@ -431,12 +536,7 @@ export default function Agent() {
                             </Badge>
                           ) : (
                             <Badge size="sm" color="light">
-                              연결 끊김
-                            </Badge>
-                          )}
-                          {row.expected === false && (
-                            <Badge size="sm" color="info">
-                              예정에 없음
+                              수신만
                             </Badge>
                           )}
                           {!row.hasTelemetry && (
@@ -451,7 +551,24 @@ export default function Agent() {
                           )}
                         </div>
                       </td>
-                      <td className="p-3 font-mono text-xs">{row.format ?? "—"}</td>
+                      <td className="p-3 text-xs">
+                        <span className="font-medium text-gray-700 dark:text-gray-200">
+                          {row.product ?? "—"}
+                        </span>
+                        {/*
+                          형식(파서 키)은 내부 이름이므로 작게 보조로 둡니다.
+                          제품명과 같거나(“Arista” vs “ARISTA_vEOS” 처럼 부분 일치)
+                          구분이 안 되는 경우에는 생략해 “AristaARISTA_vEOS” 처럼
+                          붙어 보이지 않게 합니다.
+                        */}
+                        {row.format &&
+                          row.format.toLowerCase() !== (row.product ?? "").toLowerCase() &&
+                          !row.format.toLowerCase().includes((row.product ?? "").toLowerCase()) && (
+                            <span className="ml-1 font-mono text-[10px] text-gray-400">
+                              ({row.format})
+                            </span>
+                          )}
+                      </td>
                       <td className="p-3 text-xs">
                         인터페이스 {row.interfaceCount} · VLAN {row.vlanCount} · 경로{" "}
                         {row.routeCount}
