@@ -79,6 +79,6 @@ Testing/
 #   .g4 옆에 .antlr/ 로 만들어지며, 커밋된 적이 있어 Spring 클래스패스 스캔을 깨뜨린 이력이 있습니다.
 .antlr/
 
-# RVI Arista 배포 스크립트가 매 실행마다 생성하는 런타임 산출물
+# 배포 스크립트가 매 실행마다 생성하는 런타임 산출물
 #   (deploy_arista_rvi.py 가 내용을 만들어 원격에 전송하므로 커밋하지 않습니다)
-SonarValidator_Prober/components/parser/tools/arista_run.sh
+deployment/real-to-virtual/arista_run.sh

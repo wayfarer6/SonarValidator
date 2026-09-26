@@ -823,8 +823,8 @@ erDiagram
 flowchart LR
     subgraph HOST["프로버 호스트 10.20.0.3"]
         BIN["sonar_validator_prober<br/>정적 링크 빌드"]
-        DEPLOY["parser/tools/deploy_arista.sh<br/>sftp 업로드"]
-        PROBE["parser/tools/node_probe.py<br/>조회 검증"]
+        DEPLOY["deployment/real-to-virtual/<br/>deploy_arista.sh<br/>sftp 업로드"]
+        PROBE["deployment/real-to-virtual/<br/>node_probe.py<br/>조회 검증"]
     end
 
     subgraph LAB["실습 랩 (GNS3)"]
@@ -913,7 +913,7 @@ flowchart LR
 
 ### 8.3 서버 전송 검증
 
-`parser/tools/ws_collector.py` (경량 WebSocket 수신기) 로 프로버의 실제 전송을 확인했습니다.
+`deployment/_shared/ws_collector.py` (경량 WebSocket 수신기) 로 프로버의 실제 전송을 확인했습니다.
 
 ```
 [type 분포]

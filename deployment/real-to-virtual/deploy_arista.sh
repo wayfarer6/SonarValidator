@@ -25,8 +25,9 @@ USER_NAME="${ARISTA_USER:-admin}"
 REMOTE_DIR="${REMOTE_DIR:-/mnt/flash/sonar_validator}"
 SCP_MODE="${SCP_MODE:-0}"
 
+# 이 스크립트는 deployment/real-to-virtual/ 에 있습니다
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-PROBER_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+PROBER_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../../SonarValidator_Prober" && pwd)
 
 BIN="${1:-$PROBER_DIR/build/sonar_validator_prober}"
 CONF="${2:-$PROBER_DIR/Installer/default.conf}"

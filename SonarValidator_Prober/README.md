@@ -254,7 +254,8 @@ stdbuf -o0 -e0 ./build/cli_output_parser_test
 
 ## 도구
 
-`components/parser/tools/` 에 PoC 환경 배포·프로빙 스크립트가 있습니다.
+배포·프로빙 스크립트는 저장소 루트의 `deployment/` 아래에 있습니다.
+(네트워크별로 나뉘고, 공통 도구는 `deployment/_shared/`)
 
 | 스크립트 | 용도 |
 | --- | --- |

@@ -22,8 +22,9 @@ import time
 
 import pexpect
 
+# 이 파일은 deployment/real-to-virtual/ 에 있습니다 → 저장소 루트까지 4단계
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROBER_DIR = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
+PROBER_DIR = os.path.abspath(os.path.join(HERE, "..", "..", "SonarValidator_Prober"))
 
 DEFAULT_HOST = "10.20.0.4"
 DEFAULT_USER = "admin"

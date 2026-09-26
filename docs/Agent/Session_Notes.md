@@ -188,7 +188,7 @@ NODE_TYPE=VM;      # Router | Switch | VM | Firewall
 
 ### 4.1 Arista vEOS — ✅ 통과
 
-- 배포: `parser/tools/deploy_arista.sh` (sftp, sha256 일치 확인)
+- 배포: `deployment/real-to-virtual/deploy_arista.sh` (sftp, sha256 일치 확인)
 - SFTP 막힌 환경에서는 `SCP_MODE=1` 로 `scp -O` 사용
 - DB 저장 결과 (실측):
 
@@ -207,7 +207,7 @@ NODE_TYPE=VM;      # Router | Switch | VM | Firewall
 - RESTCONF 비활성(404), WebUI 로그인으로 CLI 진입 불가
 - ✅ **해결**: GNS3 콘솔(기본 5018)이 **guestshell bash 에 직접 연결** → `dohost "<IOS cmd>"` 로 IOS 명령 실행 (인증 불필요)
 - 파일 전송: IOS `copy http://...` 로 `/bootflash/guest-share` 에 넣으면 guestshell 과 공유됨
-- 스크립트: `parser/tools/deploy_cisco.py` (환경변수 `SONAR_GNS3_SSH`, `SONAR_GNS3_CONSOLE`)
+- 스크립트: `deployment/real-to-virtual/deploy_cisco.py` (환경변수 `SONAR_GNS3_SSH`, `SONAR_GNS3_CONSOLE`)
 
 DB 저장 결과 (실측):
 
@@ -222,7 +222,7 @@ MAC 정규화 확인: `0c3f.5d52.0003` → `0c:3f:5d:52:00:03`
 
 ### 4.3 서버 텔레메트리 — ✅ 통과
 
-`parser/tools/ws_collector.py` (표준 라이브러리만 사용) 수신 결과:
+`deployment/_shared/ws_collector.py` (표준 라이브러리만 사용) 수신 결과:
 
 - `hello` 1건, `policy-request` 4건, `telemetry` 1건
 - `telemetry` payload 키: `agent, agent_name, device_type, kernel, nic_status, route_status, arp_table`
@@ -344,7 +344,7 @@ ssh root@172.16.255.1 \
 
 ---
 
-## 7. 배포 도구 — `parser/tools/`
+## 7. 배포 도구 — `deployment/` (네트워크별)
 
 | 파일 | 용도 |
 |---|---|
