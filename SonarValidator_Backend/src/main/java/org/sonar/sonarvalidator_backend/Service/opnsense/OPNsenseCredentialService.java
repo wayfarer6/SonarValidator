@@ -46,6 +46,17 @@ public class OPNsenseCredentialService {
     private final OPNsenseApiClient apiClient;
 
     /**
+     * 노드 정본 등록 통로입니다. (선택 의존)
+     *
+     * <p>OPNsense 는 Agent 가 없으므로, 자격증명 등록 시점에
+     * {@code configuration} 에 노드를 만들어 두어야 방화벽 상태와 격리가
+     * 참조할 {@code node_id} 가 존재합니다. (DB Design v1.5)
+     *
+     * <p>없으면(단위 테스트) 자격증명만 저장합니다.
+     */
+    private org.sonar.sonarvalidator_backend.Service.NodeRegistryService nodeRegistry;
+
+    /**
      * @param repository   자격증명 저장소
      * @param secretCipher 시크릿 암호화기
      * @param apiClient    OPNsense API 클라이언트
@@ -56,6 +67,16 @@ public class OPNsenseCredentialService {
         this.repository = repository;
         this.secretCipher = secretCipher;
         this.apiClient = apiClient;
+    }
+
+    /**
+     * 노드 정본 등록 통로를 주입합니다.
+     *
+     * @param nodeRegistry 노드 등록 서비스 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setNodeRegistry(org.sonar.sonarvalidator_backend.Service.NodeRegistryService nodeRegistry) {
+        this.nodeRegistry = nodeRegistry;
     }
 
     /**
@@ -138,12 +159,38 @@ public class OPNsenseCredentialService {
 
         OPNsenseCredential saved = repository.save(credential);
 
+        // ⚠️ DB Design v1.5 — OPNsense 는 REST API 로 직접 연결되므로 Agent 가
+        //   없습니다. 그래서 자격증명 등록 시점에 <b>노드 정본을 만들어</b>
+        //   두어야 방화벽 상태({@code opnsense_firewall.node_id})와 격리가
+        //   참조할 노드 번호가 존재합니다. 실패해도 자격증명 저장은 계속합니다.
+        registerNode(saved.getAgentId());
+
         if (verifyNow) {
             saved = verifyAndRecord(saved);
         }
         log.info("opnsense credential saved: agent={} url={} status={}",
                 saved.getAgentId(), saved.getBaseUrl(), saved.getStatus());
         return toResponse(saved);
+    }
+
+    /**
+     * OPNsense 장치의 노드 정본을 등록합니다. (방화벽 유형 강제)
+     *
+     * <p>노드 등록 통로가 없으면(단위 테스트) 아무 일도 하지 않습니다.
+     *
+     * @param agentId 장치 식별자
+     */
+    private void registerNode(String agentId) {
+        if (nodeRegistry == null || agentId == null || agentId.isBlank()) {
+            return;
+        }
+        try {
+            nodeRegistry.resolveOrCreate(agentId,
+                    org.sonar.sonarvalidator_backend.Model.DeviceType.FIREWALL);
+        } catch (RuntimeException ex) {
+            // 노드 적재 실패가 자격증명 저장을 막으면 안 됩니다.
+            log.warn("node registration failed for opnsense agent={}: {}", agentId, ex.getMessage());
+        }
     }
 
     /**

@@ -1,6 +1,10 @@
-package org.sonar.sonarvalidator_backend.Policy.strategy;
+package org.sonar.sonarvalidator_backend.Policy.strategy.vendor.cisco.iosxe;
 
+import org.sonar.sonarvalidator_backend.Config.SiteProperties;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
+import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicy;
+import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyBuildContext;
+import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyJson;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.node.JsonNodeFactory;
@@ -33,9 +37,26 @@ import tools.jackson.databind.node.ObjectNode;
  * 구현을 더하면 됩니다 — 다른 유형은 건드리지 않습니다.
  */
 @Component
-public class RouterPolicyStrategy implements DevicePolicyStrategy {
+public class RouterPolicy implements DevicePolicy {
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
+
+    /**
+     * 기본 인터페이스 이름을 담은 사이트 설정입니다.
+     *
+     * <h2>⚠️ 왜 상수가 아니라 설정인가</h2>
+     * <p>인터페이스 이름은 <b>배포·모델마다 다릅니다</b> —
+     * {@code GigabitEthernet0/0/1}, {@code Ethernet1}, {@code ge-0/0/0}.
+     * 상수로 두면 모델을 추가할 때마다 이 클래스를 고쳐야 합니다.
+     */
+    private final SiteProperties site;
+
+    /**
+     * @param site 사이트 설정 (기본 인터페이스 이름)
+     */
+    public RouterPolicy(SiteProperties site) {
+        this.site = site;
+    }
 
     @Override
     public boolean supports(DeviceType type) {
@@ -59,7 +80,7 @@ public class RouterPolicyStrategy implements DevicePolicyStrategy {
         rule.putArray("product").add("IOS XE");
         rule.putArray("model").add("Cisco ISR");
         rule.putArray("command").add("on");
-        rule.putArray("interface").add("GigabitEthernet0/0/1");
+        rule.putArray("interface").add(site.getRouterDefaults().getDefaultInterface());
         return rule;
     }
 

@@ -44,6 +44,9 @@ public final class ProjectMapper {
         body.put("category", project.getCategory());
         body.put("description", project.getDescription());
         body.put("status", project.getStatus());
+        // ⚠️ DB Design v2.0 — 제어평면 대역은 프로젝트마다 다를 수 있습니다.
+        //   화면이 "이 프로젝트의 관리망" 을 보여주려면 응답에 실어야 합니다.
+        body.put("management_prefix", project.getManagementPrefix());
         body.put("created_at", project.getCreatedAt());
         body.put("updated_at", project.getUpdatedAt());
         body.put("subnet_count", project.getSubnets().size());
@@ -66,6 +69,7 @@ public final class ProjectMapper {
         body.put("category", project.getCategory());
         body.put("description", project.getDescription());
         body.put("status", project.getStatus());
+        body.put("management_prefix", project.getManagementPrefix());
         body.put("created_at", project.getCreatedAt());
         body.put("updated_at", project.getUpdatedAt());
         body.put("subnet_count", project.getSubnets().size());

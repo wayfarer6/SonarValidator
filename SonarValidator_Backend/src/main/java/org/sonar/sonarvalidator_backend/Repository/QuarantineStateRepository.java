@@ -32,6 +32,27 @@ public interface QuarantineStateRepository extends JpaRepository<QuarantineState
     Optional<QuarantineState> findByAgentIdAndReleasedAtIsNull(String agentId);
 
     /**
+     * 특정 <b>노드</b>의 현재 격리 중인 상태를 조회합니다.
+     *
+     * <h2>⚠️ DB Design v1.5 — Agent 없는 장비를 위한 경로</h2>
+     * <p>OPNsense 처럼 REST API 로만 관리되어 {@code agent_id} 가 없는 장비는
+     * 이 조회로만 격리 여부를 알 수 있습니다.
+     *
+     * @param nodeId 노드 번호 ({@code configuration.node_id})
+     * @return 현재 격리 상태 (격리 중이 아니면 비어 있음)
+     */
+    Optional<QuarantineState> findByNodeIdAndReleasedAtIsNull(Integer nodeId);
+
+    /**
+     * 특정 노드의 격리 이력을 최신순으로 조회합니다. (해제 포함)
+     *
+     * @param nodeId   노드 번호
+     * @param pageable 페이지 제한
+     * @return 격리 이력
+     */
+    List<QuarantineState> findByNodeIdOrderByQuarantinedAtDesc(Integer nodeId, Pageable pageable);
+
+    /**
      * 현재 격리 중인 장치 전체를 최신순으로 조회합니다.
      *
      * <p>토폴로지 표시와 정책 푸시 대상 제외에 씁니다.

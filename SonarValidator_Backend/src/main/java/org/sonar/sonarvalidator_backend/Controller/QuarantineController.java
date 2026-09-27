@@ -42,6 +42,17 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>격리 API 를 만든 이상 <b>해제 API 도 반드시 같이</b> 있어야 합니다.
  * 해제가 없으면 운영자는 DB 를 직접 고치거나 장치를 재부팅해야 하고,
  * 그러면 격리 이력이 사라져 감사를 할 수 없습니다.
+ *
+ * <h2>⚠️ DB Design v1.5 — node_id 로도 격리한다</h2>
+ * <p>OPNsense 처럼 <b>Agent 없이 REST API 로만 연결</b>되는 장비는
+ * {@code agent_id} 가 없습니다. 그래서 경로 변수 대신 본문/쿼리로
+ * {@code node_id} 를 받는 경로를 추가했습니다.
+ *
+ * <pre>
+ *   POST /api/v1/quarantine/by-node?node_id=12          → 노드 격리
+ *   POST /api/v1/quarantine/by-node?node_id=12&target_cidr=10.0.9.0/24
+ *                                                       → 방화벽 연결만 격리
+ * </pre>
  */
 @RestController
 @RequestMapping("/api/v1/quarantine")
@@ -61,11 +72,15 @@ public class QuarantineController {
     /**
      * Agent 를 격리합니다.
      *
-     * <p>본문은 선택입니다. {@code {"reason": "...", "project_id": "..."} 형태로
-     * 사유를 함께 보내면 이력에 남습니다.
+     * <p>본문은 선택입니다. {@code {"reason": "...", "project_id": "...",
+     * "target_cidr": "..."}} 형태로 사유와 대상을 함께 보내면 이력에 남습니다.
+     *
+     * <p>⚠️ {@code target_cidr} 은 방화벽처럼 장치 단위 격리가 불가한 장치에
+     * <b>특정 서브넷 연결만</b> 차단하도록 지시합니다.
      *
      * @param agentId  대상 Agent 식별자
-     * @param body     선택 본문 ({@code reason}, {@code project_id}, {@code requested_by})
+     * @param body     선택 본문 ({@code reason}, {@code project_id},
+     *                 {@code requested_by}, {@code target_cidr})
      * @return 격리 결과 ({@code delivered} 확인 필수)
      */
     @PostMapping("/{agentId}")
@@ -75,9 +90,36 @@ public class QuarantineController {
         final String reason = stringValue(payload, "reason");
         final String projectKey = stringValue(payload, "project_id");
         final String requestedBy = stringValue(payload, "requested_by");
+        final String targetCidr = stringValue(payload, "target_cidr");
+        final Integer nodeId = integerValue(payload, "node_id");
 
-        log.info("quarantine request for agent={} by={}", agentId, requestedBy);
-        return quarantineService.isolate(agentId, projectKey, reason, requestedBy);
+        log.info("quarantine request for agent={} node={} target={} by={}",
+                agentId, nodeId, targetCidr, requestedBy);
+        return quarantineService.isolate(agentId, nodeId, projectKey, reason, requestedBy, targetCidr);
+    }
+
+    /**
+     * 노드 번호로 격리합니다. (Agent 없는 장비)
+     *
+     * <p>주로 OPNsense REST 전용 장비를 격리할 때 씁니다.
+     *
+     * @param nodeId      노드 번호 ({@code configuration.node_id}) — 필수
+     * @param projectId   프로젝트 키 (선택)
+     * @param targetCidr  연결 단위 격리 대상 CIDR (방화벽용, 선택)
+     * @param reason      격리 사유 (선택)
+     * @param requestedBy 요청 주체 (선택)
+     * @return 격리 결과
+     */
+    @PostMapping("/by-node")
+    public Map<String, Object> isolateByNode(
+            @RequestParam("node_id") Integer nodeId,
+            @RequestParam(value = "project_id", required = false) String projectId,
+            @RequestParam(value = "target_cidr", required = false) String targetCidr,
+            @RequestParam(value = "reason", required = false) String reason,
+            @RequestParam(value = "requested_by", required = false) String requestedBy) {
+
+        log.info("quarantine request for node={} target={} by={}", nodeId, targetCidr, requestedBy);
+        return quarantineService.isolateByNode(nodeId, projectId, reason, requestedBy, targetCidr);
     }
 
     /**
@@ -87,14 +129,31 @@ public class QuarantineController {
      * (거짓 성공 응답을 주지 않기 위함입니다)
      *
      * @param agentId    대상 Agent 식별자
+     * @param nodeId     노드 번호 (Agent 없는 장비, 선택)
      * @param releasedBy 요청 주체 (쿼리 파라미터, 선택)
      * @return 해제 결과
      */
     @DeleteMapping("/{agentId}")
     public Map<String, Object> release(@PathVariable String agentId,
+                                       @RequestParam(value = "node_id", required = false) Integer nodeId,
                                        @RequestParam(value = "released_by", required = false) String releasedBy) {
-        log.info("quarantine release request for agent={} by={}", agentId, releasedBy);
-        return quarantineService.release(agentId, releasedBy);
+        log.info("quarantine release request for agent={} node={} by={}", agentId, nodeId, releasedBy);
+        return quarantineService.release(agentId, nodeId, releasedBy);
+    }
+
+    /**
+     * 노드 번호로 격리를 해제합니다. (Agent 없는 장비)
+     *
+     * @param nodeId     노드 번호 — 필수
+     * @param releasedBy 요청 주체 (선택)
+     * @return 해제 결과
+     */
+    @DeleteMapping("/by-node")
+    public Map<String, Object> releaseByNode(
+            @RequestParam("node_id") Integer nodeId,
+            @RequestParam(value = "released_by", required = false) String releasedBy) {
+        log.info("quarantine release request for node={} by={}", nodeId, releasedBy);
+        return quarantineService.release(null, nodeId, releasedBy);
     }
 
     /**
@@ -109,11 +168,15 @@ public class QuarantineController {
     public Map<String, Object> list(@RequestParam(value = "project_id", required = false) String projectId) {
         final List<Map<String, Object>> active = quarantineService.listActive(projectId);
         final Set<String> ids = quarantineService.quarantinedAgentIds();
+        final Set<Integer> nodeIds = quarantineService.quarantinedNodeIds();
 
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("project_id", projectId);
         body.put("total", active.size());
         body.put("agent_ids", ids);
+        // ⚠️ DB Design v1.5 — Agent 없는 장비(방화벽)를 화면이 표시하려면
+        //   노드 번호도 함께 알아야 합니다.
+        body.put("node_ids", nodeIds);
         body.put("quarantined", active);
         return body;
     }
@@ -125,13 +188,16 @@ public class QuarantineController {
      * 조회하면 되므로 화면이 가볍습니다.
      *
      * @param agentId Agent 식별자
+     * @param nodeId  노드 번호 (Agent 없는 장비, 선택)
      * @return 격리 여부 + 이력
      */
     @GetMapping("/{agentId}")
-    public Map<String, Object> status(@PathVariable String agentId) {
+    public Map<String, Object> status(@PathVariable String agentId,
+                                      @RequestParam(value = "node_id", required = false) Integer nodeId) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("agent_id", agentId);
-        body.put("quarantined", quarantineService.isQuarantined(agentId));
+        body.put("node_id", nodeId);
+        body.put("quarantined", quarantineService.isQuarantined(agentId, nodeId));
         body.put("history", quarantineService.history(agentId));
         return body;
     }
@@ -150,5 +216,27 @@ public class QuarantineController {
         }
         final String text = String.valueOf(value);
         return text.isBlank() ? null : text;
+    }
+
+    /**
+     * 맵에서 정수 값을 꺼냅니다. (없거나 숫자가 아니면 null)
+     *
+     * @param map 본문 맵
+     * @param key 키
+     * @return 정수 값 (없으면 null)
+     */
+    private static Integer integerValue(Map<String, Object> map, String key) {
+        final Object value = map.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.valueOf(String.valueOf(value).trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 }

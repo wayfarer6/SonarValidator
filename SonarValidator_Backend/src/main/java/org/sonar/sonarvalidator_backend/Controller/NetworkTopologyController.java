@@ -116,6 +116,9 @@ public class NetworkTopologyController {
         }
 
         final Set<String> quarantinedAgents = quarantineService.quarantinedAgentIds();
+        // ⚠️ DB Design v1.5 — Agent 없는 장비(방화벽)는 agent_id 가 없으므로
+        //   노드 번호로 격리 여부를 판단해야 합니다.
+        final Set<Integer> quarantinedNodes = quarantineService.quarantinedNodeIds();
 
         final List<Map<String, Object>> nodes = new ArrayList<>();
         for (final PolicySubnet subnet : project.toPolicySubnets()) {

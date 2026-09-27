@@ -10,11 +10,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.sonar.sonarvalidator_backend.Config.SiteProperties;
+import org.sonar.sonarvalidator_backend.Model.Configuration;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.sonar.sonarvalidator_backend.Model.entity.ExpectedAgent;
 import org.sonar.sonarvalidator_backend.Model.entity.QuarantineState;
 import org.sonar.sonarvalidator_backend.Repository.QuarantineStateRepository;
+import org.sonar.sonarvalidator_backend.Service.quarantine.QuarantineContext;
+import org.sonar.sonarvalidator_backend.Service.quarantine.QuarantineMethods;
+import org.sonar.sonarvalidator_backend.Service.quarantine.QuarantineMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -31,8 +36,9 @@ import tools.jackson.databind.node.ObjectNode;
  * <h2>격리 명령이 지나는 길</h2>
  * <pre>
  *   운영자 클릭 (프론트)
- *     → POST /api/v1/quarantine/{agentId}
+ *     → POST /api/v1/quarantine/{agentId}   또는  node_id 지정
  *       → QuarantineService.isolate()
+ *         ├─ 전략 선택 (QuarantineMethods)
  *         ├─ DB 에 QuarantineState 기록        (판단 근거 남기기)
  *         ├─ WebSocket 으로 command 봉투 전송  (장치에게 실제로 시키기)
  *         ├─ ComplianceService 이력 기록       (무엇이 바뀌었나)
@@ -48,6 +54,18 @@ import tools.jackson.databind.node.ObjectNode;
  * 라는 사실이 남습니다. 운영자가 재시도할 수 있고, 위험한 방향(장치는 살아
  * 있는데 서버는 격리됐다고 믿는 것)이 아닙니다.
  *
+ * <h2>⚠️ 격리 방법은 장치마다 다르다 — 전략에 위임한다</h2>
+ * <p>이전에는 이 서비스가 "인터페이스를 내린다" 는 <b>한 가지 방법</b>만
+ * 알고, 방화벽은 격리 자체를 거부했습니다. 이제 방법은
+ * {@link QuarantineMethod} 가 정합니다.
+ * <ul>
+ *   <li><b>스위치/라우터/VM</b> — Agent 에 명령을 보내 인터페이스를 내림
+ *       ({@link QuarantineMethod.Mode#DEVICE})</li>
+ *   <li><b>방화벽</b> — 특정 서브넷 연결만 차단
+ *       ({@link QuarantineMethod.Mode#SUBNET})</li>
+ * </ul>
+ * 그래서 벤더/제품이 늘어도 이 서비스는 고치지 않습니다. (개방-폐쇄 원칙)
+ *
  * <h2>⚠️ 자동 격리는 하지 않는다</h2>
  * <p>오탐 한 번으로 정상 장비를 끊으면 서비스가 마비됩니다. 격리는 반드시
  * 사람이 누릅니다. 이 서비스는 <b>요청받은 격리를 수행</b>할 뿐,
@@ -57,6 +75,11 @@ import tools.jackson.databind.node.ObjectNode;
  * <p>명령은 전달되지 않지만(사실을 응답에 남깁니다) 상태는 DB 에 남습니다.
  * 그래서 그 장치가 다시 접속해 정책을 요청하면
  * {@link #isQuarantined(String)} 가 {@code true} 라서 차단 정책을 받습니다.
+ *
+ * <h2>⚠️ DB Design v1.5 — node_id 로도 격리한다</h2>
+ * <p>OPNsense 처럼 <b>Agent 없이 REST API 로만 연결</b>되는 장비는
+ * {@code agent_id} 가 없습니다. 그래서 격리 대상은 {@code node_id} 로도
+ * 지정할 수 있고, 상태도 둘 다 남깁니다.
  */
 @Service
 public class QuarantineService {
@@ -107,6 +130,44 @@ public class QuarantineService {
     private final Map<String, Map<String, Object>> lastAck = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
+     * 격리 방법 선택기입니다. (장치 유형별 모듈화)
+     *
+     * <p>{@code null} 을 허용하는 이유는 단위 테스트가 저장소만 넘기기
+     * 때문입니다. 없으면 기본 전략 집합을 직접 만듭니다.
+     */
+    private QuarantineMethods strategies;
+
+    /**
+     * 노드 정본 조회 통로입니다. (선택 의존)
+     *
+     * <p>Agent 없는 장비(OPNsense)를 {@code node_id} 로 격리하거나,
+     * {@code agent_id} 로 들어온 요청을 노드 번호로 해석할 때 씁니다.
+     * 없으면 문자열 식별자만으로 동작합니다.
+     */
+    private NodeRegistryService nodeRegistry;
+
+    /**
+     * 사이트 설정입니다. (제어평면 대역의 전역 기본값)
+     *
+     * <h2>⚠️ 왜 @Value 가 아니라 설정 클래스인가</h2>
+     * <p>제어평면 대역은 <b>프로젝트마다 지정</b>할 수 있어야 합니다
+     * (요구사항). {@code @Value} 하나로는 전역 값만 읽을 수 있어 프로젝트
+     * 지정을 표현할 수 없습니다. 그래서 {@link SiteProperties} 를 주입해
+     * {@code managementPrefixFor(프로젝트값)} 로 해석합니다.
+     *
+     * <p>설정 객체가 없으면(단위 테스트) 기본 대역을 씁니다.
+     */
+    private SiteProperties siteProperties = new SiteProperties();
+
+    /**
+     * 프로젝트 저장소입니다. (제어평면 대역 조회용, 선택 의존)
+     *
+     * <p>프로젝트가 지정한 관리 대역을 읽기 위해서만 씁니다. 없으면 전역
+     * 기본값을 쓰므로 단위 테스트가 저장소 없이 돌아갑니다.
+     */
+    private org.sonar.sonarvalidator_backend.Repository.ProjectRepository projectRepository;
+
+    /**
      * @param repository          격리 상태 저장소
      * @param registry            Agent 세션 레지스트리 (명령 전송)
      * @param complianceService   변경 이력 서비스
@@ -132,6 +193,49 @@ public class QuarantineService {
         this.deviceTypeResolver = deviceTypeResolver;
     }
 
+    /**
+     * 격리 방법 선택기를 주입합니다.
+     *
+     * @param strategies 격리 전략 선택기 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setStrategies(QuarantineMethods strategies) {
+        this.strategies = strategies;
+    }
+
+    /**
+     * 노드 정본 조회 통로를 주입합니다.
+     *
+     * @param nodeRegistry 노드 등록 서비스 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setNodeRegistry(NodeRegistryService nodeRegistry) {
+        this.nodeRegistry = nodeRegistry;
+    }
+
+    /**
+     * 사이트 설정을 주입합니다.
+     *
+     * @param siteProperties 사이트 설정 (제어평면 대역 기본값)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSiteProperties(SiteProperties siteProperties) {
+        if (siteProperties != null) {
+            this.siteProperties = siteProperties;
+        }
+    }
+
+    /**
+     * 프로젝트 저장소를 주입합니다. (제어평면 대역 조회용)
+     *
+     * @param projectRepository 프로젝트 저장소 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setProjectRepository(
+            org.sonar.sonarvalidator_backend.Repository.ProjectRepository projectRepository) {
+        this.projectRepository = projectRepository;
+    }
+
     // ------------------------------------------------------------------
     //  격리 / 해제
     // ------------------------------------------------------------------
@@ -143,34 +247,68 @@ public class QuarantineService {
      * 이유는, 격리 중에 재시도하는 것은 "그때 명령이 안 갔을 수도 있으니
      * 다시 보내자" 는 뜻이지 새로운 사건이 아니기 때문입니다.
      *
-     * @param agentId     격리할 Agent 식별자
+     * <p>격리 방법은 {@link QuarantineMethod} 가 정합니다. 방화벽처럼
+     * 장치 단위 격리가 불가한 장치는 {@code targetCidr} 을 함께 넘겨
+     * <b>특정 서브넷 연결만</b> 차단합니다.
+     *
+     * @param agentId     격리할 Agent 식별자 (없으면 null)
+     * @param nodeId      격리할 노드 번호 (Agent 없는 장비용, 없으면 null)
      * @param projectKey  프로젝트 키 (없으면 null)
      * @param reason      격리 사유 (운영자 메모)
      * @param requestedBy 요청 주체
+     * @param targetCidr  연결 단위 격리 대상 CIDR (방화벽용, 없으면 null)
      * @return 격리 결과
      */
     @Transactional
     public Map<String, Object> isolate(String agentId,
+                                       Integer nodeId,
                                        String projectKey,
                                        String reason,
-                                       String requestedBy) {
+                                       String requestedBy,
+                                       String targetCidr) {
         final String operator = requestedBy == null || requestedBy.isBlank() ? "operator" : requestedBy;
 
-        // ⚠️ 방화벽은 격리 대상이 아닙니다.
-        //   랩의 방화벽은 eth1 트렁크로 VLAN 131/132/133 을 동시에 들고 있어,
-        //   인터페이스를 내리면 격리하려던 한 대가 아니라 <b>무관한 존 전체</b>가
-        //   끊깁니다. 그래서 여기서 <b>거부</b>하고, 그 사실을 응답에 남깁니다.
-        //
-        //   조용히 무시하지 않는 이유: 운영자는 버튼을 눌렀다고 믿습니다.
-        //   "격리했습니다" 라고 거짓 응답하면 뚫린 망을 방치하게 됩니다.
-        final DeviceType deviceType = resolveDeviceType(agentId);
-        if (DeviceTypeResolver.exclusionReason(deviceType) != null) {
-            final String why = DeviceTypeResolver.exclusionReason(deviceType);
-            log.warn("rejected isolation of {} ({}) — not isolatable", agentId, deviceType);
-            return excludedResponse(agentId, projectKey, deviceType, why);
+        // ⚠️ DB Design v1.5 — Agent 가 없어도(node_id 만으로) 격리할 수 있어야 합니다.
+        //   OPNsense 처럼 REST API 전용 장비가 그래서, node_id 로 노드 정본을
+        //   찾아 유형/식별자를 보완합니다.
+        final Configuration node = resolveNode(agentId, nodeId);
+        final String effectiveAgentId = firstNonBlank(agentId,
+                node == null ? null : node.getAgentId());
+        // ⚠️ 삼항 연산자에 int 와 Integer 가 섞이면 <b>전체가 int 로 강제</b>되어
+        //   nodeId 가 null 일 때 NPE 가 납니다. 반드시 Integer 로 감싸세요.
+        final Integer effectiveNodeId = node != null
+                ? node.getNodeId() : nodeId;
+        final String display = firstNonBlank(effectiveAgentId,
+                effectiveNodeId == null ? null : "node-" + effectiveNodeId, "unknown");
+
+        final DeviceType deviceType = resolveDeviceType(effectiveAgentId, node);
+        final QuarantineMethod strategy = strategies().of(deviceType);
+        // ⚠️ 제어평면 대역은 프로젝트가 지정하면 그 값을 우선합니다.
+        //   (요구사항 — 프로젝트마다 관리망이 다를 수 있음)
+        final QuarantineContext context = new QuarantineContext(
+                effectiveNodeId, effectiveAgentId, deviceType, projectKey,
+                targetCidr, resolveManagementPrefix(projectKey));
+
+        // ⚠️ 격리 방식이 SUBNET 인데 대상이 없으면 거부합니다.
+        //   "무엇을 막을 것인가" 없이 방화벽을 격리하면 전체 차단이 되어
+        //   서비스가 마비됩니다. (예전에는 방화벽 격리를 아예 거부했지만,
+        //   이제는 대상을 지정하면 특정 연결만 막습니다)
+        if (strategy.mode() == QuarantineMethod.Mode.UNSUPPORTED) {
+            final String why = strategy.exclusionReason() == null
+                    ? "이 장치는 격리 대상이 아닙니다." : strategy.exclusionReason();
+            log.warn("rejected isolation of {} ({}) — not isolatable", display, deviceType);
+            return excludedResponse(display, projectKey, deviceType, why);
+        }
+        if (strategy.mode() == QuarantineMethod.Mode.SUBNET && !context.hasSubnet()) {
+            log.warn("rejected subnet-scoped isolation of {} — target_cidr missing", display);
+            return excludedResponse(display, projectKey, deviceType,
+                    strategy.exclusionReason() == null
+                            ? "이 장치는 특정 서브넷만 격리할 수 있습니다. target_cidr 을 지정하세요."
+                            : strategy.exclusionReason());
         }
 
-        final Optional<QuarantineState> active = repository.findByAgentIdAndReleasedAtIsNull(agentId);
+        final Optional<QuarantineState> active =
+                findActive(effectiveAgentId, effectiveNodeId);
         final boolean retry = active.isPresent();
 
         final QuarantineState state;
@@ -180,55 +318,112 @@ public class QuarantineService {
             if (reason != null && !reason.isBlank()) {
                 state.setReason(reason);
             }
-            log.info("agent {} already quarantined; re-sending command", agentId);
+            log.info("agent {} already quarantined; re-sending command", display);
         } else {
             final QuarantineState created = new QuarantineState();
-            created.setAgentId(agentId);
+            created.setAgentId(effectiveAgentId);
+            created.setNodeId(effectiveNodeId);
             created.setProjectKey(projectKey);
             created.setReason(reason);
             created.setRequestedBy(operator);
             created.setQuarantinedAt(new Date());
             created.setCommandDelivered(false);
+            created.setScope(strategy.mode() == QuarantineMethod.Mode.SUBNET
+                    ? QuarantineState.Scope.CONNECTION : QuarantineState.Scope.NODE);
+            created.setTargetCidr(context.hasSubnet() ? targetCidr : null);
             state = repository.save(created);
-            log.warn("quarantining agent={} project={} by={} reason={}",
-                    agentId, projectKey, operator, reason);
+            log.warn("quarantining {} type={} scope={} target={} project={} by={} reason={}",
+                    display, deviceType, created.getScope(), created.getTargetCidr(),
+                    projectKey, operator, reason);
         }
 
         // DB 를 먼저 남긴 뒤에 명령을 보냅니다. (위 "순서가 중요하다" 참고)
-        final boolean delivered = sendCommand(agentId, ACTION_QUARANTINE, projectKey, state.getReason());
+        // ⚠️ 방식에 따라 전달 경로가 다릅니다.
+        //   - DEVICE : Agent 에게 인터페이스를 내리라고 명령을 보냅니다.
+        //   - SUBNET : Agent 에게 보내지 <b>않습니다.</b> 방화벽에 인터페이스
+        //     down 을 지시하면 트렁크에 붙은 모든 VLAN 이 함께 죽어, 방화벽을
+        //     노드 격리하지 않는 이유 자체가 무너집니다. 대신 서버가 정책
+        //     푸시({@code quarantineOverride})로 <b>대상 서브넷만</b> 차단하는
+        //     규칙을 내려보냅니다.
+        final boolean deviceScoped = strategy.mode() == QuarantineMethod.Mode.DEVICE;
+        final boolean delivered = deviceScoped && context.hasAgent()
+                && sendCommand(effectiveAgentId, ACTION_QUARANTINE, projectKey, state.getReason(),
+                        strategy.mode(), state.getTargetCidr());
         if (delivered != state.isCommandDelivered()) {
             state.setCommandDelivered(delivered);
             repository.save(state);
         }
+
+        final List<String> warnings = buildWarnings(strategy, context);
+        final String riskNote = warnings.isEmpty() ? "" : " ⚠️ " + String.join(" ", warnings);
 
         // 격리는 보안 사건입니다. 이력과 알림 <b>양쪽</b>에 남깁니다.
         // 이력은 "무엇이 바뀌었나"(감사), 알림은 "지금 조치가 필요하다"(경고)입니다.
         complianceService.recordQuietly(
                 "Agent",
                 projectKey,
-                agentId,
+                display,
                 retry ? "QuarantineRetry" : "Quarantine",
-                "Agent " + agentId + " 격리"
+                "Agent " + display + " 격리"
                         + (state.getReason() == null ? "" : " — " + state.getReason())
-                        + (delivered ? " (명령 전달됨)" : " (⚠️ 명령 미전달 — 장치 미연결)"),
+                        + (delivered ? " (명령 전달됨)" : " (⚠️ 명령 미전달 — 장치 미연결)")
+                        + (state.getTargetCidr() == null ? "" : " [대상 " + state.getTargetCidr() + "]"),
                 operator,
-                "{\"agent_id\":\"" + agentId + "\",\"delivered\":" + delivered + "}");
+                "{\"agent_id\":\"" + display + "\",\"delivered\":" + delivered
+                        + ",\"scope\":\"" + state.getScope() + "\"}");
 
         notificationService.notifyQuietly(
                 "SECURITY",
                 delivered ? "critical" : "warning",
-                "Agent 격리: " + agentId,
-                delivered
-                        ? "위반 장치 " + agentId + " 를 격리했습니다. 해당 장치의 트래픽이 차단됩니다."
-                        : "위반 장치 " + agentId + " 를 격리하려 했으나 명령이 전달되지 않았습니다. "
-                                + "(장치 미연결) 재접속 시 차단 정책이 적용됩니다.",
+                "Agent 격리: " + display,
+                quarantineMessage(delivered, display, state) + riskNote,
                 projectKey,
-                agentId,
+                effectiveAgentId,
                 "quarantine",
                 "/agent",
-                "quarantine:" + agentId);
+                "quarantine:" + display);
 
-        return toResponse(state, delivered, retry);
+        return withWarnings(toResponse(state, delivered, retry), warnings);
+    }
+
+    /**
+     * 하위 호환 격리 경로입니다. (agent_id 만으로 격리)
+     *
+     * <p>기존 호출부/테스트를 위해 남깁니다. 새 코드는
+     * {@link #isolate(String, Integer, String, String, String, String)} 를
+     * 쓰세요.
+     *
+     * @param agentId     격리할 Agent 식별자
+     * @param projectKey  프로젝트 키
+     * @param reason      격리 사유
+     * @param requestedBy 요청 주체
+     * @return 격리 결과
+     */
+    @Transactional
+    public Map<String, Object> isolate(String agentId,
+                                       String projectKey,
+                                       String reason,
+                                       String requestedBy) {
+        return isolate(agentId, null, projectKey, reason, requestedBy, null);
+    }
+
+    /**
+     * 노드 번호만으로 격리합니다. (Agent 없는 장비)
+     *
+     * @param nodeId      노드 번호 ({@code configuration.node_id})
+     * @param projectKey  프로젝트 키
+     * @param reason      격리 사유
+     * @param requestedBy 요청 주체
+     * @param targetCidr  연결 단위 격리 대상 CIDR (방화벽용)
+     * @return 격리 결과
+     */
+    @Transactional
+    public Map<String, Object> isolateByNode(Integer nodeId,
+                                             String projectKey,
+                                             String reason,
+                                             String requestedBy,
+                                             String targetCidr) {
+        return isolate(null, nodeId, projectKey, reason, requestedBy, targetCidr);
     }
 
     /**
@@ -243,12 +438,42 @@ public class QuarantineService {
      */
     @Transactional
     public Map<String, Object> release(String agentId, String releasedBy) {
+        return release(agentId, null, releasedBy);
+    }
+
+    /**
+     * 격리를 해제합니다. (Agent 식별자 또는 노드 번호)
+     *
+     * <p>격리 중이 아니면 <b>아무것도 하지 않고</b> 그 사실을 알려줍니다.
+     * "해제했습니다" 라고 거짓 응답하면 운영자는 장치가 풀렸다고 믿습니다.
+     *
+     * <p>⚠️ DB Design v1.5 — Agent 없는 장비(OPNsense)는 {@code nodeId} 로
+     * 해제합니다.
+     *
+     * @param agentId    해제할 Agent 식별자 (없으면 null)
+     * @param nodeId     해제할 노드 번호 (없으면 null)
+     * @param releasedBy 요청 주체
+     * @return 해제 결과
+     */
+    @Transactional
+    public Map<String, Object> release(String agentId, Integer nodeId, String releasedBy) {
         final String operator = releasedBy == null || releasedBy.isBlank() ? "operator" : releasedBy;
 
-        final Optional<QuarantineState> active = repository.findByAgentIdAndReleasedAtIsNull(agentId);
+        final Configuration node = resolveNode(agentId, nodeId);
+        final String effectiveAgentId = firstNonBlank(agentId,
+                node == null ? null : node.getAgentId());
+        // ⚠️ 삼항 연산자에 int 와 Integer 가 섞이면 <b>전체가 int 로 강제</b>되어
+        //   nodeId 가 null 일 때 NPE 가 납니다. 반드시 Integer 로 감싸세요.
+        final Integer effectiveNodeId = node != null
+                ? node.getNodeId() : nodeId;
+        final String display = firstNonBlank(effectiveAgentId,
+                effectiveNodeId == null ? null : "node-" + effectiveNodeId, agentId);
+
+        final Optional<QuarantineState> active = findActive(effectiveAgentId, effectiveNodeId);
         if (active.isEmpty()) {
             final Map<String, Object> body = new LinkedHashMap<>();
-            body.put("agent_id", agentId);
+            body.put("agent_id", effectiveAgentId);
+            body.put("node_id", effectiveNodeId);
             body.put("released", false);
             body.put("reason", "agent is not quarantined");
             return body;
@@ -260,33 +485,39 @@ public class QuarantineService {
         repository.save(state);
 
         // 해제 명령을 보내 장치가 인터페이스를 다시 올리게 합니다.
-        final boolean delivered = sendCommand(agentId, ACTION_RELEASE, state.getProjectKey(), null);
+        // ⚠️ 연결 단위 격리(방화벽)는 Agent 에게 아무 명령도 보내지 않았으므로
+        //   해제도 보내지 않습니다. 규칙을 되돌리는 것은 정책 재생성입니다.
+        final boolean deviceScoped = state.getScope() != QuarantineState.Scope.CONNECTION;
+        final boolean delivered = deviceScoped
+                && effectiveAgentId != null && !effectiveAgentId.isBlank()
+                && sendCommand(effectiveAgentId, ACTION_RELEASE, state.getProjectKey(), null,
+                        QuarantineMethod.Mode.DEVICE, null);
 
-        log.info("released agent={} by={} delivered={}", agentId, operator, delivered);
+        log.info("released {} by={} delivered={}", display, operator, delivered);
 
         complianceService.recordQuietly(
                 "Agent",
                 state.getProjectKey(),
-                agentId,
+                display,
                 "QuarantineRelease",
-                "Agent " + agentId + " 격리 해제"
+                "Agent " + display + " 격리 해제"
                         + (delivered ? " (명령 전달됨)" : " (⚠️ 명령 미전달 — 장치 미연결)"),
                 operator,
-                "{\"agent_id\":\"" + agentId + "\",\"delivered\":" + delivered + "}");
+                "{\"agent_id\":\"" + display + "\",\"delivered\":" + delivered + "}");
 
         notificationService.notifyQuietly(
                 "SECURITY",
                 delivered ? "info" : "warning",
-                "Agent 격리 해제: " + agentId,
+                "Agent 격리 해제: " + display,
                 delivered
-                        ? "장치 " + agentId + " 의 격리를 해제했습니다. 정상 정책이 다시 적용됩니다."
-                        : "장치 " + agentId + " 의 격리를 해제했으나 명령이 전달되지 않았습니다. "
+                        ? "장치 " + display + " 의 격리를 해제했습니다. 정상 정책이 다시 적용됩니다."
+                        : "장치 " + display + " 의 격리를 해제했으나 명령이 전달되지 않았습니다. "
                                 + "장치가 연결되면 정상 정책이 적용됩니다.",
                 state.getProjectKey(),
-                agentId,
+                effectiveAgentId,
                 "quarantine",
                 "/agent",
-                "quarantine-release:" + agentId);
+                "quarantine-release:" + display);
 
         // 해제는 같은 키로 알림을 합치지 않습니다. 격리/해제가 반복되면
         // 합쳐져서 "지금 격리 중인가" 를 알 수 없게 되기 때문입니다.
@@ -356,17 +587,26 @@ public class QuarantineService {
         body.put("applied", false);
         body.put("rejected", true);
         body.put("reason", why);
-        body.put("hint", "프로젝트 규칙에서 해당 연결만 차단하세요.");
+        // ⚠️ 방화벽은 이제 "연결만 차단" 으로 격리할 수 있으므로, 안내를
+        //   바꿉니다. (예전에는 "격리 불가" 였습니다)
+        body.put("hint", type == DeviceType.FIREWALL
+                ? "target_cidr 에 격리할 서브넷을 지정하면 그 연결만 차단합니다."
+                : "프로젝트 규칙에서 해당 연결만 차단하세요.");
         return withReleasedFlag(body, false);
     }
 
     /**
-     * Agent 의 장치 유형을 판별합니다.
+     * 장치 유형을 판별합니다. (노드 정본이 있으면 그 유형 우선)
      *
-     * @param agentId Agent 식별자
+     * @param agentId Agent 식별자 (없으면 null)
+     * @param node    노드 정본 (없으면 null)
      * @return 장치 유형 (절대 null 이 아님)
      */
-    private DeviceType resolveDeviceType(String agentId) {
+    private DeviceType resolveDeviceType(String agentId, Configuration node) {
+        // 노드 정본에 유형이 있으면 그것이 가장 신뢰할 수 있습니다.
+        if (node != null && node.getDeviceType() != null) {
+            return node.getDeviceType();
+        }
         if (deviceTypeResolver != null) {
             return deviceTypeResolver.resolve(agentId, null);
         }
@@ -376,18 +616,207 @@ public class QuarantineService {
     }
 
     /**
+     * 격리 전략 선택기를 돌려줍니다. (없으면 기본 집합 생성)
+     *
+     * @return 선택기 (절대 null 이 아님)
+     */
+    private QuarantineMethods strategies() {
+        if (strategies == null) {
+            strategies = DEFAULT_STRATEGIES;
+        }
+        return strategies;
+    }
+
+    /**
+     * 전략이 알려준 경고를 응답에 실어 보냅니다.
+     *
+     * @param body     응답 본문
+     * @param warnings 경고 문장 목록
+     * @return 경고가 포함된 본문
+     */
+    private static Map<String, Object> withWarnings(Map<String, Object> body, List<String> warnings) {
+        if (warnings != null && !warnings.isEmpty()) {
+            body.put("warnings", warnings);
+        }
+        return body;
+    }
+
+    /**
+     * 격리 알림 본문을 만듭니다.
+     *
+     * @param delivered 명령 전달 여부
+     * @param display   표시용 이름
+     * @param state     격리 상태
+     * @return 사람이 읽는 문장
+     */
+    private static String quarantineMessage(boolean delivered, String display, QuarantineState state) {
+        if (state.getScope() == QuarantineState.Scope.CONNECTION) {
+            return "위반 장치 " + display + " 의 연결 "
+                    + (state.getTargetCidr() == null ? "(대상 미지정)" : state.getTargetCidr())
+                    + " 을(를) 차단했습니다. (방화벽 규칙 — 인터페이스는 유지)";
+        }
+        return delivered
+                ? "위반 장치 " + display + " 를 격리했습니다. 해당 장치의 트래픽이 차단됩니다."
+                : "위반 장치 " + display + " 를 격리하려 했으나 명령이 전달되지 않았습니다. "
+                        + "(장치 미연결) 재접속 시 차단 정책이 적용됩니다.";
+    }
+
+    /**
+     * 제어평면(관리망) 대역을 해석합니다. (프로젝트 지정 우선)
+     *
+     * <h2>⚠️ 우선순위</h2>
+     * <ol>
+     *   <li>프로젝트가 지정한 {@code management_prefix}</li>
+     *   <li>전역 기본값 ({@code sonar.site.management-prefix})</li>
+     * </ol>
+     *
+     * <p>이 대역은 격리에서 <b>절대 차단 대상이 되어서는 안 됩니다.</b>
+     * 해제 명령이 도달하지 못하면 장치를 되살릴 수 없습니다.
+     *
+     * @param projectKey 프로젝트 키 (없으면 null)
+     * @return 실제 사용할 대역 (없으면 빈 문자열)
+     */
+    private String resolveManagementPrefix(String projectKey) {
+        String projectPrefix = null;
+        // 프로젝트 조회는 저장소가 없으면(단위 테스트) 건너뜁니다.
+        if (projectKey != null && !projectKey.isBlank() && projectRepository != null) {
+            try {
+                projectPrefix = projectRepository.findByProjectKey(projectKey)
+                        .map(org.sonar.sonarvalidator_backend.Model.entity.Project::getManagementPrefix)
+                        .orElse(null);
+            } catch (RuntimeException ex) {
+                // 프로젝트 조회 실패가 격리를 막으면 안 됩니다. 전역 값으로 폴백합니다.
+                log.warn("project lookup failed for management prefix: {}", ex.getMessage());
+            }
+        }
+        return siteProperties.managementPrefixFor(projectPrefix);
+    }
+
+    /**
+     * 격리 전략을 찾습니다. (Agent 식별자 또는 노드 번호)
+     *
+     * @param agentId Agent 식별자 (없으면 null)
+     * @param nodeId  노드 번호 (없으면 null)
+     * @return 노드 정본 (없으면 null)
+     */
+    private Configuration resolveNode(String agentId, Integer nodeId) {
+        if (nodeRegistry == null) {
+            return null;
+        }
+        try {
+            if (agentId != null && !agentId.isBlank()) {
+                final Configuration byAgent = nodeRegistry.find(agentId);
+                if (byAgent != null) {
+                    return byAgent;
+                }
+            }
+            // 노드 번호만 온 경우 — 노드 등록 서비스가 번호 조회를 제공하지
+            // 않으므로 여기서는 문자열 식별자 경로만 씁니다.
+            return null;
+        } catch (RuntimeException ex) {
+            log.warn("node lookup failed for agent={} node={}: {}", agentId, nodeId, ex.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 현재 격리 중인 상태를 찾습니다. (Agent 식별자 또는 노드 번호)
+     *
+     * @param agentId Agent 식별자 (없으면 null)
+     * @param nodeId  노드 번호 (없으면 null)
+     * @return 격리 상태 (없으면 비어 있음)
+     */
+    private Optional<QuarantineState> findActive(String agentId, Integer nodeId) {
+        if (agentId != null && !agentId.isBlank()) {
+            final Optional<QuarantineState> byAgent =
+                    repository.findByAgentIdAndReleasedAtIsNull(agentId);
+            if (byAgent.isPresent()) {
+                return byAgent;
+            }
+        }
+        if (nodeId != null) {
+            return repository.findByNodeIdAndReleasedAtIsNull(nodeId);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * 첫 번째로 비어 있지 않은 문자열을 돌려줍니다.
+     *
+     * @param values 후보 값들
+     * @return 첫 유효 값 (모두 비면 null)
+     */
+    private static String firstNonBlank(String... values) {
+        for (final String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 격리 전략 선택기가 주입되지 않았을 때 쓰는 기본 집합입니다.
+     *
+     * <p>전략 구현이 스프링 빈이지만 상태가 없으므로 인스턴스를 재사용해도
+     * 안전합니다. 매 호출마다 만들면 낭비입니다.
+     */
+    private static final QuarantineMethods DEFAULT_STRATEGIES = new QuarantineMethods(
+            List.of(
+                    new org.sonar.sonarvalidator_backend.Service.quarantine.vendor.arista.veos.SwitchQuarantine(),
+                    new org.sonar.sonarvalidator_backend.Service.quarantine.vendor.cisco.iosxe.RouterQuarantine(),
+                    new org.sonar.sonarvalidator_backend.Service.quarantine.vendor.canonical.ubuntu.VmQuarantine(),
+                    new org.sonar.sonarvalidator_backend.Service.quarantine.vendor.linux.nftables.FirewallQuarantine()));
+
+    /**
+     * 전략이 알려준 경고 문장을 만듭니다.
+     *
+     * @param strategy 격리 전략
+     * @param context  격리 대상 정보
+     * @return 경고 문장 목록 (없으면 빈 목록)
+     */
+    private static List<String> buildWarnings(QuarantineMethod strategy, QuarantineContext context) {
+        try {
+            return QuarantineContext.nonNull(strategy.warnings(context));
+        } catch (RuntimeException ex) {
+            // 경고 생성 실패가 격리 자체를 막으면 안 됩니다.
+            return List.of();
+        }
+    }
+
+    /**
      * Agent 에게 격리/해제 명령을 보냅니다.
+     *
+     * <h2>⚠️ 방식에 따라 payload 가 다르다</h2>
+     * <p>{@link QuarantineMethod.Mode#DEVICE} 는 장치가 인터페이스를 내리게
+     * 하고, {@link QuarantineMethod.Mode#SUBNET} 은 장치가 아니라
+     * <b>서버가 규칙을 넣는</b> 방식이라 Agent 에게 인터페이스 조작을
+     * 지시하지 않습니다. 그래서 {@code scope} 와 {@code target_cidr} 을
+     * payload 에 실어 Agent 가 다르게 해석하게 합니다.
      *
      * @param agentId    대상 Agent
      * @param action     {@code "quarantine"} 또는 {@code "release"}
      * @param projectKey 프로젝트 키 (Agent 가 로그에 남김)
      * @param reason     사유 (격리일 때만)
+     * @param mode       격리 방식
+     * @param targetCidr 연결 단위 격리 대상 CIDR (없으면 null)
      * @return 전달 성공 여부 (미연결이면 {@code false})
      */
-    private boolean sendCommand(String agentId, String action, String projectKey, String reason) {
+    private boolean sendCommand(String agentId, String action, String projectKey, String reason,
+                                QuarantineMethod.Mode mode, String targetCidr) {
+        if (agentId == null || agentId.isBlank()) {
+            // Agent 가 없는 장비(REST 전용)는 명령을 보낼 대상이 없습니다.
+            return false;
+        }
         final ObjectNode payload = JSON.objectNode();
         payload.put("action", action);
         payload.put("agent_id", agentId);
+        // ⚠️ Agent 가 방식에 따라 다르게 동작하도록 scope 를 실어 보냅니다.
+        //   SUBNET 은 "인터페이스를 내리지 말고 규칙만 반영" 이라는 뜻입니다.
+        payload.put("scope", mode == QuarantineMethod.Mode.SUBNET ? "connection" : "node");
+        if (targetCidr != null && !targetCidr.isBlank()) {
+            payload.put("target_cidr", targetCidr);
+        }
         if (projectKey != null) {
             payload.put("project_id", projectKey);
         }
@@ -428,6 +857,62 @@ public class QuarantineService {
     }
 
     /**
+     * 특정 <b>노드</b>가 현재 격리 중인지 확인합니다.
+     *
+     * <p>Agent 없는 장비(OPNsense)의 격리 여부를 판단할 때 씁니다.
+     * 먼저 Agent 식별자로 보고, 없으면 노드 번호로 봅니다.
+     *
+     * @param agentId Agent 식별자 (없으면 null)
+     * @param nodeId  노드 번호 (없으면 null)
+     * @return 격리 중이면 {@code true}
+     */
+    @Transactional(readOnly = true)
+    public boolean isQuarantined(String agentId, Integer nodeId) {
+        if (isQuarantined(agentId)) {
+            return true;
+        }
+        return nodeId != null && repository.findByNodeIdAndReleasedAtIsNull(nodeId).isPresent();
+    }
+
+    /**
+     * 현재 격리 중인 상태 한 건을 돌려줍니다. (없으면 null)
+     *
+     * <h2>⚠️ 왜 상태 객체가 필요한가</h2>
+     * <p>정책 오버라이드(quarantineOverride)는 격리 <b>여부</b>만으로는 부족합니다.
+     * 격리 방식({@code scope})에 따라 정책을 다르게 만들어야 합니다 —
+     * NODE 는 전부 차단, CONNECTION(방화벽)은 대상 서브넷만 차단입니다.
+     * 그래서 여기서 대상 CIDR 까지 담은 상태를 돌려줍니다.
+     *
+     * @param agentId Agent 식별자 (없으면 null)
+     * @param nodeId  노드 번호 (없으면 null)
+     * @return 현재 격리 상태 (없으면 null)
+     */
+    @Transactional(readOnly = true)
+    public QuarantineState activeState(String agentId, Integer nodeId) {
+        return findActive(agentId, nodeId).orElse(null);
+    }
+
+    /**
+     * 현재 격리 중인 <b>노드 번호</b> 집합입니다.
+     *
+     * <p>Agent 없는 장비의 격리를 화면/토폴로지가 표시할 때 씁니다.
+     *
+     * @return 격리 중인 노드 번호 집합
+     */
+    @Transactional(readOnly = true)
+    public Set<Integer> quarantinedNodeIds() {
+        final List<QuarantineState> rows = repository.findByReleasedAtIsNullOrderByQuarantinedAtDesc(
+                PageRequest.of(0, HISTORY_LIMIT));
+        final Set<Integer> ids = new LinkedHashSet<>();
+        for (final QuarantineState row : rows) {
+            if (row.getNodeId() != null) {
+                ids.add(row.getNodeId());
+            }
+        }
+        return ids;
+    }
+
+    /**
      * 현재 격리 중인 Agent 식별자 집합입니다.
      *
      * <p>정책 푸시에서 대상 제외에 씁니다. 매 서브넷마다 DB 를 치지 않도록
@@ -441,7 +926,12 @@ public class QuarantineService {
                 PageRequest.of(0, HISTORY_LIMIT));
         final Set<String> ids = new LinkedHashSet<>();
         for (final QuarantineState row : rows) {
-            ids.add(row.getAgentId());
+            // ⚠️ Agent 없는 장비(REST 전용)는 agent_id 가 null 입니다.
+            //   그대로 넣으면 집합에 null 이 섞여 호출부의 contains() 가
+            //   예상 밖으로 true 를 돌려줄 수 있습니다.
+            if (row.getAgentId() != null && !row.getAgentId().isBlank()) {
+                ids.add(row.getAgentId());
+            }
         }
         return ids;
     }
@@ -495,15 +985,25 @@ public class QuarantineService {
         final Map<String, Object> body = toSummary(state);
         body.put("delivered", delivered);
         body.put("retry", retry);
+        // ⚠️ 연결 단위 격리(방화벽)는 Agent 명령이 아니라 서버 규칙이므로,
+        //   delivered=false 를 "실패" 로 읽으면 안 됩니다. 그래서 방식에 맞는
+        //   안내 문구를 씁니다.
         if (!delivered) {
-            // 운영자가 "왜 반영이 안 되지" 를 묻지 않도록 이유를 문장으로 남깁니다.
-            body.put("warning", "장치가 연결되어 있지 않아 명령이 전달되지 않았습니다. "
-                    + "장치가 재접속하면 차단 정책이 자동 적용됩니다.");
+            if (state.getScope() == QuarantineState.Scope.CONNECTION) {
+                body.put("warning", "방화벽 연결 격리입니다. 규칙은 서버가 정책 푸시로 "
+                        + "내려보내며, 장치가 연결되면 적용됩니다.");
+            } else {
+                // 운영자가 "왜 반영이 안 되지" 를 묻지 않도록 이유를 문장으로 남깁니다.
+                body.put("warning", "장치가 연결되어 있지 않아 명령이 전달되지 않았습니다. "
+                        + "장치가 재접속하면 차단 정책이 자동 적용됩니다.");
+            }
         }
 
         // Agent 가 ack 로 알려온 실제 적용 결과입니다.
         // (null 이면 아직 ack 가 오지 않았거나 구버전 Agent 입니다.)
-        final Map<String, Object> ack = lastAck.get(state.getAgentId());
+        final String ackKey = firstNonBlank(state.getAgentId(),
+                state.getNodeId() == null ? null : "node-" + state.getNodeId());
+        final Map<String, Object> ack = ackKey == null ? null : lastAck.get(ackKey);
         body.put("applied", ack == null ? null : ack.get("ok"));
         if (ack != null) {
             body.put("applied_detail", ack.get("detail"));
@@ -511,7 +1011,8 @@ public class QuarantineService {
             body.put("blocked", ack.get("blocked"));
             body.put("preserved", ack.get("preserved"));
         }
-        body.put("connected", registry.connectedAgentIds().contains(state.getAgentId()));
+        body.put("connected", state.getAgentId() != null
+                && registry.connectedAgentIds().contains(state.getAgentId()));
         return body;
     }
 
@@ -524,6 +1025,9 @@ public class QuarantineService {
     private Map<String, Object> toSummary(QuarantineState row) {
         final Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("agent_id", row.getAgentId());
+        entry.put("node_id", row.getNodeId());
+        entry.put("scope", row.getScope() == null ? null : row.getScope().name());
+        entry.put("target_cidr", row.getTargetCidr());
         entry.put("project_id", row.getProjectKey());
         entry.put("reason", row.getReason());
         entry.put("requested_by", row.getRequestedBy());

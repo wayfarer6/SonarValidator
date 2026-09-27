@@ -233,11 +233,16 @@ std::vector<std::string> DiscoverAllInterfaces(ManagementService& mgmt)
 
 // 이 인터페이스가 서버로 나가는 길인가?
 //
-// 두 가지를 봅니다.
-//   1) 주소가 관리망 대역(kManagementPrefix) 안에 있는가
+// 세 가지를 봅니다.
+//   1) 주소가 관리망 대역(설정) 안에 있는가
 //   2) 주소가 서버와 같은 대역인가 (대역이 문서와 달라도 놓치지 않게)
 //
 // ⚠️ 여기서 놓치면 해제 경로가 사라집니다. 그래서 판정을 넉넉하게 합니다.
+//
+// ⚠️ 관리 대역은 더 이상 상수가 아니라 설정입니다. 랩/프로젝트마다 다를 수
+//    있고 서버가 프로젝트별로 지정할 수 있기 때문입니다. 설정이 비어 있으면
+//    안전한 기본값(kDefaultManagementPrefix)으로 폴백합니다.
+//    대역은 쉼표로 여러 개를 지정할 수 있습니다(관리망 + 백업망 등).
 bool IsManagementPath(const InterfaceAddress& entry, const ProberConfig& config)
 {
     const std::string server = config.GetServerIpv4();
@@ -246,14 +251,53 @@ bool IsManagementPath(const InterfaceAddress& entry, const ProberConfig& config)
         return false;
     }
 
-    // 관리망 대역에 속하면 관리 경로입니다. (/24 고정)
-    const std::string mgmt_prefix(kManagementPrefix);
-    const std::size_t slash = mgmt_prefix.find('/');
-    if (slash != std::string::npos &&
-        SameSubnet(entry.address, mgmt_prefix.substr(0, slash),
-                   std::stoi(mgmt_prefix.substr(slash + 1))))
+    // 관리 대역 목록을 순회합니다. 하나라도 포함되면 관리 경로입니다.
+    const std::string configured = config.GetManagementPrefixes();
+    const std::string prefixes =
+        configured.empty() ? std::string(kDefaultManagementPrefix) : configured;
+
+    std::size_t start = 0;
+    while (start <= prefixes.size())
     {
-        return true;
+        const std::size_t comma = prefixes.find(',', start);
+        std::string token = prefixes.substr(
+            start, comma == std::string::npos ? std::string::npos : comma - start);
+
+        // 앞뒤 공백 제거 — "a, b" 처럼 써도 동작하게 합니다.
+        while (!token.empty() && (token.front() == ' ' || token.front() == '\t'))
+        {
+            token.erase(token.begin());
+        }
+        while (!token.empty() && (token.back() == ' ' || token.back() == '\t'))
+        {
+            token.pop_back();
+        }
+
+        if (!token.empty())
+        {
+            const std::size_t slash = token.find('/');
+            if (slash != std::string::npos)
+            {
+                try
+                {
+                    const int prefix_len = std::stoi(token.substr(slash + 1));
+                    if (SameSubnet(entry.address, token.substr(0, slash), prefix_len))
+                    {
+                        return true;
+                    }
+                }
+                catch (const std::exception&)
+                {
+                    // 형식 오류는 무시하고 다음 대역을 봅니다.
+                }
+            }
+        }
+
+        if (comma == std::string::npos)
+        {
+            break;
+        }
+        start = comma + 1;
     }
 
     // 서버와 같은 대역이면 그 인터페이스로 서버에 도달합니다.
@@ -450,6 +494,42 @@ bool HandleCommand(const ProberConfig& config,
 
     std::cout << "[QUARANTINE] 명령 수신: action=" << action
               << " reason=" << policy_json::AsString(payload, "reason") << '\n';
+
+    // ⚠️ scope == "connection" 이면 인터페이스를 절대 건드리지 않습니다.
+    //
+    // DB Design v1.5 에서 격리는 두 방식으로 나뉩니다.
+    //   - 노드 격리   : Agent 가 관리 경로를 뺀 인터페이스를 내림
+    //   - 연결 단위   : 방화벽의 특정 서브넷만 차단 — **서버가 규칙으로** 처리
+    //
+    // 방화벽은 트렁크 하나로 여러 VLAN 을 동시에 들고 있어, 여기서 인터페이스를
+    // 내리면 격리하려던 대역만이 아니라 무관한 존 전체가 끊깁니다.
+    // 서버(QuarantineService)는 SUBNET 방식에 명령을 보내지 않지만, 만약
+    // 구버전 서버나 손으로 만든 봉투가 인터페이스 down 을 지시하면 여기서
+    // **거부**해야 그 위험이 실현되지 않습니다.
+    const std::string scope = policy_json::AsString(payload, "scope");
+    if (scope == envelope::kScopeConnection)
+    {
+        Outcome skipped;
+        skipped.action = action;
+        skipped.ok = true;
+        skipped.detail = "연결 단위 격리(scope=connection) — 인터페이스를 내리지 않습니다. "
+                         "서버가 대상 서브넷만 차단하는 규칙을 내려보냅니다.";
+        std::cout << "[QUARANTINE] " << skipped.detail << '\n';
+
+        std::string correlation_skip = envelope::CorrelationId(message);
+        if (correlation_skip.empty())
+        {
+            correlation_skip = envelope::NextCorrelationId();
+        }
+        const std::string agent_skip =
+            config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
+        mgmt.SendEnvelope(
+            envelope::Make(envelope::kAck,
+                           agent_skip,
+                           correlation_skip,
+                           ToPayload(skipped)));
+        return true;
+    }
 
     const Outcome outcome = (action == kIsolate) ? Isolate(config, mgmt)
                                                  : Release(config, mgmt);

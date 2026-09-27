@@ -30,7 +30,7 @@ import org.sonar.sonarvalidator_backend.Model.DeviceType;
  * 없으면 재시도만 반복하며 <b>텔레메트리도 멈춥니다.</b> 그래서 적용할 수 없는
  * 경우 {@code null} 을 돌려주고, 호출자가 폴백을 씁니다.
  */
-public interface DevicePolicyStrategy {
+public interface DevicePolicy {
 
     /**
      * 이 전략이 담당하는 장치 유형인지 확인합니다.

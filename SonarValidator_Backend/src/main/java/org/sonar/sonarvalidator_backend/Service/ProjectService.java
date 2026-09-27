@@ -129,6 +129,9 @@ public class ProjectService {
         project.setCategory(request.category());
         project.setDescription(request.description());
         project.setStatus(defaultIfBlank(request.status(), "Planning"));
+        // ⚠️ 제어평면 대역은 프로젝트마다 다를 수 있습니다 (요구사항).
+        //   지정하지 않으면 전역 기본값(sonar.site.management-prefix)을 씁니다.
+        project.setManagementPrefix(blankToNull(request.managementPrefix()));
 
         final java.util.Date now = new java.util.Date();
         project.setCreatedAt(now);
@@ -179,6 +182,11 @@ public class ProjectService {
         }
         if (request.status() != null && !request.status().isBlank()) {
             project.setStatus(request.status().trim());
+        }
+        // 제어평면 대역은 "변경 없음(null)" 과 "지우기(빈 값)" 을 구분합니다.
+        // ⚠️ null 이면 유지, 빈 문자열이면 전역 기본값으로 되돌립니다.
+        if (request.managementPrefix() != null) {
+            project.setManagementPrefix(blankToNull(request.managementPrefix()));
         }
 
         final List<PolicySubnet> subnets = request.subnets() == null
@@ -476,6 +484,20 @@ public class ProjectService {
     /** null/공백이면 대체값을 돌려줍니다. */
     private String defaultIfBlank(String value, String fallback) {
         return (value == null || value.isBlank()) ? fallback : value.trim();
+    }
+
+    /**
+     * null/공백이면 {@code null} 을 돌려줍니다. (선택 필드용)
+     *
+     * <p>제어평면 대역처럼 "지정하지 않으면 전역 기본값을 쓴다" 는 의미를
+     * 표현할 때 씁니다. 빈 문자열을 그대로 저장하면 설정 해석기가
+     * "지정했지만 빈 값" 으로 보아 전역 폴백이 흐려집니다.
+     *
+     * @param value 원본 값
+     * @return trim 한 값 (null/공백이면 null)
+     */
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value.trim();
     }
 
     /** 프로젝트를 찾지 못했을 때 던지는 예외입니다. (404 로 매핑) */

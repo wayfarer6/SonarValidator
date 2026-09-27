@@ -89,7 +89,7 @@ public class ProjectController {
     @PostMapping
     public Map<String, Object> create(@RequestBody(required = false) ProjectDto.CreateRequest body) {
         final ProjectDto.CreateRequest request = body == null
-                ? new ProjectDto.CreateRequest(null, null, null, null, null)
+                ? new ProjectDto.CreateRequest(null, null, null, null, null, null)
                 : body;
         return ProjectMapper.toResponse(projectService.create(request));
     }
@@ -105,7 +105,7 @@ public class ProjectController {
     public Map<String, Object> update(@PathVariable String projectId,
                                       @RequestBody ProjectDto.UpdateRequest body) {
         final ProjectDto.UpdateRequest request = body == null
-                ? new ProjectDto.UpdateRequest(null, null, null, null, null, null)
+                ? new ProjectDto.UpdateRequest(null, null, null, null, null, null, null)
                 : body;
         return ProjectMapper.toResponse(projectService.update(projectId, request));
     }

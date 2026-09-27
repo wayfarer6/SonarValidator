@@ -99,6 +99,14 @@ class QuarantineServiceTest {
                             .filter(s -> args[0] != null && args[0].equals(s.getAgentId())
                                     && s.getReleasedAt() == null)
                             .findFirst();
+                    // ⚠️ DB Design v1.5 — Agent 없는 장비는 노드 번호로 조회합니다.
+                    case "findByNodeIdAndReleasedAtIsNull" -> quarantineRows.stream()
+                            .filter(s -> args[0] != null && args[0].equals(s.getNodeId())
+                                    && s.getReleasedAt() == null)
+                            .findFirst();
+                    case "findByNodeIdOrderByQuarantinedAtDesc" -> quarantineRows.stream()
+                            .filter(s -> args[0] != null && args[0].equals(s.getNodeId()))
+                            .toList();
                     case "findByReleasedAtIsNullOrderByQuarantinedAtDesc" -> quarantineRows.stream()
                             .filter(s -> s.getReleasedAt() == null)
                             .toList();
@@ -283,22 +291,22 @@ class QuarantineServiceTest {
     }
 
     // ------------------------------------------------------------------
-    //  격리 제외 (방화벽)
+    //  방화벽 — 연결 단위 격리 (DB Design v1.5)
     // ------------------------------------------------------------------
 
     @Test
-    @DisplayName("방화벽은 격리 대상이 아니므로 명령을 보내지 않는다")
-    void firewallIsNotIsolatable() {
+    @DisplayName("방화벽을 대상 없이 격리하면 거부한다 (전체 차단 방지)")
+    void firewallWithoutTargetIsRejected() {
         connected.add("GNS3.Firewall");
 
         final Map<String, Object> result =
                 service.isolate("GNS3.Firewall", "PRJ-1", "위반", "tester");
 
-        // ⚠️ 트렁크(eth1)에 VLAN 131/132/133 이 동시에 붙어 있어, 방화벽을
-        //    격리하면 무관한 존 전체가 끊깁니다. 그래서 거부가 정답입니다.
+        // ⚠️ 방화벽은 인터페이스 단위로 격리할 수 없고(트렁크가 무관한 존까지 끊김),
+        //    대상을 지정하지 않으면 "무엇을 막을지" 알 수 없습니다.
+        //    대상 없이 전부 차단하면 서비스가 마비되므로 거부가 정답입니다.
         assertEquals(Boolean.TRUE, result.get("rejected"), "거부 표시");
         assertEquals(Boolean.FALSE, result.get("quarantined"), "격리되지 않음");
-        assertEquals(Boolean.FALSE, result.get("released"), "해제도 아님");
         assertEquals("FIREWALL", result.get("device_type"));
         assertTrue(sent.isEmpty(), "명령을 보내지 않음");
         assertTrue(quarantineRows.isEmpty(), "격리 행을 만들지 않음");
@@ -306,7 +314,7 @@ class QuarantineServiceTest {
     }
 
     @Test
-    @DisplayName("방화벽 격리 거부는 사유와 대안을 남기고 이력에 기록한다")
+    @DisplayName("방화벽 대상 없이 격리 거부는 사유와 대안을 남긴다")
     void firewallRejectionExplainsWhy() {
         final Map<String, Object> result =
                 service.isolate("DMZ-Firewall", "PRJ-1", "위반", "tester");
@@ -314,7 +322,11 @@ class QuarantineServiceTest {
         // "격리했습니다" 라고 거짓 응답하면 운영자는 뚫린 망을 방치합니다.
         final String reason = String.valueOf(result.get("reason"));
         assertTrue(reason.contains("VLAN"), "연결된 VLAN 이 끊긴다는 사유: " + reason);
-        assertNotNull(result.get("hint"), "대안 안내");
+
+        // ⚠️ DB Design v1.5 — 대안이 "프로젝트 규칙으로 직접 막으세요" 에서
+        //   "target_cidr 로 서버가 차단합니다" 로 바뀌었습니다.
+        final String hint = String.valueOf(result.get("hint"));
+        assertTrue(hint.contains("target_cidr"), "대상 지정 안내: " + hint);
 
         // 시도 자체는 감사 대상입니다. ("왜 방화벽이 격리 안 되나")
         assertEquals(1, complianceRows.size(), "이력 1건");
@@ -329,6 +341,56 @@ class QuarantineServiceTest {
         // 거부는 상태 변화가 아니므로 "지금 조치가 필요하다" 경고를 남기면
         // 운영자가 반복해서 같은 경고를 보게 됩니다.
         assertEquals(0, notificationRows.size(), "알림 없음");
+    }
+
+    @Test
+    @DisplayName("방화벽에 대상을 지정하면 그 연결만 격리된다 (인터페이스는 유지)")
+    void firewallWithTargetIsolatesConnectionOnly() {
+        connected.add("GNS3.Firewall");
+
+        final Map<String, Object> result = service.isolateByNode(
+                null, "PRJ-1", "위반", "tester", "10.0.9.0/24");
+        // agent_id 로 방화벽을 격리하되 대상을 지정하는 경로
+        final Map<String, Object> byAgent =
+                service.isolate("GNS3.Firewall", null, "PRJ-1", "위반", "tester", "10.0.9.0/24");
+
+        // ⚠️ 인터페이스를 내리라고 명령을 보내면 트렁크가 죽습니다.
+        //    연결 단위 격리는 서버가 규칙으로 처리하므로 명령이 없어야 합니다.
+        assertTrue(sent.isEmpty(), "방화벽 연결 격리는 Agent 명령을 보내지 않음");
+        assertEquals("CONNECTION", byAgent.get("scope"), "연결 단위로 기록");
+        assertEquals("10.0.9.0/24", byAgent.get("target_cidr"), "대상 대역 기록");
+        assertEquals(Boolean.TRUE, byAgent.get("active"), "격리 상태 저장");
+        assertTrue(service.isQuarantined("GNS3.Firewall"), "격리 중");
+
+        // 경고는 있어야 합니다. (방화벽 격리의 성질을 운영자가 알아야 함)
+        assertNotNull(byAgent.get("warnings"), "경고 포함");
+    }
+
+    @Test
+    @DisplayName("연결 단위 격리는 해제도 Agent 명령을 보내지 않는다")
+    void connectionScopedReleaseSendsNoCommand() {
+        connected.add("GNS3.Firewall");
+        service.isolate("GNS3.Firewall", null, "PRJ-1", "위반", "tester", "10.0.9.0/24");
+        sent.clear();
+
+        final Map<String, Object> result = service.release("GNS3.Firewall", null, "tester");
+
+        assertTrue(sent.isEmpty(), "해제도 명령 없음 (규칙 되돌리기는 정책 경로)");
+        assertEquals(Boolean.TRUE, result.get("released"), "해제 성공");
+        assertFalse(service.isQuarantined("GNS3.Firewall"), "격리 해제됨");
+    }
+
+    @Test
+    @DisplayName("노드 번호만으로도 격리할 수 있다 (Agent 없는 장비)")
+    void isolateByNodeWithoutAgent() {
+        // Agent 를 연결하지 않아도 노드 번호로 상태가 남아야 합니다.
+        final Map<String, Object> result =
+                service.isolateByNode(12, "PRJ-1", "REST 전용 방화벽", "tester", "10.0.9.0/24");
+
+        assertEquals(12, result.get("node_id"), "노드 번호 기록");
+        assertEquals(Boolean.TRUE, result.get("active"), "격리 상태 저장");
+        assertTrue(service.isQuarantined(null, 12), "노드로 격리 조회");
+        assertTrue(sent.isEmpty(), "Agent 가 없으므로 명령 없음");
     }
 
     // ------------------------------------------------------------------

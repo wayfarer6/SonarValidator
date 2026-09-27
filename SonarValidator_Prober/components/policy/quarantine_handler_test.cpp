@@ -3,6 +3,7 @@
 
 #include "components/backend_communication/envelope.hpp"
 #include "components/policy/quarantine_handler.hpp"
+#include "module/configuration_module/prober_config.hpp"
 
 // 격리 명령의 "수신 판정" 계약만 검증합니다. (네트워크/장치 조작 없음)
 //
@@ -115,11 +116,27 @@ int main()
         Expect(!quarantine::IsQuarantineCommand(numericAction), "non-string action rejected");
     }
 
-    // 5) 관리망 대역 상수. 격리 시 이 대역은 반드시 살려 둬야
-    //    해제 명령이 도달합니다. (PoC 네트워크 문서의 고정 대역)
+    // 5) 관리망 대역은 이제 <b>설정</b>입니다. (하드코딩 상수 아님)
+    //    랩/프로젝트마다 다를 수 있고 서버가 프로젝트별로 지정할 수 있습니다.
+    //    설정이 비어 있을 때만 안전한 기본값으로 폴백합니다 —
+    //    관리 대역을 모르면 격리가 관리 경로를 내려 해제 명령이 도달하지 못합니다.
     {
-        Expect(std::string(quarantine::kManagementPrefix) == "172.16.255.0/24",
-               "management prefix is 172.16.255.0/24");
+        Expect(std::string(quarantine::kDefaultManagementPrefix) == "172.16.255.0/24",
+               "default management prefix fallback is 172.16.255.0/24");
+
+        // ⚠️ 설정에서 관리 대역을 읽어 여러 개를 담을 수 있어야 합니다.
+        ProberConfig config(
+            "", "", "", "", DeviceType::kSwitch, "", 0, "", 0);
+        config.SetManagementPrefixes("10.10.0.0/16,172.16.255.0/24");
+        Expect(config.GetManagementPrefixes() == "10.10.0.0/16,172.16.255.0/24",
+               "management prefixes come from configuration (multi-band)");
+
+        // 설정이 비어 있으면 폴백합니다. (관리 대역을 모르는 채 격리하면 안 됩니다)
+        ProberConfig empty(
+            "", "", "", "", DeviceType::kSwitch, "", 0, "", 0);
+        empty.DetectManagementPrefixes();
+        Expect(!empty.GetManagementPrefixes().empty(),
+               "empty configuration falls back to a safe default");
     }
 
     // 6) ack 에 실어 보낼 Outcome 기본값은 "실패" 여야 합니다.

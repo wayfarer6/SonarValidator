@@ -121,40 +121,51 @@ public class DeviceTypeResolver {
     }
 
     /**
-     * 이 유형이 <b>격리 대상이 될 수 있는지</b> 판단합니다.
+     * 이 유형이 <b>장치 단위 격리</b> 대상이 될 수 있는지 판단합니다.
      *
-     * <h2>⚠️ 방화벽은 격리하지 않는다</h2>
+     * <h2>⚠️ 방화벽은 장치 단위로 격리하지 않는다</h2>
      * <p>랩의 방화벽은 {@code eth1} 트렁크로 여러 VLAN(VLAN 131/132/133)을
      * 동시에 들고 있습니다. 방화벽 인터페이스를 내리면 그 VLAN 에 붙은
      * <b>모든 존</b>이 함께 끊깁니다 — 격리하려던 한 대가 아니라
      * <b>무관한 네트워크 전체</b>가 내려갑니다.
      *
-     * <p>그래서 방화벽은 다음 조치 대상이 아닙니다.
-     * <ul>
-     *   <li>인터페이스 down (연결된 모든 VLAN 이 끊김)</li>
-     *   <li>sonar 테이블 전체 drop (모든 존의 통행이 막힘)</li>
-     * </ul>
-     * 대신 <b>프로젝트 규칙으로 해당 연결만</b> 막는 것이 올바른 대응입니다.
+     * <h2>⚠️ DB Design v1.5 — 판단의 소유자를 전략으로 옮겼다</h2>
+     * <p>이전에는 이 클래스가 "무엇을 격리할 수 있나" 를 판단했습니다. 그런데
+     * 격리 방법이 장치마다 달라지면서(스위치/라우터/VM = 인터페이스 down,
+     * 방화벽 = 서브넷 차단) 판단 근거가 유형별로 흩어졌습니다. 지금은
+     * {@code Service.quarantine.QuarantineMethod} 구현체가 그 지식을 소유하고,
+     * 이 클래스는 <b>유형 판별만</b> 합니다. (중복 판단 제거)
+     *
+     * <p>남겨 둔 이유: 유형 문자열만 가진 호출부(예: 문서 생성, 진단)가
+     * 전략 객체 없이 빠르게 물어볼 수 있는 편의 함수입니다.
      *
      * @param type 장치 유형 (null 이면 격리 가능으로 봄)
-     * @return 격리할 수 있으면 true
+     * @return 장치 단위 격리가 가능하면 true
+     * @deprecated 격리 판단은 {@code QuarantineMethods.of(type)} 로 위임하세요.
      */
+    @Deprecated
     public static boolean isIsolatable(DeviceType type) {
         return type != DeviceType.FIREWALL;
     }
 
     /**
-     * 격리가 불가한 이유를 사람이 읽는 문장으로 돌려줍니다.
+     * 장치 단위 격리가 불가한 이유를 사람이 읽는 문장으로 돌려줍니다.
+     *
+     * <p>⚠️ DB Design v1.5 — 사유 문구의 소유자는 이제
+     * {@code Service.quarantine.FirewallQuarantine#exclusionReason()} 입니다.
+     * 여기 문구는 유형 문자열만 가진 호출부를 위한 <b>간이 안내</b>입니다.
      *
      * @param type 장치 유형
-     * @return 사유 (격리 가능하면 null)
+     * @return 사유 (장치 단위 격리가 가능하면 null)
+     * @deprecated 격리 사유는 {@code QuarantineMethods.of(type).exclusionReason()} 을 쓰세요.
      */
+    @Deprecated
     public static String exclusionReason(DeviceType type) {
         if (type != DeviceType.FIREWALL) {
             return null;
         }
-        return "방화벽은 격리 대상이 아닙니다 — 트렁크(eth1)에 연결된 모든 VLAN 이 함께 끊깁니다. "
-                + "대신 프로젝트 규칙으로 해당 연결만 차단하세요.";
+        return "방화벽은 장치 단위로 격리할 수 없습니다 — 트렁크(eth1)에 연결된 모든 VLAN 이 "
+                + "함께 끊깁니다. 대신 격리할 서브넷(target_cidr)을 지정하면 그 연결만 차단합니다.";
     }
 
     /**

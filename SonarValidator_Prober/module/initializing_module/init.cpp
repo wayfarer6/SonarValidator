@@ -128,6 +128,14 @@ namespace
                     config.SetArchitecture(value);
                     has_architecture = !value.empty();
                 }
+                // ⚠️ 제어평면(관리망) 대역입니다. 필수는 아닙니다 —
+                //    비어 있으면 ProberConfig::DetectManagementPrefixes 가
+                //    안전한 기본값으로 폴백합니다. (격리가 관리 경로를 내려
+                //    해제 명령이 도달하지 못하는 것을 막기 위함)
+                else if (key == "MANAGEMENT_PREFIX")
+                {
+                    config.SetManagementPrefixes(value);
+                }
                 else if (key == "NODE_TYPE")
                 {
                     if (value == "Switch")
@@ -198,7 +206,8 @@ namespace
                << "MEMORY_SIZE_BYTES=" << config.GetMemorySizeBytes() << '\n'
                << "SERVER_IP=" << config.GetServerIpv4() << '\n'
                << "SERVER_PORT=" << config.GetServerPort() << '\n'
-               << "ARCHITECTURE=" << config.GetArchitecture() << '\n';
+               << "ARCHITECTURE=" << config.GetArchitecture() << '\n'
+               << "MANAGEMENT_PREFIX=" << config.GetManagementPrefixes() << '\n';
         output.close();
         if (!output)
         {
@@ -243,6 +252,9 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
         if (fs::exists(path) && LoadConfig(path, config))
         {
             config.DetectProductName();  // 제품군은 매번 재탐지합니다.
+            // 관리 대역도 설정에서 다시 읽습니다. 랩/프로젝트가 바뀌면
+            // default.conf 만 고쳐도 격리 경고/제외가 따라가야 합니다.
+            config.DetectManagementPrefixes();
             return true;
         }
     }
@@ -274,6 +286,10 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     initial_config.DetectArchitecture();
     initial_config.DetectServerIpv4();
     initial_config.DetectServerPort();
+    // ⚠️ 제어평면(관리망) 대역을 설정에서 읽습니다. 이 값이 없으면 격리가
+    //    관리 경로를 내려 해제 명령이 도달하지 못하므로 default.conf 에
+    //    MANAGEMENT_PREFIX 를 두게 했습니다. (없으면 안전한 기본값으로 폴백)
+    initial_config.DetectManagementPrefixes();
     const bool has_valid_device_type = initial_config.DetectDeviceType();
     initial_config.DetectProductName();
 

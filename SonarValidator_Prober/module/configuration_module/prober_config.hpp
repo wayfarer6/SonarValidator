@@ -33,6 +33,19 @@ public:
     const std::string &GetServerIpv4() const;
     std::uint16_t GetServerPort() const;
 
+    // 제어평면(관리망) 대역 목록입니다. (쉼표 구분 다중 대역)
+    //
+    // ⚠️ 격리에서 **절대 차단 대상이 되어서는 안 되는** 대역입니다.
+    //    이 대역의 인터페이스를 내리면 서버로 나가는 길이 사라져
+    //    해제 명령조차 도달하지 못합니다.
+    //
+    //    이전에는 quarantine_handler.hpp 의 kManagementPrefix 로
+    //    "172.16.255.0/24" 가 박혀 있었습니다. 랩/프로젝트마다 관리 대역이
+    //    다를 수 있으므로 default.conf 로 옮겼습니다.
+    const std::string &GetManagementPrefixes() const;
+    void SetManagementPrefixes(std::string management_prefixes);
+    void DetectManagementPrefixes();
+
     void SetAgentName(std::string agent_name);
     void SetKernelName(std::string kernel_name);
     void SetProduct(std::string product_name);
@@ -70,6 +83,7 @@ private:
     std::string server_ipv4_;         // 중앙 서버 IPv4
     std::uint16_t server_port_;       // 중앙 서버 포트
     std::string architecture_;        // CPU 아키텍처
+    std::string management_prefixes_; // 제어평면(관리망) 대역 (쉼표 구분)
 };
 
 #endif // SONAR_VALIDATOR_PROBER_PROBER_CONFIG_HPP_

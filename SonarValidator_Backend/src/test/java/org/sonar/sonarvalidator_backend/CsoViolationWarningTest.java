@@ -244,10 +244,10 @@ class CsoViolationWarningTest {
                                 List<ProjectDto.SubnetPayload> subnets,
                                 List<ProjectDto.RulePayload> rules) {
         final Project created = service.create(
-                new ProjectDto.CreateRequest(key, "테스트 " + key, "Defense", null, "DRAFT"));
+                new ProjectDto.CreateRequest(key, "테스트 " + key, "Defense", null, "DRAFT", null));
         return service.update(key, new ProjectDto.UpdateRequest(
                 created.getName(), created.getCategory(), created.getDescription(),
-                created.getStatus(), subnets, rules));
+                created.getStatus(), created.getManagementPrefix(), subnets, rules));
     }
 
     private static ProjectDto.SubnetPayload subnet(String id, String cidr, String zone) {

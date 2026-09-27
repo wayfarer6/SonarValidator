@@ -13,6 +13,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import org.sonar.sonarvalidator_backend.Model.Configuration;
+
 /**
  * 격리된(quarantined) Agent 의 현재 상태 한 건입니다.
  *
@@ -56,6 +58,8 @@ import lombok.Setter;
         indexes = {
                 // 장치별 현재 격리 여부 (가장 빈번)
                 @Index(name = "idx_quarantine_agent", columnList = "agent_id, released_at"),
+                // 노드별 현재 격리 여부 (Agent 없는 장비 경로 — DB Design v1.5)
+                @Index(name = "idx_quarantine_node", columnList = "node_id, released_at"),
                 // 격리 중인 장치 전체 조회 (토폴로지/푸시 대상 제외)
                 @Index(name = "idx_quarantine_released", columnList = "released_at")
         })
@@ -75,9 +79,58 @@ public class QuarantineState {
      * 끊긴 장치</b>에도 남아야 하기 때문입니다. Agent 는 재부팅/재배포되면
      * 세션이 사라지지만 격리 상태는 서버 DB 에 남아야 다음 접속 때 다시
      * 차단 정책을 받습니다.
+     *
+     * <p>⚠️ Agent 가 없는 장비(예: OPNsense REST 전용)는 이 값이
+     * 비어 있을 수 있습니다. 그래서 nullable 이며, 그 경우 {@link #nodeId}
+     * 가 유일한 식별자입니다.
      */
-    @Column(name = "agent_id", length = 120, nullable = false)
+    @Column(name = "agent_id", length = 120)
     private String agentId;
+
+    /**
+     * 격리 대상 노드 번호입니다. ({@code configuration.node_id})
+     *
+     * <h2>⚠️ DB Design v1.5 — agent_id 대신 node_id 로 받는 이유</h2>
+     * <p>OPNsense 처럼 <b>Agent 없이 REST API 로만 연결</b>되는 장비는
+     * {@code agent_id} 가 없습니다. 기존 API 가 {@code agent_id} 만 받으면
+     * 그런 장비를 격리할 수 없었습니다. 그래서 격리는 <b>노드 번호</b>를
+     * 정본 식별자로 받습니다.
+     *
+     * <p>FK 를 걸지 않고 {@code Integer} 로 두는 이유는 {@link #agentId} 와
+     * 같은 이유입니다 — 격리 이력은 노드가 지워져도 감사 목적으로 남아야
+     * 합니다. (운영자는 노드를 등록 해제할 수 있습니다)
+     */
+    @Column(name = "node_id")
+    private Integer nodeId;
+
+    /**
+     * 격리 범위 — 노드 전체인가, 특정 연결(서브넷 경로)인가.
+     *
+     * <h2>⚠️ 방화벽은 노드 전체를 격리할 수 없다</h2>
+     * <p>방화벽은 트렁크 하나로 여러 VLAN 을 동시에 들고 있어 인터페이스를
+     * 내리면 무관한 존 전체가 끊깁니다. 그래서 방화벽은 노드 격리 대신
+     * <b>특정 서브넷 연결만</b> 차단합니다. 이 값이 그 구분을 남깁니다.
+     */
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @Column(name = "scope", length = 20)
+    private Scope scope = Scope.NODE;
+
+    /**
+     * 연결 단위 격리일 때 대상 서브넷 CIDR 입니다. (예: {@code 10.0.9.0/24})
+     *
+     * <p>{@link Scope#CONNECTION} 일 때만 채워집니다. 방화벽에 이 대역만
+     * 차단하는 규칙을 넣는 근거가 됩니다.
+     */
+    @Column(name = "target_cidr", length = 80)
+    private String targetCidr;
+
+    /** 격리 범위. */
+    public enum Scope {
+        /** 장치 전체 (관리 경로를 뺀 인터페이스 down). */
+        NODE,
+        /** 특정 연결/서브넷만 차단 (방화벽에 규칙 추가). */
+        CONNECTION
+    }
 
     /** 격리 대상이 속한 프로젝트 키입니다. (없으면 null — 프로젝트 미배정 장치) */
     @Column(name = "project_key", length = 120)

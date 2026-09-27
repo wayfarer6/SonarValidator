@@ -105,7 +105,10 @@ public class AgentBundleService {
             @Value("${sonar.deploy.server-ip:}") String serverIp,
             @Value("${server.port:3000}") int serverPort,
             @Value("${sonar.deploy.management-interface:}") String managementInterface,
-            @Value("${sonar.deploy.management-cidrs:}") String managementCidrs) {
+            // ⚠️ 관리망 대역은 이제 사이트 설정과 같은 값을 씁니다.
+            //    (sonar.site.management-prefix 가 단일 진실 공급원)
+            //    별도 키로 두면 배포와 격리 경고가 서로 다른 대역을 말할 수 있습니다.
+            @Value("${sonar.site.management-prefix:}") String managementCidrs) {
         this.stageDirectory = stageDirectory;
         this.serverIp = serverIp == null ? "" : serverIp.trim();
         this.serverPort = serverPort;

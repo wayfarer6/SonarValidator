@@ -142,6 +142,27 @@ std::uint16_t ProberConfig::GetServerPort() const { return server_port_; }
 
 const std::string& ProberConfig::GetArchitecture() const { return architecture_; }
 
+const std::string& ProberConfig::GetManagementPrefixes() const
+{
+    return management_prefixes_;
+}
+
+// 제어평면(관리망) 대역을 default.conf 에서 읽습니다.
+//
+// ⚠️ 비어 있으면 안전한 기본값으로 대체합니다. 이 대역을 모르면 격리가
+//    관리 경로를 내려 해제 명령이 도달하지 못할 수 있으므로, 값이 없을 때는
+//    문서의 기본 대역을 씁니다.
+void ProberConfig::DetectManagementPrefixes()
+{
+    const std::string value = ReadDefaultValue("MANAGEMENT_PREFIX");
+    management_prefixes_ = value.empty() ? std::string("172.16.255.0/24") : value;
+}
+
+void ProberConfig::SetManagementPrefixes(std::string management_prefixes)
+{
+    management_prefixes_ = std::move(management_prefixes);
+}
+
 void ProberConfig::SetAgentName(std::string agent_name)
 {
     agent_name_ = std::move(agent_name);

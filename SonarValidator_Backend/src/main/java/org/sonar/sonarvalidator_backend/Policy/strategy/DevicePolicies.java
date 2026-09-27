@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
  * <h2>⚠️ switch 를 대신하는 것</h2>
  * <p>호출부는 {@link #of(DeviceType)} 만 부르고, 어떤 클래스가 처리하는지
  * 모릅니다. 새 장치를 추가할 때 이 클래스도 고칠 필요가 없습니다 —
- * {@link DevicePolicyStrategy} 를 구현한 빈을 하나 더 만들면 스프링이
+ * {@link DevicePolicy} 를 구현한 빈을 하나 더 만들면 스프링이
  * 자동으로 목록에 넣습니다. (생성자 주입으로 전략 목록을 받음)
  *
  * <h2>⚠️ 기본 전략을 명시적으로 고른다</h2>
@@ -25,28 +25,28 @@ import org.springframework.stereotype.Component;
  * 추적할 단서가 없습니다.
  */
 @Component
-public class DevicePolicyStrategies {
+public class DevicePolicies {
 
-    private static final Logger log = LoggerFactory.getLogger(DevicePolicyStrategies.class);
+    private static final Logger log = LoggerFactory.getLogger(DevicePolicies.class);
 
     /** 유형 → 전략. 생성 시 한 번만 채우고 이후 읽기만 합니다. */
-    private final Map<DeviceType, DevicePolicyStrategy> byType = new EnumMap<>(DeviceType.class);
+    private final Map<DeviceType, DevicePolicy> byType = new EnumMap<>(DeviceType.class);
 
     /** 알 수 없는 유형이 떨어질 기본 전략입니다. */
-    private final DevicePolicyStrategy fallback;
+    private final DevicePolicy fallback;
 
     /**
      * 스프링이 등록된 모든 전략을 주입합니다.
      *
      * @param strategies 발견된 전략 빈 목록
      */
-    public DevicePolicyStrategies(List<DevicePolicyStrategy> strategies) {
-        for (final DevicePolicyStrategy strategy : strategies) {
+    public DevicePolicies(List<DevicePolicy> strategies) {
+        for (final DevicePolicy strategy : strategies) {
             // supports() 로 유형을 물어보는 이유: 전략이 자기 담당을 선언하므로
             // 이 클래스가 유형 목록을 알 필요가 없습니다.
             for (final DeviceType type : DeviceType.values()) {
                 if (strategy.supports(type)) {
-                    final DevicePolicyStrategy previous = byType.put(type, strategy);
+                    final DevicePolicy previous = byType.put(type, strategy);
                     if (previous != null) {
                         // 같은 유형을 두 전략이 담당하면 하나가 조용히 사라집니다.
                         // 조용한 무시는 "왜 내 전략이 안 먹지" 를 만들므로 경고합니다.
@@ -75,11 +75,11 @@ public class DevicePolicyStrategies {
      * @param type 장치 유형 (null 이면 VM 전략)
      * @return 전략 (절대 null 이 아님)
      */
-    public DevicePolicyStrategy of(DeviceType type) {
+    public DevicePolicy of(DeviceType type) {
         if (type == null) {
             return fallback;
         }
-        final DevicePolicyStrategy strategy = byType.get(type);
+        final DevicePolicy strategy = byType.get(type);
         if (strategy != null) {
             return strategy;
         }

@@ -1,6 +1,10 @@
-package org.sonar.sonarvalidator_backend.Policy.strategy;
+package org.sonar.sonarvalidator_backend.Policy.strategy.vendor.canonical.ubuntu;
 
+import org.sonar.sonarvalidator_backend.Config.SiteProperties;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
+import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicy;
+import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyBuildContext;
+import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyJson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -32,9 +36,9 @@ import tools.jackson.databind.node.ObjectNode;
  * 통신이 두절됩니다.
  */
 @Component
-public class VmPolicyStrategy implements DevicePolicyStrategy {
+public class VmPolicy implements DevicePolicy {
 
-    private static final Logger log = LoggerFactory.getLogger(VmPolicyStrategy.class);
+    private static final Logger log = LoggerFactory.getLogger(VmPolicy.class);
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
@@ -46,6 +50,29 @@ public class VmPolicyStrategy implements DevicePolicyStrategy {
      * {@code Cannot find device "__primary__"} 로 실패합니다.
      */
     public static final String PRIMARY_INTERFACE_TOKEN = "__primary__";
+
+    /**
+     * VM 설정 백엔드 이름을 담은 사이트 설정입니다.
+     *
+     * <h2>⚠️ 왜 상수가 아니라 설정인가</h2>
+     * <p>설정 백엔드({@code netplan}, {@code networkd}, {@code ifupdown})는
+     * 배포판·이미지마다 다릅니다. 상수로 두면 다른 이미지를 지원할 때
+     * 이 클래스를 고쳐야 합니다.
+     */
+    private final SiteProperties site;
+
+    /**
+     * @param site 사이트 설정 (설정 백엔드 이름)
+     */
+    public VmPolicy(SiteProperties site) {
+        this.site = site;
+    }
+
+    /** @return VM 설정 백엔드 이름 */
+    private String configBackend() {
+        final String configured = site == null ? null : site.getVmDefaults().getConfigBackend();
+        return PolicyJson.firstNonBlank(configured, "netplan");
+    }
 
     @Override
     public boolean supports(DeviceType type) {
@@ -69,7 +96,11 @@ public class VmPolicyStrategy implements DevicePolicyStrategy {
         rule.putArray("product").add("Ubuntu Linux");
         rule.putArray("model").add("Ubuntu VM");
         rule.putArray("command").add("on");
-        // 폴백은 인터페이스 이름을 알 수 없으므로 자리표시자를 씁니다.
+        // ⚠️ 여기서는 설정값이 아니라 <b>자리표시자</b>를 씁니다.
+        //    VM 의 실제 NIC 이름은 서버가 알 수 없고(ens33/eth0/ens3),
+        //    고정하면 `Cannot find device` 로 모든 VM 정책이 실패합니다.
+        //    Prober 가 실제 이름으로 치환하므로 이 토큰이 곧 확장 지점입니다.
+        //    (설정으로 바꾸면 치환 경로가 끊겨 오히려 정책이 깨집니다)
         rule.putArray("interface").add(PRIMARY_INTERFACE_TOKEN);
         return rule;
     }
@@ -80,7 +111,7 @@ public class VmPolicyStrategy implements DevicePolicyStrategy {
 
         // netplan 스키마 형태로 대역을 알립니다.
         rule.putArray("command").add("create");
-        rule.putArray("config_backend").add("netplan");
+        rule.putArray("config_backend").add(configBackend());
 
         final String cidr = context.subnet().getCidr();
         if (cidr == null || cidr.isBlank()) {

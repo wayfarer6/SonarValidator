@@ -6,14 +6,19 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import org.sonar.sonarvalidator_backend.Model.Configuration;
 
 /**
  * 네트워크 장비에서 수집한 로그 한 줄입니다.
@@ -54,6 +59,16 @@ import lombok.Setter;
  * 공백 구분자 등) 정렬과 범위 비교가 조용히 틀렸습니다. 이제는 날짜
  * 타입으로 저장하고, JSON 으로 나갈 때 {@code @JsonFormat} 이 다시
  * ISO-8601 문자열로 직렬화합니다. (프론트 계약은 그대로 유지)
+ *
+ * <h2>⚠️ DB Design v1.5 — 노드(configuration)와의 관계</h2>
+ * <p>이전에는 로그와 노드 설정이 <b>아무 관계가 없었습니다.</b> 로그는
+ * {@code agent_id} 문자열만 갖고, 노드 정본은 {@code configuration} 에
+ * 따로 있었습니다. 그래서 "이 로그가 어느 노드의 것인가" 를 문자열
+ * 비교로만 추정할 수 있었고, 장비 이름이 바뀌면 연결이 끊겼습니다.
+ *
+ * <p>이제 {@link #node} 가 {@code configuration.node_id} 를 외래키로
+ * 참조합니다. {@code agent_id} 는 조회 편의를 위해 남겨 두지만,
+ * <b>관계의 정본은 {@code node_id}</b> 입니다.
  */
 @Entity
 @Table(
@@ -66,6 +81,8 @@ import lombok.Setter;
                 @Index(name = "idx_device_log_time", columnList = "logged_at"),
                 // 심각도 필터
                 @Index(name = "idx_device_log_severity", columnList = "severity_num"),
+                // 노드별 조회 (configuration 조인)
+                @Index(name = "idx_device_log_node", columnList = "node_id"),
         })
 @Getter
 @Setter
@@ -77,7 +94,18 @@ public class DeviceLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** 로그를 보낸 장비 식별자. */
+    /**
+     * 로그를 보낸 노드입니다. ({@code configuration.node_id} 외래키)
+     *
+     * <p>지연 로딩입니다. 로그 목록을 뽑을 때 노드 설정 트리까지 끌어오면
+     * 불필요한 조회가 생깁니다. 노드 번호만 필요하면 {@link #nodeId()} 를
+     * 쓰세요.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "node_id")
+    private Configuration node;
+
+    /** 로그를 보낸 장비 식별자. (조회 편의용 — 관계의 정본은 {@link #node}) */
     @Column(name = "agent_id", nullable = false, length = 120)
     private String agentId;
 
@@ -165,4 +193,16 @@ public class DeviceLog {
     /** 사용자가 남긴 메모. (분석 근거로 함께 전달됨) */
     @Column(name = "note", length = 1000)
     private String note;
+
+    /**
+     * 노드 번호를 꺼냅니다. (지연 로딩 프록시를 건드리지 않도록 방어)
+     *
+     * <p>FK 값만 필요한 곳(응답 조립, 필터)에서 씁니다. {@link #node} 를
+     * 직접 읽으면 설정 트리 전체가 로딩될 수 있습니다.
+     *
+     * @return 노드 번호 (노드가 없으면 null)
+     */
+    public Integer nodeId() {
+        return node == null ? null : node.getNodeId();
+    }
 }

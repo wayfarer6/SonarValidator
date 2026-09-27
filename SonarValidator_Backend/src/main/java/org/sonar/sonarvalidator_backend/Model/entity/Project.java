@@ -109,6 +109,25 @@ public class Project {
     @JoinColumn(name = "user_id")
     private User owner;
 
+    /**
+     * 이 프로젝트의 <b>제어평면(관리망) 대역</b>입니다. (선택)
+     *
+     * <h2>⚠️ 왜 프로젝트마다 다른가 — 요구사항</h2>
+     * <p>제어평면 대역은 프로젝트(망)마다 다를 수 있습니다. 관리 서버에
+     * 접속하는 경로가 프로젝트별로 다르기 때문입니다. 이 값을 프로젝트가
+     * 지정하면 <b>전역 기본값({@code sonar.site.management-prefix})보다
+     * 우선</b>합니다.
+     *
+     * <p>이 대역은 격리에서 <b>절대 차단 대상이 되어서는 안 됩니다.</b>
+     * 차단하면 해제 명령이 도달하지 못해 장치를 되살릴 수 없습니다.
+     * 그래서 격리 경고와 Prober 의 관리 경로 제외 판정이 이 값을 씁니다.
+     *
+     * <p>{@code nullable} 입니다. 지정하지 않으면 전역 기본값을 씁니다.
+     * 쉼표로 여러 대역을 지정할 수 있습니다. (예: 관리망 + 백업망)
+     */
+    @Column(name = "management_prefix", length = 255)
+    private String managementPrefix;
+
     /** 생성 시각. */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     @Column(name = "created_at")

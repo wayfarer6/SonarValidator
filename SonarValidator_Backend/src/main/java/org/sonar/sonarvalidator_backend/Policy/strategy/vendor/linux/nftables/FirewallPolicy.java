@@ -1,6 +1,10 @@
-package org.sonar.sonarvalidator_backend.Policy.strategy;
+package org.sonar.sonarvalidator_backend.Policy.strategy.vendor.linux.nftables;
 
+import org.sonar.sonarvalidator_backend.Config.SiteProperties;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
+import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicy;
+import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyBuildContext;
+import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyJson;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.node.ArrayNode;
@@ -34,16 +38,31 @@ import tools.jackson.databind.node.ObjectNode;
  * 이 전략은 정책만 다룹니다.
  */
 @Component
-public class FirewallPolicyStrategy implements DevicePolicyStrategy {
+public class FirewallPolicy implements DevicePolicy {
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     /**
-     * 방화벽 정책이 쓰는 nftables 테이블 이름입니다.
+     * 방화벽 테이블 이름을 담은 사이트 설정입니다.
      *
-     * <p>기본 {@code filter} 를 건드리지 않기 위한 별도 이름입니다.
+     * <h2>⚠️ 왜 상수가 아니라 설정인가</h2>
+     * <p>이전에는 {@code FIREWALL_TABLE = "sonar"} 로 박혀 있었습니다.
+     * 같은 장비에 여러 도구가 붙거나 테이블 이름이 겹치면 충돌합니다.
+     * 그래서 {@code sonar.site.firewall.table-name} 으로 뺐습니다.
      */
-    public static final String FIREWALL_TABLE = "sonar";
+    private final SiteProperties site;
+
+    /**
+     * @param site 사이트 설정 (방화벽 테이블 이름)
+     */
+    public FirewallPolicy(SiteProperties site) {
+        this.site = site;
+    }
+
+    /** @return 방화벽 정책이 쓰는 nftables 테이블 이름 */
+    private String firewallTable() {
+        return site.getFirewallDefaults().getTableName();
+    }
 
     @Override
     public boolean supports(DeviceType type) {
@@ -82,7 +101,7 @@ public class FirewallPolicyStrategy implements DevicePolicyStrategy {
 
         rule.putArray("command").add("create");
         rule.putArray("table_family").add("inet");
-        rule.putArray("table_name").add(FIREWALL_TABLE);
+        rule.putArray("table_name").add(firewallTable());
 
         final ArrayNode chains = rule.putArray("chains");
         chains.add(chain("input", "accept"));
@@ -106,7 +125,7 @@ public class FirewallPolicyStrategy implements DevicePolicyStrategy {
 
         final ObjectNode target = rule.putObject("rule_target");
         target.putArray("table_family").add("inet");
-        target.putArray("table_name").add(FIREWALL_TABLE);
+        target.putArray("table_name").add(firewallTable());
         target.putArray("chain_name").add("forward");
 
         final ObjectNode match = rule.putObject("match_criteria");

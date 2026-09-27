@@ -145,6 +145,18 @@ public class AgentMessageRouterService {
      */
     private QuarantineService quarantineService;
 
+    /**
+     * 노드 정본 등록 통로입니다. (선택 의존)
+     *
+     * <p>텔레메트리로 확보한 설정을 {@code configuration} 테이블에 남겨
+     * {@code node_id} 참조(로그·방화벽)의 대상이 생기게 합니다.
+     * DB Design v1.5 이전에는 이 저장 경로가 없었습니다.
+     *
+     * <p>{@code null} 을 허용하는 이유는 라우터 단위 테스트가 저장소 없이
+     * 돌아야 하기 때문입니다. 없으면 노드 적재만 건너뜁니다.
+     */
+    private NodeRegistryService nodeRegistry;
+
     public AgentMessageRouterService(AgentSessionRegistry registry,
                                      PolicyRegistryService policyRegistry,
                                      DeviceConfigService deviceConfigService,
@@ -198,6 +210,16 @@ public class AgentMessageRouterService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setQuarantineService(QuarantineService quarantineService) {
         this.quarantineService = quarantineService;
+    }
+
+    /**
+     * 노드 정본 등록 통로를 주입합니다.
+     *
+     * @param nodeRegistry 노드 등록 서비스 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setNodeRegistry(NodeRegistryService nodeRegistry) {
+        this.nodeRegistry = nodeRegistry;
     }
 
     /**
@@ -341,6 +363,14 @@ public class AgentMessageRouterService {
             final JsonNode normalized = normalizedPayload(payload, product);
             final NeutralDeviceConfig config = deviceConfigService.parse(agentId, product, normalized);
             telemetryStore.putConfig(agentId, config);
+
+            // ⚠️ DB Design v1.5 — 노드 정본을 DB 에 남깁니다.
+            //   이전에는 인메모리에만 있어 재기동하면 사라졌고, 그 결과
+            //   device_log / opnsense_firewall 이 참조할 node_id 가 없었습니다.
+            //   실패해도 텔레메트리 수신을 막지 않습니다.
+            if (nodeRegistry != null) {
+                nodeRegistry.resolveOrCreate(agentId, config);
+            }
 
             log.info("telemetry from agent={} keys={} format={} ifaces={} routes={} vlans={}",
                     agentId, payload.size(), config.getFormat(),

@@ -207,13 +207,65 @@ spring:
 
 이 프로젝트에서 사용하는 형태입니다.
 
+### 6.1 노드 정본과의 외래키 (`configuration` ↔ 자식)
+
+DB Design v1.5 부터 `device_log` 와 `opnsense_firewall` 이 **노드 정본**
+(`configuration.node_id`)을 외래키로 참조합니다.
+
 ```java
+// 노드 정본 (부모)
+@Entity
+@Table(name = "configuration")
+public class Configuration {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "node_id")
+    private Integer node_id;              // primitive int 는 "저장 안 됨" 판정이 모호합니다
+
+    @Column(name = "agent_id", unique = true, length = 120)
+    private String agentId;               // 자연키 — upsert 기준
+}
+
+// 자식 1 — 로그가 노드를 가리킴
+@Entity
+@Table(name = "device_log")
+public class DeviceLog {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "node_id")
+    private Configuration node;
+}
+
+// 자식 2 — 방화벽이 노드 연관을 PK 로 씀 (파생 식별자)
 @Entity
 @Table(name = "opnsense_firewall")
+public class OPNSenseFirewall {
+    @Id
+    @Column(name = "node_id")
+    private Integer nodeId;               // @GeneratedValue 를 쓰지 않습니다
+
+    @MapsId                               // 연관의 식별자를 그대로 PK 로 복사
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "node_id")
+    private Configuration node;
+}
+```
+
+:::warning 파생 식별자에서 겪은 함정
+`@Id` 를 연관 필드에 직접 붙이면(`@Id @OneToOne private Configuration node;`)
+Hibernate 가 **`does not define an IdClass`** 로 기동에 실패합니다.
+`@Id` 는 별도 필드에 두고 `@MapsId` 로 연관의 식별자를 복사해야 합니다.
+또한 **`@GeneratedValue` 를 함께 쓰면** `null identifier` /
+`Could not assign id from null association` 이 납니다 — 값의 출처가
+둘이기 때문입니다. 파생 식별자에는 자동 생성을 붙이지 마세요.
+:::
+
+```java
+@Entity
+@Table(name = "example")
 @Getter
 @Setter
 @NoArgsConstructor          // JPA 스펙이 요구하는 기본 생성자
-public class OPNSenseFirewall {
+public class Example {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -230,6 +282,7 @@ public class OPNSenseFirewall {
 | `@Column(name = "...")` 명시 | Java 는 camelCase, DB 는 snake_case 관례를 명시적으로 연결합니다. |
 | `nullable = false` 지정 | 스키마 제약이 생겨 잘못된 데이터가 조기에 드러납니다. |
 | `length` 지정 | 기본값(255)이 의도와 다를 수 있습니다. |
+| PK 는 wrapper 타입 | primitive 는 "미저장(0)" 과 "키 0" 이 구분되지 않아 `save()` 가 merge 로 갈 수 있습니다. |
 
 ## 7. 리포지토리 사용법
 
@@ -238,11 +291,14 @@ public class OPNSenseFirewall {
 
 ```java
 @Repository
-public interface OPNSenseFirewallRepository extends JpaRepository<OPNSenseFirewall, Long> {
+public interface OPNSenseFirewallRepository extends JpaRepository<OPNSenseFirewall, Integer> {
 
-    Optional<OPNSenseFirewall> findByAgentId(String agentId);
+    // ⚠️ DB Design v1.5 — agent_id 는 제거되었습니다.
+    //    장치 식별이 필요하면 ConfigurationRepository.findByAgentId 로 노드를
+    //    먼저 찾고 findById(nodeId) 를 쓰세요.
+    Optional<OPNSenseFirewall> findByManagementIp(String managementIp);
 
-    boolean existsByAgentId(String agentId);
+    boolean existsByManagementIp(String managementIp);
 
     List<OPNSenseFirewall> findByNameContainingIgnoreCase(String keyword);
 }
@@ -256,7 +312,8 @@ public interface OPNSenseFirewallRepository extends JpaRepository<OPNSenseFirewa
 | `findByAgentIdAndManagementIp` | `where agent_id = ? and management_ip = ?` |
 | `findByNameContaining` | `where name like '%?%'` |
 | `findByNameContainingIgnoreCase` | `where upper(name) like upper('%?%')` |
-| `existsByAgentId` | 존재 여부 (`count` 기반) |
+| `findByNodeIdAndReleasedAtIsNull` | `where node_id = ? and released_at is null` |
+| `existsByManagementIp` | 존재 여부 (`count` 기반) |
 | `countByVersion` | 개수 |
 
 ## 8. 테스트
@@ -272,11 +329,19 @@ class OPNSenseFirewallRepositoryTest {
     @Autowired
     private OPNSenseFirewallRepository repository;
 
+    @Autowired
+    private ConfigurationRepository configurationRepository;
+
     @Test
-    void savesAndFindsById() {
-        OPNSenseFirewall saved = repository.save(new OPNSenseFirewall("fw-01", "DMZ"));
-        assertNotNull(saved.getId());           // IDENTITY 로 id 생성
-        assertTrue(repository.findById(saved.getId()).isPresent());
+    void mapsIdFromConfiguration() {
+        // ⚠️ 노드 정본이 먼저 있어야 합니다. node_id 가 외래키이기 때문입니다.
+        Configuration node = configurationRepository.save(
+                Configuration.from("opnsense-1", null));
+
+        OPNSenseFirewall saved = repository.save(new OPNSenseFirewall(node, "DMZ 방화벽"));
+
+        assertEquals(node.getNodeId(), saved.getNodeId());  // 파생 키
+        assertTrue(repository.findById(node.getNodeId()).isPresent());
     }
 }
 ```

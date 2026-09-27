@@ -1,6 +1,10 @@
-package org.sonar.sonarvalidator_backend.Policy.strategy;
+package org.sonar.sonarvalidator_backend.Policy.strategy.vendor.arista.veos;
 
+import org.sonar.sonarvalidator_backend.Config.SiteProperties;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
+import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicy;
+import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyBuildContext;
+import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyJson;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.node.JsonNodeFactory;
@@ -29,7 +33,7 @@ import tools.jackson.databind.node.ObjectNode;
  *
  * <h2>⚠️ 업링크(trunk) 포트에 넣는다</h2>
  * <p>access 포트(tag 111 등)에 넣으면 그 VLAN 안에서만 매칭되어 존 간 이동을
- * 보지 못합니다. 랩 관례대로 업링크를 {@link #UPLINK_PORT} 로 둡니다.
+ * 보지 못합니다. 그래서 업링크({@code sonar.site.switch.uplink-port})를 씁니다.
  *
  * <h2>⚠️ 차단 우선순위를 허용보다 높게</h2>
  * <p>같은 5-튜플에 두 규칙이 걸렸을 때 <b>차단이 이겨야</b> 합니다.
@@ -37,24 +41,41 @@ import tools.jackson.databind.node.ObjectNode;
  * {@code ApplyOpenVSwitchPolicy} 가 계산하지만, 여기서도 의미를 남겨 둡니다.
  */
 @Component
-public class SwitchPolicyStrategy implements DevicePolicyStrategy {
+public class SwitchPolicy implements DevicePolicy {
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     /**
-     * OVS ACL 플로우를 넣을 업링크(trunk) 포트 이름입니다.
+     * 업링크 포트 이름과 브리지 이름을 담은 사이트 설정입니다.
      *
-     * <p>랩의 모든 스위치가 업링크를 {@code eth0} 으로 씁니다
-     * (Switch-1 = eth0 trunk[111,112], eth1/eth2 = access).
+     * <h2>⚠️ 왜 상수가 아니라 설정인가</h2>
+     * <p>이전에는 {@code UPLINK_PORT = "eth0"}, {@code BRIDGE_NAME = "br0"}
+     * 으로 박혀 있었습니다. 그런데 업링크·브리지 이름은 <b>제품과 배포마다
+     * 다릅니다</b> — OVS 는 {@code br0}, Arista 는 다른 관례, Cisco 도
+     * 또 다릅니다. 상수로 두면 제품을 추가할 때마다 이 클래스를 고쳐야 하고,
+     * 랩이 바뀌면 조용히 틀린 포트에 규칙이 들어갑니다.
+     *
+     * <p>그래서 {@code sonar.site.switch.*} 로 옮겼습니다.
+     * ({@code application.properties} 또는 환경변수)
      */
-    public static final String UPLINK_PORT = "eth0";
+    private final SiteProperties site;
 
     /**
-     * OVS 브리지 이름입니다.
-     *
-     * <p>랩의 모든 스위치가 {@code br0} 하나를 씁니다.
+     * @param site 사이트 설정 (업링크/브리지 이름)
      */
-    public static final String BRIDGE_NAME = "br0";
+    public SwitchPolicy(SiteProperties site) {
+        this.site = site;
+    }
+
+    /** @return ACL 플로우를 넣을 업링크(trunk) 포트 이름 */
+    private String uplinkPort() {
+        return site.getSwitchDefaults().getUplinkPort();
+    }
+
+    /** @return OVS 브리지 이름 */
+    private String bridgeName() {
+        return site.getSwitchDefaults().getBridgeName();
+    }
 
     @Override
     public boolean supports(DeviceType type) {
@@ -79,7 +100,9 @@ public class SwitchPolicyStrategy implements DevicePolicyStrategy {
         rule.putArray("model").add("Arista vEOS");
         rule.putArray("command").add("on");
         rule.putArray("enable").add("true");
-        rule.putArray("port").add("Ethernet 1");
+        // ⚠️ 포트 이름은 제품·배포마다 다릅니다(Arista="Ethernet 1", OVS="eth1").
+        //    상수로 박지 않고 설정에서 읽습니다.
+        rule.putArray("port").add(site.getSwitchDefaults().getDefaultPort());
         return rule;
     }
 
@@ -128,8 +151,8 @@ public class SwitchPolicyStrategy implements DevicePolicyStrategy {
         rule.putArray("acl_name").add("acl-" + connection.ruleId());
         rule.putArray("source_subnet").add(connection.sourceCidr());
         rule.putArray("destination_subnet").add(connection.destinationCidr());
-        rule.putArray("applied_interface").add(UPLINK_PORT);
-        rule.putArray("bridge_name").add(BRIDGE_NAME);
+        rule.putArray("applied_interface").add(uplinkPort());
+        rule.putArray("bridge_name").add(bridgeName());
 
         // C++ 는 action=="deny" 만 drop 으로 보고 나머지는 normal(통과)입니다.
         rule.putArray("action").add(connection.forbidden() ? "deny" : "accept");

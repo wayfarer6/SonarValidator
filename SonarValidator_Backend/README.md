@@ -221,10 +221,14 @@ DB 계층(`route_table`)은 SQLite 타입 친화성 덕분에 TEXT / INTEGER 를
 
 | 테스트 | 개수 |
 | --- | --- |
-| `IpValueObjectTest` | 28 |
+| `IpValueObjectTest` | 32 |
+| `StrategyExtractionTest` | 30 |
+| `PolicyAdviceTest` | 27 |
+| `QuarantineServiceTest` | 21 |
 | `AuthenticationTest` | 15 |
 | `NotificationServiceTest` | 15 |
 | `LogNormalizerTest` | 15 |
+| `CliQueryStrategiesTest` | 16 |
 | `OpenAiCompatibleClientTest` | 14 |
 | `BddManagerTest` | 14 |
 | `CliOutputParserTest` | 13 |
@@ -233,8 +237,19 @@ DB 계층(`route_table`)은 SQLite 타입 친화성 덕분에 TEXT / INTEGER 를
 | `CliIngestServiceTest` | 9 |
 | `AgentMessageRouterTest` | 8 |
 | `CliIngestionServiceTest` | 8 |
+| `CsoViolationWarningTest` | 7 |
 | `DeviceConfigParserTest` | 7 |
-| `ProjectDtoSerializationTest` | 6 |
+| `ExpectedAgentOverviewTest` | 7 |
+| `AiProviderTransactionSafetyTest` | 5 |
+| `QuarantinePolicyOverrideTest` | 4 |
 | `OPNSenseFirewallRepositoryTest` | 3 |
+| `ProjectDtoSerializationTest` | 6 |
 | `SonarValidatorBackendApplicationTests` | 1 |
 | `WebSocketBufferSizeTest` | 1 |
+
+> 총 **300** 개 (`./mvnw test` 실측, 2026-09-27)
+>
+> **DB Design v1.5 대응** — `QuarantineServiceTest` 는 방화벽 **연결 단위 격리**
+> (대상 대역만 차단, 인터페이스 유지)와 **노드 번호만으로 격리**(Agent 없는
+> 장비)를 검증합니다. `QuarantinePolicyOverrideTest` 는 두 격리 방식이 정책에
+> <b>다르게</b> 반영되는지(노드=전부 차단 / 연결=대상만 차단)를 검증합니다.

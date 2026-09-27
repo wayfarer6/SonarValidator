@@ -40,6 +40,23 @@ inline constexpr const char* kError = "error";
 inline constexpr const char* kActionQuarantine = "quarantine";
 inline constexpr const char* kActionRelease = "release";
 
+// 격리 명령의 payload.scope 값입니다. (DB Design v1.5)
+//
+//   node       : Agent 가 관리 경로를 뺀 인터페이스를 내립니다.
+//   connection : 방화벽의 특정 서브넷만 차단합니다 — **서버가 규칙으로** 처리하며
+//                Agent 는 인터페이스를 절대 건드리지 않습니다.
+//
+// ⚠️ connection 인데 Agent 가 인터페이스를 내리면, 트렁크 하나로 여러 VLAN 을
+//    들고 있는 방화벽에서는 격리 대상이 아니라 **무관한 존 전체**가 끊깁니다.
+//    그래서 Prober 는 이 값을 반드시 확인해 인터페이스 조작을 건너뜁니다.
+//    (서버는 애초에 connection 격리에 명령을 보내지 않지만, 구버전 서버나
+//     손으로 만든 봉투를 막는 이중 안전장치입니다)
+inline constexpr const char* kScopeNode = "node";
+inline constexpr const char* kScopeConnection = "connection";
+
+// 격리 명령의 payload.target_cidr 키입니다. (연결 단위 격리 대상 대역)
+inline constexpr const char* kTargetCidr = "target_cidr";
+
 using Json = nlohmann::json;
 
 // 장치 유형을 서버가 이해하는 대문자 토큰으로 변환합니다.

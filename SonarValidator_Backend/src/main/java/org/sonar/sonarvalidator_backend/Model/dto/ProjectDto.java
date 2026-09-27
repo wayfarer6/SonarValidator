@@ -137,13 +137,15 @@ public final class ProjectDto {
      * @param category    분류
      * @param description 설명
      * @param status      진행 상태
+     * @param managementPrefix 제어평면(관리망) 대역 (쉼표로 여러 개, 없으면 전역 기본값)
      */
     public record CreateRequest(
             @JsonProperty("project_id") String projectId,
             String name,
             String category,
             String description,
-            String status) {
+            String status,
+            @JsonProperty("management_prefix") String managementPrefix) {
     }
 
     /**
@@ -157,6 +159,7 @@ public final class ProjectDto {
      * @param category    분류
      * @param description 설명
      * @param status      진행 상태
+     * @param managementPrefix 제어평면(관리망) 대역 (null 이면 유지)
      * @param subnets     서브넷 목록 (null 이면 유지)
      * @param rules       규칙 목록 (null 이면 유지)
      */
@@ -165,6 +168,7 @@ public final class ProjectDto {
             String category,
             String description,
             String status,
+            @JsonProperty("management_prefix") String managementPrefix,
             List<SubnetPayload> subnets,
             List<RulePayload> rules) {
     }

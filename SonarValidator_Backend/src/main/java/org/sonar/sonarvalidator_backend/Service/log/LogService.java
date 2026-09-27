@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.sonarvalidator_backend.Model.entity.DeviceLog;
 import org.sonar.sonarvalidator_backend.Repository.DeviceLogRepository;
+import org.sonar.sonarvalidator_backend.Service.NodeRegistryService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,12 +52,32 @@ public class LogService {
     private final LogNormalizer normalizer;
 
     /**
+     * 노드 정본 연결 통로입니다. (선택 의존)
+     *
+     * <p>로그는 {@code agent_id} 문자열만으로도 저장할 수 있어야 합니다
+     * (노드가 아직 등록되지 않은 장비의 첫 로그). 노드가 있으면
+     * {@code node_id} 외래키를 함께 채워 <b>로그와 노드 설정을 연결</b>합니다.
+     * (DB Design v1.5 — 이전에는 이 관계가 아예 없었습니다)
+     */
+    private NodeRegistryService nodeRegistry;
+
+    /**
      * @param repository 로그 저장소
      * @param normalizer 로그 정규화기
      */
     public LogService(DeviceLogRepository repository, LogNormalizer normalizer) {
         this.repository = repository;
         this.normalizer = normalizer;
+    }
+
+    /**
+     * 노드 정본 통로를 주입합니다.
+     *
+     * @param nodeRegistry 노드 등록 서비스 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setNodeRegistry(NodeRegistryService nodeRegistry) {
+        this.nodeRegistry = nodeRegistry;
     }
 
     /**
@@ -98,6 +119,16 @@ public class LogService {
         final String collectedAt = Instant.now().toString();
         final List<DeviceLog> toSave = new ArrayList<>();
 
+        // ⚠️ DB Design v1.5 — 로그를 노드(configuration)에 연결합니다.
+        //   이전에는 관계가 아예 없어 "이 로그가 어느 노드의 것인가" 를
+        //   문자열 비교로만 추정했습니다. 노드가 없으면(첫 로그) 만들어
+        //   두고, 실패해도 로그 저장 자체는 계속합니다.
+        final org.sonar.sonarvalidator_backend.Model.Configuration node =
+                (nodeRegistry == null)
+                        ? null
+                        : nodeRegistry.resolveOrCreate(agentId,
+                                (org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig) null);
+
         for (final String line : lines) {
             if (line == null || line.isBlank()) {
                 skipped++;
@@ -123,6 +154,7 @@ public class LogService {
             }
 
             final DeviceLog entity = new DeviceLog();
+            entity.setNode(node);
             entity.setAgentId(agentId);
             entity.setProjectKey(projectKey);
             entity.setProduct(product);
@@ -372,6 +404,7 @@ public class LogService {
     public Map<String, Object> toView(DeviceLog log) {
         final Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", log.getId());
+        view.put("node_id", log.nodeId());
         view.put("agent_id", log.getAgentId());
         view.put("project_id", log.getProjectKey());
         view.put("product", log.getProduct());

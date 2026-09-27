@@ -8,14 +8,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.sonar.sonarvalidator_backend.Config.SiteProperties;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Model.entity.ProjectRule;
 import org.sonar.sonarvalidator_backend.Model.entity.ProjectSubnet;
 import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
 import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
-import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicyStrategies;
-import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicyStrategy;
+import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicies;
+import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicy;
 import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyBuildContext;
 import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyJson;
 import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
@@ -35,7 +36,7 @@ import tools.jackson.databind.node.ObjectNode;
  *
  * <h2>역할 — 무엇을 조립하는가</h2>
  * <p>이 서비스는 <b>정책의 뼈대</b>(어느 프로젝트/서브넷인가, 어떤 연결이 있는가,
- * 의도 요약)를 만들고, <b>유형별 규칙 내용</b>은 {@link DevicePolicyStrategy}
+ * 의도 요약)를 만들고, <b>유형별 규칙 내용</b>은 {@link DevicePolicy}
  * 구현체에 위임합니다.
  *
  * <pre>
@@ -47,8 +48,8 @@ import tools.jackson.databind.node.ObjectNode;
  *        ▼
  *   Connection 목록 (중간 표현)
  *        │
- *        ├─ declarationRule  → DevicePolicyStrategy
- *        └─ enforcementRule  → DevicePolicyStrategy
+ *        ├─ declarationRule  → DevicePolicy
+ *        └─ enforcementRule  → DevicePolicy
  *        ▼
  *   정책 JSON
  * </pre>
@@ -103,7 +104,7 @@ public class PolicyRegistryService {
      * <p>{@code null} 을 허용하는 이유는 단위 테스트가 저장소만 넘기기
      * 때문입니다. 그 경우 {@link #FALLBACK_STRATEGIES} 를 씁니다.
      */
-    private final DevicePolicyStrategies strategies;
+    private final DevicePolicies strategies;
 
     /**
      * 격리 상태 통로입니다. (선택 의존)
@@ -117,6 +118,35 @@ public class PolicyRegistryService {
      * 끊기면 격리 기능 전체가 조용히 사라집니다.
      */
     private QuarantineService quarantineService;
+
+    /**
+     * 사이트 설정입니다. (방화벽 테이블 이름 등)
+     *
+     * <p>하드코딩을 없애기 위해 주입합니다. 없으면(단위 테스트) 기본값을
+     * 쓰는 설정 객체를 그대로 둡니다.
+     */
+    private SiteProperties siteProperties = new SiteProperties();
+
+    /**
+     * 방화벽 정책이 쓰는 nftables 테이블 이름을 돌려줍니다.
+     *
+     * @return 테이블 이름 (설정값)
+     */
+    private String firewallTable() {
+        return siteProperties.getFirewallDefaults().getTableName();
+    }
+
+    /**
+     * 사이트 설정을 주입합니다.
+     *
+     * @param siteProperties 사이트 설정 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSiteProperties(SiteProperties siteProperties) {
+        if (siteProperties != null) {
+            this.siteProperties = siteProperties;
+        }
+    }
 
     /**
      * 저장소 없는 인스턴스를 만듭니다. (테스트/폴백 전용)
@@ -137,7 +167,7 @@ public class PolicyRegistryService {
      * @param strategies 유형별 전략 선택기 (null 이면 공용 폴백 사용)
      */
     @Autowired
-    public PolicyRegistryService(ProjectRepository repository, DevicePolicyStrategies strategies) {
+    public PolicyRegistryService(ProjectRepository repository, DevicePolicies strategies) {
         this.repository = repository;
         this.strategies = strategies;
     }
@@ -230,16 +260,49 @@ public class PolicyRegistryService {
      * @return 격리 반영 정책
      */
     private ObjectNode quarantineOverride(String agentId, ObjectNode policy) {
-        if (policy == null || quarantineService == null
-                || !quarantineService.isQuarantined(agentId)) {
+        if (policy == null || quarantineService == null) {
             return policy;
         }
 
+        // ⚠️ DB Design v1.5 — 격리는 두 방식이 있고, 정책 반영도 달라야 합니다.
+        //   - NODE      : 장치가 인터페이스를 내림. 정책도 "전부 차단" 으로 동반.
+        //   - CONNECTION: 방화벽의 특정 서브넷만 차단. 정책은 <b>그 연결만</b>
+        //                 차단으로 제한해야 합니다. 전부 차단하면 트렁크에 붙은
+        //                 무관한 존이 함께 죽어, 방화벽을 노드 격리하지 않는
+        //                 이유 자체가 무너집니다.
+        final var state = quarantineService.activeState(agentId, null);
+        if (state == null) {
+            return policy;
+        }
+
+        final boolean connectionScoped =
+                state.getScope() == org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION;
+
+        applyQuarantinePolicy(policy, agentId, connectionScoped, state.getTargetCidr());
+        return policy;
+    }
+
+    /**
+     * 격리를 정책에 반영합니다.
+     *
+     * @param policy          원래 정책 (직접 수정됩니다)
+     * @param agentId         Agent 식별자 (로그용)
+     * @param connectionScoped 연결 단위 격리인지 여부
+     * @param targetCidr      연결 단위 격리 대상 CIDR (없으면 null)
+     */
+    private void applyQuarantinePolicy(ObjectNode policy, String agentId,
+                                        boolean connectionScoped, String targetCidr) {
         // 차단 사실을 응답 자체에 남깁니다. Agent 로그와 서버 상태를 대조할 때
         // "왜 정책이 차단본인가" 를 설명할 유일한 단서입니다.
         policy.put("quarantined", true);
-        policy.put("quarantine_note",
-                "이 장치는 운영자에 의해 격리되었습니다. 모든 전달 트래픽이 차단됩니다.");
+        policy.put("quarantine_scope", connectionScoped ? "connection" : "node");
+        if (connectionScoped && targetCidr != null && !targetCidr.isBlank()) {
+            policy.put("quarantine_target_cidr", targetCidr);
+        }
+        policy.put("quarantine_note", connectionScoped
+                ? "이 장치는 운영자에 의해 격리되었습니다. 대상 대역(" + targetCidr
+                        + ")으로 가는 연결만 차단됩니다."
+                : "이 장치는 운영자에 의해 격리되었습니다. 모든 전달 트래픽이 차단됩니다.");
 
         final ObjectNode summary = policy.has("summary")
                 ? (ObjectNode) policy.get("summary")
@@ -255,8 +318,23 @@ public class PolicyRegistryService {
         intent.put("rule_id", "quarantine");
         intent.put("direction", "both");
         intent.put("action", "deny");
-        intent.put("reason", "운영자 격리 — 모든 트래픽 차단");
+        intent.put("reason", connectionScoped
+                ? "운영자 격리 — 대상 대역 " + targetCidr + " 연결 차단"
+                : "운영자 격리 — 모든 트래픽 차단");
+        if (connectionScoped && targetCidr != null && !targetCidr.isBlank()) {
+            intent.put("destination_subnet", targetCidr);
+        }
         intents.insert(0, intent);
+
+        if (connectionScoped) {
+            // ⚠️ 연결 단위 격리는 기존 규칙을 전부 뒤집지 않습니다.
+            //   대상 대역으로 향하는 규칙만 차단합니다. 나머지는 그대로 두어
+            //   무관한 존이 살아 있게 합니다.
+            addConnectionDrop(policy, targetCidr);
+            log.warn("policy for agent={} overridden to quarantine (connection-only target={})",
+                    agentId, targetCidr);
+            return;
+        }
 
         // 기존 규칙의 허용을 차단으로 되돌립니다. 새 규칙을 추가하지 않는 이유는
         // 장치가 벤더마다 다른 순서 규칙을 만들 수 있어, 값만 바꾸는 편이
@@ -277,7 +355,46 @@ public class PolicyRegistryService {
         }
 
         log.warn("policy for agent={} overridden to quarantine (block-all)", agentId);
-        return policy;
+    }
+
+    /**
+     * 특정 대역으로 향하는 차단 규칙을 추가합니다. (연결 단위 격리)
+     *
+     * <p>기존 규칙 목록은 건드리지 않고 차단 규칙을 <b>앞에</b> 넣습니다.
+     * 뒤에 넣으면 허용 규칙이 먼저 매칭되어 차단이 무력해집니다.
+     *
+     * @param policy     정책 (직접 수정됩니다)
+     * @param targetCidr 차단할 대상 대역 (null/빈 값이면 아무것도 하지 않음)
+     */
+    private void addConnectionDrop(ObjectNode policy, String targetCidr) {
+        if (targetCidr == null || targetCidr.isBlank()) {
+            // 대상이 없으면 "무엇을 막을지" 알 수 없습니다. 이 경우 전부 차단으로
+            // 떨어지면 위험하므로, 기존 규칙을 그대로 두고 의도만 남깁니다.
+            log.warn("connection-scoped quarantine without target_cidr; policy left intact");
+            return;
+        }
+        final ArrayNode policies = policy.has("policies") && policy.get("policies").isArray()
+                ? (ArrayNode) policy.get("policies")
+                : policy.putArray("policies");
+
+        final ObjectNode drop = JSON.objectNode();
+        drop.putArray("vendor").add("Linux");
+        drop.putArray("product").add("nftables");
+        drop.putArray("command").add("create");
+        drop.put("rule_id", "quarantine-" + targetCidr.replace('/', '_').replace('.', '_'));
+        drop.putArray("reason").add("운영자 격리 — 대상 대역 " + targetCidr + " 차단");
+        drop.putArray("destination_subnet").add(targetCidr);
+        drop.putArray("action").add("drop");
+
+        final ObjectNode target = drop.putObject("rule_target");
+        target.putArray("table_family").add("inet");
+        target.putArray("table_name").add(firewallTable());
+        target.putArray("chain_name").add("forward");
+
+        final ObjectNode match = drop.putObject("match_criteria");
+        match.putArray("ip_daddr").add(targetCidr);
+
+        policies.insert(0, drop);
     }
 
     /**
@@ -311,7 +428,7 @@ public class PolicyRegistryService {
 
         // C++ policy_receiver 의 ReceivePolicy 는 "policies" 배열을 우선 처리합니다.
         final ArrayNode policies = policy.putArray("policies");
-        policies.add(strategyFor(type).defaultRule());
+        policies.add(policyStrategyFor(type).defaultRule());
         return policy;
     }
 
@@ -338,7 +455,7 @@ public class PolicyRegistryService {
         final ProjectSubnet subnet = match.subnet();
         final ZoneClass zone = subnet.getZoneClass();
         final List<Connection> connections = connectionsOf(project, subnet, type);
-        final DevicePolicyStrategy strategy = strategyFor(type);
+        final DevicePolicy strategy = policyStrategyFor(type);
 
         final String subnetId = PolicyJson.firstNonBlank(subnet.getSubnetId(), "subnet");
 
@@ -522,7 +639,14 @@ public class PolicyRegistryService {
     // ------------------------------------------------------------------
 
     /**
-     * 유형에 맞는 전략을 돌려줍니다.
+     * 유형에 맞는 정책 전략을 돌려줍니다.
+     *
+     * <h2>⚠️ 이름을 고친 이유</h2>
+     * <p>이전 이름은 {@code strategyFor} 였습니다. "전략을 준다" 는 뜻은
+     * 맞지만, 이 프로젝트에는 격리 전략({@code QuarantineMethod}) 처럼
+     * <b>다른 종류의 전략</b>도 있습니다. 이름이 무엇의 전략인지 말하지
+     * 않으면 호출부를 읽는 사람이 어느 전략인지 알 수 없습니다.
+     * 그래서 <b>무엇의 전략인지</b>를 이름에 담습니다.
      *
      * <p>전략 선택기가 없으면(테스트가 저장소만 넘긴 경우) <b>공용 폴백</b>을
      * 씁니다. 이 폴백이 있어야 기존 테스트가 깨지지 않습니다 — 그 테스트들이
@@ -531,7 +655,7 @@ public class PolicyRegistryService {
      * @param type 장치 유형
      * @return 전략 (null 이 아님)
      */
-    private DevicePolicyStrategy strategyFor(DeviceType type) {
+    private DevicePolicy policyStrategyFor(DeviceType type) {
         return (strategies != null) ? strategies.of(type) : FALLBACK_STRATEGIES.of(type);
     }
 
@@ -540,13 +664,27 @@ public class PolicyRegistryService {
      *
      * <p>전략 구현이 스프링 빈이지만 상태가 없으므로 인스턴스를 재사용해도
      * 안전합니다. 매 호출마다 만들면 낭비입니다.
+     *
+     * <p>⚠️ 사이트 설정은 <b>기본값 인스턴스</b>를 씁니다. 이 폴백은 전략
+     * 선택기가 없을 때(주로 단위 테스트)만 타는 경로이므로, 설정을 주입받지
+     * 못해도 기동/정책 생성이 실패하면 안 됩니다. 운영 경로는 스프링이
+     * {@link SiteProperties} 를 주입한 빈을 씁니다.
      */
-    private static final DevicePolicyStrategies FALLBACK_STRATEGIES =
-            new DevicePolicyStrategies(List.of(
-                    new org.sonar.sonarvalidator_backend.Policy.strategy.VmPolicyStrategy(),
-                    new org.sonar.sonarvalidator_backend.Policy.strategy.SwitchPolicyStrategy(),
-                    new org.sonar.sonarvalidator_backend.Policy.strategy.RouterPolicyStrategy(),
-                    new org.sonar.sonarvalidator_backend.Policy.strategy.FirewallPolicyStrategy()));
+    private static final DevicePolicies FALLBACK_STRATEGIES = buildFallbackPolicies();
+
+    /**
+     * 폴백 전략 집합을 만듭니다.
+     *
+     * @return 기본 설정으로 구성한 전략 선택기
+     */
+    private static DevicePolicies buildFallbackPolicies() {
+        final SiteProperties defaults = new SiteProperties();
+        return new DevicePolicies(List.of(
+                new org.sonar.sonarvalidator_backend.Policy.strategy.vendor.canonical.ubuntu.VmPolicy(defaults),
+                new org.sonar.sonarvalidator_backend.Policy.strategy.vendor.arista.veos.SwitchPolicy(defaults),
+                new org.sonar.sonarvalidator_backend.Policy.strategy.vendor.cisco.iosxe.RouterPolicy(defaults),
+                new org.sonar.sonarvalidator_backend.Policy.strategy.vendor.linux.nftables.FirewallPolicy(defaults)));
+    }
 
     /** @return 정책 유효 기한 (ISO-8601) */
     private static String validUntil() {

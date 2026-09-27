@@ -45,9 +45,17 @@ namespace quarantine
 inline constexpr const char* kIsolate = "quarantine";
 inline constexpr const char* kRelease = "release";
 
-// 관리망 대역입니다. PoC 네트워크 문서에 정의된 고정 대역이며,
-// 서버가 localhost 로 설정된 경우에도 이 대역은 반드시 살려 둡니다.
-inline constexpr const char* kManagementPrefix = "172.16.255.0/24";
+// 관리망 대역 기본값입니다.
+//
+// ⚠️ 하드코딩 상수 대신 ProberConfig(GetManagementPrefixes) 를 쓰세요.
+//    이전에는 이 상수("172.16.255.0/24")가 유일한 값이었는데, 랩/프로젝트마다
+//    관리 대역이 다를 수 있고 서버가 프로젝트별로 지정할 수 있어 설정으로
+//    옮겼습니다. (default.conf 의 MANAGEMENT_PREFIX)
+//
+//    남겨 둔 이유: 설정이 비어 있을 때의 <b>안전한 폴백</b>입니다. 관리 대역을
+//    모르면 격리가 관리 경로를 내려 해제 명령이 도달하지 못하므로,
+//    값이 없을 때는 문서의 기본 대역을 씁니다.
+inline constexpr const char* kDefaultManagementPrefix = "172.16.255.0/24";
 
 // 적용 결과입니다. 서버 ack 로 그대로 보고됩니다.
 struct Outcome
