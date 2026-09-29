@@ -7,12 +7,12 @@
 
 ## 구성 요소
 
-| 구성 요소 | 역할 | 기술 |
-| --- | --- | --- |
-| **Prober (Agent)** | 장비에 붙어 CLI 출력·설정을 수집하고 파싱해 서버로 전송 | C++23, ANTLR4, SQLite |
-| **Backend** | 수집 데이터 수신·저장, 정책 검증, REST/WebSocket API | Java 26, Spring Boot 4.1, H2/PostgreSQL |
-| **Frontend** | 정책 편집, 토폴로지 시각화, 검증 결과 대시보드 | React + TypeScript, Vite |
-| **Docs** | 설계 문서 사이트 | Docusaurus |
+| 구성 요소                | 역할                                                     | 기술                                    |
+| ------------------------ | -------------------------------------------------------- | --------------------------------------- |
+| **Prober (Agent)** | 장비에 붙어 CLI 출력·설정을 수집하고 파싱해 서버로 전송 | C++23, ANTLR4, SQLite                   |
+| **Backend**        | 수집 데이터 수신·저장, 정책 검증, REST/WebSocket API    | Java 26, Spring Boot 4.1, H2/PostgreSQL |
+| **Frontend**       | 정책 편집, 토폴로지 시각화, 검증 결과 대시보드           | React + TypeScript, Vite                |
+| **Docs**           | 설계 문서 사이트                                         | Docusaurus                              |
 
 ```mermaid
 flowchart LR
@@ -35,11 +35,31 @@ flowchart LR
 ├── SonarValidator_Backend/    # Spring Boot 서버
 │   └── src/main/antlr4/       # Java 쪽 ANTLR 문법 (.g4)
 ├── SonarValidator_Frontend/   # React 프론트엔드
-├── docs/docs/                 # Docusaurus 문서 사이트 (설계·가이드·테스트 문서는 blog/ 에 정리)
+├── docs/                      # Docusaurus 문서 사이트 (설계·가이드·테스트 문서는 blog/ 에 정리)
+├── dev.sh                     # 프론트+백엔드 개발 스택 실행 스크립트
 └── docker/                    # 이미지 / 컴포즈 정의
 ```
 
 ## 빠른 시작
+
+### 0. 개발 스택 한 번에 실행 (Agent 불필요)
+
+Agent(Prober) 없이 **Frontend + Backend** 만 띄워 개발/테스트할 때 씁니다.
+백엔드는 H2 파일 DB(`local` 프로필), 디버거(JDWP 5005)가 함께 열립니다.
+
+```bash
+./dev.sh                 # 프론트(5173) + 백엔드(3000, 디버그) 실행
+./dev.sh --no-debug      # 디버그 포트 없이
+./dev.sh --backend-only  # 백엔드만
+./dev.sh --frontend-only # 프론트만
+
+BACKEND_PORT=3300 ./dev.sh   # 포트가 점유된 경우 변경
+```
+
+- Ctrl+C 한 번으로 두 프로세스가 함께 종료됩니다.
+- VS Code 디버거는 `localhost:5005`(suspend=n) 로 attach 합니다.
+
+아래는 각 계층을 개별 실행하는 방법입니다.
 
 ### 1. Backend
 
@@ -90,11 +110,11 @@ docker compose up --build
 
 ## 테스트
 
-| 대상 | 명령 | 현재 상태 |
-| --- | --- | --- |
-| Backend | `cd SonarValidator_Backend && ./mvnw clean test` | **261 tests, 0 failures** |
-| Prober | `cd SonarValidator_Prober && ctest --test-dir build --output-on-failure` | **13 tests, 100% passed** |
-| Frontend | `cd SonarValidator_Frontend && npx tsc -b && npm run lint` | **tsc clean, lint 0 errors** |
+| 대상     | 명령                                                                       | 현재 상태                          |
+| -------- | -------------------------------------------------------------------------- | ---------------------------------- |
+| Backend  | `cd SonarValidator_Backend && ./mvnw clean test`                         | **261 tests, 0 failures**    |
+| Prober   | `cd SonarValidator_Prober && ctest --test-dir build --output-on-failure` | **13 tests, 100% passed**    |
+| Frontend | `cd SonarValidator_Frontend && npx tsc -b && npm run lint`               | **tsc clean, lint 0 errors** |
 
 ### ⚠️ Frontend 는 `npm run dev` 로 검증하지 않습니다
 
@@ -114,11 +134,11 @@ docker compose up --build
 ANTLR 런타임 빌드(수 분)까지 돌면 대기 시간만 늘고, 정작 어느 계층이 깨졌는지
 드러나지 않기 때문입니다.
 
-| 워크플로 | 트리거 경로 | 단계 |
-| --- | --- | --- |
-| [`backend.yml`](.github/workflows/backend.yml) | `SonarValidator_Backend/**` | JDK 26 → `./mvnw -B clean test` → surefire 리포트 |
-| [`frontend.yml`](.github/workflows/frontend.yml) | `SonarValidator_Frontend/**` | Node 22 → `npm ci` → `tsc -b` → `lint` → `build` |
-| [`prober.yml`](.github/workflows/prober.yml) | `SonarValidator_Prober/**` | ANTLR4 4.13.2 소스 빌드 → `cmake` → `ctest` |
+| 워크플로                                          | 트리거 경로                    | 단계                                                        |
+| ------------------------------------------------- | ------------------------------ | ----------------------------------------------------------- |
+| [`backend.yml`](.github/workflows/backend.yml)   | `SonarValidator_Backend/**`  | JDK 26 →`./mvnw -B clean test` → surefire 리포트        |
+| [`frontend.yml`](.github/workflows/frontend.yml) | `SonarValidator_Frontend/**` | Node 22 →`npm ci` → `tsc -b` → `lint` → `build` |
+| [`prober.yml`](.github/workflows/prober.yml)     | `SonarValidator_Prober/**`   | ANTLR4 4.13.2 소스 빌드 →`cmake` → `ctest`            |
 
 ```mermaid
 flowchart LR
@@ -130,16 +150,16 @@ flowchart LR
 
 ### ⚠️ 워크플로가 잡는 것 중 로컬에서 놓치기 쉬운 것
 
-| 항목 | 왜 놓치는가 |
-| --- | --- |
-| Frontend 타입 오류 | `npm run dev`(esbuild)가 검사하지 않음 |
-| Frontend 린트 오류 | 커밋 전 `npm run lint` 를 안 돌리면 쌓임 |
-| Prober ANTLR 버전 불일치 | 컴파일은 되고 런타임에만 터짐 |
-| 생성 파서 미커밋 | CMake 가 `FATAL_ERROR` 로 멈춤 |
-| Maven 증분 빌드 잔재 | `clean` 없이 돌리면 통과해 버림 |
+| 항목                     | 왜 놓치는가                               |
+| ------------------------ | ----------------------------------------- |
+| Frontend 타입 오류       | `npm run dev`(esbuild)가 검사하지 않음  |
+| Frontend 린트 오류       | 커밋 전`npm run lint` 를 안 돌리면 쌓임 |
+| Prober ANTLR 버전 불일치 | 컴파일은 되고 런타임에만 터짐             |
+| 생성 파서 미커밋         | CMake 가`FATAL_ERROR` 로 멈춤           |
+| Maven 증분 빌드 잔재     | `clean` 없이 돌리면 통과해 버림         |
 
 자세한 설계 근거와 재현 명령은
-[`docs/docs/blog` CI/CD 구축 문서](docs/docs/blog/2026-09-26-cicd-github-actions.md) 를 참고하세요.
+[`docs/blog` CI/CD 구축 문서](docs/blog/2026-09-26-cicd-github-actions.md) 를 참고하세요.
 
 ## CLI 출력 파서 (ANTLR)
 
@@ -147,13 +167,13 @@ flowchart LR
 **같은 JSON 계약**을 만들어 내도록 맞춰져 있습니다. Prober 가 보낸 JSON 이 그대로 백엔드로
 넘어가기 때문에, 양쪽 계약이 어긋나면 데이터가 조용히 사라집니다.
 
-| 문법 | 대상 | 예시 명령 |
-| --- | --- | --- |
-| `IpAddr` | 인터페이스 / 주소 / 라우트 / 이웃 | `ip a`, `ip route show`, `ip neigh` |
-| `FrrRouter` | FRR vtysh 출력 (라우트 코드 포함) | `show ip route` |
-| `SwitchTopology` | 스위치 토폴로지 · 포트 · VLAN | `show vlan brief`, `show interfaces switchport` |
-| `OvsTopology` | OpenVSwitch 브리지 | `ovs-vsctl show` |
-| `NftablesRule` | 방화벽 규칙 | `nft list ruleset` |
+| 문법               | 대상                              | 예시 명령                                           |
+| ------------------ | --------------------------------- | --------------------------------------------------- |
+| `IpAddr`         | 인터페이스 / 주소 / 라우트 / 이웃 | `ip a`, `ip route show`, `ip neigh`           |
+| `FrrRouter`      | FRR vtysh 출력 (라우트 코드 포함) | `show ip route`                                   |
+| `SwitchTopology` | 스위치 토폴로지 · 포트 · VLAN   | `show vlan brief`, `show interfaces switchport` |
+| `OvsTopology`    | OpenVSwitch 브리지                | `ovs-vsctl show`                                  |
+| `NftablesRule`   | 방화벽 규칙                       | `nft list ruleset`                                |
 
 문법을 고칠 때는 **Visitor 를 손보지 말고 `.g4` 를 고칩니다.** Visitor / BaseVisitor 는
 ANTLR 이 자동 생성합니다.
@@ -167,12 +187,13 @@ ANTLR 이 자동 생성합니다.
 
 ## 문서
 
-Docusaurus 로 만든 문서 사이트가 `docs/docs` 에 있습니다.
+Docusaurus 로 만든 문서 사이트가 `docs` 에 있습니다.
 프로젝트에 흩어져 있던 설계 · 가이드 · 테스트 문서는 모두 **블로그 포스트**로 옮겨
 주제별 **태그**로 분류했습니다.
 
 ```bash
-cd docs/docs
+cd docs
+npm install
 npm run start
 ```
 
@@ -182,16 +203,16 @@ npm run start
 
 ### 문서 주제(태그)
 
-| 태그 | 주제 | 예시 문서 |
-| --- | --- | --- |
-| `architecture` | 아키텍처 · 설계 다이어그램 | 아키텍처 다이어그램 v2~v5, Backend/Agent 구조 |
-| `backend` · `frontend` | 계층별 구현 | 프론트-백 연결, 프로젝트 편집기 시퀀스 |
-| `agent` | Prober(C++23) 에이전트 | Prober API, Cisco 배포/트러블슈팅 |
-| `policy` | 장비별 정책 JSON 설계 | Router / Switch / Firewall / VM 정책 |
-| `network` · `poc-network` | PoC 네트워크 구성 | D-AI-PBL 노드별 적용 명령어 |
-| `deployment` · `docker` · `cicd` | 배포 · 인프라 | PoC 랩 배포, 컨테이너 이미지, GitHub Actions |
-| `testing` | 테스트 · 검증 | 통합 테스트 시나리오/결과 |
-| `troubleshooting` | 문제 진단 | SIGTERM 미종료, guestshell 문제 해결 |
+| 태그                                     | 주제                        | 예시 문서                                     |
+| ---------------------------------------- | --------------------------- | --------------------------------------------- |
+| `architecture`                         | 아키텍처 · 설계 다이어그램 | 아키텍처 다이어그램 v2~v5, Backend/Agent 구조 |
+| `backend` · `frontend`              | 계층별 구현                 | 프론트-백 연결, 프로젝트 편집기 시퀀스        |
+| `agent`                                | Prober(C++23) 에이전트      | Prober API, Cisco 배포/트러블슈팅             |
+| `policy`                               | 장비별 정책 JSON 설계       | Router / Switch / Firewall / VM 정책          |
+| `network` · `poc-network`           | PoC 네트워크 구성           | D-AI-PBL 노드별 적용 명령어                   |
+| `deployment` · `docker` · `cicd` | 배포 · 인프라              | PoC 랩 배포, 컨테이너 이미지, GitHub Actions  |
+| `testing`                              | 테스트 · 검증              | 통합 테스트 시나리오/결과                     |
+| `troubleshooting`                      | 문제 진단                   | SIGTERM 미종료, guestshell 문제 해결          |
 
 ## 라이선스
 

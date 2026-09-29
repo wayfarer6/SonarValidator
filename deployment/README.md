@@ -65,7 +65,7 @@ export SONAR_UBUNTU_PW='...'      # Ubuntu VM
 ```
 
 랩 접속 정보(주소·계정·포트)는
-[`RVI — 랩 접속 자격증명`](../docs/docs/blog/2026-09-26-rvi-opnsense-credential.md) 를 참고하세요.
+[`RVI — 랩 접속 자격증명`](../docs/blog/2026-09-26-rvi-opnsense-credential.md) 를 참고하세요.
 (그 문서도 평문 비밀번호는 담지 않습니다)
 
 ---
@@ -86,11 +86,11 @@ export SONAR_UBUNTU_PW='...'      # Ubuntu VM
 
 ## 5. 관련 문서
 
-배포 · 가이드 문서는 `docs/docs/blog/` 에 블로그 포스트로 정리되어 있습니다.
+배포 · 가이드 문서는 `docs/blog/` 에 블로그 포스트로 정리되어 있습니다.
 
 | 문서 | 내용 |
 | --- | --- |
-| [`PoC 랩(GNS3) 배포 가이드`](../docs/docs/blog/2026-09-26-poc-lab-deployment.md) | D-AI-PBL 랩 배포 절차 (18대 실검증) |
+| [`PoC 랩(GNS3) 배포 가이드`](../docs/blog/2026-09-26-poc-lab-deployment.md) | D-AI-PBL 랩 배포 절차 (18대 실검증) |
 | [RVI 통합 테스트 계획](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1867833) | RVI 랩 검증 계획 |
 | [RVI 통합 테스트 결과](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1867859) | RVI 랩 실측 결과 |
-| [`부록 — Agent SIGTERM 미종료 결함 분석`](../docs/docs/blog/2026-09-26-appendix-sigterm-hang-analysis.md) | SIGTERM 미종료 결함 분석 |
+| [`부록 — Agent SIGTERM 미종료 결함 분석`](../docs/blog/2026-09-26-appendix-sigterm-hang-analysis.md) | SIGTERM 미종료 결함 분석 |
