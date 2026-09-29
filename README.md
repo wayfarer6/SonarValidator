@@ -35,7 +35,7 @@ flowchart LR
 ├── SonarValidator_Backend/    # Spring Boot 서버
 │   └── src/main/antlr4/       # Java 쪽 ANTLR 문법 (.g4)
 ├── SonarValidator_Frontend/   # React 프론트엔드
-├── docs/docs/                 # Docusaurus 문서 사이트
+├── docs/docs/                 # Docusaurus 문서 사이트 (설계·가이드·테스트 문서는 blog/ 에 정리)
 └── docker/                    # 이미지 / 컴포즈 정의
 ```
 
@@ -139,7 +139,7 @@ flowchart LR
 | Maven 증분 빌드 잔재 | `clean` 없이 돌리면 통과해 버림 |
 
 자세한 설계 근거와 재현 명령은
-[`docs/CICD_GitHub_Actions.md`](docs/CICD_GitHub_Actions.md) 를 참고하세요.
+[`docs/docs/blog` CI/CD 구축 문서](docs/docs/blog/2026-09-26-cicd-github-actions.md) 를 참고하세요.
 
 ## CLI 출력 파서 (ANTLR)
 
@@ -168,11 +168,30 @@ ANTLR 이 자동 생성합니다.
 ## 문서
 
 Docusaurus 로 만든 문서 사이트가 `docs/docs` 에 있습니다.
+프로젝트에 흩어져 있던 설계 · 가이드 · 테스트 문서는 모두 **블로그 포스트**로 옮겨
+주제별 **태그**로 분류했습니다.
 
 ```bash
 cd docs/docs
 npm run start
 ```
+
+- 사이트: `http://localhost:3000/`
+- 문서: `http://localhost:3000/blog`
+- 주제별 보기(태그): `http://localhost:3000/blog/tags`
+
+### 문서 주제(태그)
+
+| 태그 | 주제 | 예시 문서 |
+| --- | --- | --- |
+| `architecture` | 아키텍처 · 설계 다이어그램 | 아키텍처 다이어그램 v2~v5, Backend/Agent 구조 |
+| `backend` · `frontend` | 계층별 구현 | 프론트-백 연결, 프로젝트 편집기 시퀀스 |
+| `agent` | Prober(C++23) 에이전트 | Prober API, Cisco 배포/트러블슈팅 |
+| `policy` | 장비별 정책 JSON 설계 | Router / Switch / Firewall / VM 정책 |
+| `network` · `poc-network` | PoC 네트워크 구성 | D-AI-PBL 노드별 적용 명령어 |
+| `deployment` · `docker` · `cicd` | 배포 · 인프라 | PoC 랩 배포, 컨테이너 이미지, GitHub Actions |
+| `testing` | 테스트 · 검증 | 통합 테스트 시나리오/결과 |
+| `troubleshooting` | 문제 진단 | SIGTERM 미종료, guestshell 문제 해결 |
 
 ## 라이선스
 

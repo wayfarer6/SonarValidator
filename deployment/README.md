@@ -34,7 +34,6 @@ deployment/
 │   ├── gns3_console.py            GNS3 콘솔(telnet) 접속 헬퍼
 │   └── ws_collector.py            WebSocket 수신 검증기 (표준 라이브러리만)
 ├── d-ai-pbl-poc/              D-AI-PBL-PoC 랩 (172.16.255.0/24)
-│   ├── PoC_Lab_Deployment.md      배포 가이드 (여기서 시작)
 │   ├── deploy_poc_lab.sh          라우터 5대 (SSH) 배포 + 재시작
 │   ├── deploy_containers.sh       컨테이너 스위치·VM·방화벽 배포
 │   ├── deploy_vm.sh               QEMU VM 용 (콘솔에서 실행)
@@ -66,7 +65,7 @@ export SONAR_UBUNTU_PW='...'      # Ubuntu VM
 ```
 
 랩 접속 정보(주소·계정·포트)는
-`Poc용 네트워크 Real-to-Virtual/OPNSense_Credential.md` 를 참고하세요.
+[`RVI — 랩 접속 자격증명`](../docs/docs/blog/2026-09-26-rvi-opnsense-credential.md) 를 참고하세요.
 (그 문서도 평문 비밀번호는 담지 않습니다)
 
 ---
@@ -87,9 +86,11 @@ export SONAR_UBUNTU_PW='...'      # Ubuntu VM
 
 ## 5. 관련 문서
 
+배포 · 가이드 문서는 `docs/docs/blog/` 에 블로그 포스트로 정리되어 있습니다.
+
 | 문서 | 내용 |
 | --- | --- |
-| [`d-ai-pbl-poc/PoC_Lab_Deployment.md`](d-ai-pbl-poc/PoC_Lab_Deployment.md) | D-AI-PBL 랩 배포 절차 (18대 실검증) |
+| [`PoC 랩(GNS3) 배포 가이드`](../docs/docs/blog/2026-09-26-poc-lab-deployment.md) | D-AI-PBL 랩 배포 절차 (18대 실검증) |
 | [RVI 통합 테스트 계획](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1867833) | RVI 랩 검증 계획 |
 | [RVI 통합 테스트 결과](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1867859) | RVI 랩 실측 결과 |
-| [`docs/Agent/Appendix_SIGTERM_Hang_Analysis.md`](../docs/Agent/Appendix_SIGTERM_Hang_Analysis.md) | SIGTERM 미종료 결함 분석 |
+| [`부록 — Agent SIGTERM 미종료 결함 분석`](../docs/docs/blog/2026-09-26-appendix-sigterm-hang-analysis.md) | SIGTERM 미종료 결함 분석 |

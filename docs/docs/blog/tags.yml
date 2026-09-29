@@ -1,19 +1,104 @@
-facebook:
-  label: Facebook
-  permalink: /facebook
-  description: Facebook tag description
+architecture:
+  label: 아키텍처 · 설계
+  permalink: /architecture
+  description: 시스템 구조와 설계 다이어그램
 
-hello:
-  label: Hello
-  permalink: /hello
-  description: Hello tag description
+backend:
+  label: 백엔드
+  permalink: /backend
+  description: Spring Boot 백엔드 관련 문서
 
-docusaurus:
-  label: Docusaurus
-  permalink: /docusaurus
-  description: Docusaurus tag description
+frontend:
+  label: 프론트엔드
+  permalink: /frontend
+  description: React 프론트엔드 관련 문서
 
-hola:
-  label: Hola
-  permalink: /hola
-  description: Hola tag description
+agent:
+  label: Agent · Prober
+  permalink: /agent
+  description: C++ 프로버 에이전트 관련 문서
+
+policy:
+  label: 정책 설계
+  permalink: /policy
+  description: 장비별 정책 JSON 설계 문서
+
+network:
+  label: 네트워크
+  permalink: /network
+  description: 네트워크 구성과 검증
+
+poc-network:
+  label: PoC 네트워크
+  permalink: /poc-network
+  description: D-AI-PBL PoC 네트워크 구성
+
+deployment:
+  label: 배포
+  permalink: /deployment
+  description: 배포 절차와 가이드
+
+docker:
+  label: Docker · 컨테이너
+  permalink: /docker
+  description: 컨테이너 이미지와 컴포즈
+
+cicd:
+  label: CI/CD
+  permalink: /cicd
+  description: 빌드 · 배포 자동화
+
+testing:
+  label: 테스트 · 검증
+  permalink: /testing
+  description: 통합 테스트와 검증 결과
+
+troubleshooting:
+  label: 트러블슈팅
+  permalink: /troubleshooting
+  description: 문제 진단과 해결 기록
+
+notes:
+  label: 노트
+  permalink: /notes
+  description: 작업 세션 및 메모
+
+api:
+  label: API
+  permalink: /api
+  description: API 레퍼런스
+
+cisco:
+  label: Cisco
+  permalink: /cisco
+  description: Cisco 장비 관련 문서
+
+firewall:
+  label: 방화벽
+  permalink: /firewall
+  description: 방화벽 정책과 이미지
+
+router:
+  label: 라우터
+  permalink: /router
+  description: 라우터 정책 설계
+
+switch:
+  label: 스위치
+  permalink: /switch
+  description: 스위치 정책 설계
+
+vm:
+  label: VM
+  permalink: /vm
+  description: VM 네트워크 정책
+
+opnsense:
+  label: OPNsense
+  permalink: /opnsense
+  description: OPNsense 관련 문서
+
+rvi:
+  label: RVI 랩
+  permalink: /rvi
+  description: Real-to-Virtual 검증 랩
