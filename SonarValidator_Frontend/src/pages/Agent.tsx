@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -14,6 +15,7 @@ import {
 } from "../lib/api";
 import { API_BASE_URL } from "../lib/api/client";
 import { downloadSnapshot } from "../lib/api/offline";
+import AgentDeployCard from "../components/project/AgentDeployCard";
 import type { ApiDiscoveredDevice, ApiQuarantineState } from "../lib/api/types";
 
 /**
@@ -50,8 +52,19 @@ import type { ApiDiscoveredDevice, ApiQuarantineState } from "../lib/api/types";
  * <p>⚠️ 격리는 <b>업무망 트래픽을 끊습니다.</b> 그래서 버튼은 한 번 더
  * 확인({@code window.confirm})을 받습니다. 이 장치는 관리망 경로만 남기고
  * 모든 데이터 인터페이스가 내려갑니다.
+ *
+ * <h2>⚠️ 설치 번들 만들기가 이 화면에도 있는 이유</h2>
+ * <p>장비에 프로버를 설치하려면 {@code default.conf} 에 <b>관리 서버 IP·Port</b> 가
+ * 들어 있어야 합니다. 예전에는 그 입력이 프로젝트 목록의 <b>Add Agent</b>
+ * 카드에만 있어서, Agent 목록에서 장비를 확인하던 운영자는 "여기서는 서버
+ * 주소를 지정할 수 없다" 고 읽었습니다. (설정 내보내기 JSON 밖에 없었습니다)
+ *
+ * <p>그래서 프로젝트 목록과 <b>같은</b> {@link AgentDeployCard} 를 여기서도
+ * 엽니다. 컴포넌트를 재사용하므로 IP·Port 지정 방식과 tar.gz 번들 생성이
+ * 두 화면에서 어긋날 수 없습니다.
  */
 export default function Agent() {
+  const navigate = useNavigate();
   const overview = useApi(() => listAgentOverview(), []);
   const discovered = useApi(() => getAllDiscoveredDevices(), []);
   const quarantine = useApi(() => listQuarantined(), []);
@@ -70,6 +83,15 @@ export default function Agent() {
   /** 유령 정리 진행 중 여부. */
   const [pruning, setPruning] = useState(false);
   const [pruneMessage, setPruneMessage] = useState<string | null>(null);
+
+  /**
+   * 설치 번들 카드(IP/Port + tar.gz) 노출 여부입니다.
+   *
+   * <p>프로젝트 목록의 Add Agent 와 <b>같은</b> 카드를 씁니다. 닫을 때는
+   * 프로젝트 키를 넘기지 않습니다 — 이 화면은 프로젝트를 고르지 않고
+   * 들어오므로, 배포 예정 등록은 카드가 감추고 번들 생성만 제공합니다.
+   */
+  const [showDeployCard, setShowDeployCard] = useState(false);
 
   /** 내려받기 진행 중인 Agent 식별자. 중복 클릭을 막습니다. */
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -512,8 +534,28 @@ export default function Agent() {
               >
                 {pruning ? "정리 중..." : "오래된 항목 정리"}
               </Button>
+              {/* 프로버 설치용 번들(설정 + IP/Port + tar.gz)을 여기서도 만듭니다.
+                  프로젝트 목록의 Add Agent 와 같은 카드를 씁니다. */}
+              <Button
+                size="sm"
+                variant={showDeployCard ? "primary" : "outline"}
+                onClick={() => setShowDeployCard((open) => !open)}
+                title="장비에 설치할 Prober 번들(관리 서버 IP·Port 포함, tar.gz)을 만듭니다"
+              >
+                {showDeployCard ? "설치 번들 닫기" : "설치 번들 만들기"}
+              </Button>
             </div>
           </div>
+
+          {/* 설치 번들 카드 — 프로젝트 목록과 같은 컴포넌트입니다.
+              ⚠️ projectId 를 넘기지 않습니다. 이 화면에는 프로젝트가 없으므로
+                 배포 예정 등록은 카드가 감추고, IP/Port + tar.gz 생성만 제공합니다. */}
+          {showDeployCard && (
+            <AgentDeployCard
+              onClose={() => setShowDeployCard(false)}
+              onImportOffline={() => navigate("/project/create/subnet")}
+            />
+          )}
 
           {pruneMessage && (
             <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-200">

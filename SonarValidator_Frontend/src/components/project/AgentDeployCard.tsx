@@ -110,8 +110,15 @@ export const AGENT_DEVICE_TYPES: AgentDeviceType[] = [
 ];
 
 export interface AgentDeployCardProps {
-  /** 카드가 속한 프로젝트 키. 제목/안내와 배포 예정 등록에 사용합니다. */
-  projectId: string;
+  /**
+   * 카드가 속한 프로젝트 키. 제목 배지와 배포 예정 등록에 사용합니다.
+   *
+   * <p>⚠️ <b>선택</b>입니다. Agent 목록 화면(`/agent`)은 프로젝트를 고르지 않고
+   * 들어올 수 있는데, 그 화면에서도 "설치 번들 만들기"(IP/Port 지정 + tar.gz)를
+   * 쓰려면 카드를 재사용해야 합니다. 프로젝트가 없으면 배포 예정 등록만
+   * 감추고 나머지 기능은 그대로 동작합니다.
+   */
+  projectId?: string;
   /** 카드 접기 콜백. */
   onClose: () => void;
   /**
@@ -140,12 +147,13 @@ export interface AgentDeployCardProps {
  * @param device 선택한 장비
  * @param projectId 프로젝트 키 (프로젝트마다 다른 이름이 필요할 때 대비)
  */
-function defaultAgentName(device: AgentDeviceType, projectId: string): string {
+function defaultAgentName(device: AgentDeviceType, projectId?: string): string {
   const base = device.label
     .replace(/\s*\(for poc\)/i, "")
     .trim()
     .replace(/\s+/g, "-");
   // 프로젝트가 여러 개면 같은 장비 이름이 겹칠 수 있으므로 앞머리를 붙입니다.
+  // ⚠️ 프로젝트를 고르지 않았으면(예: Agent 목록 화면) 장비 이름만 씁니다.
   return projectId ? `${projectId}-${base}-agent` : `${base}-agent`;
 }
 
@@ -240,6 +248,16 @@ export default function AgentDeployCard({
   const [opnsenseAgentId, setOpnsenseAgentId] = useState("");
   const [opnsenseSavedCount, setOpnsenseSavedCount] = useState(0);
 
+  /**
+   * 프로젝트 지정 여부입니다.
+   *
+   * <p>프로젝트 목록(`/project`)은 자기 키를 넘기지만, Agent 목록(`/agent`)은
+   * 프로젝트를 고르지 않고 들어옵니다. 그때 배포 예정 등록을 그대로 두면
+   * 프로젝트 없이 등록되어 목록에서 프로젝트 필터가 어긋납니다. 그래서
+   * 등록 UI 만 감추고, 번들 생성(IP/Port + tar.gz)은 그대로 제공합니다.
+   */
+  const hasProject = (projectId ?? "").trim() !== "";
+
   const selected = useMemo(
     () => AGENT_DEVICE_TYPES.find((device) => device.label === selectedLabel) ?? null,
     [selectedLabel],
@@ -277,6 +295,12 @@ export default function AgentDeployCard({
    * <b>두 줄</b>로 나타나고, 등록한 장치는 영원히 <b>무응답</b>으로 남습니다.
    * 서버가 이미 아는 값(장치 유형·서버 주소·이름)을 서버가 채우면
    * 어긋날 여지가 없습니다.
+   *
+   * <h2>⚠️ 포트도 함께 보내는 이유</h2>
+   * <p>주소만 보내면 서버는 자기 설정값({@code server.port})을 포트로 씁니다.
+   * 그러면 위 미리보기가 보여준 포트와 <b>실제 번들의 포트가 달라집니다.</b>
+   * 운영자는 미리보기를 믿고 방화벽을 열었다가 프로버가 연결되지 않는 것을
+   * 봅니다.
    */
   const handleDownloadBundle = async () => {
     const agentId = agentName.trim();
@@ -291,6 +315,7 @@ export default function AgentDeployCard({
         nodeType: selected?.nodeType,
         // 비워 두면 서버 기본값을 씁니다. 입력했다면 그 값을 우선합니다.
         serverIp: managementServerIPAddr.trim() || undefined,
+        serverPort: managementServerPort.trim() || undefined,
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -418,8 +443,9 @@ export default function AgentDeployCard({
           />
         </div>
         <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-          비워 두면 프로버 기본값(<code className="font-mono">localhost:3000</code>)을
-          씁니다. Prober 설치 기본 포트는 3000 입니다.
+          여기 넣은 IP·Port 는 아래 설정 미리보기와 설치 번들(
+          <code className="font-mono">default.conf</code>)에 그대로 들어갑니다. 비워
+          두면 서버 기본값(<code className="font-mono">3000</code>)을 씁니다.
         </p>
       </div>
 
@@ -448,10 +474,12 @@ export default function AgentDeployCard({
             </Badge>
           </div>
 
-          {/* Agent 이름 + 서버 등록. 이 두 가지가 있어야 목록에 나타납니다. */}
+          {/* Agent 이름 + 서버 등록. 이 두 가지가 있어야 목록에 나타납니다.
+              ⚠️ 프로젝트를 고르지 않은 화면(Agent 목록)에서는 등록 UI 를 감춥니다.
+                 프로젝트 없이 등록하면 목록의 프로젝트 필터가 어긋나기 때문입니다. */}
           <div className="mb-4 rounded-lg border border-brand-200 bg-brand-50/60 p-3 dark:border-brand-500/30 dark:bg-brand-500/10">
             <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200">
-              Agent 이름 (서버 등록 + default.conf 에 함께 들어갑니다)
+              Agent 이름{hasProject && " (서버 등록 + default.conf 에 함께 들어갑니다)"}
             </label>
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -464,24 +492,36 @@ export default function AgentDeployCard({
                 placeholder="예: VDI-1-agent"
                 className="min-w-[200px] flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-xs text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
-              <button
-                type="button"
-                onClick={handleRegister}
-                disabled={agentName.trim() === "" || registerState === "saving"}
-                title={
-                  agentName.trim() === ""
-                    ? "Agent 이름을 먼저 입력하세요"
-                    : "배포 예정으로 서버에 등록합니다"
-                }
-                className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
-              >
-                {registerState === "saving"
-                  ? "등록 중..."
-                  : registered.includes(agentName.trim())
-                    ? "다시 등록"
-                    : "서버에 등록"}
-              </button>
+              {hasProject && (
+                <button
+                  type="button"
+                  onClick={handleRegister}
+                  disabled={agentName.trim() === "" || registerState === "saving"}
+                  title={
+                    agentName.trim() === ""
+                      ? "Agent 이름을 먼저 입력하세요"
+                      : "배포 예정으로 서버에 등록합니다"
+                  }
+                  className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700"
+                >
+                  {registerState === "saving"
+                    ? "등록 중..."
+                    : registered.includes(agentName.trim())
+                      ? "다시 등록"
+                      : "서버에 등록"}
+                </button>
+              )}
             </div>
+
+            {/* 프로젝트가 없으면 등록할 수 없는 이유와 해결을 알려 줍니다.
+                (감추기만 하면 "왜 등록 버튼이 없지" 로 보입니다) */}
+            {!hasProject && (
+              <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+                배포 예정 등록은 프로젝트가 있어야 합니다. 프로젝트 목록에서{" "}
+                <b>Add Agent</b> 로 들어오면 그 프로젝트에 장비가 등록됩니다.
+                여기서는 설정이 채워진 설치 번들만 만들 수 있습니다.
+              </p>
+            )}
 
             {registerState === "done" && (
               <p className="mt-2 text-[11px] text-success-600 dark:text-success-400">
@@ -522,13 +562,13 @@ export default function AgentDeployCard({
               title={
                 agentName.trim() === ""
                   ? "Agent 이름을 먼저 입력하세요 (배포 예정 등록 이름과 같아야 합니다)"
-                  : "default.conf / README.txt / 스크립트가 담긴 ZIP 을 내려받습니다"
+                  : "default.conf / README.txt / 스크립트가 담긴 tar.gz 를 내려받습니다"
               }
               className="rounded-lg bg-brand-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {bundleState === "downloading"
                 ? "번들 생성 중..."
-                : "설정 포함 설치 번들 받기 (ZIP)"}
+                : "설정 포함 설치 번들 받기 (tar.gz)"}
             </button>
             <span className="text-[11px] text-gray-500 dark:text-gray-400">
               서버가 <b>이 장치에 맞는 값</b>을 채워 넣습니다. 손으로 옮기면
@@ -538,7 +578,9 @@ export default function AgentDeployCard({
 
           {bundleState === "done" && (
             <p className="mt-2 text-[11px] text-success-600 dark:text-success-400">
-              ✓ 설치 번들을 내려받았습니다. 안에 있는{" "}
+              ✓ 설치 번들을 내려받았습니다. 장비에서{" "}
+              <code className="font-mono">tar -xzf sonar-agent-*.tar.gz</code> 로 풀면{" "}
+              <span className="font-mono">Installer/</span> 폴더가 나옵니다. 그 안의{" "}
               <span className="font-mono">README.txt</span> 를 순서대로 따르세요.
               바이너리는 번들에 없고 서버에서 HTTP 로 내려받습니다.
             </p>

@@ -86,6 +86,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedOriginPatterns(allowedOriginPatterns)
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
+                // ⚠️ 기본값으로는 JS 가 Content-Disposition 을 읽지 못합니다.
+                //    그래서 Agent 설치 번들(tar.gz)을 내려받을 때 화면이
+                //    서버가 정한 파일 이름을 못 읽고 임시 이름을 씁니다.
+                //    (CORS 는 안전을 위해 응답 헤더를 기본적으로 가립니다)
+                .exposedHeaders("Content-Disposition")
                 // 세션 쿠키(JSESSIONID)를 주고받으려면 필수입니다.
                 .allowCredentials(true)
                 .maxAge(3600);

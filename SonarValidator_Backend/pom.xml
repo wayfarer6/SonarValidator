@@ -159,6 +159,22 @@
             <artifactId>spring-boot-starter-data-jpa-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--
+            Apache Commons Compress: Agent 설치 번들을 tar.gz 로 묶기 위함입니다.
+
+            ⚠️ JDK 의 java.util.zip 은 ZIP 만 만듭니다. tar.gz 를 직접 쓰려면
+               tar 헤더를 손으로 인코딩해야 하는데, 그러면 헤더 형식(체크섬·긴
+               이름·모드 비트)을 직접 관리해야 하고 실수하면 장비에서
+               "tar: invalid tar magic" 으로 <b>조용히</b> 풀리지 않습니다.
+
+            왜 ZIP 이 아니라 tar.gz 인지는 Service/AgentBundleService 참고
+            (BusyBox/Alpine 에는 unzip 이 없고 tar·gzip 은 있습니다).
+        -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.28.0</version>
+        </dependency>
 
     </dependencies>
 

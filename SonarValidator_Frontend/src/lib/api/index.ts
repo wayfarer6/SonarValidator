@@ -140,22 +140,29 @@ export function pruneStaleAgents(
  */
 export function getAgentBundleInfo(
   agentId: string,
-  nodeType?: string,
+  options?: { nodeType?: string; serverIp?: string; serverPort?: string },
 ): Promise<{
   agent_id: string;
   node_type: string;
   server_ip: string;
   server_port: number;
   file_name: string;
+  archive_format: string;
+  installer_dir: string;
   staged_assets: Record<string, boolean>;
 }> {
   return apiRequest("/api/v1/agents/bundle/info", {
-    params: { agent_id: agentId, node_type: nodeType },
+    params: {
+      agent_id: agentId,
+      node_type: options?.nodeType,
+      server_ip: options?.serverIp,
+      server_port: options?.serverPort,
+    },
   });
 }
 
 /**
- * Agent 설치 번들(ZIP)을 내려받습니다.
+ * Agent 설치 번들(tar.gz)을 내려받습니다.
  *
  * <h2>⚠️ 공유 링크가 아니라 Blob 을 받는 이유</h2>
  * <p>{@code <a href>} 로 열면 브라우저가 새 탭에서 다운로드합니다. 그러면
@@ -163,23 +170,36 @@ export function getAgentBundleInfo(
  * 운영자는 그것이 설치 번들인지 오류인지 구분하지 못합니다.
  * 먼저 응답을 확인하고 실패를 드러냅니다.
  *
+ * <h2>⚠️ 형식이 ZIP 이 아니라 tar.gz 인 이유</h2>
+ * <p>번들은 라우터(Alpine)·스위치(Open vSwitch)에서 풀립니다. 그 장비에는
+ * {@code unzip} 이 없고 {@code tar·gzip} 만 있습니다. 그래서 서버가
+ * {@code Installer/} 폴더를 담은 {@code .tar.gz} 를 만들어 줍니다.
+ *
  * @param agentId       Agent 이름
- * @param options       장치 유형 / 서버 주소 / 데이터 경로
+ * @param options       장치 유형 / 서버 주소 / 서버 포트 / 데이터 경로
  * @returns 파일 이름과 Blob
  */
 export async function downloadAgentBundle(
   agentId: string,
-  options?: { nodeType?: string; serverIp?: string; dataDirectory?: string },
+  options?: {
+    nodeType?: string;
+    serverIp?: string;
+    serverPort?: string;
+    dataDirectory?: string;
+  },
 ): Promise<{ fileName: string; blob: Blob }> {
   const params = new URLSearchParams();
   if (options?.nodeType) params.set("node_type", options.nodeType);
   if (options?.serverIp) params.set("server_ip", options.serverIp);
+  // ⚠️ 포트를 보내지 않으면 서버 설정값(server.port)이 들어갑니다.
+  //    화면 미리보기와 실제 파일의 포트가 어긋나는 원인이었습니다.
+  if (options?.serverPort) params.set("server_port", options.serverPort);
   if (options?.dataDirectory) params.set("data_directory", options.dataDirectory);
 
   const query = params.toString();
   const path = `/api/v1/agents/bundle/${encodeURIComponent(agentId)}${query ? `?${query}` : ""}`;
 
-  // apiRequest 는 JSON 을 기대하므로 ZIP 에는 쓸 수 없습니다. 직접 fetch 합니다.
+  // apiRequest 는 JSON 을 기대하므로 tar.gz 에는 쓸 수 없습니다. 직접 fetch 합니다.
   const response = await fetch(`${API_BASE_URL}${path}`, { credentials: "include" });
   if (!response.ok) {
     // 서버가 보낸 사유를 최대한 읽어 오류 메시지에 넣습니다.
@@ -195,7 +215,9 @@ export async function downloadAgentBundle(
 
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-  const fileName = match ? decodeURIComponent(match[1]) : `sonar-agent-${agentId}.zip`;
+  const fileName = match
+    ? decodeURIComponent(match[1])
+    : `sonar-agent-${agentId}.tar.gz`;
 
   return { fileName, blob: await response.blob() };
 }
