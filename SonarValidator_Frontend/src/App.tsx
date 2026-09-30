@@ -32,7 +32,7 @@ import TopologyRulePreview from "./pages/TopologyRulePreview";
 import ComplianceExporter from "./pages/ComplianceExporter";
 import PolicyManagement from "./pages/ PolicyManagement";
 import PolicyExporter from "./pages/PolicyExporter";
-import NetwworkManagement from "./pages/NetworkManagement";
+import NetworkManagement from "./pages/NetworkManagement";
 import LogManagement from "./pages/LogManagement";
 import Notification from "./pages/Notification";
 
@@ -94,7 +94,7 @@ export default function App() {
             <Route path="/log" element={<LogManagement/>}/>
             <Route path="/log/export" element={<LogManagement/>}/>
             <Route path="/*/log" element={<LogManagement/>}/>
-            <Route path="/network" element={<NetwworkManagement/>}/>
+            <Route path="/network" element={<NetworkManagement/>}/>
             {/* 알림 이력: 서버에 적재된 알림을 필터/검색으로 되짚어 봅니다.
                 헤더의 종 아이콘은 최근 몇 건만 보여주므로 이 화면이 필요합니다. */}
             <Route path="/notification" element={<Notification/>}/>
