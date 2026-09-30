@@ -375,10 +375,10 @@ Agent 목록 화면(`/agent`)에서 장비에 설치할 번들을 만들려 했�
 
 | # | 결함 | 증상 | 수정 |
 | --- | --- | --- | --- |
-| 3 | **번들이 ZIP** | 라우터(Alpine)·스위치(OVS)에 **`unzip` 이 없음**. 내려받아도 장비에서 못 풀음 | Apache Commons Compress 로 **`tar.gz`** 생성. `Installer/` 폴더 구조 그대로 담고 `.sh` 에 0755 부여 |
-| 4 | **`server_port` 무시** ⚠️ | 화면 미리보기는 입력한 포트를 보여주는데 실제 `default.conf` 는 서버 설정값(`server.port`) | `server_port` 를 요청 파라미터로 받아 주소와 같은 자리에서 확정. 비정상 값은 로그를 남기고 설정값으로 복귀 |
-| 5 | **목록 화면에 번들 UI 없음** | Agent 목록에서 IP/Port 지정 + 번들 생성 불가 | 프로젝트 목록과 **같은** `AgentDeployCard` 를 `/agent` 에도 노출 |
-| 6 | **`Content-Disposition` CORS 미노출** | 화면이 서버가 정한 파일 이름을 못 읽음 | `WebMvcConfig` 에 `exposedHeaders("Content-Disposition")` |
+| 3 | **번들이 ZIP** | 라우터(Alpine)·스위치(OVS)에 **`unzip` 이 없음**. 내려받아도 장비에서 못 풀음 | Apache Commons Compress 로 **`tar.gz`** 생성. `Installer/` 폴더 구조 그대로 담고 `.sh` 에 0755 부여 (**SONAR-46**) |
+| 4 | **`server_port` 무시** ⚠️ | 화면 미리보기는 입력한 포트를 보여주는데 실제 `default.conf` 는 서버 설정값(`server.port`) | `server_port` 를 요청 파라미터로 받아 주소와 같은 자리에서 확정. 비정상 값은 로그를 남기고 설정값으로 복귀 (**SONAR-45**) |
+| 5 | **목록 화면에 번들 UI 없음** | Agent 목록에서 IP/Port 지정 + 번들 생성 불가 | 프로젝트 목록과 **같은** `AgentDeployCard` 를 `/agent` 에도 노출 (**SONAR-47**) |
+| 6 | **`Content-Disposition` CORS 미노출** | 화면이 서버가 정한 파일 이름을 못 읽음 | `WebMvcConfig` 에 `exposedHeaders("Content-Disposition")` (**SONAR-47**) |
 
 ### ⚠️ 구현 중 잡은 함정
 

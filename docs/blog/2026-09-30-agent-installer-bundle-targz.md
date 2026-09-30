@@ -252,3 +252,15 @@ sonar-agent-Gateway-Router.tar.gz
 | 미리보기와 실제 파일의 값이 다름 | 화면이 보여주는 값은 **실제 산출물과 같은 경로**로 흘려보낸다 |
 | `Content-Disposition` 이 JS 에 안 보임 | CORS 는 응답 헤더를 기본적으로 가린다 — `exposedHeaders` |
 | 등록 UI 를 그냥 감춤 | 감출 때는 **이유와 해결**을 함께 보여준다 |
+
+---
+
+## 10. 관련 이슈
+
+| 키 | 내용 |
+| --- | --- |
+| [SONAR-45](https://shseo2023.atlassian.net/browse/SONAR-45) | 번들 `server_port` 무시 — 미리보기와 실제 파일의 포트가 다름 |
+| [SONAR-46](https://shseo2023.atlassian.net/browse/SONAR-46) | 설치 번들이 ZIP 이라 라우터·스위치에서 안 풀림 → tar.gz 전환 |
+| [SONAR-47](https://shseo2023.atlassian.net/browse/SONAR-47) | Agent 목록 화면에 IP/Port 지정·번들 생성 UI 없음 |
+
+> 배포 절차는 Confluence **[Agent 배포 가이드 v2.1](https://shseo2023.atlassian.net/wiki/spaces/SONAR/pages/1769552)** §1.5 참고.
