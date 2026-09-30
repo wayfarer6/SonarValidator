@@ -22,7 +22,7 @@ date: 2026-09-26
 | S1 | Dashboard 전반 이상 유무 | ✅ PASS | 5개 블록 전부 실데이터, 4xx/5xx 0 |
 | S2 | 프로젝트 생성 | ✅ PASS | `PRJ-5BCDF23A` 생성, DB 1 row 확인 |
 | S3 | 프로젝트 편집·검증·오프라인 | ✅ PASS | CRITICAL 검출, round-trip 성공 |
-| S4 | Node 추가·배포 예정·번들 | ✅ PASS | silent 등록, ZIP 5파일 |
+| S4 | Node 추가·배포 예정·번들 | ✅ PASS | silent 등록, **tar.gz**(Installer/ 구조) — §12 참고 |
 | S5 | Agent 연결·텔레메트리·중립 설정 | ✅ PASS | connected, 30초 주기 갱신 |
 | S6 | Policy 위반·금지쌍·푸시·Export | ✅ PASS | 차단→force→해소→정상 푸시 |
 | S7 | Compliance 이력·PDF | ✅ PASS | Policy Update 2건, 필터 동작 |
@@ -126,10 +126,14 @@ POST /api/v1/projects  → 200
 
 ### S4. Node 추가·배포 예정·번들 — ✅ PASS
 
+> ⚠️ **2026-09-30 갱신**: 아래 실측은 당시 **ZIP** 기준입니다. 결함 2건(형식이 ZIP,
+> 포트 미반영)을 수정해 지금은 **`Installer/` 폴더를 담은 `tar.gz`** 이고
+> `server_port` 도 요청값이 반영됩니다. 자세한 내용은 §12.
+
 - 배포 예정 등록 → `{agent_id, project_id, device_type:ROUTER, node_type:Router, registered:true}`
 - 목록에서 `state: silent` 확인 (카운트 `expected_total:1, silent:1`)
 - 번들 정보: `server_ip: 192.168.122.58`(자동 감지), `server_port: 3000`, `staged_assets` 3종 모두 `true`
-- ZIP 다운로드: **200 / 6,205 bytes / `application/octet-stream`**, 5파일
+- ZIP 다운로드(당시): **200 / 6,205 bytes / `application/octet-stream`**, 5파일
 
 ```
 default.conf  README.txt  Installer.sh  restart.sh  default_template.sqlite
@@ -353,3 +357,45 @@ S2~S6 의 사건이 **모두 알림으로 포착**되었습니다:
 - 실기동에서 **조용한 결함 2건**을 찾아 수정했습니다. 특히 결함 #2(격리 실패 오보고)는 이 기능의 설계가 경계한 "최악의 상태"를 만드는 것이었고, 수정 후 서버가 실패를 실패로 기록하게 되었습니다.
 - **문서 3곳이 실제 동작과 달랐음**을 확인해 정정했습니다. 통합 테스트를 문서 기준으로 돌린 것이 문서 품질 개선으로도 이어졌습니다.
 - **남은 권장 작업**: ① 프로버를 root 로 실행한 상태의 **실격리 검증**(이번엔 권한 부족으로 실패 경로만 검증), ② SIGTERM 종료 지연 원인 점검, ③ OPNsense 장비 확보 시 자격증명·Probe 검증.
+
+---
+
+## 9. 후속 수정: 설치 번들 tar.gz 전환 (2026-09-30)
+
+> 이 절은 §1~8 을 쓴 뒤 발견된 결함을 정리한 것입니다. **§4 의 "조용한 결함 2건"
+> 과 같은 성격**(로그를 보지 않으면 드러나지 않음)이 하나 더 있었습니다.
+
+### 발견 경로
+
+Agent 목록 화면(`/agent`)에서 장비에 설치할 번들을 만들려 했는데 **IP/Port 를
+지정할 자리가 없었습니다.** 번들 생성 UI 가 프로젝트 목록의 **Add Agent** 카드에만
+있었고, Agent 목록에는 설정 스냅샷 **JSON** 내보내기 버튼만 있었습니다.
+
+### 결함과 수정
+
+| # | 결함 | 증상 | 수정 |
+| --- | --- | --- | --- |
+| 3 | **번들이 ZIP** | 라우터(Alpine)·스위치(OVS)에 **`unzip` 이 없음**. 내려받아도 장비에서 못 풀음 | Apache Commons Compress 로 **`tar.gz`** 생성. `Installer/` 폴더 구조 그대로 담고 `.sh` 에 0755 부여 |
+| 4 | **`server_port` 무시** ⚠️ | 화면 미리보기는 입력한 포트를 보여주는데 실제 `default.conf` 는 서버 설정값(`server.port`) | `server_port` 를 요청 파라미터로 받아 주소와 같은 자리에서 확정. 비정상 값은 로그를 남기고 설정값으로 복귀 |
+| 5 | **목록 화면에 번들 UI 없음** | Agent 목록에서 IP/Port 지정 + 번들 생성 불가 | 프로젝트 목록과 **같은** `AgentDeployCard` 를 `/agent` 에도 노출 |
+| 6 | **`Content-Disposition` CORS 미노출** | 화면이 서버가 정한 파일 이름을 못 읽음 | `WebMvcConfig` 에 `exposedHeaders("Content-Disposition")` |
+
+### ⚠️ 구현 중 잡은 함정
+
+`ByteArrayOutputStream.toByteArray()` 를 **스트림 close 전에** 부르면 gzip 트레일러
+(CRC·길이)가 아직 안 쓰여 **잘린 파일**이 됩니다. 오류가 나지 않고 장비에서
+`unexpected end of file` 로만 드러나므로, 새 테스트가 이 실수를 잡아냈습니다.
+`toByteArray()` 는 반드시 try-with-resources 블록 **밖**에서 부릅니다.
+
+### 검증
+
+| 항목 | 결과 |
+| --- | --- |
+| gzip 매직 바이트 | `1f 8b` (ZIP 의 `50 4b` 가 아님) |
+| Content-Type | `application/gzip` |
+| 파일 이름 | `sonar-agent-<이름>.tar.gz` |
+| 표준 `tar -tzf` 추출 | ✅ `Installer/default.conf`, `Installer/README.txt` |
+| 포트 override 반영 | ✅ `SERVER_PORT=8443;` (설정값 3000 이 아니라) |
+| Backend 테스트 | ✅ **325 tests, 0 failures** (신규 9건 포함) |
+| Frontend | ✅ `tsc` clean, eslint 0 errors |
+| 브라우저 | ✅ `/agent` 에 "설치 번들 만들기" → IP/Port 입력 + tar.gz 카드 표시 |

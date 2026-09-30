@@ -202,7 +202,88 @@ SVG 를 다시 주입할 때 인라인 스타일도 되돌리기 때문입니다
 
 ---
 
-## 3. 관련 문서
+## 3. `AgentDeployCard` — Prober 설치 번들 만들기
+
+**경로**: `SonarValidator_Frontend/src/components/project/AgentDeployCard.tsx`
+
+### 3.1 왜 서버가 설정을 채우는가
+
+프로버는 `Installer/default.conf` 의 네 값으로 동작합니다.
+
+```ini
+SERVER_IP=...;
+SERVER_PORT=...;
+NODE_TYPE=Router;   # Router / Switch / VM / Firewall
+AGENT_NAME=...;
+```
+
+이 값을 **사람이 손으로 채우면 반드시 어긋납니다.**
+
+| 손으로 채울 때의 실수 | 결과 |
+| --- | --- |
+| 관리망이 아닌 NAT 주소를 씀 | 관리망 전용 장치(스위치)가 서버에 못 닿음 → **조용한 무응답** |
+| 장치 유형을 잘못 적음 | 정책 적용기가 엉뚱한 벤더 명령을 만듦 |
+| `AGENT_NAME` 이 등록 이름과 다름 | 같은 장치가 목록에 **두 줄**로 나타남 |
+
+그래서 서버가 이미 아는 값(장치 유형·서버 주소·포트·이름)을 **서버가 채워**
+번들로 내려줍니다.
+
+### 3.2 ⚠️ 형식은 ZIP 이 아니라 tar.gz
+
+번들은 **장비에서** 풀립니다. 라우터(Alpine)와 스위치(Open vSwitch)에는
+**`unzip` 이 없고** BusyBox `tar`·`gzip` 만 있습니다. 그래서 서버가
+`Installer/` 폴더를 담은 **`.tar.gz`** 를 만들어 줍니다.
+
+```
+sonar-agent-Gateway-Router.tar.gz
+└── Installer/
+    ├── default.conf            # 서버가 값을 채움
+    ├── README.txt              # 이 장치에 맞춘 절차
+    ├── Installer.sh  (0755)
+    ├── restart.sh    (0755)
+    └── default_template.sqlite # 스테이징되어 있으면
+```
+
+장비에서의 한 줄:
+
+```sh
+tar -xzf sonar-agent-Gateway-Router.tar.gz
+cd Installer
+```
+
+### 3.3 ⚠️ 포트도 서버로 보낸다
+
+주소만 보내면 서버가 자기 설정값(`server.port`)을 포트로 씁니다. 그러면 화면
+미리보기가 보여준 포트와 **실제 `default.conf` 의 포트가 달라집니다.** 운영자는
+미리보기를 믿고 방화벽을 열었다가 프로버가 연결되지 않는 것을 봅니다.
+그래서 `server_port` 도 함께 보내고, 서버는 같은 자리에서 주소와 포트를 함께
+확정합니다.
+
+### 3.4 사용처
+
+| 화면 | projectId | 설명 |
+| --- | --- | --- |
+| `/project` (Add Agent) | 넘김 | 배포 예정 등록 + 번들 생성 |
+| `/project/create` (Create Prober) | 넘김 | 마법사 첫 단계 |
+| `/agent` (설치 번들 만들기) | **안 넘김** | 프로젝트를 고르지 않고 들어오므로 **배포 예정 등록만 감추고** IP/Port 지정 + tar.gz 생성은 제공 |
+
+`projectId` 가 없으면 등록 UI 가 감추어지고 그 이유를 카드가 안내합니다.
+(감추기만 하면 "왜 등록 버튼이 없지" 로 보입니다)
+
+### 3.5 API
+
+| 목적 | 호출 |
+| --- | --- |
+| 미리보기 | `GET /api/v1/agents/bundle/info?agent_id=&node_type=&server_ip=&server_port=` |
+| 번들 | `GET /api/v1/agents/bundle/{agentId}?node_type=&server_ip=&server_port=&data_directory=` |
+| 응답 | `Content-Type: application/gzip`, `Content-Disposition` 에 `.tar.gz` 이름 |
+
+> ⚠️ `Content-Disposition` 은 **CORS 로 노출**해야 JS 가 읽습니다.
+> `WebMvcConfig` 의 `exposedHeaders` 참고.
+
+---
+
+## 4. 관련 문서
 
 - [06. 오프라인 설정 내보내기 / 가져오기](./06-offline-config-export.md)
   — 오프라인 갈래의 전체 흐름과 Agent/Backend 구현

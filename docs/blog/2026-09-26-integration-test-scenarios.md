@@ -295,26 +295,36 @@ done
 **절차**
 
 1. `/project` 목록에서 대상 카드의 **Add Agent** 클릭 → 행 아래로 배포 카드가 펼쳐집니다.
+   (프로젝트를 고르지 않는 **Agent 목록**(`/agent`)에서도 **설치 번들 만들기** 버튼으로
+   같은 카드를 열 수 있습니다. 그 화면에는 프로젝트가 없어 **배포 예정 등록만 감춰지고**
+   번들 생성은 그대로 동작합니다.)
 2. Management Server IP / Port 입력 (예: `localhost` / `3000`).
 3. 장비 카드 중 **FRRouting (for poc)** 선택 → 설정 미리보기(`default.conf` 내용)가
    실제 값으로 만들어지는지 확인 (`SERVER_IP`, `SERVER_PORT`, `NODE_TYPE=Router`).
 4. **배포 버튼** 클릭 → 서버에 배포 예정이 등록되는지 확인
    - `POST /api/v1/agents/expected`
    - Agent 목록 화면(`/agent`)에 해당 장비가 **무응답(silent)** 상태로 나타나야 함
-5. **번들 다운로드** 확인 (설치 파일 일괄 ZIP)
-   - `GET /api/v1/agents/bundle/info?agent_id=<name>&node_type=Router` → 요약 정보
-   - `GET /api/v1/agents/bundle/<agentId>?node_type=Router` → ZIP 저장
+5. **번들 다운로드** 확인 (설치 파일 일괄 **tar.gz**)
+   - `GET /api/v1/agents/bundle/info?agent_id=<name>&node_type=Router&server_ip=&server_port=` → 요약 정보
+   - `GET /api/v1/agents/bundle/<agentId>?node_type=Router&server_ip=&server_port=` → tar.gz 저장
+   - 응답 헤더: `Content-Type: application/gzip`, `Content-Disposition` 에 `.tar.gz` 이름
+   - 풀면 **`Installer/` 폴더** 안에 `default.conf` · `README.txt` · 스크립트가 나옴
+   - ⚠️ 2번에서 입력한 **Port 가 `default.conf` 의 `SERVER_PORT` 에 그대로** 들어가야 함
+     (미리보기와 파일이 다른 포트를 말하면 실패)
 6. **OPNsense** 를 골랐다면 카드 대신 자격증명 모달이 열리고,
    `PUT /api/v1/opnsense/credentials/{agentId}` 로 저장됩니다 (S10에서 검증).
 7. 배포 예정 목록 확인: `GET /api/v1/agents/expected`
 
 **판정**
 
-- `PASS`: expected 등록 후 `/agent` 목록에 silent 로 표시, 번들 ZIP 다운로드 성공(0바이트 아님), 미리보기 값이 입력값과 일치
-- `FAIL`: 목록에 안 나옴 / ZIP 실패 / `NODE_TYPE` 이 잘못 들어감
+- `PASS`: expected 등록 후 `/agent` 목록에 silent 로 표시, tar.gz 다운로드 성공(0바이트 아님), gzip 매직(`1f 8b`), `Installer/` 구조, 미리보기 값(주소·**포트**)이 실제 `default.conf` 와 일치
+- `FAIL`: 목록에 안 나옴 / tar.gz 실패 / `NODE_TYPE` 이 잘못 들어감 / **미리보기와 파일의 포트가 다름**
 
-**주의**: Agent 이름은 배포 스크립트 규칙(`<장치>-agent`)과 맞춰야 프로젝트 서브넷의
-`agent_id` 와 매칭됩니다. 이름이 다르면 S6 푸시에서 대상이 0건이 됩니다.
+**주의**:
+- Agent 이름은 배포 스크립트 규칙(`<장치>-agent`)과 맞춰야 프로젝트 서브넷의
+  `agent_id` 와 매칭됩니다. 이름이 다르면 S6 푸시에서 대상이 0건이 됩니다.
+- ⚠️ 번들은 **ZIP 이 아니라 tar.gz** 입니다. 라우터(Alpine)·스위치(Open vSwitch)에는
+  **`unzip` 이 없고** `tar·gzip` 만 있어, 장비에서 `tar -xzf` 로 풀어야 합니다.
 
 ---
 
@@ -686,7 +696,7 @@ ss -ltnp | grep :3000 || echo "3000 free"
 | Project | `GET/POST /projects`, `GET/PUT/DELETE /projects/{id}`, `GET/POST /projects/{id}/validation`, `GET /projects/{id}/forbidden-pairs`, `POST /projects/draft/validation` |
 | Agent | `GET /agents`, `GET /agents/overview`, `GET /agents/{id}/telemetry`, `GET /agents/{id}/config`, `GET /agents/configs`, `POST /agents/{id}/push`, `POST /agents/broadcast` |
 | Agent 배포 예정 | `POST /agents/expected`, `GET /agents/expected`, `DELETE /agents/expected/{id}` |
-| Agent 번들 | `GET /agents/bundle/info`, `GET /agents/bundle/{agentId}` |
+| Agent 번들 | `GET /agents/bundle/info?agent_id=&node_type=&server_ip=&server_port=` → 요약, `GET /agents/bundle/{agentId}?node_type=&server_ip=&server_port=&data_directory=` → **tar.gz** |
 | Policy | `GET /policy/violations/{id}`, `GET /policy/forbidden-pairs/{id}`, `POST /policy/push/{id}?force=` |
 | Compliance | `GET /compliance/changes?project_id=&agent_id=`, `GET /compliance/changes/project/{id}`, `GET /compliance/changes/agent/{id}` |
 | Log | `GET /logs`, `GET /logs/filters`, `GET /logs/summary`, `POST /logs/ingest`, `POST /logs/upload`, `POST /logs/{id}/flags`, `POST /logs/probe` |
