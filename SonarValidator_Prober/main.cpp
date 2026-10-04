@@ -120,13 +120,11 @@ int main(int argc, char **argv)
                                  std::ref(database),
                                  std::ref(database_queue));
 
-    // 종료 시그널이 올 때까지 메인 스레드는 대기합니다.
     while (g_running.load())
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // graceful shutdown: 큐를 닫고 각 스레드에 정지를 요청합니다.
     database_queue.Close();
     telemetry_thread.request_stop();
     management_thread.request_stop();

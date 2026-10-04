@@ -1,11 +1,11 @@
-
-
 ### 날짜 2026-09-18 11:28
 
 # 조회 명령어
+
 ## OpenvSwitch
 
 - 현재 존재하는 bridge 인터페이스 확인
+
 ```bash
 ~ # ovs-vsctl show
 3945208f-1a6d-418c-8909-ff1701a5b643
@@ -19,10 +19,10 @@
         Port eth0
             trunks: [141]
             Interface eth0
-
 ```
 
 - trunk 상태 확인
+
 ```bash
 ~ # ovs-vsctl list port | grep -E "name|tag|trunks|vlan_mode"
 name                : br0
@@ -37,14 +37,12 @@ name                : eth0
 tag                 : []
 trunks              : [141]
 vlan_mode           : []
-~ # 
-
+~ #
 ```
 
 ## Router 상태 확인
 
 - Routing Table 확인 (다만 문제가 OSPF 등으로 라우터들이 서로간의 경로를 교환하기에 중복되는 경로가 나오면 이는 식별후 넘어 가야 함.)
-
 - 방화벽이 vlan을 처리해주고 있기에 만약에 Router에서 vlan 정보가 제대로 보이지 않는다면 예외처리를 해주어야 하고 당연하지만 프로젝트 내에서 이러한 자동 수집된 설정등을 프로젝트 생성후 편집할 수 잇는 기능을 제공 해야 함.
 
 ```bash
@@ -82,6 +80,7 @@ C>* 172.16.255.0/24 is directly connected, eth7, 00:18:18
 ```
 
 - NIC 확인
+
 ```bash
 rr# show interface eth1
 Interface eth1 is up, line protocol is up
@@ -101,11 +100,9 @@ frr#
 
 ```
 
-
 ## 방화벽 (방화벽들이 VLan 정보를 갖고 있음)
 
 - Router를 패킷을 전달하는 역할이지 내부 vlan등을 잘 알지 못하도록 설계해야 내부망 구조가 누출되는등 문제를 피할 수 있음
-
 - agent가 alpine firewall로 보고하면 vlan 설정을 추적하는 기능을 넣어야겠음
 
 ```bash
@@ -161,7 +158,6 @@ frr#
 
 ```
 
-
 - 방화벽 설정 (nftable)
 
 ```bash
@@ -185,10 +181,8 @@ table ip nat {
 		oifname "eth0" masquerade
 	}
 }
-~ # 
-
+~ #
 ```
-
 
 ## Linux VM (NIC 설정)
 
@@ -211,29 +205,27 @@ root@VDI-1:~#
 
 ```
 
-
-
-## Cisco 
+## Cisco
 
 - cisco 랑 arista는 명령어가 95프로 이상 유사함
-
 - 전체 설정 확인 (매우 내용이 많기에 비추)
+
 ```bash
 terface VirtualPortGroup0
  ip address 192.168.35.1 255.255.255.0
  ip nat inside
-!         
+!       
 interface GigabitEthernet1
  ip dhcp client client-id ascii 9X4SGFB55FM
  ip address 192.168.122.254 255.255.255.0
  ip nat outside
  negotiation auto
-!         
+!       
 interface GigabitEthernet2
  ip address 172.128.0.1 255.255.255.0
  ip nat inside
  negotiation auto
-!         
+!       
 interface GigabitEthernet3
  no ip address
 
@@ -245,11 +237,11 @@ interface GigabitEthernet3
 ```bash
 Router#show ip interface brief
 Interface              IP-Address      OK? Method Status                Protocol
-GigabitEthernet1       192.168.122.254 YES NVRAM  up                    up      
-GigabitEthernet2       172.128.0.1     YES NVRAM  up                    up      
-GigabitEthernet3       unassigned      YES NVRAM  down                  down    
-GigabitEthernet4       10.20.0.1       YES NVRAM  up                    up      
-VirtualPortGroup0      192.168.35.1    YES NVRAM  up                    up      
+GigabitEthernet1       192.168.122.254 YES NVRAM  up                    up    
+GigabitEthernet2       172.128.0.1     YES NVRAM  up                    up    
+GigabitEthernet3       unassigned      YES NVRAM  down                  down  
+GigabitEthernet4       10.20.0.1       YES NVRAM  up                    up    
+VirtualPortGroup0      192.168.35.1    YES NVRAM  up                    up    
 Router#
 
 
@@ -296,7 +288,7 @@ L        192.168.122.254/32 is directly connected, GigabitEthernet1
 show interfaces switchport
 ```
 
-## Arista 
+## Arista
 
 - show running-config
 
@@ -415,7 +407,6 @@ ip route vrf MGMT 0.0.0.0/0 10.20.0.3
 !
 ```
 
-
 - show vlan config
 
 ```bash
@@ -426,7 +417,7 @@ VLAN  Name                             Status    Ports
                                                  Et10, Et11, Et12
 8     VLAN8                            active    Cpu, Et2
 9     VLAN9                            active    Cpu, Et3
-99    TRANSIT                          active    
+99    TRANSIT                          active  
 
 ARISTA#
 
@@ -439,10 +430,10 @@ ARISTA#show ip interface brief
                                                                         Address
 Interface       IP Address          Status      Protocol         MTU    Owner  
 --------------- ------------------- ----------- ------------- --------- -------
-Ethernet1       172.18.10.2/24      up          up              1500           
-Management1     10.20.0.4/24        up          up              1500           
-Vlan8           10.0.8.1/24         up          up              1500           
-Vlan9           10.0.9.1/24         up          up              1500           
+Ethernet1       172.18.10.2/24      up          up              1500         
+Management1     10.20.0.4/24        up          up              1500         
+Vlan8           10.0.8.1/24         up          up              1500         
+Vlan9           10.0.9.1/24         up          up              1500         
 
 ARISTA#
 
@@ -458,25 +449,25 @@ ARISTA#
 
 ### command 필드
 
-| command | 의미 | 벤더별 표현 |
-|---|---|---|
-| `create` | 생성 / 활성화 / 갱신 | `add`, `set`, `ip add` (멱등성 보장 필요) |
-| `remove` | 삭제 / 비활성화 | `del`, `no ...`, `clear`, `delete` |
-| `on` | 대상 활성 (인터페이스 up, trunk on) | `no shutdown`, `ip link set up` |
-| `off` | 대상 비활성 (인터페이스 down, trunk off) | `shutdown`, `ip link set down` |
-| `get` | 조회 (조회 명령어 섹션과 동일 결과를 회신) | `show ...`, `list ...` |
+| command    | 의미                                       | 벤더별 표현                                     |
+| ---------- | ------------------------------------------ | ----------------------------------------------- |
+| `create` | 생성 / 활성화 / 갱신                       | `add`, `set`, `ip add` (멱등성 보장 필요) |
+| `remove` | 삭제 / 비활성화                            | `del`, `no ...`, `clear`, `delete`      |
+| `on`     | 대상 활성 (인터페이스 up, trunk on)        | `no shutdown`, `ip link set up`             |
+| `off`    | 대상 비활성 (인터페이스 down, trunk off)   | `shutdown`, `ip link set down`              |
+| `get`    | 조회 (조회 명령어 섹션과 동일 결과를 회신) | `show ...`, `list ...`                      |
 
 ### 정책 → 명령 매핑 요약
 
-| 정책 항목 | OVS | FRR | nftables | Ubuntu VM | Cisco | Arista |
-|---|---|---|---|---|---|---|
-| NIC 생성 | `ovs-vsctl add-port` | `ip link add` | `ip link add` | `ip link add` / netplan | `interface` | `interface` |
-| NIC on/off | `ip link set up/down` | `no shutdown` | `ip link set up/down` | `ip link set up/down` | `no shutdown` | `no shutdown` |
-| VLAN 생성 | `set port tag=` | `ip link add link ... type vlan` | `ip link add link ... type vlan` | netplan `vlans:` | `vlan N` / `interface VlanN` | `vlan N` / `interface VlanN` |
-| Trunk 생성 | `set port trunks=` | — (라우터는 sub-if) | — (방화벽은 sub-if) | — | `switchport mode trunk` | `switchport mode trunk` |
-| ACL | `ovs-ofctl add-flow` | `access-list` + `route-map` | `nft add rule` | `nft` (ufw) | `ip access-list` | `ip access-list` |
-| 정적 라우트 | `ip route add` | `ip route` | `ip route add` | netplan `routes:` | `ip route` | `ip route` |
-| 설정 저장 | (커널 즉시 반영) | `write memory` | `nft list ruleset > conf` | `netplan apply` | `copy run start` | `copy run start` |
+| 정책 항목   | OVS                     | FRR                                | nftables                           | Ubuntu VM                 | Cisco                            | Arista                           |
+| ----------- | ----------------------- | ---------------------------------- | ---------------------------------- | ------------------------- | -------------------------------- | -------------------------------- |
+| NIC 생성    | `ovs-vsctl add-port`  | `ip link add`                    | `ip link add`                    | `ip link add` / netplan | `interface`                    | `interface`                    |
+| NIC on/off  | `ip link set up/down` | `no shutdown`                    | `ip link set up/down`            | `ip link set up/down`   | `no shutdown`                  | `no shutdown`                  |
+| VLAN 생성   | `set port tag=`       | `ip link add link ... type vlan` | `ip link add link ... type vlan` | netplan`vlans:`         | `vlan N` / `interface VlanN` | `vlan N` / `interface VlanN` |
+| Trunk 생성  | `set port trunks=`    | — (라우터는 sub-if)               | — (방화벽은 sub-if)               | —                        | `switchport mode trunk`        | `switchport mode trunk`        |
+| ACL         | `ovs-ofctl add-flow`  | `access-list` + `route-map`    | `nft add rule`                   | `nft` (ufw)             | `ip access-list`               | `ip access-list`               |
+| 정적 라우트 | `ip route add`        | `ip route`                       | `ip route add`                   | netplan`routes:`        | `ip route`                     | `ip route`                     |
+| 설정 저장   | (커널 즉시 반영)        | `write memory`                   | `nft list ruleset > conf`        | `netplan apply`         | `copy run start`               | `copy run start`               |
 
 ### 공통 원칙
 
@@ -1192,15 +1183,15 @@ ARISTA#reload
 
 `SonarValidator_Prober/management_service.cpp`의 `Apply*Policy` 기준 현재 적용 범위입니다.
 
-| 정책 함수 | 대상 | 구현 상태 | 비고 |
-|---|---|---|---|
-| `ApplyOpenVSwitchPolicy` | OVS | 부분 | `on/off/create/remove/get` — VLAN tag, ACL(`ovs-ofctl`), 라우트, IP |
-| `ApplyAristaSwitchPolicy` | Arista vEOS | 부분 | `on/off/create/get` — `FastCli` 세션 사용, trunk/서브넷 미구현 |
-| `ApplyCiscoSwitchPolicy` | Cisco 스위치 | 미지원 | 8000v(라우터)만 지원, Catalyst 계열은 추후 |
-| `ApplyCiscoRouterPolicy` | Cisco IOS-XE | 부분 | `dohost` 경유, OSPF/인터페이스/로그/라우트 삭제 |
-| `ApplyFrrRouterPolicy` | FRR | 부분 | `vtysh` 세션, OSPF/인터페이스/get/라우트 삭제 |
-| `ApplyNftablesPolicy` | nftables | 부분 | 테이블·체인·규칙 생성, `remove`는 테이블 단위 삭제 |
-| `ApplyVmPolicy` | Ubuntu VM | 부분 | `on/off/get`만 지원, netplan 영속 설정은 미연결 |
+| 정책 함수                   | 대상         | 구현 상태 | 비고                                                                     |
+| --------------------------- | ------------ | --------- | ------------------------------------------------------------------------ |
+| `ApplyOpenVSwitchPolicy`  | OVS          | 부분      | `on/off/create/remove/get` — VLAN tag, ACL(`ovs-ofctl`), 라우트, IP |
+| `ApplyAristaSwitchPolicy` | Arista vEOS  | 부분      | `on/off/create/get` — `FastCli` 세션 사용, trunk/서브넷 미구현      |
+| `ApplyCiscoSwitchPolicy`  | Cisco 스위치 | 미지원    | 8000v(라우터)만 지원, Catalyst 계열은 추후                               |
+| `ApplyCiscoRouterPolicy`  | Cisco IOS-XE | 부분      | `dohost` 경유, OSPF/인터페이스/로그/라우트 삭제                        |
+| `ApplyFrrRouterPolicy`    | FRR          | 부분      | `vtysh` 세션, OSPF/인터페이스/get/라우트 삭제                          |
+| `ApplyNftablesPolicy`     | nftables     | 부분      | 테이블·체인·규칙 생성,`remove`는 테이블 단위 삭제                    |
+| `ApplyVmPolicy`           | Ubuntu VM    | 부분      | `on/off/get`만 지원, netplan 영속 설정은 미연결                        |
 
 ### 주의사항
 
@@ -1242,9 +1233,9 @@ parser/
 ANTLR4 툴체인(jar + C++ 런타임)이 필요합니다. 없으면 문법 생성만 건너뛰고
 나머지는 정상 빌드됩니다(`SONAR_ANTLR4_AVAILABLE=FALSE`).
 
-| 항목 | 환경변수 | CMake 변수 | 기본 탐색 경로 |
-|---|---|---|---|
-| ANTLR jar | `ANTLR4_JAR` | `-DANTLR4_JAR=` | `~/tools/antlr.jar` |
+| 항목       | 환경변수                | CMake 변수                 | 기본 탐색 경로             |
+| ---------- | ----------------------- | -------------------------- | -------------------------- |
+| ANTLR jar  | `ANTLR4_JAR`          | `-DANTLR4_JAR=`          | `~/tools/antlr.jar`      |
 | C++ 런타임 | `ANTLR4_RUNTIME_ROOT` | `-DANTLR4_RUNTIME_ROOT=` | `~/tools/antlr4-install` |
 
 ```bash
@@ -1256,17 +1247,17 @@ ctest --test-dir build -R cli_output_parser_test --output-on-failure
 
 ### 파서 진입점
 
-| 함수 | 대상 출력 | 주요 결과 필드 |
-|---|---|---|
-| `ParseNicStatus` | `ip a` | `interfaces[].{name,parent,mac,flags,mtu,state,addresses[]}` |
-| `ParseNicBrief` | `ip -br addr show` | `brief[].{name,state,addresses[],mac}` |
-| `ParseRouteStatus` | `show ip route` (FRR/Cisco) | `routes[].{protocol,selected,fib,prefix,metric,next_hop,interface_name}` |
-| `ParseInterfaceStatus` | `show ip interface brief` | `interfaces[].{name,ip_address,method,status,protocol}` |
-| `ParseOvsTopology` | `ovs-vsctl show` / `list port` | `bridges[].ports[].{tag,trunks,vlan_mode,interfaces[]}` |
-| `ParseSwitchVlan` | `show vlan brief` | `vlans[].{vlan_id,name,status,ports[]}` |
-| `ParseSwitchPorts` | `show interfaces switchport` | `ports[].{name,mode,access_vlan,trunk_vlans,admin_enabled}` |
-| `ParseFirewallRules` | `nft list ruleset` | `tables[].chains[].{type,hook,priority,policy,rules[]}` |
-| `ParseArpTable` | `ip neigh show` / `show arp` / `show ip arp` | `entries[].{address,mac,interface,interfaces[],state,age,type}` |
+| 함수                     | 대상 출력                                          | 주요 결과 필드                                                             |
+| ------------------------ | -------------------------------------------------- | -------------------------------------------------------------------------- |
+| `ParseNicStatus`       | `ip a`                                           | `interfaces[].{name,parent,mac,flags,mtu,state,addresses[]}`             |
+| `ParseNicBrief`        | `ip -br addr show`                               | `brief[].{name,state,addresses[],mac}`                                   |
+| `ParseRouteStatus`     | `show ip route` (FRR/Cisco)                      | `routes[].{protocol,selected,fib,prefix,metric,next_hop,interface_name}` |
+| `ParseInterfaceStatus` | `show ip interface brief`                        | `interfaces[].{name,ip_address,method,status,protocol}`                  |
+| `ParseOvsTopology`     | `ovs-vsctl show` / `list port`                 | `bridges[].ports[].{tag,trunks,vlan_mode,interfaces[]}`                  |
+| `ParseSwitchVlan`      | `show vlan brief`                                | `vlans[].{vlan_id,name,status,ports[]}`                                  |
+| `ParseSwitchPorts`     | `show interfaces switchport`                     | `ports[].{name,mode,access_vlan,trunk_vlans,admin_enabled}`              |
+| `ParseFirewallRules`   | `nft list ruleset`                               | `tables[].chains[].{type,hook,priority,policy,rules[]}`                  |
+| `ParseArpTable`        | `ip neigh show` / `show arp` / `show ip arp` | `entries[].{address,mac,interface,interfaces[],state,age,type}`          |
 
 모든 함수는 실패해도 예외를 던지지 않고 `{"parsed": false, "parse_error": ..., "raw": ...}`
 를 반환합니다. 부분 파싱 결과도 함께 담기므로 수집 루프가 멈추지 않습니다.
@@ -1282,21 +1273,21 @@ ctest --test-dir build -R cli_output_parser_test --output-on-failure
 
 파서를 실제로 호출해 장치 상태를 모으는 계층입니다.
 
-| 함수 | 역할 |
-|---|---|
-| `CollectState(config, management_service)` | 벤더를 판별해 조회 명령을 실행하고 `CollectedState` 를 만듭니다 |
-| `BuildStateFromOutputs(device_type, product, outputs)` | 명령 출력 맵을 받아 파싱만 수행합니다 (테스트용, 장치 불필요) |
+| 함수                                                     | 역할                                                             |
+| -------------------------------------------------------- | ---------------------------------------------------------------- |
+| `CollectState(config, management_service)`             | 벤더를 판별해 조회 명령을 실행하고`CollectedState` 를 만듭니다 |
+| `BuildStateFromOutputs(device_type, product, outputs)` | 명령 출력 맵을 받아 파싱만 수행합니다 (테스트용, 장치 불필요)    |
 
 `CollectedState` 는 `snapshot`(서버 전송용)과 `nic` / `route` / `vlan` / `trunk` / `arp`
 (DB 저장용)를 담습니다. 명령 하나가 실패해도 나머지는 계속 수집하고 `[COLLECT]` 로그를 남깁니다.
 
 **벤더별 실행 명령**
 
-| 벤더 | 실행기 | 명령 |
-|---|---|---|
-| Ubuntu / Alpine | `RunCommandOutput` | `ip a`, `ip -br addr show`, `ip route show`, `ip neigh show` |
-| Cisco 8000v | `ExecuteIosCli` (guestshell `dohost`) | `show ip interface brief`, `show ip route`, `show ip arp` |
-| Arista vEOS | `QueryAristaCli` (`FastCli` 파이프) | `show vlan brief`, `show ip interface brief`, `show interfaces switchport`, `show arp` |
+| 벤더            | 실행기                                    | 명령                                                                                           |
+| --------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Ubuntu / Alpine | `RunCommandOutput`                      | `ip a`, `ip -br addr show`, `ip route show`, `ip neigh show`                           |
+| Cisco 8000v     | `ExecuteIosCli` (guestshell `dohost`) | `show ip interface brief`, `show ip route`, `show ip arp`                                |
+| Arista vEOS     | `QueryAristaCli` (`FastCli` 파이프)   | `show vlan brief`, `show ip interface brief`, `show interfaces switchport`, `show arp` |
 
 > **Arista 실행 방식 주의**: `FastCli` 를 pty 대화형 세션으로 다루면 프롬프트 타이밍에
 > 의존해 조회 출력을 얻지 못합니다(실측: 4건 모두 빈 결과).
@@ -1308,14 +1299,14 @@ ctest --test-dir build -R cli_output_parser_test --output-on-failure
 
 수집한 스냅샷은 전송과 동시에 SQLite 에도 저장됩니다.
 
-| 테이블 | 저장 내용 | JSON 키 |
-|---|---|---|
-| `nic_info` | 인터페이스 (이름/인덱스/MAC/MTU/상태/플래그/부모) | `interfaces[]` |
-| `nic_address` | 인터페이스별 주소 (family/주소/prefix/scope) | `interfaces[].addresses[]` |
-| `route_table` | 라우팅 항목 (protocol/prefix/next_hop/metric/인터페이스) | `routes[]` |
-| `vlan_status` | VLAN (id/이름/상태/포트) | `vlans[]` |
-| `trunk_status` | 포트 모드 (mode/access_vlan/trunk_vlans/vlan_mode) | `ports[]` |
-| `arp_table` | ARP 항목 (주소/MAC/인터페이스/상태/age/type) | `entries[]` |
+| 테이블           | 저장 내용                                                | JSON 키                      |
+| ---------------- | -------------------------------------------------------- | ---------------------------- |
+| `nic_info`     | 인터페이스 (이름/인덱스/MAC/MTU/상태/플래그/부모)        | `interfaces[]`             |
+| `nic_address`  | 인터페이스별 주소 (family/주소/prefix/scope)             | `interfaces[].addresses[]` |
+| `route_table`  | 라우팅 항목 (protocol/prefix/next_hop/metric/인터페이스) | `routes[]`                 |
+| `vlan_status`  | VLAN (id/이름/상태/포트)                                 | `vlans[]`                  |
+| `trunk_status` | 포트 모드 (mode/access_vlan/trunk_vlans/vlan_mode)       | `ports[]`                  |
+| `arp_table`    | ARP 항목 (주소/MAC/인터페이스/상태/age/type)             | `entries[]`                |
 
 - 한 번의 수집 = 태스크 하나 = **트랜잭션 하나**로 묶어 반쪽 저장을 막습니다.
 - `collected_at` 은 스냅샷 전체가 같은 시각을 공유합니다(`telemetry_store::CurrentUtcTimestamp()`).
@@ -1324,26 +1315,25 @@ ctest --test-dir build -R cli_output_parser_test --output-on-failure
 
 ### 검증 도구
 
-| 도구 | 용도 |
-|---|---|
-| `tools/node_probe.py` | 실제 노드에 접속해 조회 명령을 실행하고 원문을 캡처 |
-| `tools/deploy_arista.sh` | Arista 에 프로버를 sftp 로 배포 (배포 후 sha256 검증) |
-| `tools/run_prober.sh` | Arista 에서 프로버를 실행하고 SQLite 수집 결과 요약 |
-| `tools/ws_collector.py` | 표준 라이브러리만으로 동작하는 WebSocket 수신기 (서버 전송 검증용) |
-| `cli_output_parser_probe` | 캡처한 원문을 파서에 통과시켜 JSON 확인 |
-
+| 도구                        | 용도                                                               |
+| --------------------------- | ------------------------------------------------------------------ |
+| `tools/node_probe.py`     | 실제 노드에 접속해 조회 명령을 실행하고 원문을 캡처                |
+| `tools/deploy_arista.sh`  | Arista 에 프로버를 sftp 로 배포 (배포 후 sha256 검증)              |
+| `tools/run_prober.sh`     | Arista 에서 프로버를 실행하고 SQLite 수집 결과 요약                |
+| `tools/ws_collector.py`   | 표준 라이브러리만으로 동작하는 WebSocket 수신기 (서버 전송 검증용) |
+| `cli_output_parser_probe` | 캡처한 원문을 파서에 통과시켜 JSON 확인                            |
 
 ### 실제 장비 검증 결과 (2026-09-18)
 
 `tools/node_probe.py` 로 실제 노드에서 조회한 원문을 `cli_output_parser_probe` 에 통과시킨 결과입니다.
 
-| 노드 | 접속 방식 | 검증한 명령 | 결과 |
-|---|---|---|---|
-| Arista vEOS (10.20.0.4) | SSH 키 인증 → `enable` → `bash` | `show vlan brief` | ✅ 4 VLAN, 포트 이어짐 병합 |
-| Arista vEOS | 동일 | `show ip interface brief` | ✅ 4 인터페이스 (헤더 줄 제외) |
-| Arista vEOS | 동일 | `show interfaces switchport` | ✅ 11 포트 (mode/access_vlan/trunk) |
-| Ubuntu 24.10 VM (10.0.9.100) | Arista 경유 nested SSH | `ip a`, `ip -br addr show` | ✅ 2 인터페이스, 주소/수명 파싱 |
-| Cisco 8000v (10.20.0.1) | SSH 인증 실패, GNS3 콘솔 미개방 | — | ⏸ 보류 (아래 참고) |
+| 노드                         | 접속 방식                            | 검증한 명령                    | 결과                                |
+| ---------------------------- | ------------------------------------ | ------------------------------ | ----------------------------------- |
+| Arista vEOS (10.20.0.4)      | SSH 키 인증 →`enable` → `bash` | `show vlan brief`            | ✅ 4 VLAN, 포트 이어짐 병합         |
+| Arista vEOS                  | 동일                                 | `show ip interface brief`    | ✅ 4 인터페이스 (헤더 줄 제외)      |
+| Arista vEOS                  | 동일                                 | `show interfaces switchport` | ✅ 11 포트 (mode/access_vlan/trunk) |
+| Ubuntu 24.10 VM (10.0.9.100) | Arista 경유 nested SSH               | `ip a`, `ip -br addr show` | ✅ 2 인터페이스, 주소/수명 파싱     |
+| Cisco 8000v (10.20.0.1)      | SSH 인증 실패, GNS3 콘솔 미개방      | —                             | ⏸ 보류 (아래 참고)                 |
 
 **Ubuntu VM 접속 경로**: 프로버 호스트는 `10.0.9.0/24` 로 직접 라우팅되지 않습니다.
 Arista가 `vlan9`(10.0.9.1/24)를 들고 있어 `Arista bash → ssh ubuntu@10.0.9.100` 2단 접속으로 검증했습니다.
@@ -1352,6 +1342,7 @@ Arista가 `vlan9`(10.0.9.1/24)를 들고 있어 `Arista bash → ssh ubuntu@10.0
 **Cisco 보류 사유**: 문서상 `cisco` 계정으로 SSH 비밀번호 인증이 실패하고,
 GNS3 콘솔 포트(`localhost:5018`)가 프로버 호스트에 열려 있지 않습니다.
 Cisco 경로는 `guestshell run ...` 형태이므로 아래를 확인한 뒤 재시도해야 합니다.
+
 - GNS3 서버가 프로버 호스트와 다른 곳에 있으면 그 호스트에서 `telnet localhost:5018`
 - 또는 10.20.0.1 의 SSH 계정명/비밀번호 재확인
 
@@ -1377,5 +1368,6 @@ Cisco 경로는 `guestshell run ...` 형태이므로 아래를 확인한 뒤 재
 
 이 파서 계층은 **명령을 실행하지 않습니다**. 장비 출력을 받아 JSON 으로 바꾸는 순수 함수만 제공합니다.
 따라서:
+
 - 장비에 SSH/telnet 접속·명령 실행은 `tools/node_probe.py`(검증용) 또는 향후 텔레메트리 수집기가 담당합니다.
 - 정책 적용/설정 변경은 이 계층에 존재하지 않으며 Spring 백엔드가 수행합니다.

@@ -2,7 +2,6 @@
 title: 클래스 다이어그램 (Prober + Backend) v1
 sidebar_position: 1
 ---
-
 # 클래스 다이어그램 v1
 
 프로버(C++23)와 백엔드(Spring Boot / Java 26)의 <b>실제 클래스</b>를 정리한
@@ -398,49 +397,6 @@ classDiagram
 호출부는 바뀌지 않습니다.
 
 ### 2-4. 정책 수신 (서버 → 장비)
-
-```mermaid
-classDiagram
-    direction TB
-
-    class PolicyReceiver {
-        <<component>>
-        +Handle(policy) bool
-    }
-
-    class PolicyJson {
-        <<free functions>>
-        +Extract(key, doc) vector~string~
-    }
-
-    class ManagementService {
-        +ApplyOpenVSwitchPolicy(policy) bool
-        +ApplyAristaSwitchPolicy(policy) bool
-        +ApplyCiscoSwitchPolicy(policy) bool
-        +ApplyCiscoRouterPolicy(policy) bool
-        +ApplyFrrRouterPolicy(policy) bool
-        +ApplyNftablesPolicy(policy) bool
-        +ApplyVmPolicy(policy) bool
-    }
-
-    class Envelope {
-        <<free functions>>
-        +kHello
-        +kPolicyRequest
-        +kPolicyResponse
-        +kTelemetry
-        +kCommand
-        +kAck
-        +kError
-        +DeviceTypeToString(type) string
-        +NextCorrelationId() string
-        +Make(type, agent_id, type, correlation, payload) json
-    }
-
-    PolicyReceiver ..> PolicyJson : 조건 추출
-    PolicyReceiver --> ManagementService : 벤더별 Apply 위임
-    ManagementService ..> Envelope : 봉투 생성
-```
 
 `ManagementService` 가 <b>7개의 Apply*</b> 를 모두 들고 있는 것은 이 버전의
 약점입니다. 벤더가 늘면 God Class 가 됩니다. (v2 검토 대상)
@@ -1049,15 +1005,15 @@ classDiagram
 
 ### 타입별 방향과 응답
 
-| type | 방향 | 응답 | 비고 |
-| --- | --- | --- | --- |
-| `hello` | 프로버 → 백엔드 | `ack` | 최초 연결 1회, 알림 기록 |
-| `policy-request` | 프로버 → 백엔드 | `policy-response` | `correlation_id` 로 짝 |
-| `policy-response` | 백엔드 → 프로버 | — | 정책 본문 |
-| `telemetry` | 프로버 → 백엔드 | 없음 | 일방향. 실패해도 재전송 안 함 |
-| `command` | 백엔드 → 프로버 | 없음 | 서버 푸시 |
-| `ack` | 프로버 → 백엔드 | 없음 | 정책 적용 결과 |
-| `error` | 양방향 | 없음 | |
+| type                | 방향             | 응답                | 비고                          |
+| ------------------- | ---------------- | ------------------- | ----------------------------- |
+| `hello`           | 프로버 → 백엔드 | `ack`             | 최초 연결 1회, 알림 기록      |
+| `policy-request`  | 프로버 → 백엔드 | `policy-response` | `correlation_id` 로 짝      |
+| `policy-response` | 백엔드 → 프로버 | —                  | 정책 본문                     |
+| `telemetry`       | 프로버 → 백엔드 | 없음                | 일방향. 실패해도 재전송 안 함 |
+| `command`         | 백엔드 → 프로버 | 없음                | 서버 푸시                     |
+| `ack`             | 프로버 → 백엔드 | 없음                | 정책 적용 결과                |
+| `error`           | 양방향           | 없음                |                               |
 
 <b>주의</b>: `telemetry` 는 8KB 를 넘으면 Tomcat 이 close 1009 로 끊습니다.
 (FRR 라우터 텔레메트리가 11.8KB) `WebSocketConfig.createWebSocketContainer()`
@@ -1172,13 +1128,13 @@ erDiagram
 
 ### 5-2. 양쪽 DB 의 역할 분담
 
-| | 프로버 SQLite | 백엔드 PostgreSQL |
-| --- | --- | --- |
-| 목적 | 로컬 수집 이력 · 오프라인 재전송 | 분석 · 검증 · 화면 |
-| 단위 | 스냅샷(`collected_at` 묶음) | 엔티티 |
-| 스키마 | `route_table`, `nic_info`, `nic_address`, `vlan_status`, `trunk_status`, `arp_table` | 14개 테이블 (§5-1) |
-| 스키마 정의 | `database/schema.cpp` 단일 소스 | JPA 엔티티 + `ddl-auto` |
-| 시간 | ISO-8601 **문자열** | ISO-8601 **문자열** (동일) |
+|             | 프로버 SQLite                                                                                    | 백엔드 PostgreSQL               |
+| ----------- | ------------------------------------------------------------------------------------------------ | ------------------------------- |
+| 목적        | 로컬 수집 이력 · 오프라인 재전송                                                                | 분석 · 검증 · 화면            |
+| 단위        | 스냅샷(`collected_at` 묶음)                                                                    | 엔티티                          |
+| 스키마      | `route_table`, `nic_info`, `nic_address`, `vlan_status`, `trunk_status`, `arp_table` | 14개 테이블 (§5-1)             |
+| 스키마 정의 | `database/schema.cpp` 단일 소스                                                                | JPA 엔티티 +`ddl-auto`        |
+| 시간        | ISO-8601**문자열**                                                                         | ISO-8601**문자열** (동일) |
 
 <b>설계 의도</b>: 같은 문제를 두 번 풀지 않습니다. 프로버는 <b>원본을 그대로</b>
 남기고, 해석·판정은 백엔드가 합니다. 그래서 프로버 DB 에는 판정 결과가 없고,
@@ -1186,8 +1142,7 @@ erDiagram
 
 ### 5-3. 스키마 진화 시 주의
 
-- 프로버: `CreateTablesSql()` 은 `CREATE TABLE IF NOT EXISTS` 라 <b>기존
-  테이블의 컬럼을 바꾸지 못합니다</b>. 컬럼 변경 시 마이그레이션이 필요합니다.
+- 프로버: `CreateTablesSql()` 은 `CREATE TABLE IF NOT EXISTS` 라 <b>기존테이블의 컬럼을 바꾸지 못합니다</b>. 컬럼 변경 시 마이그레이션이 필요합니다.
 - 백엔드: `local` 은 `update`, `postgres` 는 `validate` 입니다. 빈 DB 로 처음
   띄울 때는 `JPA_DDL_AUTO=update` 로 한 번 생성한 뒤 `validate` 로 되돌립니다.
 - 운영에서는 Flyway/Liquibase 로 옮겨야 합니다(현재 없음).
@@ -1196,20 +1151,20 @@ erDiagram
 
 ## 6. v1 에서 확인된 약점 (v2 검토 대상)
 
-| # | 위치 | 문제 | 영향 |
-| --- | --- | --- | --- |
-| 1 | `ManagementService` | `Apply*Policy` 7개를 한 클래스가 보유 | 벤더 추가 시 God Class. Strategy 분리 필요 |
-| 2 | `ManagementService` / `TelemetryService` | WebSocket 클라이언트 코드 중복 | 전송 버그를 두 번 고쳐야 함 |
-| 3 | `AgentMessageRouterService` | `lastConfig` 가 <b>인메모리 캐시</b> | 재기동하면 모든 장비 설정 소실 |
-| 4 | `Configuration._hostname` | unique 제약 없음 | 같은 장비가 여러 행으로 쌓임 |
-| 5 | `Configuration` | 인터페이스/VRF/ACL/VLAN 이 `@Transient` | SQL 로 조회 불가. 분석은 인메모리만 |
-| 6 | `Model.Ip` / `Ip6` / `Prefix` | 최근 값 객체로 정리 (v1 반영) | — |
-| 7 | `AbstractRoute` | 인터페이스 필드 = `static final` | 모든 라우트가 값 공유. 구현체 사용 불가 |
-| 8 | `AgentMessageFirewallService` / `AgentMessageSwitchService` | 빈 클래스 | 죽은 코드 |
-| 9 | ~~`OpenSenseApiService`~~ | ~~하드코딩된 URL/키~~ | **수리 완료** — 삭제 |
-| 10 | ~~`Model/entitiy` (오타 패키지)~~ | ~~`Model/entity` 와 공존~~ | **수리 완료** — 통합 |
-| 11 | `OPNSenseFirewall` | `OPNsenseCredential` 과 사실상 중복 (테이블 0행) | 미정 — 통합 검토 |
-| 12 | `Service/opnsense` | `@Value` 로 전역 설정을 읽는 경로 없음 | DB 경로만 존재 (의도) |
+| #  | 위치                                                            | 문제                                               | 영향                                       |
+| -- | --------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------ |
+| 1  | `ManagementService`                                           | `Apply*Policy` 7개를 한 클래스가 보유            | 벤더 추가 시 God Class. Strategy 분리 필요 |
+| 2  | `ManagementService` / `TelemetryService`                    | WebSocket 클라이언트 코드 중복                     | 전송 버그를 두 번 고쳐야 함                |
+| 3  | `AgentMessageRouterService`                                   | `lastConfig` 가 <b>인메모리 캐시</b>             | 재기동하면 모든 장비 설정 소실             |
+| 4  | `Configuration._hostname`                                     | unique 제약 없음                                   | 같은 장비가 여러 행으로 쌓임               |
+| 5  | `Configuration`                                               | 인터페이스/VRF/ACL/VLAN 이`@Transient`           | SQL 로 조회 불가. 분석은 인메모리만        |
+| 6  | `Model.Ip` / `Ip6` / `Prefix`                             | 최근 값 객체로 정리 (v1 반영)                      | —                                         |
+| 7  | `AbstractRoute`                                               | 인터페이스 필드 =`static final`                  | 모든 라우트가 값 공유. 구현체 사용 불가    |
+| 8  | `AgentMessageFirewallService` / `AgentMessageSwitchService` | 빈 클래스                                          | 죽은 코드                                  |
+| 9  | ~~`OpenSenseApiService`~~                                    | ~~하드코딩된 URL/키~~                             | **수리 완료** — 삭제                |
+| 10 | ~~`Model/entitiy` (오타 패키지)~~                            | ~~`Model/entity` 와 공존~~                      | **수리 완료** — 통합                |
+| 11 | `OPNSenseFirewall`                                            | `OPNsenseCredential` 과 사실상 중복 (테이블 0행) | 미정 — 통합 검토                          |
+| 12 | `Service/opnsense`                                            | `@Value` 로 전역 설정을 읽는 경로 없음           | DB 경로만 존재 (의도)                      |
 
 ## 7. 수리 이력
 
@@ -1228,15 +1183,57 @@ Model/entitiy/OPNSenseFirewall.java  →  Model/entity/OPNSenseFirewall.java
 
 참조가 0건인 죽은 코드를 삭제했습니다.
 
-| 삭제 | 하드코딩되어 있던 값 |
-| --- | --- |
-| `Service/OpenSenseApiService` | `new OPNSenseClientConfig("http://test.com", "apiKey-spxxxxx")` |
-| `Client/OPNSenseClientConfig` | `@Value` 기본값 `https://test.local:8000` |
-| `Service/RestApiClient/OPNSenseClientService` | 위 설정 의존 |
-| `Service/RestApiClient/OPNSenseEndpoint` | 경로 중복 정의 |
+| 삭제                                            | 하드코딩되어 있던 값                                              |
+| ----------------------------------------------- | ----------------------------------------------------------------- |
+| `Service/OpenSenseApiService`                 | `new OPNSenseClientConfig("http://test.com", "apiKey-spxxxxx")` |
+| `Client/OPNSenseClientConfig`                 | `@Value` 기본값 `https://test.local:8000`                     |
+| `Service/RestApiClient/OPNSenseClientService` | 위 설정 의존                                                      |
+| `Service/RestApiClient/OPNSenseEndpoint`      | 경로 중복 정의                                                    |
 
-대체 경로는 `Service/opnsense/` 3종이며, 접속 정보는 <b>DB(장치별) + 환경변수
-(암호화 키)</b> 로만 들어옵니다. 자세한 내용은
-[OPNsense 설정 주입 경로](./OPNsense%20Configuration.md) 를 보세요.
+대체 경로는 `Service/opnsense/` 3종이며, 접속 정보는 <b>DB(장치별) + 환경변수(암호화 키)</b> 로만 들어옵니다. 자세한 내용은
+[OPNsense 설정 주입 경로](<./OPNsense%20Configuration.md>) 를 보세요.
 
 빈 디렉터리 `Client/`, `Service/RestApiClient/` 도 함께 제거했습니다.
+
+```mermaid
+classDiagram
+    direction TB
+
+    class PolicyReceiver {
+        <<component>>
+        +Handle(policy) bool
+    }
+
+    class PolicyJson {
+        <<free functions>>
+        +Extract(key, doc) vector~string~
+    }
+
+    class ManagementService {
+        +ApplyOpenVSwitchPolicy(policy) bool
+        +ApplyAristaSwitchPolicy(policy) bool
+        +ApplyCiscoSwitchPolicy(policy) bool
+        +ApplyCiscoRouterPolicy(policy) bool
+        +ApplyFrrRouterPolicy(policy) bool
+        +ApplyNftablesPolicy(policy) bool
+        +ApplyVmPolicy(policy) bool
+    }
+
+    class Envelope {
+        <<free functions>>
+        +kHello
+        +kPolicyRequest
+        +kPolicyResponse
+        +kTelemetry
+        +kCommand
+        +kAck
+        +kError
+        +DeviceTypeToString(type) string
+        +NextCorrelationId() string
+        +Make(type, agent_id, type, correlation, payload) json
+    }
+
+    PolicyReceiver ..> PolicyJson : 조건 추출
+    PolicyReceiver --> ManagementService : 벤더별 Apply 위임
+    ManagementService ..> Envelope : 봉투 생성
+```
