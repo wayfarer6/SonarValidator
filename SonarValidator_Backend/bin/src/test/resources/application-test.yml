@@ -1,0 +1,25 @@
+# ===========================================================================
+# 테스트 전용 프로필 (H2 인메모리)
+# ===========================================================================
+# @SpringBootTest 가 기본 프로필(postgres)로 뜨면 DB 서버가 없어 기동이 실패합니다.
+# 테스트 클래스는 @ActiveProfiles("test") 로 이 프로필을 사용합니다.
+#
+# 인메모리이므로 테스트가 끝나면 데이터가 사라집니다. (테스트 격리에 유리)
+
+spring:
+  datasource:
+    # DB_CLOSE_DELAY=-1: 마지막 커넥션이 닫혀도 DB 를 유지합니다.
+    url: jdbc:h2:mem:sonarvalidator-test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      # 테스트는 매번 깨끗한 스키마에서 시작합니다.
+      ddl-auto: create-drop
+    open-in-view: false
+
+  h2:
+    console:
+      enabled: false

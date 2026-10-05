@@ -1,0 +1,16 @@
+<svg width="230" height="40" viewBox="0 0 230 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon Background -->
+  <rect x="0" y="2" width="36" height="36" rx="8" fill="#EEF2FF" />
+  
+  <!-- Sonar Waves (Radar effect) -->
+  <path d="M 11 25 C 11 17.268 17.268 11 25 11" stroke="#3C50E0" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 6 25 C 6 14.507 14.507 6 25 6" stroke="#818CF8" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Validator Checkmark -->
+  <path d="M 13 21 L 18 26 L 27 15" stroke="#3C50E0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Typography -->
+  <text x="46" y="28" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="800" fill="#1C2434" letter-spacing="-0.5">
+    Sonar<tspan font-weight="500" fill="#3C50E0">Validator</tspan>
+  </text>
+</svg>

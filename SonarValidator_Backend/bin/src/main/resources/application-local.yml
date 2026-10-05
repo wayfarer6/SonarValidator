@@ -1,0 +1,36 @@
+# ===========================================================================
+# H2 로컬 개발 프로필 (PostgreSQL 서버 설치 없이 기동)
+# ===========================================================================
+# 활성화:
+#   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+#   java -jar app.jar --spring.profiles.active=local
+#
+# 파일 기반이라 재시작해도 데이터가 남습니다. 파일 위치는 실행 디렉터리 기준입니다.
+# (./data/sonarvalidator.mv.db)
+
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/sonarvalidator;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      # 개발 편의를 위해 엔티티 변경을 테이블에 자동 반영합니다.
+      ddl-auto: update
+    # 방언을 명시하지 않아도 H2 임을 자동 감지합니다.
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  # H2 웹 콘솔: http://localhost:3000/h2-console
+  # JDBC URL 에는 위 datasource.url 과 동일한 값을 넣으세요.
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # SQL 로그가 필요할 때 주석 해제
+  # show-sql: true

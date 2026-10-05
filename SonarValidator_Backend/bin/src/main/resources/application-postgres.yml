@@ -1,0 +1,52 @@
+# ===========================================================================
+# PostgreSQL 접속 설정 (운영 / 통합 테스트)
+# ===========================================================================
+# 활성화: 기본 프로필입니다(application.properties 의 spring.profiles.active=postgres).
+#   java -jar app.jar
+#   java -jar app.jar --spring.profiles.active=postgres
+#
+# 값은 환경 변수로 덮어쓸 수 있게 ${VAR:기본값} 형태로 두었습니다.
+# 운영 배포 시에는 반드시 DB_PASSWORD 를 주입하세요(파일에 평문 저장 금지).
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sonarvalidator}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER:sonarvalidator}
+    password: ${DB_PASSWORD:sonarvalidator}
+
+    # HikariCP 커넥션 풀. 기본값도 충분하지만 운영 튜닝 지점을 남겨둡니다.
+    hikari:
+      pool-name: sonarvalidator-pool
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    # 엔티티와 실제 테이블 구조가 다르면 기동을 실패시킵니다.
+    # 운영에서는 스키마를 validate 로 검증만 하고, 변경은 마이그레이션 도구로 하세요.
+    # 개발 중 편의를 위해 update 로 두어도 되지만, 그 경우 스키마 변경 이력이 남지 않습니다.
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    # PostgreSQL 전용 문법(예: ON CONFLICT, JSONB)을 쓰려면 방언을 명시합니다.
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        # 배치 INSERT 성능: 여러 행을 묶어 보냅니다.
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  # H2 콘솔은 postgres 프로필에서 사용하지 않습니다.
+  h2:
+    console:
+      enabled: false
+
+  # SQL 로그가 필요할 때 주석 해제
+  # show-sql: true
+  # logging.level.org.hibernate.SQL: DEBUG
