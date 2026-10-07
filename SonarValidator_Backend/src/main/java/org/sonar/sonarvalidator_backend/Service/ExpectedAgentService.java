@@ -10,13 +10,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.entity.ExpectedAgent;
 import org.sonar.sonarvalidator_backend.Repository.ExpectedAgentRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 배포 예정 Agent 목록의 등록·조회·삭제와, <b>기대 대비 실제</b> 비교를 담당합니다.
@@ -123,6 +125,25 @@ public class ExpectedAgentService {
             repository.delete(entity);
             log.info("expected agent removed: id={}", agentId);
         });
+    }
+
+    /**
+     * 프로젝트 소속을 확인한 뒤 배포 예정 항목을 삭제합니다.
+     *
+     * @param agentId Agent 식별자
+     * @param projectKey 대상 프로젝트 키
+     */
+    @Transactional
+    public void deleteFromProject(String agentId, String projectKey) {
+        final ExpectedAgent entity = repository.findByAgentId(agentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Agent is not registered in this project"));
+        if (!projectKey.equals(entity.getProjectKey())) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Agent is not registered in this project");
+        }
+        repository.delete(entity);
+        log.info("expected agent removed from project: id={} project={}", agentId, projectKey);
     }
 
     /**

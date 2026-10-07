@@ -126,9 +126,10 @@ class BddManagerTest {
         final BddManager manager = PacketVariables.newManager();
         final BddNode cidr = PacketVariables.cidr(manager, "10.10.131.0/24", PacketVariables.SRC_IP_OFFSET);
 
-        // 출발지 하위 8비트 + 목적지 32비트 + 포트 16비트가 자유 → 2^56
+        // 출발지 하위 8비트 + 목적지 32비트 + 포트 16비트 + 프로토콜 8비트가 자유
         final int freeSrcBits = PacketVariables.IP_BITS - 24;
-        final int freeBits = freeSrcBits + PacketVariables.IP_BITS + PacketVariables.PORT_BITS;
+        final int freeBits = freeSrcBits + PacketVariables.IP_BITS
+                + PacketVariables.PORT_BITS + PacketVariables.PROTOCOL_BITS;
         assertThat(manager.satCount(cidr))
                 .isEqualTo(java.math.BigInteger.TWO.pow(freeBits));
 

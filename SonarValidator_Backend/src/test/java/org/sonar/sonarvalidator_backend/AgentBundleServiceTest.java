@@ -3,6 +3,7 @@ package org.sonar.sonarvalidator_backend;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -80,7 +81,8 @@ class AgentBundleServiceTest {
 
     @Test
     @DisplayName("번들은 gzip 매직 바이트로 시작한다 (ZIP 이 아니다)")
-    void bundleStartsWithGzipMagic(@TempDir Path stage) {
+        void bundleStartsWithGzipMagic(@TempDir Path stage) throws IOException {
+                stageBinary(stage);
         final byte[] bundle = service(stage).build(
                 "CiscoCatalyst8000V-Router", "Router", "10.20.0.3", null, null);
 
@@ -101,6 +103,7 @@ class AgentBundleServiceTest {
     @Test
     @DisplayName("파일은 Installer/ 폴더 아래에 담긴다")
     void entriesLiveUnderInstallerDirectory(@TempDir Path stage) throws IOException {
+                stageBinary(stage);
         final Map<String, String> files = readTarGz(service(stage).build(
                 "Gateway-Router", "Router", "10.20.0.3", null, null));
 
@@ -117,6 +120,7 @@ class AgentBundleServiceTest {
     @Test
     @DisplayName("tar 는 마지막 0 블록을 써서 정상 종료한다")
     void archiveIsProperlyTerminated(@TempDir Path stage) throws IOException {
+                stageBinary(stage);
         final byte[] bundle = service(stage).build(
                 "Gateway-Router", "Router", "10.20.0.3", null, null);
 
@@ -132,6 +136,7 @@ class AgentBundleServiceTest {
     @Test
     @DisplayName("요청 포트가 default.conf 에 그대로 들어간다")
     void portOverrideLandsInDefaultConf(@TempDir Path stage) throws IOException {
+                stageBinary(stage);
         final Map<String, String> files = readTarGz(service(stage).build(
                 "Gateway-Router", "Router", "10.20.0.3", "8443", null));
 
@@ -147,7 +152,8 @@ class AgentBundleServiceTest {
 
     @Test
     @DisplayName("포트를 지정하지 않으면 서버 설정값을 쓴다")
-    void missingPortFallsBackToConfigured(@TempDir Path stage) throws IOException {
+        void missingPortFallsBackToConfigured(@TempDir Path stage) throws IOException {
+                stageBinary(stage);
         final String conf = readTarGz(service(stage).build(
                 "Gateway-Router", "Router", "10.20.0.3", null, null))
                 .get("Installer/default.conf");
@@ -157,7 +163,8 @@ class AgentBundleServiceTest {
 
     @Test
     @DisplayName("숫자가 아니거나 범위 밖인 포트는 조용히 넘기지 않고 설정값으로 되돌린다")
-    void invalidPortFallsBackToConfigured(@TempDir Path stage) throws IOException {
+        void invalidPortFallsBackToConfigured(@TempDir Path stage) throws IOException {
+                stageBinary(stage);
         final AgentBundleService service = service(stage);
 
         for (final String bogus : new String[] {"abc", "0", "70000", "-1", "  "}) {
@@ -171,7 +178,8 @@ class AgentBundleServiceTest {
 
     @Test
     @DisplayName("info 응답도 확정된 포트를 알려준다 (미리보기와 파일이 일치)")
-    void describeReportsResolvedPort(@TempDir Path stage) {
+        void describeReportsResolvedPort(@TempDir Path stage) throws IOException {
+                stageBinary(stage);
         final Map<String, Object> info = service(stage).describe(
                 "Gateway-Router", "Router", "10.20.0.3", "8443");
 
@@ -218,4 +226,41 @@ class AgentBundleServiceTest {
             }
         }
     }
+
+        @Test
+        @DisplayName("필수 Prober 바이너리가 없으면 불완전한 다운로드 생성을 거부한다")
+        void missingBinaryRejectsBundle(@TempDir Path stage) {
+                final IllegalStateException error = assertThrows(IllegalStateException.class,
+                                () -> service(stage).build(
+                                                "Gateway-Router", "Router", "10.20.0.3", null, null));
+
+                assertTrue(error.getMessage().contains("sonar_validator_prober"), error.getMessage());
+        }
+
+        @Test
+        @DisplayName("번들에 포함된 Prober 바이트가 스테이징 파일과 일치한다")
+        void stagedBinaryContentsArePreserved(@TempDir Path stage) throws IOException {
+                final byte[] binary = new byte[] {0x7f, 'E', 'L', 'F', 0x01, 0x02};
+                Files.write(stage.resolve("sonar_validator_prober"), binary);
+
+                final byte[] bundle = service(stage).build(
+                                "Gateway-Router", "Router", "10.20.0.3", null, null);
+
+                try (TarArchiveInputStream tar = new TarArchiveInputStream(
+                                new GzipCompressorInputStream(new ByteArrayInputStream(bundle)))) {
+                        TarArchiveEntry entry;
+                        while ((entry = tar.getNextEntry()) != null) {
+                                if (entry.getName().equals("Installer/sonar_validator_prober")) {
+                                        assertEquals(java.util.Arrays.toString(binary),
+                                                        java.util.Arrays.toString(tar.readAllBytes()));
+                                        return;
+                                }
+                        }
+                }
+                throw new AssertionError("번들에 Prober 바이너리가 없습니다");
+        }
+
+        private static void stageBinary(Path stage) throws IOException {
+                Files.write(stage.resolve("sonar_validator_prober"), new byte[] {0x7f, 'E', 'L', 'F'});
+        }
 }

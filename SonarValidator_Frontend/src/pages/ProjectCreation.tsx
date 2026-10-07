@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Branch_Divider from "../components/common/Branch_Divider";
 import AgentDeployCard from "../components/project/AgentDeployCard";
+import { getProject, updateProject } from "../lib/api/projects";
 
 /**
  * Agent 배포 화면입니다.
@@ -41,6 +42,7 @@ export default function ProjectCreation() {
 
   const [managementServerIPAddr, setManagementServerIPAddr] = useState("");
   const [managementServerPort, setManagementServerPort] = useState("");
+  const [serverSettingsError, setServerSettingsError] = useState<string | null>(null);
   const normalizedPort = managementServerPort.trim();
   const isManagementPortValid =
     /^\d+$/.test(normalizedPort) &&
@@ -49,9 +51,33 @@ export default function ProjectCreation() {
   // 장비 카드 목록(Deploy & Download)의 노출 여부
   const [showDeployCard, setShowDeployCard] = useState(false);
 
+  useEffect(() => {
+    if (!projectId) return;
+
+    let cancelled = false;
+    getProject(projectId)
+      .then((project) => {
+        if (cancelled) return;
+        setManagementServerIPAddr(project.management_server_ip ?? "");
+        setManagementServerPort(project.management_server_port?.toString() ?? "");
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) return;
+        setServerSettingsError(
+          cause instanceof Error
+            ? cause.message
+            : "프로젝트의 Management Server 설정을 불러오지 못했습니다.",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
   //project 이름없으면 지정해주는거 필요
 
-  const handleCreateProber = (e: FormEvent<HTMLFormElement>) => {
+  const handleCreateProber = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const serverIp = managementServerIPAddr.trim();
     const serverPort = managementServerPort.trim();
@@ -68,6 +94,23 @@ export default function ProjectCreation() {
       setDeployValidationMessage("관리 서버 포트는 1에서 65535 사이의 숫자로 입력하세요.");
       setShowDeployCard(false);
       return;
+    }
+
+    if (projectId) {
+      try {
+        await updateProject(projectId, {
+          management_server_ip: serverIp,
+          management_server_port: Number(serverPort),
+        });
+      } catch (cause) {
+        setDeployValidationMessage(
+          cause instanceof Error
+            ? `Management Server 설정을 저장하지 못했습니다: ${cause.message}`
+            : "Management Server 설정을 저장하지 못했습니다.",
+        );
+        setShowDeployCard(false);
+        return;
+      }
     }
 
     setDeployValidationMessage(null);
@@ -144,6 +187,11 @@ export default function ProjectCreation() {
             </div>
 
             <form onSubmit={handleCreateProber} className="space-y-4">
+              {serverSettingsError && (
+                <p className="text-xs text-error-600 dark:text-error-400">
+                  저장된 서버 설정을 불러오지 못했습니다: {serverSettingsError}
+                </p>
+              )}
               
               {/* Management Server IP 입력 영역 */}
               <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/50">

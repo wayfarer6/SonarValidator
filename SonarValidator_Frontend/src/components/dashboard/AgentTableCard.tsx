@@ -3,11 +3,7 @@ import { Link } from "react-router";
 import { BoxIconLine } from "../../icons";
 import { useApi } from "../../hooks/useApi";
 import { getAllDiscoveredDevices, listAgentOverview } from "../../lib/api";
-import {
-  AGENT_STATE_LABEL,
-  mergeOverviewWithDevices,
-  normalizeDeviceType,
-} from "../../lib/agentView";
+import { mergeOverviewWithDevices, normalizeDeviceType } from "../../lib/agentView";
 
 const DEVICE_STYLE: Record<string, string> = {
   Router: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
@@ -62,8 +58,7 @@ export default function AgentTableCard() {
     });
   }, [rows, filter]);
 
-  const onlineCount = rows.filter((row) => row.connected).length;
-  const silentCount = rows.filter((row) => row.state === "silent").length;
+  const onlineCount = rows.filter((row) => row.connected || row.apiManaged).length;
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
@@ -77,12 +72,7 @@ export default function AgentTableCard() {
               Agents
             </h4>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {onlineCount} online / {rows.length} total
-              {silentCount > 0 && (
-                <span className="ml-2 text-amber-600 dark:text-amber-400">
-                  무응답 {silentCount}
-                </span>
-              )}
+              온라인 {onlineCount} / 오프라인 {rows.length - onlineCount}
             </p>
           </div>
         </div>
@@ -157,19 +147,10 @@ export default function AgentTableCard() {
                   <span className="flex items-center gap-1.5 text-xs">
                     <span
                       className={`size-2 rounded-full ${
-                        agent.connected
-                          ? "bg-green-500"
-                          : agent.state === "silent"
-                            ? "bg-amber-500"
-                            : "bg-gray-400"
+                        agent.connected || agent.apiManaged ? "bg-green-500" : "bg-gray-400"
                       }`}
                     />
-                    {/* 서버 상태값이 있으면 그것을 우선합니다. */}
-                    {agent.state
-                      ? AGENT_STATE_LABEL[agent.state]
-                      : agent.connected
-                        ? "online"
-                        : "offline"}
+                    {agent.connected || agent.apiManaged ? "온라인" : "오프라인"}
                   </span>
                 </td>
               </tr>

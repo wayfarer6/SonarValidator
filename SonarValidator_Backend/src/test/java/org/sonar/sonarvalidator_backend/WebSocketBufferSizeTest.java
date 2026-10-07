@@ -46,7 +46,8 @@ class WebSocketBufferSizeTest {
     @DisplayName("WebSocket 컨테이너 버퍼가 Tomcat 기본값(8KB)보다 크다")
     void containerBufferExceedsTomcatDefault() {
         final org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean
-                container = new org.sonar.sonarvalidator_backend.Config.WebSocketConfig(null)
+                container = new org.sonar.sonarvalidator_backend.Config.WebSocketConfig(
+                        null, null, null, null)
                         .createWebSocketContainer();
 
         assertNotNull(container, "container bean must exist");

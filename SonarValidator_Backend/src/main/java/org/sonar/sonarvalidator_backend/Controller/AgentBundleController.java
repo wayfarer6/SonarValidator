@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Agent 설치 번들(설정이 미리 채워진 tar.gz)을 내려주는 API 입니다.
+ * 설정이 미리 채워진 Agent 다운로드(tar.gz)를 제공하는 API 입니다.
  *
  * <h2>⚠️ 왜 다운로드 전에 서버가 설정을 채우는가</h2>
  * <p>프로버는 {@code default.conf} 의 네 값으로 동작하고, 그중
@@ -27,20 +27,20 @@ import org.springframework.web.bind.annotation.RestController;
  * <h2>프론트엔드 사용 흐름</h2>
  * <ol>
  *   <li>장치 유형과 이름을 고른다</li>
- *   <li>{@code GET /api/v1/agents/bundle/info?agent_id=&node_type=&server_ip=&server_port=} 로 미리보기</li>
- *   <li>{@code GET /api/v1/agents/bundle/{agentId}?node_type=&server_ip=&server_port=} 로 tar.gz 다운로드</li>
+ *   <li>{@code GET /api/v1/agents/download/info?agent_id=&node_type=&server_ip=&server_port=} 로 미리보기</li>
+ *   <li>{@code GET /api/v1/agents/download/{agentId}?node_type=&server_ip=&server_port=} 로 다운로드</li>
  * </ol>
  *
  * <p>다운로드는 {@code <a href>} 로도 가능합니다(인증 쿠키가 실림).
  * 그래서 별도 토큰이 필요 없습니다.
  */
 @RestController
-@RequestMapping("/api/v1/agents/bundle")
+@RequestMapping({"/api/v1/agents/download", "/api/v1/agents/bundle"})
 public class AgentBundleController {
 
     private static final Logger log = LoggerFactory.getLogger(AgentBundleController.class);
 
-    /** 번들 파일 형식입니다. 장비에 unzip 이 없어 tar.gz 를 씁니다. */
+    /** Agent 다운로드 파일 형식입니다. 장비에 unzip 이 없어 tar.gz 를 씁니다. */
     private static final MediaType APPLICATION_GZIP =
             MediaType.parseMediaType("application/gzip");
 
@@ -66,7 +66,7 @@ public class AgentBundleController {
      * @param serverPort 장치별 서버 포트 (비우면 서버 설정값)
      * @return 번들 요약
      */
-    @GetMapping("/info")
+    @GetMapping({"/info"})
     public Map<String, Object> info(@RequestParam("agent_id") String agentId,
                                     @RequestParam(value = "node_type", required = false) String nodeType,
                                     @RequestParam(value = "server_ip", required = false) String serverIp,
@@ -75,7 +75,7 @@ public class AgentBundleController {
     }
 
     /**
-     * Agent 설치 번들을 내려받습니다.
+     * Agent 다운로드를 제공합니다.
      *
      * <p>{@code Installer/default.conf} 에 서버 주소/포트/장치 유형/Agent 이름이
      * 채워져 있고, 이 장치에 맞춘 {@code README.txt} 가 함께 들어 있습니다.
@@ -97,7 +97,7 @@ public class AgentBundleController {
                 agentId, nodeType, serverIp, serverPort, dataDirectory);
         final String fileName = bundleService.fileNameFor(agentId);
 
-        log.info("agent bundle download: agent={} type={} bytes={}",
+        log.info("agent download: agent={} type={} bytes={}",
                 agentId, AgentBundleService.normalizeNodeType(nodeType), body.length);
 
         final HttpHeaders headers = new HttpHeaders();

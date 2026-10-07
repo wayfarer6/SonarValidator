@@ -5,7 +5,7 @@ import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import { useApi } from "../hooks/useApi";
 import { getPolicyViolations, getPolicyForbiddenPairs } from "../lib/api";
-import { listProjects } from "../lib/api/projects";
+import { getProject, listProjects } from "../lib/api/projects";
 import type { ViolationSeverity } from "../lib/api/types";
 
 /**
@@ -77,6 +77,10 @@ export default function PolicyExporter() {
 
   const selectedProject =
     projectList.find((p) => p.project_id === selectedProjectId) ?? null;
+  const projectDetails = useApi(
+    () => (selectedProjectId ? getProject(selectedProjectId) : Promise.resolve(null)),
+    [selectedProjectId],
+  );
 
   const violationsResult = useApi(
     () => (selectedProjectId ? getPolicyViolations(selectedProjectId) : Promise.resolve(null)),
@@ -91,6 +95,8 @@ export default function PolicyExporter() {
   const report = violationsResult.data;
   const violations = report?.violations ?? [];
   const forbiddenPairs = forbiddenResult.data?.pairs ?? [];
+  const subnetCidr = (subnetId: string | null) =>
+    projectDetails.data?.subnets.find((subnet) => subnet.id === subnetId)?.cidr ?? null;
 
   const severityCounts = useMemo(() => {
     return {
@@ -116,15 +122,22 @@ export default function PolicyExporter() {
       by_severity: severityCounts,
       messages: report.messages,
       metrics: report.metrics,
-      forbidden_pairs: forbiddenPairs,
+      forbidden_pairs: forbiddenPairs.map((pair) => ({
+        ...pair,
+        src_cidr: subnetCidr(pair.src),
+        dst_cidr: subnetCidr(pair.dst),
+      })),
       violations: violations.map((v) => ({
         rule_id: v.rule_id,
         src_subnet: v.src_subnet,
+        src_cidr: subnetCidr(v.src_subnet),
         dst_subnet: v.dst_subnet,
+        dst_cidr: subnetCidr(v.dst_subnet),
         src_class: v.src_class,
         dst_class: v.dst_class,
         severity: v.severity,
         reason: v.reason,
+        sampled_protocol: v.sampled_protocol,
         sampled_packet: v.sampled_packet,
         sampled_src_ip: v.sampled_src_ip,
         sampled_dst_ip: v.sampled_dst_ip,
@@ -145,9 +158,14 @@ export default function PolicyExporter() {
       "rule_id",
       "severity",
       "src_subnet",
+      "src_cidr",
       "src_class",
       "dst_subnet",
+      "dst_cidr",
       "dst_class",
+      "sampled_protocol",
+      "source_ip",
+      "destination_ip",
       "port",
       "reason",
       "sampled_packet",
@@ -157,9 +175,14 @@ export default function PolicyExporter() {
         v.rule_id,
         v.severity,
         v.src_subnet ?? "",
+        subnetCidr(v.src_subnet) ?? "",
         v.src_class ?? "",
         v.dst_subnet ?? "",
+        subnetCidr(v.dst_subnet) ?? "",
         v.dst_class ?? "",
+        v.sampled_protocol,
+        v.sampled_src_ip ?? "",
+        v.sampled_dst_ip ?? "",
         v.sampled_port ?? "",
         v.reason,
         v.sampled_packet,
@@ -172,13 +195,14 @@ export default function PolicyExporter() {
     downloadBlob(csv, "text/csv", `${fileBase}.csv`);
   };
 
-  const isExporting = violationsResult.loading || forbiddenResult.loading;
+  const isExporting =
+    violationsResult.loading || forbiddenResult.loading || projectDetails.loading;
 
   return (
     <>
       <PageMeta
         title="Export Policy | SonarValidator"
-        description="정책 검증 위반 내역 JSON/CSV 내보내기"
+        description="정책 위반 연결의 IP 대역, 프로토콜, 포트와 판정 사유 내보내기"
       />
       <PageBreadcrumb pageTitle="Export Policy" />
 
@@ -189,7 +213,8 @@ export default function PolicyExporter() {
               내보낼 프로젝트 선택
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              서버가 판정한 위반 내역과 금지 서브넷 쌍을 파일로 내려받습니다.
+              정책 위반 연결의 출발·도착 IP 대역과 실제 IP, 프로토콜·포트, 판정 사유를 추출합니다.
+              JSON 파일에는 금지 서브넷 쌍도 포함됩니다.
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
@@ -268,9 +293,9 @@ export default function PolicyExporter() {
           )}
         </div>
 
-        {violationsResult.error ? (
+        {violationsResult.error || projectDetails.error ? (
           <p className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-            {violationsResult.error}
+            {violationsResult.error ?? projectDetails.error}
           </p>
         ) : (
           <>
@@ -329,7 +354,8 @@ export default function PolicyExporter() {
                         </Badge>
                       </td>
                       <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">
-                        {v.src_class ?? "?"} → {v.dst_class ?? "?"}
+                        {subnetCidr(v.src_subnet) ?? v.src_subnet ?? "?"} →{" "}
+                        {subnetCidr(v.dst_subnet) ?? v.dst_subnet ?? "?"}
                       </td>
                       <td className="max-w-[360px] px-3 py-2.5 text-gray-600 dark:text-gray-400">
                         {v.reason}

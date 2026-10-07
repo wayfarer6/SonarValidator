@@ -46,6 +46,21 @@ class SegmentationBddEngineTest {
     }
 
     @Test
+    @DisplayName("동일 CSO 등급의 명시적 연결 규칙은 등급 위반이 아니다")
+    void sameZoneExplicitRuleIsNotAZoneViolation() {
+        final List<PolicySubnet> sameZoneSubnets = List.of(
+                PolicySubnet.of("Subnet-A", "10.20.1.0/24", ZoneClass.SENSITIVE),
+                PolicySubnet.of("Subnet-B", "10.20.2.0/24", ZoneClass.SENSITIVE));
+        final PolicyRule explicitAllow = new PolicyRule("Rule-ALLOW", "Subnet-A", "Subnet-B", 443);
+
+        final SegmentationBddEngine.Report report = engine.validate(
+                sameZoneSubnets, List.of(explicitAllow));
+
+        assertThat(report.isCompliant()).isTrue();
+        assertThat(report.getRuleCount()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("Confidential 과 Open 직접 연결은 위반으로 판정된다")
     void confidentialToOpenIsViolation() {
         final List<PolicyRule> rules = List.of(
@@ -65,6 +80,23 @@ class SegmentationBddEngineTest {
     }
 
     @Test
+    @DisplayName("수집된 C와 O 직접 연결도 방화벽 보호가 확인되지 않으면 치명 위반으로 남는다")
+    void discoveredConfidentialToOpenConnectionRemainsCritical() {
+        final PolicyRule discovered = new PolicyRule("Rule-DISCOVERED", "Subnet-0004", "Subnet-0001", 443);
+        discovered.setOrigin(PolicyRule.Origin.DISCOVERED);
+
+        final SegmentationBddEngine.Report report = engine.validate(labSubnets(), List.of(discovered));
+
+        assertThat(report.isCompliant()).isFalse();
+        assertThat(report.getViolations())
+                .singleElement()
+                .satisfies(violation -> {
+                    assertThat(violation.severity()).isEqualTo(PolicyViolation.Severity.CRITICAL);
+                    assertThat(violation.reason()).contains("Confidential", "Open");
+                });
+    }
+
+    @Test
     @DisplayName("반례 패킷이 위반 대역 안에서 추출된다")
     void violationIncludesCounterExamplePacket() {
         final List<PolicyRule> rules = List.of(
@@ -76,8 +108,55 @@ class SegmentationBddEngineTest {
         // 출발지는 Confidential 대역(10.10.131.0/24), 목적지는 Open 대역(192.168.0.0/24)
         assertThat(violation.sampledSourceIp()).startsWith("10.10.131.");
         assertThat(violation.sampledTargetIp()).startsWith("192.168.0.");
+        assertThat(violation.sampledProtocol()).isEqualTo("tcp");
         assertThat(violation.sampledPort()).isEqualTo(443);
-        assertThat(violation.sampledPacket()).contains("->").contains(":443");
+        assertThat(violation.sampledPacket()).contains("tcp").contains("->").contains(":443");
+    }
+
+    @Test
+    @DisplayName("위반 반례에 UDP 포트 규칙의 프로토콜과 포트를 보존한다")
+    void violationPreservesUdpProtocol() {
+        final PolicyRule rule = new PolicyRule("Rule-UDP", "Subnet-0004", "Subnet-0001", 53);
+        rule.setProtocol("udp");
+
+        final SegmentationBddEngine.Report report = engine.validate(labSubnets(), List.of(rule));
+        final PolicyViolation violation = report.getViolations().get(0);
+
+        assertThat(violation.sampledProtocol()).isEqualTo("udp");
+        assertThat(violation.sampledPort()).isEqualTo(53);
+        assertThat(violation.sampledPacket()).startsWith("udp ");
+    }
+
+    @Test
+    @DisplayName("프로토콜 any 는 TCP 단일 프로토콜보다 256배 넓은 패킷 집합이다")
+    void protocolDimensionChangesAllowedPacketSet() {
+        final PolicyRule tcpRule = new PolicyRule("Rule-TCP", "Subnet-0001", "Subnet-0002", 443);
+        final PolicyRule anyRule = new PolicyRule("Rule-ANY", "Subnet-0001", "Subnet-0002", 443);
+        anyRule.setProtocol("any");
+
+        final var tcpReport = engine.validate(labSubnets(), List.of(tcpRule));
+        final var anyReport = engine.validate(labSubnets(), List.of(anyRule));
+
+        final var tcpCombinations = (java.math.BigInteger) tcpReport.getMetrics().get("allowed_combinations");
+        final var anyCombinations = (java.math.BigInteger) anyReport.getMetrics().get("allowed_combinations");
+        assertThat(anyCombinations).isEqualTo(tcpCombinations.multiply(java.math.BigInteger.valueOf(256)));
+    }
+
+    @Test
+    @DisplayName("ICMP 는 포트 없이 유효하고 잘못된 TCP 포트는 위반으로 보고한다")
+    void protocolAndPortValidation() {
+        final PolicyRule icmp = new PolicyRule(
+                "Rule-ICMP", "Subnet-0001", "Subnet-0002", PacketVariables.ANY_PORT);
+        icmp.setProtocol("icmp");
+        assertThat(engine.validate(labSubnets(), List.of(icmp)).isCompliant()).isTrue();
+
+        final PolicyRule invalidPort = new PolicyRule(
+                "Rule-BAD", "Subnet-0001", "Subnet-0002", 70000);
+        final var report = engine.validate(labSubnets(), List.of(invalidPort));
+
+        assertThat(report.isCompliant()).isFalse();
+        assertThat(report.getViolations()).hasSize(1);
+        assertThat(report.getViolations().get(0).severity()).isEqualTo(PolicyViolation.Severity.MINOR);
     }
 
     @Test

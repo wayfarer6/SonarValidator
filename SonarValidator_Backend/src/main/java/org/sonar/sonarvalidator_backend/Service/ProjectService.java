@@ -19,8 +19,10 @@ import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 프로젝트의 생성/조회/수정과 망분리 검증을 담당합니다.
@@ -187,6 +189,18 @@ public class ProjectService {
         // ⚠️ null 이면 유지, 빈 문자열이면 전역 기본값으로 되돌립니다.
         if (request.managementPrefix() != null) {
             project.setManagementPrefix(blankToNull(request.managementPrefix()));
+        }
+        if (request.managementServerIp() != null) {
+            project.setManagementServerIp(blankToNull(request.managementServerIp()));
+        }
+        if (request.managementServerPort() != null) {
+            final int port = request.managementServerPort();
+            if (port < 1 || port > 65535) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "management_server_port must be between 1 and 65535");
+            }
+            project.setManagementServerPort(port);
         }
 
         final List<PolicySubnet> subnets = request.subnets() == null

@@ -58,6 +58,8 @@ export interface ApiProjectSummary {
   category: string | null;
   description: string | null;
   status: string;
+  management_server_ip: string | null;
+  management_server_port: number | null;
   created_at: string | null;
   updated_at: string | null;
   subnet_count: number;
@@ -88,6 +90,7 @@ export interface ApiViolation {
   dst_class: string | null;
   reason: string;
   severity: ViolationSeverity;
+  sampled_protocol: string;
   /** 재현 가능한 반례 패킷 (예: `10.10.131.5 -> 192.168.0.9:443`). */
   sampled_packet: string;
   sampled_src_ip: string | null;

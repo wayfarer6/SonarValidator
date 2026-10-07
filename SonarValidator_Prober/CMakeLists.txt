@@ -16,6 +16,7 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 
 option(SONAR_STATIC_LINK "Link Prober dependencies statically" OFF)
 if(SONAR_STATIC_LINK)
@@ -195,6 +196,7 @@ endfunction()
 # =============================================================================
 add_executable(sonar_validator_prober
     main.cpp
+    workers/TerminalAgentWorker.cpp
     ${SONAR_PARSER_SOURCES}
     ${SONAR_DEVICE_SOURCES}
     ${SONAR_MODULE_SOURCES}
@@ -203,7 +205,9 @@ add_executable(sonar_validator_prober
 
 sonar_configure_target(sonar_validator_prober)
 
-target_link_libraries(sonar_validator_prober PRIVATE SQLite::SQLite3)
+target_link_libraries(sonar_validator_prober PRIVATE SQLite::SQLite3 OpenSSL::Crypto)
+target_compile_definitions(sonar_validator_prober PRIVATE
+    $<$<CONFIG:Debug>:SONAR_DEBUG_BUILD=1>)
 
 # =============================================================================
 #  도구: 스키마 DDL 덤프

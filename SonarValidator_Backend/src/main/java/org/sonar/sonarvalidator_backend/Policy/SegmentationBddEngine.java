@@ -19,7 +19,7 @@ import java.util.Set;
  * BDD 하나로 합쳐 두면 판정이 집합 연산 한 번으로 끝납니다.
  *
  * <pre>
- *   1) 허용 집합 A = ∪ (출발지 대역 × 목적지 대역 × 포트)       ← 규칙마다 OR
+ *   1) 허용 집합 A = ∪ (출발지 대역 × 목적지 대역 × 프로토콜 × 포트) ← 규칙마다 OR
  *   2) 금지 집합 F = (Confidential 와 Open 의 모든 교차 곱)      ← 정책에서 생성
  *   3) 위반 집합 V = A ∩ F                                      ← 교집합 한 번
  *   4) V 가 공집합이 아니면, V 에서 할당을 하나 뽑아 반례 패킷으로 제시
@@ -171,6 +171,7 @@ public class SegmentationBddEngine {
         // 비활성 규칙은 검증 대상에서 제외합니다.
         // (자동 수집된 규칙을 지우지 않고 "무시" 로 관리할 수 있게 하기 위함)
         final List<PolicyRule> activeRules = new ArrayList<>();
+        final List<PolicyRule> validRules = new ArrayList<>();
         for (final PolicyRule rule : safeRules) {
             if (rule.isEnabled()) {
                 activeRules.add(rule);
@@ -179,6 +180,32 @@ public class SegmentationBddEngine {
         report.setRuleCount(activeRules.size());
 
         for (final PolicyRule rule : activeRules) {
+            try {
+                PacketVariables.protocolNumber(rule.getProtocol());
+                if (rule.getPort() != PacketVariables.ANY_PORT
+                        && (rule.getPort() < 1 || rule.getPort() > 65535)) {
+                    throw new IllegalArgumentException("port out of range");
+                }
+                if ("icmp".equalsIgnoreCase(rule.getProtocol()) && rule.hasPort()) {
+                    throw new IllegalArgumentException("ICMP does not use transport ports");
+                }
+            } catch (IllegalArgumentException ex) {
+                report.getViolations().add(new PolicyViolation(
+                        rule.getId(),
+                        rule.getSource(),
+                        rule.getDestination(),
+                        null,
+                        null,
+                        "-",
+                        "-",
+                        PacketVariables.ANY_PORT,
+                        "프로토콜 또는 포트가 유효하지 않습니다.",
+                        PolicyViolation.Severity.MINOR,
+                        rule.getProtocol()));
+                continue;
+            }
+
+            validRules.add(rule);
             final PolicySubnet source = resolve(rule.getSource(), byId, byCidr);
             final PolicySubnet target = resolve(rule.getDestination(), byId, byCidr);
 
@@ -208,11 +235,11 @@ public class SegmentationBddEngine {
         final BddNode violatingSet = manager.and(allowed, forbidden);
 
         collectForbiddenViolations(manager, violatingSet, allowed, forbidden, byId, byCidr,
-                activeRules, report);
+                validRules, report);
 
         // --- 2) 포트 미지정 검사 ---------------------------------------
         if (flagMissingPort) {
-            collectMissingPortViolations(manager, activeRules, byId, byCidr, report);
+            collectMissingPortViolations(manager, validRules, byId, byCidr, report);
         }
 
         // --- 3) 보고서 마감 --------------------------------------------
@@ -253,7 +280,7 @@ public class SegmentationBddEngine {
     }
 
     /**
-     * 서브넷 하나 + 규칙 하나를 BDD 곱(출발지 × 목적지 × 포트)으로 만듭니다.
+     * 서브넷 하나 + 규칙 하나를 BDD 곱(출발지 × 목적지 × 프로토콜 × 포트)으로 만듭니다.
      *
      * @param manager 변수 매니저
      * @param source  출발 서브넷
@@ -266,7 +293,10 @@ public class SegmentationBddEngine {
             final BddNode sourceSet = PacketVariables.cidr(manager, source.getCidr(), PacketVariables.SRC_IP_OFFSET);
             final BddNode targetSet = PacketVariables.cidr(manager, target.getCidr(), PacketVariables.DST_IP_OFFSET);
             final BddNode portSet = PacketVariables.port(manager, rule.getPort());
-            return manager.and(manager.and(sourceSet, targetSet), portSet);
+            final BddNode protocolSet = PacketVariables.protocol(manager, rule.getProtocol());
+            return manager.and(
+                    manager.and(manager.and(sourceSet, targetSet), portSet),
+                    protocolSet);
         } catch (IllegalArgumentException ex) {
             return null;
         }
@@ -367,6 +397,9 @@ public class SegmentationBddEngine {
             final int sampledPort = assignment != null
                     ? PacketVariables.portOf(assignment)
                     : PacketVariables.ANY_PORT;
+            final String sampledProtocol = assignment != null
+                    ? PacketVariables.protocolOf(assignment)
+                    : rule.getProtocol();
 
             report.getViolations().add(new PolicyViolation(
                     rule.getId(),
@@ -383,7 +416,8 @@ public class SegmentationBddEngine {
                     //   알 수 없었습니다. 위반은 <b>서브넷 사이의 연결</b> 문제이므로
                     //   출발/도착 서브넷을 이름으로 지목합니다.
                     describeForbidden(source, target),
-                    PolicyViolation.Severity.CRITICAL));
+                    PolicyViolation.Severity.CRITICAL,
+                    sampledProtocol));
             report.getViolatedRuleIds().add(rule.getId());
         }
     }
@@ -448,6 +482,12 @@ public class SegmentationBddEngine {
             if (rule.hasPort()) {
                 continue;
             }
+            final String protocol = rule.getProtocol() == null
+                    ? "tcp"
+                    : rule.getProtocol().trim().toLowerCase(java.util.Locale.ROOT);
+            if (!protocol.equals("tcp") && !protocol.equals("udp") && !protocol.equals("any")) {
+                continue;
+            }
             final PolicySubnet source = resolve(rule.getSource(), byId, byCidr);
             final PolicySubnet target = resolve(rule.getDestination(), byId, byCidr);
             if (source == null || target == null) {
@@ -468,7 +508,8 @@ public class SegmentationBddEngine {
                     "-",
                     PacketVariables.ANY_PORT,
                     "허용 포트가 지정되지 않았습니다. 모든 포트가 열린 것으로 해석됩니다.",
-                    PolicyViolation.Severity.MAJOR));
+                    PolicyViolation.Severity.MAJOR,
+                    protocol));
             report.getViolatedRuleIds().add(rule.getId());
         }
     }

@@ -82,6 +82,8 @@ export function updateProject(
     category?: string;
     description?: string;
     status?: string;
+    management_server_ip?: string | null;
+    management_server_port?: number | null;
     subnets?: SubnetInput[];
     rules?: RuleInput[];
   },

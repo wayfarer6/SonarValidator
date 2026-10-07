@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.cors.CorsConfiguration;
 
 /**
  * 웹 MVC 설정입니다. <b>CORS 의 단일 정의 지점</b>입니다.
@@ -69,8 +70,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
      */
     public WebMvcConfig(
             @Value("${sonar.cors.allowed-origins:${SONAR_CORS_ALLOWED_ORIGINS:"
-                    + "http://localhost:5173,http://localhost:4173,"
-                    + "http://127.0.0.1:5173,http://127.0.0.1:4173}}")
+                    + "http://localhost:*,http://127.0.0.1:*}}")
                     String allowedOriginPatterns) {
         this.allowedOriginPatterns = allowedOriginPatterns.split("\\s*,\\s*");
     }
@@ -87,12 +87,21 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 // ⚠️ 기본값으로는 JS 가 Content-Disposition 을 읽지 못합니다.
-                //    그래서 Agent 설치 번들(tar.gz)을 내려받을 때 화면이
+                //    그래서 Agent 다운로드(tar.gz)를 할 때 화면이
                 //    서버가 정한 파일 이름을 못 읽고 임시 이름을 씁니다.
                 //    (CORS 는 안전을 위해 응답 헤더를 기본적으로 가립니다)
                 .exposedHeaders("Content-Disposition")
                 // 세션 쿠키(JSESSIONID)를 주고받으려면 필수입니다.
                 .allowCredentials(true)
                 .maxAge(3600);
+    }
+
+    public boolean isAllowedOrigin(String origin) {
+        if (origin == null || origin.isBlank()) {
+            return false;
+        }
+        final CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(java.util.List.of(allowedOriginPatterns));
+        return configuration.checkOrigin(origin) != null;
     }
 }

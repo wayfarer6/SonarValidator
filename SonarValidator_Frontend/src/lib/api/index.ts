@@ -89,11 +89,11 @@ export function registerExpectedAgent(
   });
 }
 
-/** 배포 예정 항목을 삭제합니다. (연결된 세션은 유지) */
-export function deleteExpectedAgent(agentId: string): Promise<Record<string, unknown>> {
+/** 프로젝트의 배포 예정 Agent 를 제거합니다. 연결된 세션과 수집 이력은 유지합니다. */
+export function deleteExpectedAgent(agentId: string, projectId?: string): Promise<Record<string, unknown>> {
   return apiRequest<Record<string, unknown>>(
     `/api/v1/agents/expected/${encodeURIComponent(agentId)}`,
-    { method: "DELETE" },
+    { method: "DELETE", params: { project_id: projectId } },
   );
 }
 
@@ -126,11 +126,11 @@ export function pruneStaleAgents(
 }
 
 // ---------------------------------------------------------------------------
-// Agent 설치 번들 (설정이 미리 채워진 다운로드)
+// Agent 다운로드 (설정이 미리 채워진 tar.gz)
 // ---------------------------------------------------------------------------
 
 /**
- * Agent 설치 번들 정보를 미리 조회합니다. (다운로드 전 확인)
+ * Agent 다운로드 정보를 미리 조회합니다.
  *
  * <p>서버가 어떤 주소/유형으로 설정을 채우는지, 스테이징된 자산이 무엇인지
  * 확인할 수 있습니다.
@@ -138,7 +138,7 @@ export function pruneStaleAgents(
  * @param agentId  Agent 이름
  * @param nodeType 장치 유형 (Router/Switch/VM/Firewall)
  */
-export function getAgentBundleInfo(
+export function getAgentDownloadInfo(
   agentId: string,
   options?: { nodeType?: string; serverIp?: string; serverPort?: string },
 ): Promise<{
@@ -151,7 +151,7 @@ export function getAgentBundleInfo(
   installer_dir: string;
   staged_assets: Record<string, boolean>;
 }> {
-  return apiRequest("/api/v1/agents/bundle/info", {
+  return apiRequest("/api/v1/agents/download/info", {
     params: {
       agent_id: agentId,
       node_type: options?.nodeType,
@@ -162,12 +162,12 @@ export function getAgentBundleInfo(
 }
 
 /**
- * Agent 설치 번들(tar.gz)을 내려받습니다.
+ * Agent 설치 파일(tar.gz)을 내려받습니다.
  *
  * <h2>⚠️ 공유 링크가 아니라 Blob 을 받는 이유</h2>
  * <p>{@code <a href>} 로 열면 브라우저가 새 탭에서 다운로드합니다. 그러면
  * <b>실패를 알 수 없습니다</b> — 401/500 이면 오류 JSON 이 파일로 저장되고,
- * 운영자는 그것이 설치 번들인지 오류인지 구분하지 못합니다.
+ * 운영자는 그것이 Agent 다운로드 파일인지 오류인지 구분하지 못합니다.
  * 먼저 응답을 확인하고 실패를 드러냅니다.
  *
  * <h2>⚠️ 형식이 ZIP 이 아니라 tar.gz 인 이유</h2>
@@ -179,7 +179,7 @@ export function getAgentBundleInfo(
  * @param options       장치 유형 / 서버 주소 / 서버 포트 / 데이터 경로
  * @returns 파일 이름과 Blob
  */
-export async function downloadAgentBundle(
+export async function downloadAgent(
   agentId: string,
   options?: {
     nodeType?: string;
@@ -197,7 +197,7 @@ export async function downloadAgentBundle(
   if (options?.dataDirectory) params.set("data_directory", options.dataDirectory);
 
   const query = params.toString();
-  const path = `/api/v1/agents/bundle/${encodeURIComponent(agentId)}${query ? `?${query}` : ""}`;
+  const path = `/api/v1/agents/download/${encodeURIComponent(agentId)}${query ? `?${query}` : ""}`;
 
   // apiRequest 는 JSON 을 기대하므로 tar.gz 에는 쓸 수 없습니다. 직접 fetch 합니다.
   const response = await fetch(`${API_BASE_URL}${path}`, { credentials: "include" });
@@ -210,7 +210,7 @@ export async function downloadAgentBundle(
     } catch {
       // 본문을 못 읽어도 상태 코드는 남깁니다.
     }
-    throw new Error(`설치 번들을 만들지 못했습니다 (${detail})`);
+    throw new Error(`Agent 다운로드를 완료하지 못했습니다 (${detail})`);
   }
 
   const disposition = response.headers.get("Content-Disposition") ?? "";

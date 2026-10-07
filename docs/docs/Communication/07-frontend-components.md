@@ -263,23 +263,43 @@ cd Installer
 
 | 화면 | projectId | 설명 |
 | --- | --- | --- |
-| `/project` (Add Agent) | 넘김 | 배포 예정 등록 + 번들 생성 |
+| `/project` (Add Agent) | 넘김 | 배포 예정 등록 + Agent 다운로드 |
 | `/project/create` (Create Prober) | 넘김 | 마법사 첫 단계 |
-| `/agent` (설치 번들 만들기) | **안 넘김** | 프로젝트를 고르지 않고 들어오므로 **배포 예정 등록만 감추고** IP/Port 지정 + tar.gz 생성은 제공 |
+| `/agent` (Agent 다운로드) | **안 넘김** | 프로젝트를 고르지 않고 들어오므로 **배포 예정 등록만 감추고** IP/Port 지정 + tar.gz 다운로드는 제공 |
 
 `projectId` 가 없으면 등록 UI 가 감추어지고 그 이유를 카드가 안내합니다.
 (감추기만 하면 "왜 등록 버튼이 없지" 로 보입니다)
+
+프로젝트마다 `management_server_ip` 와 `management_server_port` 를 저장합니다.
+Agent 다운로드 카드는 저장된 주소를 기본값으로 불러오며, 연필 버튼에서 수정한 뒤
+저장하면 `PUT /api/v1/projects/{projectId}` 로 DB에 반영됩니다. 로컬 개발 DB는
+`ddl-auto=update` 로 컬럼이 추가되지만, PostgreSQL 운영 DB(`ddl-auto=validate`)는
+먼저 아래 SQL을 적용해야 합니다.
+
+```sql
+ALTER TABLE project ADD COLUMN IF NOT EXISTS management_server_ip varchar(255);
+ALTER TABLE project ADD COLUMN IF NOT EXISTS management_server_port integer;
+```
 
 ### 3.5 API
 
 | 목적 | 호출 |
 | --- | --- |
-| 미리보기 | `GET /api/v1/agents/bundle/info?agent_id=&node_type=&server_ip=&server_port=` |
-| 번들 | `GET /api/v1/agents/bundle/{agentId}?node_type=&server_ip=&server_port=&data_directory=` |
-| 응답 | `Content-Type: application/gzip`, `Content-Disposition` 에 `.tar.gz` 이름 |
+| 미리보기 | `GET /api/v1/agents/download/info?agent_id=&node_type=&server_ip=&server_port=` |
+| Agent 다운로드 | `GET /api/v1/agents/download/{agentId}?node_type=&server_ip=&server_port=&data_directory=` |
+| 다운로드 응답 | `Content-Type: application/gzip`, `Content-Disposition` 에 `.tar.gz` 이름 |
+
+기존 클라이언트를 위해 `/api/v1/agents/bundle` 경로도 계속 지원합니다.
 
 > ⚠️ `Content-Disposition` 은 **CORS 로 노출**해야 JS 가 읽습니다.
 > `WebMvcConfig` 의 `exposedHeaders` 참고.
+
+### 3.6 프로젝트 정책 연결 규칙
+
+프로젝트 편집기의 규칙은 출발/도착 서브넷(CIDR), 프로토콜(TCP/UDP/ICMP/전체),
+허용 포트로 구성됩니다. TCP/UDP 포트는 1–65535 범위이며 ICMP는 포트를 사용하지
+않습니다. 서버 BDD 검증은 IP 대역·포트·프로토콜을 함께 검사하고, 정책 위반 내보내기
+파일에는 반례 연결의 출발/도착 IP, 프로토콜, 포트 및 판정 사유를 포함합니다.
 
 ---
 

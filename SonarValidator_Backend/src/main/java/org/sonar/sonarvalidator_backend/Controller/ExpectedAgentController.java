@@ -111,18 +111,22 @@ public class ExpectedAgentController {
         return ExpectedAgentService.toResponse(expected, registry.connectedAgentIds(), observedAgentIds());
     }
 
-    /**
-     * 배포 예정 항목을 삭제합니다. (연결된 세션은 건드리지 않음)
-     *
-     * @param agentId Agent 식별자
-     * @return 삭제 결과
-     */
+    /** 프로젝트에 등록된 Agent 를 등록 예정 목록에서 제거합니다. 연결된 세션과 이력은 유지합니다. */
     @DeleteMapping("/expected/{agentId}")
-    public Map<String, Object> delete(@PathVariable String agentId) {
-        service.delete(agentId);
+    public Map<String, Object> delete(
+            @PathVariable String agentId,
+            @RequestParam(name = "project_id", required = false) String projectId) {
+        if (projectId == null || projectId.isBlank()) {
+            service.delete(agentId);
+        } else {
+            service.deleteFromProject(agentId, projectId);
+        }
         final Map<String, Object> result = new LinkedHashMap<>();
         result.put("agent_id", agentId);
         result.put("removed", true);
+        if (projectId != null && !projectId.isBlank()) {
+            result.put("project_id", projectId);
+        }
         return result;
     }
 

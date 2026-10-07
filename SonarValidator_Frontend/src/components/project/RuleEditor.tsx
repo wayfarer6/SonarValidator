@@ -97,6 +97,9 @@ export default function RuleEditor({
           </button>
         )}
       </div>
+      <p className="mb-3 text-[11px] text-gray-500 dark:text-gray-400">
+        출발·도착 IP 대역(CIDR) 사이의 연결을 정의하고, TCP/UDP는 허용 포트(1–65535)를 지정합니다.
+      </p>
 
       {rules.length === 0 ? (
         <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
@@ -108,9 +111,10 @@ export default function RuleEditor({
             <thead className="bg-gray-50 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
               <tr>
                 <th className="border-b p-2 font-medium dark:border-gray-600">Rule ID</th>
-                <th className="border-b p-2 font-medium dark:border-gray-600">SRC Subnet</th>
-                <th className="border-b p-2 font-medium dark:border-gray-600">DST Subnet</th>
-                <th className="border-b p-2 font-medium dark:border-gray-600">Port</th>
+                <th className="border-b p-2 font-medium dark:border-gray-600">출발 IP 대역</th>
+                <th className="border-b p-2 font-medium dark:border-gray-600">도착 IP 대역</th>
+                <th className="border-b p-2 font-medium dark:border-gray-600">Protocol</th>
+                <th className="border-b p-2 font-medium dark:border-gray-600">허용 포트</th>
                 <th className="border-b p-2 font-medium dark:border-gray-600">사용</th>
                 {!readOnly && <th className="border-b p-2 dark:border-gray-600"></th>}
               </tr>
@@ -123,7 +127,9 @@ export default function RuleEditor({
                   sourceSubnet?.subnet_class ?? null,
                   targetSubnet?.subnet_class ?? null,
                 );
-                const missingPort = rule.port === null;
+                const protocol = (rule.protocol ?? "tcp").toLowerCase();
+                const supportsPorts = protocol === "tcp" || protocol === "udp" || protocol === "any";
+                const missingPort = supportsPorts && rule.port === null;
                 const ruleViolations = violationsByRule.get(rule.id) ?? [];
                 const hasCritical = ruleViolations.some((item) => item.severity === "CRITICAL");
                 const hasMajor = ruleViolations.some((item) => item.severity === "MAJOR");
@@ -189,13 +195,34 @@ export default function RuleEditor({
                         )}
                       </td>
                       <td className="p-2 align-top">
+                        <select
+                          value={protocol}
+                          disabled={readOnly}
+                          onChange={(event) => {
+                            const nextProtocol = event.target.value;
+                            onChange(rule.id, {
+                              protocol: nextProtocol,
+                              ...(nextProtocol === "icmp" ? { port: null } : {}),
+                            });
+                          }}
+                          className={selectClass}
+                          aria-label={`${rule.id} 프로토콜`}
+                        >
+                          <option value="tcp">TCP</option>
+                          <option value="udp">UDP</option>
+                          <option value="icmp">ICMP</option>
+                          <option value="any">전체 프로토콜</option>
+                        </select>
+                      </td>
+                      <td className="p-2 align-top">
                         <input
                           type="number"
                           min={1}
                           max={65535}
-                          disabled={readOnly}
-                          value={rule.port ?? ""}
-                          placeholder="미지정"
+                          step={1}
+                          disabled={readOnly || !supportsPorts}
+                          value={supportsPorts ? (rule.port ?? "") : ""}
+                          placeholder={supportsPorts ? "미지정" : "미사용"}
                           onChange={(e) =>
                             onChange(rule.id, {
                               port: e.target.value === "" ? null : Number(e.target.value),
@@ -203,9 +230,16 @@ export default function RuleEditor({
                           }
                           className={inputClass}
                         />
+                        {protocol === "icmp" && (
+                          <span className="mt-0.5 block text-[10px] text-gray-400">
+                            ICMP는 TCP/UDP 포트를 사용하지 않습니다
+                          </span>
+                        )}
                         {missingPort && (
                           <span className="mt-0.5 block text-[10px] text-warning-600 dark:text-orange-400">
-                            전체 포트 허용으로 해석됩니다
+                            {protocol === "any"
+                              ? "모든 프로토콜·포트 허용으로 해석됩니다"
+                              : "해당 프로토콜의 전체 포트 허용으로 해석됩니다"}
                           </span>
                         )}
                       </td>
@@ -238,7 +272,7 @@ export default function RuleEditor({
                     {/* 위반/경고 상세 행 */}
                     {(ruleViolations.length > 0 || forbidden || missingPort) && (
                       <tr className={rowClass}>
-                        <td colSpan={readOnly ? 5 : 6} className="px-2 pb-2 pt-0">
+                        <td colSpan={readOnly ? 6 : 7} className="px-2 pb-2 pt-0">
                           <div className="flex flex-col gap-1">
                             {ruleViolations.map((violation, index) => (
                               <div
@@ -270,7 +304,7 @@ export default function RuleEditor({
                                 <span>
                                   {forbidden
                                     ? `${sourceSubnet?.subnet_class} ↔ ${targetSubnet?.subnet_class} 직접 연결은 금지됩니다. 저장 시 검증에서 오류가 보고됩니다.`
-                                    : "허용 포트를 지정하세요. 비워두면 전체 포트가 열린 것으로 해석됩니다."}
+                                    : "TCP/UDP 허용 포트를 지정하세요. 비워두면 해당 프로토콜의 모든 포트가 열린 것으로 해석됩니다."}
                                 </span>
                               </div>
                             )}

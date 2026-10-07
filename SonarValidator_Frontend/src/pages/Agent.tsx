@@ -15,7 +15,7 @@ import {
 } from "../lib/api";
 import { API_BASE_URL } from "../lib/api/client";
 import { downloadSnapshot } from "../lib/api/offline";
-import AgentDeployCard from "../components/project/AgentDeployCard";
+import { listProjects } from "../lib/api/projects";
 import type { ApiDiscoveredDevice, ApiQuarantineState } from "../lib/api/types";
 
 /**
@@ -53,21 +53,16 @@ import type { ApiDiscoveredDevice, ApiQuarantineState } from "../lib/api/types";
  * 확인({@code window.confirm})을 받습니다. 이 장치는 관리망 경로만 남기고
  * 모든 데이터 인터페이스가 내려갑니다.
  *
- * <h2>⚠️ 설치 번들 만들기가 이 화면에도 있는 이유</h2>
- * <p>장비에 프로버를 설치하려면 {@code default.conf} 에 <b>관리 서버 IP·Port</b> 가
- * 들어 있어야 합니다. 예전에는 그 입력이 프로젝트 목록의 <b>Add Agent</b>
- * 카드에만 있어서, Agent 목록에서 장비를 확인하던 운영자는 "여기서는 서버
- * 주소를 지정할 수 없다" 고 읽었습니다. (설정 내보내기 JSON 밖에 없었습니다)
- *
- * <p>그래서 프로젝트 목록과 <b>같은</b> {@link AgentDeployCard} 를 여기서도
- * 엽니다. 컴포넌트를 재사용하므로 IP·Port 지정 방식과 tar.gz 번들 생성이
- * 두 화면에서 어긋날 수 없습니다.
+ * <h2>Agent 다운로드는 프로젝트 안에서만 제공</h2>
+ * Agent 는 프로젝트에 귀속되어야 관리 서버 주소와 소속이 명확하므로,
+ * 다운로드 및 배포 예정 등록은 프로젝트 목록의 <b>Add Agent</b>에서만 합니다.
  */
 export default function Agent() {
   const navigate = useNavigate();
   const overview = useApi(() => listAgentOverview(), []);
   const discovered = useApi(() => getAllDiscoveredDevices(), []);
   const quarantine = useApi(() => listQuarantined(), []);
+  const projects = useApi(() => listProjects(), []);
 
   const [onlyIssues, setOnlyIssues] = useState(false);
 
@@ -83,15 +78,6 @@ export default function Agent() {
   /** 유령 정리 진행 중 여부. */
   const [pruning, setPruning] = useState(false);
   const [pruneMessage, setPruneMessage] = useState<string | null>(null);
-
-  /**
-   * 설치 번들 카드(IP/Port + tar.gz) 노출 여부입니다.
-   *
-   * <p>프로젝트 목록의 Add Agent 와 <b>같은</b> 카드를 씁니다. 닫을 때는
-   * 프로젝트 키를 넘기지 않습니다 — 이 화면은 프로젝트를 고르지 않고
-   * 들어오므로, 배포 예정 등록은 카드가 감추고 번들 생성만 제공합니다.
-   */
-  const [showDeployCard, setShowDeployCard] = useState(false);
 
   /** 내려받기 진행 중인 Agent 식별자. 중복 클릭을 막습니다. */
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -124,6 +110,11 @@ export default function Agent() {
     return map;
   }, [discovered.data]);
 
+  const projectNameById = useMemo(
+    () => new Map((projects.data?.projects ?? []).map((project) => [project.project_id, project.name])),
+    [projects.data],
+  );
+
   /** 화면에 표시할 행 목록을 만듭니다. */
   const rows = useMemo(() => {
     const result = (overview.data?.agents ?? []).map((agent) => {
@@ -152,6 +143,8 @@ export default function Agent() {
         //    서버도 거부하지만, 버튼을 누를 수 있게 두면 "눌렀는데 안 됨" 이
         //    됩니다. 비활성화하고 사유를 title 로 알려야 오해가 없습니다.
         isFirewall: agent.device_type === "FIREWALL",
+        projectId: agent.project_id,
+        projectName: agent.project_id ? projectNameById.get(agent.project_id) ?? null : null,
       };
     });
 
@@ -178,6 +171,8 @@ export default function Agent() {
         // 설정의 product 로는 유형을 알 수 없으므로 식별자 관례로 판단합니다.
         // (서버의 DeviceTypeResolver 와 같은 관례: 이름의 끝 토큰)
         isFirewall: /firewall/i.test(agentId),
+        projectId: null,
+        projectName: null,
       });
     }
 
@@ -206,6 +201,8 @@ export default function Agent() {
     /** REST API 로만 관리되는 장치인지(프로버 없음). */
     apiManaged: boolean;
     isFirewall: boolean;
+    projectId: string | null;
+    projectName: string | null;
   };
 
   /**
@@ -299,9 +296,9 @@ export default function Agent() {
     }
   };
 
-  const loading = overview.loading || discovered.loading;
-  const error = overview.error ?? discovered.error;
-  const offline = overview.offline || discovered.offline;
+  const loading = overview.loading || discovered.loading || projects.loading;
+  const error = overview.error ?? discovered.error ?? projects.error;
+  const offline = overview.offline || discovered.offline || projects.offline;
 
   /**
    * Agent 의 설정을 오프라인 스냅샷 파일로 내려받습니다.
@@ -534,28 +531,16 @@ export default function Agent() {
               >
                 {pruning ? "정리 중..." : "오래된 항목 정리"}
               </Button>
-              {/* 프로버 설치용 번들(설정 + IP/Port + tar.gz)을 여기서도 만듭니다.
-                  프로젝트 목록의 Add Agent 와 같은 카드를 씁니다. */}
               <Button
                 size="sm"
-                variant={showDeployCard ? "primary" : "outline"}
-                onClick={() => setShowDeployCard((open) => !open)}
-                title="장비에 설치할 Prober 번들(관리 서버 IP·Port 포함, tar.gz)을 만듭니다"
+                variant="outline"
+                onClick={() => navigate("/project")}
+                title="프로젝트를 선택한 뒤 프로젝트 안에서 Agent를 추가하고 다운로드합니다"
               >
-                {showDeployCard ? "설치 번들 닫기" : "설치 번들 만들기"}
+                프로젝트에서 Agent 추가
               </Button>
             </div>
           </div>
-
-          {/* 설치 번들 카드 — 프로젝트 목록과 같은 컴포넌트입니다.
-              ⚠️ projectId 를 넘기지 않습니다. 이 화면에는 프로젝트가 없으므로
-                 배포 예정 등록은 카드가 감추고, IP/Port + tar.gz 생성만 제공합니다. */}
-          {showDeployCard && (
-            <AgentDeployCard
-              onClose={() => setShowDeployCard(false)}
-              onImportOffline={() => navigate("/project/create/subnet")}
-            />
-          )}
 
           {pruneMessage && (
             <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-200">
@@ -607,6 +592,7 @@ export default function Agent() {
                     <th className="border-b p-3 font-medium dark:border-gray-600">마지막 수신</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">격리</th>
                     <th className="border-b p-3 font-medium dark:border-gray-600">설정 내보내기</th>
+                    <th className="border-b p-3 font-medium dark:border-gray-600">프로젝트</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-gray-600 dark:divide-gray-700 dark:text-gray-300">
@@ -623,35 +609,14 @@ export default function Agent() {
                         </div>
                       </td>
                       <td className="p-3">
-                        {/*
-                         * ⚠️ `telemetry-only` 는 "과거에 수신했으나 지금 세션 없음" 입니다.
-                         * 이전에는 여기에 `예정에 없음`(expected=false) 배지를 함께 띄웠는데,
-                         * 그 뜻은 "배포 예정에 등록하지 않음" 일 뿐이라
-                         * "지금 연결이 끊겼다" 와 혼동되었습니다.
-                         * 그래서 그 배지를 제거하고 상태를 `수신만` 으로 정확히 씁니다.
-                         */}
                         <div className="flex flex-wrap gap-1">
-                          {row.apiManaged ? (
-                            /*
-                             * 프로버가 아니라 REST API 로 관리되는 장치입니다.
-                             * WebSocket 세션이 없으므로 `connected=false` 이지만
-                             * 정상 동작 중입니다 — "무응답" 으로 보여 주면
-                             * 살아 있는 방화벽을 고장으로 오해합니다.
-                             */
-                            <Badge size="sm" color="info">
-                              API 연동
-                            </Badge>
-                          ) : row.connected ? (
+                          {row.connected || row.apiManaged ? (
                             <Badge size="sm" color="success">
-                              연결됨
-                            </Badge>
-                          ) : row.state === "silent" ? (
-                            <Badge size="sm" color="warning">
-                              무응답
+                              온라인
                             </Badge>
                           ) : (
                             <Badge size="sm" color="light">
-                              수신만
+                              오프라인
                             </Badge>
                           )}
                           {/* API 관리 장치에는 텔레메트리를 요구하지 않습니다 — 범주 오류입니다. */}
@@ -750,6 +715,20 @@ export default function Agent() {
                         >
                           {downloading === row.agentId ? "생성 중..." : "JSON"}
                         </Button>
+                      </td>
+                      <td className="p-3 text-xs">
+                        {row.projectId ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-700 dark:text-gray-200">
+                              {row.projectName ?? "프로젝트 이름 확인 불가"}
+                            </span>
+                            <span className="font-mono text-[10px] text-gray-400">
+                              {row.projectId}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">미지정</span>
+                        )}
                       </td>
                     </tr>
                   ))}

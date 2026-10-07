@@ -160,6 +160,8 @@ public final class ProjectDto {
      * @param description 설명
      * @param status      진행 상태
      * @param managementPrefix 제어평면(관리망) 대역 (null 이면 유지)
+     * @param managementServerIp Agent 가 접속할 서버 주소 (null 이면 유지)
+     * @param managementServerPort Agent 가 접속할 서버 포트 (null 이면 유지)
      * @param subnets     서브넷 목록 (null 이면 유지)
      * @param rules       규칙 목록 (null 이면 유지)
      */
@@ -169,8 +171,21 @@ public final class ProjectDto {
             String description,
             String status,
             @JsonProperty("management_prefix") String managementPrefix,
+            @JsonProperty("management_server_ip") String managementServerIp,
+            @JsonProperty("management_server_port") Integer managementServerPort,
             List<SubnetPayload> subnets,
             List<RulePayload> rules) {
+
+        public UpdateRequest(
+                String name,
+                String category,
+                String description,
+                String status,
+                String managementPrefix,
+                List<SubnetPayload> subnets,
+                List<RulePayload> rules) {
+            this(name, category, description, status, managementPrefix, null, null, subnets, rules);
+        }
     }
 
     /**

@@ -165,13 +165,50 @@ bool TerminalSession::Write(const std::string& data) // 문자열 크기가 작�
         buffer.push_back('\n');
     }
 
-    const ssize_t written = ::write(master_fd_, buffer.data(), buffer.size());
-    return written == static_cast<ssize_t>(buffer.size());
+    return WriteRaw(buffer);
 }
 
-std::string TerminalSession::ReadAvailable(std::chrono::milliseconds timeout)
-{ // readAvailable는 왜 넣은거지?
+bool TerminalSession::WriteRaw(const std::string& data)
+{
     if (master_fd_ < 0)
+    {
+        return false;
+    }
+
+    std::size_t offset = 0;
+    while (offset < data.size())
+    {
+        const ssize_t written = ::write(master_fd_, data.data() + offset, data.size() - offset);
+        if (written > 0)
+        {
+            offset += static_cast<std::size_t>(written);
+            continue;
+        }
+        if (written < 0 && errno == EINTR)
+        {
+            continue;
+        }
+        return false;
+    }
+    return true;
+}
+
+bool TerminalSession::Resize(unsigned short columns, unsigned short rows)
+{
+    if (master_fd_ < 0 || columns == 0 || rows == 0)
+    {
+        return false;
+    }
+    winsize size{};
+    size.ws_col = columns;
+    size.ws_row = rows;
+    return ::ioctl(master_fd_, TIOCSWINSZ, &size) == 0;
+}
+
+std::string TerminalSession::ReadAvailable(std::chrono::milliseconds timeout,
+                                           std::size_t max_output_bytes)
+{ // readAvailable는 왜 넣은거지?
+    if (master_fd_ < 0 || max_output_bytes == 0)
     {
         return {};
     }
@@ -203,7 +240,7 @@ std::string TerminalSession::ReadAvailable(std::chrono::milliseconds timeout)
             break;
         }
         result.append(buffer, static_cast<std::size_t>(n));
-        if (static_cast<std::size_t>(n) < sizeof(buffer))
+        if (static_cast<std::size_t>(n) < sizeof(buffer) || result.size() >= max_output_bytes)
         {
             break;
         }

@@ -70,6 +70,8 @@ public class SecurityConfig {
             // Agent 가 접속하는 WebSocket (세션 없음 — 위 주석 참고)
             "/api/v1/management",
             "/api/v1/telemetry",
+            // Agent terminal channel. It also requires the configured shared secret.
+            "/api/v1/terminal/agent",
             // 헬스 체크
             "/actuator/health",
             // H2 콘솔 (local 프로필 전용)

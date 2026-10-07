@@ -128,6 +128,14 @@ public class Project {
     @Column(name = "management_prefix", length = 255)
     private String managementPrefix;
 
+    /** 이 프로젝트 Agent가 접속할 Management Server 주소. */
+    @Column(name = "management_server_ip", length = 255)
+    private String managementServerIp;
+
+    /** 이 프로젝트 Agent가 접속할 Management Server 포트. */
+    @Column(name = "management_server_port")
+    private Integer managementServerPort;
+
     /** 생성 시각. */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     @Column(name = "created_at")

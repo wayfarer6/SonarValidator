@@ -12,11 +12,11 @@ import java.net.UnknownHostException;
  * 패킷을 이진수 여러 개로 보고, 각 비트를 변수 하나에 대응시킵니다.
  *
  * <pre>
- *   변수 배치 (총 80 비트)
- *   ┌───────────────┬───────────────┬──────────┐
- *   │ 출발지 IP 32  │ 목적지 IP 32  │ 포트 16  │
- *   └───────────────┴───────────────┴──────────┘
- *    0           31  32          63  64      79
+ *   변수 배치 (총 88 비트)
+ *   ┌───────────────┬───────────────┬──────────┬────────────┐
+ *   │ 출발지 IP 32  │ 목적지 IP 32  │ 포트 16  │ 프로토콜 8 │
+ *   └───────────────┴───────────────┴──────────┴────────────┘
+ *    0           31  32          63  64      79 80        87
  * </pre>
  *
  * <p>비트 순서는 <b>MSB 먼저</b>입니다. 이렇게 두면 접두사(prefix) 조건이
@@ -35,6 +35,9 @@ public final class PacketVariables {
     /** 포트가 차지하는 비트 수. */
     public static final int PORT_BITS = 16;
 
+    /** IP 프로토콜 번호가 차지하는 비트 수. */
+    public static final int PROTOCOL_BITS = 8;
+
     /** 출발지 IP 첫 비트의 변수 인덱스. */
     public static final int SRC_IP_OFFSET = 0;
 
@@ -44,8 +47,11 @@ public final class PacketVariables {
     /** 포트 첫 비트의 변수 인덱스. */
     public static final int PORT_OFFSET = DST_IP_OFFSET + IP_BITS;
 
-    /** 전체 변수 개수 (80). */
-    public static final int TOTAL_BITS = PORT_OFFSET + PORT_BITS;
+    /** 프로토콜 첫 비트의 변수 인덱스. */
+    public static final int PROTOCOL_OFFSET = PORT_OFFSET + PORT_BITS;
+
+    /** 전체 변수 개수 (88). */
+    public static final int TOTAL_BITS = PROTOCOL_OFFSET + PROTOCOL_BITS;
 
     /** 포트를 지정하지 않은 규칙을 뜻하는 값. */
     public static final int ANY_PORT = -1;
@@ -106,6 +112,9 @@ public final class PacketVariables {
         if (port == ANY_PORT) {
             return manager.one();
         }
+        if (port < 0 || port > 65535) {
+            throw new IllegalArgumentException("port out of range: " + port);
+        }
         BddNode result = manager.one();
         for (int bit = 0; bit < PORT_BITS; bit++) {
             final int variable = PORT_OFFSET + bit;
@@ -113,6 +122,65 @@ public final class PacketVariables {
             result = manager.and(result, value ? manager.variable(variable) : manager.not(manager.variable(variable)));
         }
         return result;
+    }
+
+    /**
+     * TCP/UDP/ICMP 프로토콜 조건을 BDD 로 만듭니다.
+     *
+     * @param manager 매니저
+     * @param protocol 프로토콜 이름 (null/빈 값은 tcp, any 는 전체)
+     * @return 프로토콜 조건
+     * @throws IllegalArgumentException 지원하지 않는 프로토콜
+     */
+    public static BddNode protocol(BddManager manager, String protocol) {
+        final int number = protocolNumber(protocol);
+        if (number < 0) {
+            return manager.one();
+        }
+        BddNode result = manager.one();
+        for (int bit = 0; bit < PROTOCOL_BITS; bit++) {
+            final int variable = PROTOCOL_OFFSET + bit;
+            final boolean value = ((number >>> (PROTOCOL_BITS - 1 - bit)) & 1) != 0;
+            result = manager.and(
+                    result,
+                    value ? manager.variable(variable) : manager.not(manager.variable(variable)));
+        }
+        return result;
+    }
+
+    /** 지원하는 IP 프로토콜 이름을 IANA 번호로 변환합니다. */
+    public static int protocolNumber(String protocol) {
+        final String value = protocol == null || protocol.isBlank()
+                ? "tcp"
+                : protocol.trim().toLowerCase(java.util.Locale.ROOT);
+        return switch (value) {
+            case "any" -> -1;
+            case "icmp" -> 1;
+            case "tcp" -> 6;
+            case "udp" -> 17;
+            default -> throw new IllegalArgumentException("unsupported protocol: " + protocol);
+        };
+    }
+
+    /** BDD 할당에서 프로토콜 이름을 복원합니다. */
+    public static String protocolOf(int[] assignment) {
+        if (assignment == null) {
+            return "any";
+        }
+        int value = 0;
+        for (int bit = 0; bit < PROTOCOL_BITS; bit++) {
+            final int index = PROTOCOL_OFFSET + bit;
+            if (index >= assignment.length || assignment[index] < 0) {
+                return "any";
+            }
+            value = (value << 1) | assignment[index];
+        }
+        return switch (value) {
+            case 1 -> "icmp";
+            case 6 -> "tcp";
+            case 17 -> "udp";
+            default -> "ip-protocol-" + value;
+        };
     }
 
     /**

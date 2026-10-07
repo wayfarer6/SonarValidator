@@ -69,6 +69,22 @@ if [ "$RUN_BACKEND" = 1 ]; then
     die "포트 $BACKEND_PORT 이(가) 이미 사용 중입니다. (docker compose 로 띄운 백엔드일 수 있습니다)
      BACKEND_PORT=3300 ./dev.sh 처럼 다른 포트를 지정하거나 기존 프로세스를 종료하세요."
   fi
+
+  PROBER_DIR="$ROOT/SonarValidator_Prober"
+  PROBER_BUILD_DIR="${PROBER_BUILD_DIR:-$PROBER_DIR/build-debug}"
+  STAGE_DIR="${SONAR_DEPLOY_STAGE_DIR:-/tmp/sonar_stage}"
+  if [ ! -x "$STAGE_DIR/sonar_validator_prober" ]; then
+    [ -f "$PROBER_DIR/CMakeLists.txt" ] || die "Prober 소스 디렉터리를 찾을 수 없습니다: $PROBER_DIR"
+    command -v cmake >/dev/null 2>&1 || die "cmake 가 없어 Agent 바이너리를 준비할 수 없습니다."
+    log "Agent 바이너리가 stage 에 없어 Prober 를 빌드합니다..."
+    cmake -S "$PROBER_DIR" -B "$PROBER_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release
+    cmake --build "$PROBER_BUILD_DIR" --parallel "${BUILD_JOBS:-4}" --target sonar_validator_prober
+  fi
+  mkdir -p "$STAGE_DIR"
+  install -m 755 "$PROBER_BUILD_DIR/sonar_validator_prober" "$STAGE_DIR/sonar_validator_prober"
+  if [ -f "$PROBER_DIR/Installer/default_template.sqlite" ]; then
+    install -m 644 "$PROBER_DIR/Installer/default_template.sqlite" "$STAGE_DIR/default_template.sqlite"
+  fi
 fi
 
 if [ "$RUN_FRONTEND" = 1 ]; then

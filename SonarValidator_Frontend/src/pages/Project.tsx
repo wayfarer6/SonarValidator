@@ -12,6 +12,7 @@ import { useApi } from "../hooks/useApi";
 import { useApiAction } from "../hooks/useApiAction";
 import { createProject, listProjects } from "../lib/api/projects";
 import AgentDeployCard from "../components/project/AgentDeployCard";
+import ProjectAgentList from "../components/project/ProjectAgentList";
 
 /**
  * 프로젝트 목록 화면입니다.
@@ -220,6 +221,8 @@ export default function Project() {
                   </Link>
                 </div>
               </div>
+
+              <ProjectAgentList projectId={project.project_id} />
 
               {/* 배포 카드 — Manage 옆 버튼으로 펼칩니다. 배포 화면
                   (ProjectCreation)의 Deploy & Download 와 같은 컴포넌트를 씁니다. */}

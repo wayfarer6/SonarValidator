@@ -346,7 +346,10 @@ public class PolicyManagement {
         entry.put("dst_class", violation.targetZone() == null ? null : violation.targetZone().label());
         entry.put("reason", violation.reason());
         entry.put("severity", violation.severity().name());
+        entry.put("sampled_protocol", violation.sampledProtocol());
         entry.put("sampled_packet", violation.sampledPacket());
+        entry.put("sampled_src_ip", violation.sampledSourceIp());
+        entry.put("sampled_dst_ip", violation.sampledTargetIp());
         entry.put("sampled_port", violation.sampledPort() == PacketVariables.ANY_PORT
                 ? null
                 : violation.sampledPort());

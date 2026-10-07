@@ -35,11 +35,15 @@
       "environment": [
         {
           "name": "SONAR_DATA_DIR",
-          "value": "${env:HOME}/.local/share/sonar-validator-debug"
+          "value": "${workspaceFolder}/SonarValidator_Prober/build-debug/data"
         },
         {
           "name": "SONAR_TEMPLATE_PATH",
           "value": "${workspaceFolder}/SonarValidator_Prober/Installer/default_template.sqlite"
+        },
+        {
+          "name": "SONAR_CONFIG_PATH",
+          "value": "${workspaceFolder}/.vscode/debug-default.conf"
         }
       ],
       "externalConsole": false,

@@ -63,9 +63,18 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private static final int MAX_MESSAGE_BUFFER_SIZE = 1024 * 1024;
 
     private final AgentWebSocketHandler agentWebSocketHandler;
+    private final TerminalAgentWebSocketHandler terminalAgentHandler;
+    private final TerminalBrowserWebSocketHandler terminalBrowserHandler;
+    private final TerminalBrowserHandshakeInterceptor terminalBrowserHandshakeInterceptor;
 
-    public WebSocketConfig(AgentWebSocketHandler agentWebSocketHandler) {
+    public WebSocketConfig(AgentWebSocketHandler agentWebSocketHandler,
+                           TerminalAgentWebSocketHandler terminalAgentHandler,
+                           TerminalBrowserWebSocketHandler terminalBrowserHandler,
+                           TerminalBrowserHandshakeInterceptor terminalBrowserHandshakeInterceptor) {
         this.agentWebSocketHandler = agentWebSocketHandler;
+        this.terminalAgentHandler = terminalAgentHandler;
+        this.terminalBrowserHandler = terminalBrowserHandler;
+        this.terminalBrowserHandshakeInterceptor = terminalBrowserHandshakeInterceptor;
     }
 
     /**
@@ -94,6 +103,11 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(agentWebSocketHandler, MANAGEMENT_PATH, TELEMETRY_PATH)
+                .setAllowedOriginPatterns("*");
+        registry.addHandler(terminalAgentHandler, "/api/v1/terminal/agent")
+                .setAllowedOriginPatterns("*");
+        registry.addHandler(terminalBrowserHandler, "/api/v1/terminal/browser")
+                .addInterceptors(terminalBrowserHandshakeInterceptor)
                 .setAllowedOriginPatterns("*");
     }
 }

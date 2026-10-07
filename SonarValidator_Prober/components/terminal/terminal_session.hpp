@@ -28,9 +28,13 @@ public:
 
     // 명령(한 줄 또는 '\n'으로 구분된 여러 줄)을 전송합니다.
     bool Write(const std::string& data);
+    // 대화형 터미널에서 입력한 바이트를 줄바꿈 변환 없이 전송합니다.
+    bool WriteRaw(const std::string& data);
+    bool Resize(unsigned short columns, unsigned short rows);
 
     // timeout 동안 읽은 출력을 반환합니다.
-    std::string ReadAvailable(std::chrono::milliseconds timeout);
+    std::string ReadAvailable(std::chrono::milliseconds timeout,
+                              std::size_t max_output_bytes = 64 * 1024);
 
     // 프롬프트 문자열이 나올 때까지 읽습니다. 프롬프트가 비어 있으면 ReadAvailable과 동일하게 동작합니다.
     std::string ReadUntil(const std::string& prompt, std::chrono::milliseconds timeout);

@@ -139,9 +139,8 @@ function normalizeToCidr(address: string | null | undefined): string | null {
   if (
     octets.length !== 4 ||
     octets.some((value) => !Number.isInteger(value) || value < 0 || value > 255)
-  ) {
-    return null;
-  }
+  ) return null;
+  if (octets[0] === 127) return null;
   const prefix = Number(prefixPart);
   if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) return null;
 
@@ -179,6 +178,7 @@ function subnetsFromDevices(devices: ApiDiscoveredDevice[]): WizardSubnet[] {
 
   for (const device of devices) {
     for (const iface of device.interfaces ?? []) {
+      if (iface.name?.toLowerCase() === "lo") continue;
       for (const address of iface.addresses ?? []) {
         const cidr = normalizeToCidr(address);
         // 같은 대역이 여러 장치/인터페이스에서 반복 보고됩니다. 한 번만 남깁니다.

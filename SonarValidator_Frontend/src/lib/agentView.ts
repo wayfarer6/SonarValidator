@@ -21,6 +21,8 @@ export interface AgentView {
   deviceType: string;
   /** 현재 서버와 연결되어 있는지. 연결 목록에서 온 항목은 항상 true. */
   connected: boolean;
+  /** API가 자체 연결을 관리하는 Agent 여부. */
+  apiManaged?: boolean;
   /** 중립 설정을 수집해 파싱까지 끝냈는지. */
   hasTelemetry: boolean;
   /**
@@ -175,6 +177,7 @@ export function overviewViews(overview: ApiAgentOverview[]): AgentView[] {
     primaryIp: row.expected_ip ?? "—",
     deviceType: normalizeDeviceType(row.device_type ?? guessDeviceType(row.agent_id)),
     connected: row.connected,
+    apiManaged: row.api_managed === true,
     hasTelemetry: row.telemetry_seen,
     state: row.state,
     expected: row.expected,

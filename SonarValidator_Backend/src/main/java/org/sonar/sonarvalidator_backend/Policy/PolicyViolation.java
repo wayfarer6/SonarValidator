@@ -23,6 +23,7 @@ import java.util.Map;
  * @param sampledPort     반례로 추출한 포트 ({@link PacketVariables#ANY_PORT} 면 전체 허용)
  * @param reason          사람이 읽는 사유
  * @param severity        심각도
+ * @param sampledProtocol 반례로 추출한 IP 프로토콜
  */
 public record PolicyViolation(
         String ruleId,
@@ -34,7 +35,8 @@ public record PolicyViolation(
         String sampledTargetIp,
         int sampledPort,
         String reason,
-        Severity severity) {
+        Severity severity,
+        String sampledProtocol) {
 
     /** 위반 심각도. */
     public enum Severity {
@@ -46,17 +48,41 @@ public record PolicyViolation(
         MINOR
     }
 
+    public PolicyViolation(
+            String ruleId,
+            String sourceSubnetId,
+            String targetSubnetId,
+            ZoneClass sourceZone,
+            ZoneClass targetZone,
+            String sampledSourceIp,
+            String sampledTargetIp,
+            int sampledPort,
+            String reason,
+            Severity severity) {
+        this(ruleId, sourceSubnetId, targetSubnetId, sourceZone, targetZone,
+                sampledSourceIp, sampledTargetIp, sampledPort, reason, severity, "tcp");
+    }
+
     /** @return 반례 패킷을 사람이 읽는 한 줄로 표현 */
     public String sampledPacket() {
-        return sampledSourceIp + " -> " + sampledTargetIp
-                + (sampledPort == PacketVariables.ANY_PORT ? " (all ports)" : (":" + sampledPort));
+        final String protocol = sampledProtocol == null || sampledProtocol.isBlank()
+                ? "tcp"
+                : sampledProtocol;
+        return protocol + " " + sampledSourceIp + " -> " + sampledTargetIp
+                + (sampledPort == PacketVariables.ANY_PORT
+                        ? (protocol.equalsIgnoreCase("icmp") ? "" : " (all ports)")
+                        : (":" + sampledPort));
     }
 
     /** @return 프로토콜까지 포함한 반례 표기 */
     public String sampledPacket(String protocol) {
-        final String proto = protocol == null || protocol.isBlank() ? "tcp" : protocol.toLowerCase();
+        final String proto = protocol == null || protocol.isBlank()
+                ? "tcp"
+                : protocol.toLowerCase(java.util.Locale.ROOT);
         return proto + " " + sampledSourceIp + " -> " + sampledTargetIp
-                + (sampledPort == PacketVariables.ANY_PORT ? " (all ports)" : (":" + sampledPort));
+                + (sampledPort == PacketVariables.ANY_PORT
+                        ? (proto.equals("icmp") ? "" : " (all ports)")
+                        : (":" + sampledPort));
     }
 
     /**

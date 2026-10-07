@@ -26,7 +26,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * 배포할 Agent 의 <b>설정이 미리 채워진 설치 번들</b>을 만듭니다.
+ * 배포할 Agent 의 <b>설정이 미리 채워진 다운로드 파일</b>을 만듭니다.
  *
  * <h2>⚠️ 왜 서버가 만드는가</h2>
  * <p>프로버는 {@code Installer/default.conf} 의 값(SERVER_IP / SERVER_PORT /
@@ -63,11 +63,9 @@ import org.springframework.stereotype.Service;
  *   <li>{@code Installer/default_template.sqlite} — DB 템플릿 (있으면)</li>
  * </ul>
  *
- * <p>설치 번들에는 스테이징된 바이너리({@code sonar_validator_prober})가
- * 있으면 함께 넣습니다. 정적 빌드 산출물은 저장소에 커밋되지 않고,
- * 운영 장비로 내려보낼 때는 배포 단계에서 미리 스테이징해 두는 방식이
- * 가장 안전합니다. 그래서 README 는 바이너리 포함 여부를 설명하고,
- * 누락 시에는 별도 경고를 남깁니다.
+ * <p>Agent 다운로드 파일에는 스테이징된 바이너리({@code sonar_validator_prober})를
+ * 반드시 넣습니다. 실행 파일이 없는 번들은 설치할 수 없으므로, 생성 전에 필수
+ * 바이너리를 확인하고 누락된 경우 다운로드를 실패시킵니다.
  */
 @Service
 public class AgentBundleService {
@@ -357,7 +355,7 @@ public class AgentBundleService {
     }
 
     /**
-     * Agent 설치 번들(tar.gz)을 만듭니다.
+     * Agent 다운로드 파일(tar.gz)을 만듭니다.
      *
      * @param agentId           Agent 식별자 (= 배포 예정 등록 이름)
      * @param nodeType          {@code Router} / {@code Switch} / {@code VM} / {@code Firewall}
@@ -372,6 +370,11 @@ public class AgentBundleService {
         final ResolvedServer resolved = resolveServer(serverIpOverride, serverPortOverride);
         final String ip = resolved.ip();
         final int port = resolved.port();
+        final Path proberBinary = Path.of(stageDirectory, "sonar_validator_prober");
+        if (!Files.isRegularFile(proberBinary) || !Files.isReadable(proberBinary)) {
+            throw new IllegalStateException("Required Agent binary is missing or unreadable: "
+                + proberBinary);
+        }
 
         try {
             final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -388,10 +391,10 @@ public class AgentBundleService {
 
                 put(tar, "default.conf", defaultConf(ip, port, type, agentId, dataDirectory));
                 put(tar, "README.txt", readme(agentId, type, ip, port));
-                putFileIfPresent(tar, "sonar_validator_prober");
-                putFileIfPresent(tar, "Installer.sh");
-                putFileIfPresent(tar, "restart.sh");
-                putFileIfPresent(tar, "default_template.sqlite");
+                putFile(tar, "sonar_validator_prober");
+                putOptionalFile(tar, "Installer.sh");
+                putOptionalFile(tar, "restart.sh");
+                putOptionalFile(tar, "default_template.sqlite");
 
                 // ⚠️ finish() 는 필수입니다. tar 는 마지막에 1024바이트 0 블록을
                 //    쓰는데, 이것이 없으면 일부 tar 가 "Unexpected EOF" 로 거부합니다.
@@ -402,14 +405,14 @@ public class AgentBundleService {
             //    블록 안에서 부르면 gzip 트레일러가 아직 안 쓰여 잘린 파일이 되고,
             //    장비에서 "unexpected end of file" 로 풀리지 않습니다.
             final byte[] bundle = buffer.toByteArray();
-            log.info("agent bundle built: agent={} type={} server={}:{} format=tar.gz bytes={}",
+            log.info("agent download generated: agent={} type={} server={}:{} format=tar.gz bytes={}",
                     agentId, type, ip, port, bundle.length);
             return bundle;
 
         } catch (IOException ex) {
             // 번들 생성 실패는 복구 불가한 서버 측 문제입니다.
             // 빈 파일을 내려주면 운영자가 그것을 설치하려다 원인을 알 수 없습니다.
-            throw new IllegalStateException("agent bundle build failed: " + ex.getMessage(), ex);
+            throw new IllegalStateException("agent download generation failed: " + ex.getMessage(), ex);
         }
     }
 
@@ -608,21 +611,19 @@ public class AgentBundleService {
         tar.closeArchiveEntry();
     }
 
-    /**
-     * 스테이징 디렉터리에 있으면 그대로 담습니다. (없으면 조용히 건너뜀)
-     *
-     * <p>없다고 실패시키지 않는 이유: 스크립트는 배포 방식에 따라 필요 여부가
-     * 다릅니다. 설정만 있으면 프로버는 동작합니다.
-     *
-     * @param tar  대상 스트림
-     * @param name 파일 이름
-     * @throws IOException 읽기/쓰기 실패
-     */
-    private void putFileIfPresent(TarArchiveOutputStream tar, String name) throws IOException {
+    /** 선택 배포 자산을 스테이징되어 있으면 아카이브에 넣습니다. */
+    private void putOptionalFile(TarArchiveOutputStream tar, String name) throws IOException {
+        final Path source = Path.of(stageDirectory, name);
+        if (Files.isRegularFile(source)) {
+            putBytes(tar, name, Files.readAllBytes(source));
+        }
+    }
+
+    /** 필수 스테이징 배포 자산을 아카이브에 넣습니다. */
+    private void putFile(TarArchiveOutputStream tar, String name) throws IOException {
         final Path source = Path.of(stageDirectory, name);
         if (!Files.isRegularFile(source)) {
-            log.debug("bundle asset not staged: {}", source);
-            return;
+            throw new IOException("Required bundle asset is missing: " + source);
         }
         putBytes(tar, name, Files.readAllBytes(source));
     }
@@ -651,9 +652,7 @@ public class AgentBundleService {
         body.put("installer_dir", BUNDLE_ROOT);
         body.put("staged_assets", stagedAssets());
 
-        // ⚠️ 스테이징이 빠져도 tar.gz 는 200 으로 내려갑니다.
-        //    그래서 자산 누락을 응답에 경고로 실어 화면에서 보이게 합니다.
-        //    (과거: Installer.sh 가 빠진 2파일 ZIP 이 조용히 전달됐습니다)
+        // 바이너리 누락은 다운로드에서 실패하므로 미리보기에도 같은 상태를 알립니다.
         final List<String> missing = new ArrayList<>();
         stagedAssets().forEach((name, present) -> {
             if (!present) {
@@ -664,6 +663,9 @@ public class AgentBundleService {
             body.put("warning", "배포 자산이 스테이징되지 않았습니다: " + String.join(", ", missing)
                     + " (" + stageDirectory + " 를 확인하세요)");
             body.put("missing_assets", missing);
+            body.put("download_ready", !missing.contains("sonar_validator_prober"));
+        } else {
+            body.put("download_ready", true);
         }
 
         // server_ip 를 어디서 얻었는지 밝힙니다.

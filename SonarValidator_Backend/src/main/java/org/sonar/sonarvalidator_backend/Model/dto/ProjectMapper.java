@@ -47,6 +47,8 @@ public final class ProjectMapper {
         // ⚠️ DB Design v2.0 — 제어평면 대역은 프로젝트마다 다를 수 있습니다.
         //   화면이 "이 프로젝트의 관리망" 을 보여주려면 응답에 실어야 합니다.
         body.put("management_prefix", project.getManagementPrefix());
+        body.put("management_server_ip", project.getManagementServerIp());
+        body.put("management_server_port", project.getManagementServerPort());
         body.put("created_at", project.getCreatedAt());
         body.put("updated_at", project.getUpdatedAt());
         body.put("subnet_count", project.getSubnets().size());
@@ -70,6 +72,8 @@ public final class ProjectMapper {
         body.put("description", project.getDescription());
         body.put("status", project.getStatus());
         body.put("management_prefix", project.getManagementPrefix());
+        body.put("management_server_ip", project.getManagementServerIp());
+        body.put("management_server_port", project.getManagementServerPort());
         body.put("created_at", project.getCreatedAt());
         body.put("updated_at", project.getUpdatedAt());
         body.put("subnet_count", project.getSubnets().size());
@@ -150,6 +154,7 @@ public final class ProjectMapper {
             entry.put("dst_class", violation.targetZone() == null ? null : violation.targetZone().label());
             entry.put("reason", violation.reason());
             entry.put("severity", violation.severity().name());
+            entry.put("sampled_protocol", violation.sampledProtocol());
             entry.put("sampled_packet", violation.sampledPacket());
             entry.put("sampled_src_ip", violation.sampledSourceIp());
             entry.put("sampled_dst_ip", violation.sampledTargetIp());

@@ -127,6 +127,36 @@ class ProjectManagementPrefixTest {
     }
 
     @Test
+    @DisplayName("Agent 서버 주소와 포트를 프로젝트에 저장하고 응답한다")
+    void updateStoresAgentServerSettings() {
+        service.create(new ProjectDto.CreateRequest(
+                "PRJ-AGENT", "Agent 프로젝트", "Defense", null, "DRAFT", null));
+
+        final Project saved = service.update("PRJ-AGENT", new ProjectDto.UpdateRequest(
+                null, null, null, null, null, "192.168.122.1", 3000, null, null));
+
+        assertEquals("192.168.122.1", saved.getManagementServerIp());
+        assertEquals(3000, saved.getManagementServerPort());
+        final var body = org.sonar.sonarvalidator_backend.Model.dto.ProjectMapper.toSummary(saved);
+        assertEquals("192.168.122.1", body.get("management_server_ip"));
+        assertEquals(3000, body.get("management_server_port"));
+    }
+
+    @Test
+    @DisplayName("Agent 서버 포트는 유효한 TCP 포트만 저장한다")
+    void updateRejectsInvalidAgentServerPort() {
+        service.create(new ProjectDto.CreateRequest(
+                "PRJ-AGENT-PORT", "Agent 프로젝트", "Defense", null, "DRAFT", null));
+
+        final var exception = org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> service.update("PRJ-AGENT-PORT", new ProjectDto.UpdateRequest(
+                        null, null, null, null, null, null, 70000, null, null)));
+
+        assertEquals(400, exception.getStatusCode().value());
+    }
+
+    @Test
     @DisplayName("없는 프로젝트를 수정하면 예외를 던진다")
     void updateMissingProjectThrows() {
         try {

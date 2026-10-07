@@ -75,8 +75,10 @@ VS Code의 C/C++ 확장이나 clangd에서 이 파일을 사용하면 컴파일�
 
 - **Run and Debug → `Prober: Debug safe startup (--help)`**: F5로 `main()`에 멈춥니다.
   `--help`만 실행하므로 설정 파일 생성이나 네트워크 접속은 하지 않습니다.
-- **`Prober: Debug with local config (may access devices)`**: 홈 아래 별도 데이터
-  디렉터리를 쓰지만, Prober 설정에 따라 실제 장비에 접속할 수 있습니다.
+- **`Prober: Debug with local config (may access devices)`**: `.vscode/debug-default.conf`의
+  `#DEBUG` 전용 설정(SERVER_IP `192.168.122.1`, SERVER_PORT `3000`, NODE_TYPE `VM`)과
+  `build-debug/data` 데이터 디렉터리를 사용합니다. 계속 실행하면 서버에 접속을 시도하므로
+  VM 네트워크에서만 사용하세요. 운영 설정 파일은 수정하지 않습니다.
 - **`Prober test: Router`**: 라우터 단위 테스트를 GDB에서 실행합니다.
 - VS Code의 **Terminal → Run Build Task**에서 Prober Debug 빌드나 전체 테스트 빌드를 선택합니다.
 
@@ -133,6 +135,24 @@ SONAR_DATA_DIR=/tmp/sonar-prober-debug \
 SONAR_TEMPLATE_PATH="$PWD/SonarValidator_Prober/Installer/default_template.sqlite" \
   gdb --args SonarValidator_Prober/build-debug/sonar_validator_prober
 ```
+
+### 터미널에서 오프라인 실행
+
+Debug 빌드는 실행 파일을 실행한 위치나 실행 파일 경로의 상위에서 `.vscode/debug-default.conf`
+를 찾아 자동 적용합니다. 파일의 첫 줄이 `#DEBUG`인지 확인한 뒤에만 사용하며,
+운영 설정과 분리된 `build-debug/data` 데이터 디렉터리와 저장소의 SQLite 템플릿을 씁니다.
+저장소 루트에서 아래처럼 실행하면 별도의 환경변수 없이 오프라인 수집을 시작합니다.
+
+```bash
+SonarValidator_Prober/build-debug/sonar_validator_prober --export-offline
+```
+
+이 경우 서버 주소는 `192.168.122.1:3000`, 노드 타입은 `VM`입니다. 스냅샷은 실행한
+현재 디렉터리에 저장됩니다. 실행 후 `[DEBUG] #DEBUG profile` 및
+`[INFO] 스냅샷을 저장했습니다` 메시지를 확인하세요. 이 모드는 계속 수집하므로 중단은
+`Ctrl+C`입니다. `--export-dir <경로>` 또는 `SONAR_OFFLINE_DIR`로 저장 위치를 바꿀 수
+있습니다. 기존 기본 환경변수가 필요하면 명시적으로 `SONAR_CONFIG_PATH`,
+`SONAR_DATA_DIR`, `SONAR_TEMPLATE_PATH`를 설정하면 자동 기본값보다 우선합니다.
 
 일회성 오프라인 내보내기는 서버 전송 워커를 시작하지 않지만, 초기 설정과 장비 접근
 동작은 여전히 수행할 수 있습니다. 이 모드도 실제 장비 연결이 없음을 보장하지 않으므로

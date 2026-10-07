@@ -1,9 +1,13 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <optional>
 #include <thread>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 #include <sqlite3.h>
@@ -22,6 +26,7 @@
 
 #include "workers/DatbaseWorker.hpp"
 #include "workers/ManagementWorker.hpp"
+#include "workers/TerminalAgentWorker.hpp"
 #include "workers/TelemetryWorker.hpp"
 
 namespace fs = std::filesystem;
@@ -29,6 +34,87 @@ using Json = nlohmann::json;
 
 // 프로세스 전체의 실행 플래그입니다. SIGINT/SIGTERM이 오면 false로 바뀝니다.
 std::atomic<bool> g_running{true};
+
+#ifdef SONAR_DEBUG_BUILD
+std::optional<fs::path> FindDebugProfile()
+{
+    std::vector<fs::path> search_paths;
+    std::error_code error;
+    search_paths.push_back(fs::current_path(error));
+    if (error)
+    {
+        error.clear();
+    }
+
+    const fs::path executable = fs::read_symlink("/proc/self/exe", error);
+    if (!error)
+    {
+        search_paths.push_back(executable.parent_path());
+    }
+
+    for (fs::path directory : search_paths)
+    {
+        while (!directory.empty())
+        {
+            const fs::path profile = directory / ".vscode" / "debug-default.conf";
+            std::ifstream input(profile);
+            std::string first_line;
+            if (input && std::getline(input, first_line) && first_line == "#DEBUG")
+            {
+                return profile;
+            }
+
+            const fs::path parent = directory.parent_path();
+            if (parent == directory)
+            {
+                break;
+            }
+            directory = parent;
+        }
+    }
+    return std::nullopt;
+}
+
+bool SetDebugEnvironmentDefault(const char* name, const fs::path& value)
+{
+    if (std::getenv(name) != nullptr)
+    {
+        return true;
+    }
+    if (setenv(name, value.c_str(), 0) == 0)
+    {
+        return true;
+    }
+
+    std::cerr << "[ERROR] Debug 환경변수 설정 실패: " << name << '\n';
+    return false;
+}
+
+bool ApplyDebugDefaults()
+{
+    const std::optional<fs::path> profile = FindDebugProfile();
+    if (!profile)
+    {
+        return true;
+    }
+
+    const fs::path repository_root = profile->parent_path().parent_path();
+    const fs::path executable = fs::read_symlink("/proc/self/exe");
+    const fs::path data_directory = executable.parent_path() / "data";
+    const fs::path template_path =
+        repository_root / "SonarValidator_Prober/Installer/default_template.sqlite";
+
+    if (!SetDebugEnvironmentDefault("SONAR_CONFIG_PATH", *profile) ||
+        !SetDebugEnvironmentDefault("SONAR_DATA_DIR", data_directory) ||
+        !SetDebugEnvironmentDefault("SONAR_TEMPLATE_PATH", template_path))
+    {
+        return false;
+    }
+
+    std::cout << "[DEBUG] #DEBUG profile: " << *profile << '\n';
+    return true;
+}
+#endif
 
 // 종료 시그널 핸들러: 실행 플래그만 내리고, 각 스레드는 stop_token으로 정리됩니다.
 void signalHandler(int signum)
@@ -52,6 +138,13 @@ int main(int argc, char **argv)
         options.printUsage(argc > 0 ? argv[0] : nullptr);
         return 0;
     }
+
+#ifdef SONAR_DEBUG_BUILD
+    if (!ApplyDebugDefaults())
+    {
+        return 1;
+    }
+#endif
 
     // -------------------------------------------------- 경로/설정/DB 준비 --
     const fs::path data_directory = PathManager::ResolveDataDirectory();
@@ -86,7 +179,7 @@ int main(int argc, char **argv)
         std::cerr << "Runtime initialization failed\n";
         std::cerr << "  data dir : " << data_directory << '\n';
         std::cerr << "  template : " << sqlite_template_path << '\n';
-        std::cerr << "  (SONAR_DATA_DIR / SONAR_TEMPLATE_PATH 로 경로를 지정할 수 있습니다)\n";
+        std::cerr << "  (SONAR_CONFIG_PATH / SONAR_DATA_DIR / SONAR_TEMPLATE_PATH 로 경로를 지정할 수 있습니다)\n";
         return 1;
     }
 
@@ -110,7 +203,7 @@ int main(int argc, char **argv)
     // --------------------------------------------------- 워커 스레드 기동 --
     //  큐/스레드는 반드시 이 순서로 만든다.
     //   1) DB 큐         (스레드들이 참조한다)
-    //   2) jthread 3개   (큐/DB/설정을 std::ref 로 넘긴다)
+    //   2) jthread 4개   (큐/DB/설정을 std::ref 로 넘긴다)
     DatabaseQueue database_queue;  // DB 큐(뮤텍스 + 조건 변수)
 
     std::jthread telemetry_thread(TelemetryWorker,
@@ -119,6 +212,7 @@ int main(int argc, char **argv)
                                   std::cref(offline_directory),
                                   options.offline_only);
     std::jthread management_thread(ManagementWorker, std::ref(config));
+    std::jthread terminal_thread(TerminalAgentWorker, std::ref(config));
     std::jthread database_thread(DatabaseWorker,
                                  std::ref(database),
                                  std::ref(database_queue));
@@ -131,6 +225,7 @@ int main(int argc, char **argv)
     database_queue.Close();
     telemetry_thread.request_stop();
     management_thread.request_stop();
+    terminal_thread.request_stop();
     database_thread.request_stop();
 
     std::cout << "[INFO] Clean shutdown complete.\n";
