@@ -63,9 +63,11 @@ import org.springframework.stereotype.Service;
  *   <li>{@code Installer/default_template.sqlite} — DB 템플릿 (있으면)</li>
  * </ul>
  *
- * <p>바이너리({@code sonar_validator_prober})는 <b>넣지 않습니다</b> —
- * 빌드 산출물이라 저장소에 없고, 배포 스크립트가 HTTP 로 내려받습니다.
- * README 에 그 절차를 적어 둡니다.
+ * <p>설치 번들에는 스테이징된 바이너리({@code sonar_validator_prober})가
+ * 있으면 함께 넣습니다. 정적 빌드 산출물은 저장소에 커밋되지 않고,
+ * 운영 장비로 내려보낼 때는 배포 단계에서 미리 스테이징해 두는 방식이
+ * 가장 안전합니다. 그래서 README 는 바이너리 포함 여부를 설명하고,
+ * 누락 시에는 별도 경고를 남깁니다.
  */
 @Service
 public class AgentBundleService {
@@ -386,6 +388,7 @@ public class AgentBundleService {
 
                 put(tar, "default.conf", defaultConf(ip, port, type, agentId, dataDirectory));
                 put(tar, "README.txt", readme(agentId, type, ip, port));
+                putFileIfPresent(tar, "sonar_validator_prober");
                 putFileIfPresent(tar, "Installer.sh");
                 putFileIfPresent(tar, "restart.sh");
                 putFileIfPresent(tar, "default_template.sqlite");
@@ -495,19 +498,18 @@ public class AgentBundleService {
 
                 1. 바이너리 준비
                 -----------------
-                이 번들에는 설정과 스크립트만 들어 있습니다.
-                바이너리는 서버에서 HTTP 로 내려받습니다 (빌드 산출물이라 함께 담지 않음):
+                이 번들에는 설정·스크립트와 함께 스테이징된 정적 바이너리
+                {@code sonar_validator_prober} 가 포함될 수 있습니다.
+                바이너리가 없다면 서버 배포 단계에서 스테이징이 누락된 것이므로,
+                먼저 정적 빌드를 만들고 /tmp/sonar_stage 에 넣어 주세요:
 
-                  # 서버에서
-                  cd SonarValidator_Prober && cmake --build build_static --target sonar_validator_prober
+                  cd SonarValidator_Prober && cmake -S . -B build_static -DCMAKE_BUILD_TYPE=Release
+                  cmake --build build_static --target sonar_validator_prober
                   cp build_static/sonar_validator_prober /tmp/sonar_stage/
-                  cd /tmp/sonar_stage && python3 -m http.server 8099 --bind 0.0.0.0 &
 
-                  # 장치에서
-                  wget -O /opt/sonar_validator/sonar_validator_prober http://%s:8099/sonar_validator_prober
-                  chmod +x /opt/sonar_validator/sonar_validator_prober
-
-                ⚠️ 라우터(Alpine)에는 curl 이 없습니다. wget 을 쓰세요.
+                장치에 이미 바이너리가 있으면 다음 단계로 바로 진행하세요.
+                (운영 환경에서 HTTP 다운로드를 쓸 수도 있지만, 번들 안에 포함된
+                 바이너리가 있으면 가장 단순하고 안전합니다)
 
                 2. 설정 배치
                 ------------
@@ -596,9 +598,10 @@ public class AgentBundleService {
      */
     private static void putBytes(TarArchiveOutputStream tar, String name, byte[] content)
             throws IOException {
+        final boolean executable = name.endsWith(".sh") || name.equals("sonar_validator_prober");
         final TarArchiveEntry entry = new TarArchiveEntry(BUNDLE_ROOT + "/" + name);
         entry.setSize(content.length);
-        entry.setMode(name.endsWith(".sh") ? 0755 : 0644);
+        entry.setMode(executable ? 0755 : 0644);
         entry.setModTime(System.currentTimeMillis());
         tar.putArchiveEntry(entry);
         tar.write(content);
@@ -684,7 +687,7 @@ public class AgentBundleService {
     private Map<String, Boolean> stagedAssets() {
         final Map<String, Boolean> result = new LinkedHashMap<>();
         for (final String name : new String[] {
-                "default_template.sqlite", "Installer.sh", "restart.sh"}) {
+                "sonar_validator_prober", "default_template.sqlite", "Installer.sh", "restart.sh"}) {
             result.put(name, Files.isRegularFile(Path.of(stageDirectory, name)));
         }
         return result;

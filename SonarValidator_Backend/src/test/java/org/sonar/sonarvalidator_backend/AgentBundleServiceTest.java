@@ -188,9 +188,10 @@ class AgentBundleServiceTest {
     // ------------------------------------------------------------------
 
     @Test
-    @DisplayName("스테이징된 스크립트·템플릿을 Installer/ 아래에 담고 실행 권한을 준다")
+    @DisplayName("스테이징된 바이너리·스크립트·템플릿을 Installer/ 아래에 담고 실행 권한을 준다")
     void stagedAssetsAreIncludedWithExecutableMode(@TempDir Path stage) throws IOException {
         // 배포 가이드가 /tmp/sonar_stage 에 두는 자산을 흉내냅니다.
+        Files.write(stage.resolve("sonar_validator_prober"), new byte[] {0x7f, 'E', 'L', 'F'});
         Files.writeString(stage.resolve("Installer.sh"), "#!/bin/sh\necho install\n");
         Files.writeString(stage.resolve("restart.sh"), "#!/bin/sh\necho restart\n");
         Files.write(stage.resolve("default_template.sqlite"), new byte[] {0x53, 0x51, 0x4c});
@@ -199,18 +200,17 @@ class AgentBundleServiceTest {
                 "Gateway-Router", "Router", "10.20.0.3", null, null);
 
         final Map<String, String> files = readTarGz(bundle);
+        assertTrue(files.containsKey("Installer/sonar_validator_prober"), files.keySet().toString());
         assertTrue(files.containsKey("Installer/Installer.sh"), files.keySet().toString());
         assertTrue(files.containsKey("Installer/restart.sh"), files.keySet().toString());
         assertTrue(files.containsKey("Installer/default_template.sqlite"),
                 files.keySet().toString());
 
-        // ⚠️ 실행 스크립트에 0755 가 없으면 장비에서
-        //    "./Installer.sh: Permission denied" 로 보입니다.
         try (TarArchiveInputStream tar = new TarArchiveInputStream(
                 new GzipCompressorInputStream(new ByteArrayInputStream(bundle)))) {
             TarArchiveEntry entry;
             while ((entry = tar.getNextEntry()) != null) {
-                if (entry.getName().endsWith(".sh")) {
+                if (entry.getName().endsWith(".sh") || entry.getName().endsWith("sonar_validator_prober")) {
                     assertTrue((entry.getMode() & 0111) != 0,
                             entry.getName() + " 에 실행 권한이 없습니다: 0"
                                     + Integer.toOctalString(entry.getMode()));

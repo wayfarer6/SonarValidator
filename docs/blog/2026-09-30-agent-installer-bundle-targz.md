@@ -7,8 +7,10 @@ date: 2026-09-30
 ---
 **대상**: 프로버(Agent)를 배포하는 운영자, 백엔드/프론트엔드 개발자
 **작성일**: 2026-09-30
+**수정일**: 2026-10-06 — 번들에 바이너리 포함 (스테이징된 경우)
 **계기**: Agent 목록 화면에서 장비용 설치 번들을 만들려 했는데 **IP/Port 를 지정할
-자리가 없었고**, 있던 번들도 장비에서 **풀리지 않았다.**
+자리가 없었고**, 있던 번들도 장비에서 **풀리지 않았다.** 또한 **바이너리 누락으로
+설치가 불완전**했다.
 
 ---
 
@@ -85,15 +87,35 @@ JDK 의 `java.util.zip` 은 ZIP 만 만듭니다. tar 헤더를 직접 인코딩
 try (GzipCompressorOutputStream gzip = new GzipCompressorOutputStream(buffer);
      TarArchiveOutputStream tar = new TarArchiveOutputStream(gzip)) {
     tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
-    // Installer/ 아래에 파일을 담고, .sh 는 0755 로 둔다
-    ...
+    // Installer/ 아래에 파일을 담고, .sh 와 바이너리는 0755 로 둔다
+    put(tar, "default.conf", ...);
+    put(tar, "README.txt", ...);
+    putFileIfPresent(tar, "sonar_validator_prober");  // 스테이징된 바이너리 포함
+    putFileIfPresent(tar, "Installer.sh");            // 스크립트
+    putFileIfPresent(tar, "restart.sh");
+    putFileIfPresent(tar, "default_template.sqlite"); // DB 템플릿
     tar.finish();          // 마지막 1024바이트 0 블록
 }
 // ⚠️ toByteArray() 는 반드시 스트림을 모두 닫은 뒤!
 final byte[] bundle = buffer.toByteArray();
 ```
 
-### 3.2 ⚠️ 구현 중 잡은 함정 — 잘린 tar.gz
+### 3.2 바이너리 포함 (2026-10-06 변경사항)
+
+프로버는 정적 링크 바이너리로 빌드되는데, 빌드 산출물이라 저장소에 커밋되지 않습니다.
+운영 환경에서는 Docker 빌드 단계에서 정적 바이너리를 먼저 만들고, `/tmp/sonar_stage`
+디렉터리에 배치합니다. 그러면 설치 번들은 그 바이너리를 찾아 자동으로 `Installer/`
+폴더에 포함시킵니다.
+
+| 상황 | 번들 내용 | 설치 절차 |
+| --- | --- | --- |
+| **바이너리가 스테이징됨** (Docker 배포) | `sonar_validator_prober` + 설정 | 번들 풀기 → `Installer.sh` 실행 |
+| **바이너리가 없음** (개발 환경) | 설정·스크립트만 | ① 바이너리 빌드 ② `Installer.sh` 실행 |
+
+바이너리가 없어도 번들 생성은 실패하지 않습니다(스크립트와 설정은 필수지만 바이너리는
+선택). 대신 화면의 미리보기에 경고를 표시하고 README 에서 상세히 안내합니다.
+
+### 3.3 ⚠️ 구현 중 잡은 함정 — 잘린 tar.gz
 
 `ByteArrayOutputStream.toByteArray()` 를 **스트림 close 전에** 부르면 gzip
 트레일러(CRC·길이)가 아직 안 쓰여 **잘린 파일**이 됩니다.
@@ -107,8 +129,8 @@ return buffer.toByteArray();   // ❌ 블록 안에서 부름 → 잘림
 새로 추가한 테스트가 이 실수를 잡아냈고, `toByteArray()` 를 try-with-resources
 블록 **밖**으로 옮겨 해결했습니다.
 
-또한 `.sh` 에 **0755** 를 주지 않으면 tar 기본값(0644)이 되어
-`./Installer.sh: Permission denied` 로 보입니다.
+또한 실행 파일(`.sh` 와 `sonar_validator_prober`)에 **0755** 를 주지 않으면
+tar 기본값(0644)이 되어 `./Installer.sh: Permission denied` 로 보입니다.
 
 ---
 

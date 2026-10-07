@@ -562,7 +562,7 @@ export default function AgentDeployCard({
               title={
                 agentName.trim() === ""
                   ? "Agent 이름을 먼저 입력하세요 (배포 예정 등록 이름과 같아야 합니다)"
-                  : "default.conf / README.txt / 스크립트가 담긴 tar.gz 를 내려받습니다"
+                  : "default.conf / README.txt / 바이너리/스크립트가 담긴 tar.gz 를 내려받습니다"
               }
               className="rounded-lg bg-brand-500 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -582,7 +582,9 @@ export default function AgentDeployCard({
               <code className="font-mono">tar -xzf sonar-agent-*.tar.gz</code> 로 풀면{" "}
               <span className="font-mono">Installer/</span> 폴더가 나옵니다. 그 안의{" "}
               <span className="font-mono">README.txt</span> 를 순서대로 따르세요.
-              바이너리는 번들에 없고 서버에서 HTTP 로 내려받습니다.
+              스테이징된 바이너리({" "}
+              <span className="font-mono">sonar_validator_prober</span>
+              {" "})가 있으면 번들에 함께 들어갑니다.
             </p>
           )}
           {bundleState === "error" && (
