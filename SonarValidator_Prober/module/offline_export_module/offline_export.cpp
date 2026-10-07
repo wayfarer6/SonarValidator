@@ -105,7 +105,8 @@ namespace offline
     }
 
     std::string ResolveExportDirectory(const std::string &data_directory,
-                                       const std::string &override_dir)
+                                       const std::string &override_dir,
+                                       const std::string &default_directory)
     {
         if (!override_dir.empty())
         {
@@ -118,6 +119,11 @@ namespace offline
             {
                 return from_env;
             }
+        }
+
+        if (!default_directory.empty())
+        {
+            return default_directory;
         }
 
         if (!data_directory.empty())

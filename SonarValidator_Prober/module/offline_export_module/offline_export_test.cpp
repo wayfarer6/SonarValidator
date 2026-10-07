@@ -270,6 +270,11 @@ void TestResolveExportDirectory()
     Check(from_data.find("/data") != std::string::npos, "데이터 디렉터리를 기준으로 함");
     Check(from_data.find("offline") != std::string::npos, "offline 하위 폴더를 씀");
 
+    Check(offline::ResolveExportDirectory("/data", "", "/work/project") == "/work/project",
+          "명시적 기본 경로는 데이터 디렉터리보다 우선");
+    Check(offline::ResolveExportDirectory("/data", "/custom", "/work/project") == "/custom",
+          "명시적 override 는 기본 경로보다 우선");
+
     // 둘 다 없어도 빈 문자열이 나오면 안 됩니다. (쓰기 실패로 이어짐)
     Check(!offline::ResolveExportDirectory("", "").empty(),
           "폴백 경로가 항상 채워짐 (빈 경로 금지)");

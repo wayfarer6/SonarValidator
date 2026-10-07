@@ -94,10 +94,12 @@ std::string SanitizeForFileName(const std::string& text);
 // export 디렉터리를 결정합니다.
 //  1) 함수 인자 override_dir (CLI --export-dir)
 //  2) 환경변수 SONAR_OFFLINE_DIR
-//  3) <data_directory>/offline
+//  3) default_directory 가 지정되면 해당 경로
+//  4) <data_directory>/offline
 // 빈 디렉터리가 나오지 않도록 마지막 폴백까지 사용합니다.
 std::string ResolveExportDirectory(const std::string& data_directory,
-                                   const std::string& override_dir);
+                                   const std::string& override_dir,
+                                   const std::string& default_directory = "");
 
 // 스냅샷 파일 이름을 만듭니다. (collected_at 의 ':' 는 '-' 로 치환)
 std::string BuildSnapshotFileName(const std::string& agent_id,

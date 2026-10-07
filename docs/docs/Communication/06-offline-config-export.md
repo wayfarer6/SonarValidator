@@ -58,11 +58,12 @@ sidebar_label: "06. 오프라인 설정 Export/Import"
 ```bash
 # 서버로 보내지 않고 스냅샷 파일만 남기며 상시 실행
 ./sonar_validator_prober --export-offline
+# 기본 저장 위치: 명령을 실행한 현재 작업 디렉터리 (pwd)
 
 # 한 번만 수집하고 파일 하나를 만들고 종료 (가장 흔한 사용법)
 ./sonar_validator_prober --export-once
 
-# 저장 위치 지정
+# 저장 위치 지정 (기본 저장 위치보다 우선)
 ./sonar_validator_prober --export-once --export-dir /mnt/flash/snapshots
 
 # 파일을 만들 수 없는 환경(원격 콘솔): 표준출력으로 인쇄 → 복사해서 업로드
@@ -75,12 +76,13 @@ sidebar_label: "06. 오프라인 설정 Export/Import"
 | 옵션 | 동작 |
 | --- | --- |
 | `--export-offline` | 서버 전송을 **시도하지 않고** 항상 파일로만 남깁니다 |
-| `--export-dir <경로>` | 스냅샷 저장 위치 (기본: `<데이터 디렉터리>/offline`) |
+| `--export-dir <경로>` | 스냅샷 저장 위치. 미지정 시 `--export-offline`은 현재 작업 디렉터리(`pwd`)에 저장합니다 |
 | `--export-once` | 한 번 수집하고 종료합니다 |
 | `--export-stdout` | 스냅샷 JSON 을 표준출력으로 인쇄합니다 |
 | `--help`, `-h` | 사용법 출력 |
 
-**환경변수** (우선순위: CLI 인자 > 환경변수 > 기본값)
+**저장 경로 우선순위**: `--export-dir` > `SONAR_OFFLINE_DIR` > `--export-offline`의 현재 작업 디렉터리
+> `<데이터 디렉터리>/offline` (그 외 기본 폴백)
 
 | 변수 | 용도 |
 | --- | --- |

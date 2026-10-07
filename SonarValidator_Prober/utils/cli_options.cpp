@@ -50,7 +50,7 @@ void CliOptions::printUsage(const char *program) const
         << "옵션:\n"
         << "  --export-offline       서버로 보내지 않고 스냅샷 JSON 파일만 남깁니다.\n"
         << "                         (관리 서버에 연결할 수 없는 장비용)\n"
-        << "  --export-dir <경로>    스냅샷 저장 위치. 기본값은 <데이터 디렉터리>/offline\n"
+        << "  --export-dir <경로>    스냅샷 저장 위치. --export-offline 의 기본값은 현재 경로\n"
         << "  --export-once          한 번만 수집하고 종료합니다. (--export-offline 과 함께 쓰면\n"
         << "                         즉시 파일 하나를 만들고 끝납니다)\n"
         << "  --export-stdout        스냅샷 JSON 을 표준출력으로 인쇄합니다. (파일 없이 복사용)\n"

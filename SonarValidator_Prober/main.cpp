@@ -59,13 +59,16 @@ int main(int argc, char **argv)
     const fs::path sqlite_db_path = data_directory / "prober_db.sqlite";
     const fs::path sqlite_template_path = PathManager::ResolveTemplatePath();
 
-    // 오프라인 폴백 디렉터리.
-    //   --export-dir > SONAR_OFFLINE_DIR > <데이터 디렉터리>/offline
-    //   (--export-offline 또는 --export-once 일 때만 실제로 쓰입니다)
+    // 오프라인 export 경로.
+    //   --export-dir > SONAR_OFFLINE_DIR > --export-offline 의 현재 작업 디렉터리
+    //   > <데이터 디렉터리>/offline (기존 --export-once 기본값)
     const fs::path offline_directory =
         (options.offline_only || options.export_once)
             ? fs::path(offline::ResolveExportDirectory(data_directory.string(),
-                                                       options.export_dir))
+                                                       options.export_dir,
+                                                       options.offline_only
+                                                           ? fs::current_path().string()
+                                                           : ""))
             : fs::path(options.export_dir);
 
     // 임시 기본값으로 config를 만든 뒤, PrepareRuntime에서 실제 값으로 채웁니다.
