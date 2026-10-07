@@ -87,10 +87,6 @@ export default function ViolationSummary({
             )}
           </div>
         </div>
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          아직 검증하지 않았습니다. 검증 실행을 누르면 서버가 BDD 로 망분리 규칙을
-          판정하고, 위반이 있으면 재현 가능한 반례 패킷을 함께 알려줍니다.
-        </p>
       </div>
     );
   }
