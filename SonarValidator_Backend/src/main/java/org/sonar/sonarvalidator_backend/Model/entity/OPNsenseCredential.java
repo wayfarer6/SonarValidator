@@ -8,13 +8,17 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.sonar.sonarvalidator_backend.Model.Configuration;
 
 /**
  * OPNsense 방화벽 REST API 접속 정보입니다.
@@ -26,8 +30,8 @@ import lombok.Setter;
  * <h2>왜 장치마다 따로 저장하는가</h2>
  * <p>기존 {@code OPNSenseClientConfig} 는 {@code opnsense.api-key} 프로퍼티
  * 하나만 읽어 <b>모든 장치가 같은 키를 쓴다</b> 고 가정했습니다. 실제로는
- * 방화벽마다 키가 다르므로, 장치(Agent) 단위로 저장해야 합니다.
- * 그래서 이 엔티티는 {@code agentId} 를 자연 키로 가집니다.
+ * 방화벽마다 키가 다르므로, 장치 단위로 저장해야 합니다.
+ * 자격증명은 정본인 {@code configuration.node_id} 와 연결합니다.
  *
  * <h2>⚠️ 자격증명 저장 방식</h2>
  * <p>{@link #secret} 은 <b>AES-GCM 으로 암호화해</b> 저장합니다
@@ -63,13 +67,10 @@ public class OPNsenseCredential {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * 대상 Agent 식별자.
-     *
-     * <p>Agent 1대당 자격증명 1개이므로 unique 입니다.
-     */
-    @Column(name = "agent_id", nullable = false, unique = true, length = 128)
-    private String agentId;
+    /** Canonical node identity; every credential belongs to one persisted node. */
+    @OneToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "node_id", nullable = false, unique = true)
+    private Configuration node;
 
     /** 표시용 이름 (예: {@code FW-DMZ-01}). */
     @Column(name = "display_name", length = 128)

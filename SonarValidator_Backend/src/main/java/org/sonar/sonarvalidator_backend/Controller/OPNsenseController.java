@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.sonar.sonarvalidator_backend.Model.entity.OPNsenseCredential;
-import org.sonar.sonarvalidator_backend.Repository.OPNsenseCredentialRepository;
 import org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
 import org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseApiClient;
@@ -16,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -36,12 +36,12 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <pre>
  *   GET  /api/v1/opnsense/credentials            등록된 설정 목록
- *   GET  /api/v1/opnsense/credentials/{agentId}  Agent 별 설정 1건
- *   PUT  /api/v1/opnsense/credentials/{agentId}  저장 (생성/수정)
- *   DELETE /api/v1/opnsense/credentials/{agentId} 삭제
- *   POST /api/v1/opnsense/credentials/{agentId}/verify  연결 확인
+ *   GET  /api/v1/opnsense/credentials/{nodeId}  node_id 별 설정 1건
+ *   PUT  /api/v1/opnsense/credentials/{nodeId}  저장 (생성/수정)
+ *   DELETE /api/v1/opnsense/credentials/{nodeId} 삭제
+ *   POST /api/v1/opnsense/credentials/{nodeId}/verify  연결 확인
  *   POST /api/v1/opnsense/verify-all              전체 연결 확인
- *   POST /api/v1/opnsense/credentials/{agentId}/probe   원문 조회 (진단)
+ *   POST /api/v1/opnsense/credentials/{nodeId}/probe   원문 조회 (진단)
  * </pre>
  *
  * <h2>⚠️ 실장비 테스트 불가</h2>
@@ -62,7 +62,6 @@ public class OPNsenseController {
     private static final Logger log = LoggerFactory.getLogger(OPNsenseController.class);
 
     private final OPNsenseCredentialService credentialService;
-    private final OPNsenseCredentialRepository repository;
     private final OPNsenseApiClient apiClient;
     private final AgentSessionRegistry registry;
     private final AgentMessageRouterService router;
@@ -78,20 +77,17 @@ public class OPNsenseController {
 
     /**
      * @param credentialService 자격증명 서비스
-     * @param repository        자격증명 저장소 (목록 조회용)
      * @param apiClient         OPNsense API 클라이언트 (probe 용)
      * @param registry          Agent 세션 레지스트리 (대상 Agent 목록)
      * @param router            Agent 설정 보관소 (OPNsense 장치 탐지)
      * @param probeStrategies   진단 대상 선택기
      */
     public OPNsenseController(OPNsenseCredentialService credentialService,
-                              OPNsenseCredentialRepository repository,
                               OPNsenseApiClient apiClient,
                               AgentSessionRegistry registry,
                               AgentMessageRouterService router,
                               org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategies probeStrategies) {
         this.credentialService = credentialService;
-        this.repository = repository;
         this.apiClient = apiClient;
         this.registry = registry;
         this.router = router;
@@ -147,13 +143,14 @@ public class OPNsenseController {
     }
 
     /**
-     * Agent 별 설정 1건을 반환합니다.
+     * Canonical node_id 별 설정 1건을 반환합니다. Legacy Agent-ID aliases are
+     * accepted for compatibility with existing UI requests.
      *
-     * @param agentId Agent 식별자
+     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
      * @return 설정 또는 404
      */
-    @GetMapping("/credentials/{agentId}")
-    public ResponseEntity<Map<String, Object>> get(@PathVariable String agentId) {
+    @GetMapping("/credentials/{nodeId}")
+    public ResponseEntity<Map<String, Object>> get(@PathVariable("nodeId") String agentId) {
         final Map<String, Object> credential = credentialService.get(agentId);
         if (credential == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -165,13 +162,17 @@ public class OPNsenseController {
     /**
      * 설정을 저장합니다. (없으면 생성)
      *
-     * @param agentId Agent 식별자
+     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
      * @param body    설정 본문
      * @return 저장 결과 (연결 확인 결과 포함)
      */
-    @PutMapping("/credentials/{agentId}")
-    public ResponseEntity<Map<String, Object>> save(@PathVariable String agentId,
+    @PutMapping("/credentials/{nodeId}")
+    public ResponseEntity<Map<String, Object>> save(Authentication authentication,
+                                                    @PathVariable("nodeId") String agentId,
                                                     @RequestBody(required = false) CredentialRequest body) {
+        if (!hasRole(authentication, "ROLE_ADMIN", "ROLE_OPERATOR")) {
+            return forbidden("OPNsense 자격증명은 운영자만 변경할 수 있습니다.");
+        }
         final CredentialRequest request = body == null
                 ? new CredentialRequest(null, null, null, null, null, null)
                 : body;
@@ -194,27 +195,40 @@ public class OPNsenseController {
     /**
      * 설정을 삭제합니다.
      *
-     * @param agentId Agent 식별자
+     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
      * @return {@code {"deleted": true}}
      */
-    @DeleteMapping("/credentials/{agentId}")
-    public ResponseEntity<Map<String, Object>> delete(@PathVariable String agentId) {
+    @DeleteMapping("/credentials/{nodeId}")
+    public ResponseEntity<Map<String, Object>> delete(Authentication authentication,
+                                                      @PathVariable("nodeId") String agentId) {
+        if (!hasRole(authentication, "ROLE_ADMIN", "ROLE_OPERATOR")) {
+            return forbidden("OPNsense 자격증명은 운영자만 변경할 수 있습니다.");
+        }
+        final OPNsenseCredential existing = credentialService.findCredential(agentId).orElse(null);
         final boolean deleted = credentialService.delete(agentId);
         if (!deleted) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("message", "OPNsense 설정이 없습니다: " + agentId));
         }
-        return ResponseEntity.ok(Map.of("deleted", true, "agent_id", agentId));
+        final Map<String, Object> body = new LinkedHashMap<>();
+        body.put("deleted", true);
+        body.put("node_id", existing.getNode().getNodeId());
+        body.put("agent_id", existing.getNode().getAgentId());
+        return ResponseEntity.ok(body);
     }
 
     /**
      * 연결을 확인합니다. (설정 모달의 "연결 테스트" 버튼)
      *
-     * @param agentId Agent 식별자
+     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
      * @return 확인 결과
      */
-    @PostMapping("/credentials/{agentId}/verify")
-    public ResponseEntity<Map<String, Object>> verify(@PathVariable String agentId) {
+    @PostMapping("/credentials/{nodeId}/verify")
+    public ResponseEntity<Map<String, Object>> verify(Authentication authentication,
+                                                      @PathVariable("nodeId") String agentId) {
+        if (!hasRole(authentication, "ROLE_ADMIN", "ROLE_OPERATOR")) {
+            return forbidden("운영자만 OPNsense 연결 확인을 실행할 수 있습니다.");
+        }
         try {
             return ResponseEntity.ok(credentialService.verify(agentId));
         } catch (IllegalArgumentException ex) {
@@ -229,12 +243,15 @@ public class OPNsenseController {
      * @return 항목별 결과
      */
     @PostMapping("/verify-all")
-    public Map<String, Object> verifyAll() {
+    public ResponseEntity<Map<String, Object>> verifyAll(Authentication authentication) {
+        if (!hasRole(authentication, "ROLE_ADMIN", "ROLE_OPERATOR")) {
+            return forbidden("운영자만 OPNsense 연결 확인을 실행할 수 있습니다.");
+        }
         final List<Map<String, Object>> results = credentialService.verifyAll();
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("total", results.size());
         body.put("results", results);
-        return body;
+        return ResponseEntity.ok(body);
     }
 
     /**
@@ -245,17 +262,21 @@ public class OPNsenseController {
      * 파서를 먼저 쓰면 조용히 빈 값이 나옵니다. 이 엔드포인트로 원문을 본
      * 뒤 매핑을 확정하는 편이 안전합니다.
      *
-     * @param agentId Agent 식별자
+     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
      * @param target  조회 대상 ({@code interfaces}, {@code rules}, {@code nat},
      *                {@code aliases}, {@code firmware})
      * @return 상태 코드, 요약, 원문(앞부분)
      */
-    @PostMapping("/credentials/{agentId}/probe")
-    public ResponseEntity<Map<String, Object>> probe(@PathVariable String agentId,
+    @PostMapping("/credentials/{nodeId}/probe")
+    public ResponseEntity<Map<String, Object>> probe(Authentication authentication,
+                                                     @PathVariable("nodeId") String agentId,
                                                      @org.springframework.web.bind.annotation.RequestParam(
                                                              value = "target", defaultValue = "firmware")
                                                      String target) {
-        final OPNsenseCredential credential = repository.findByAgentId(agentId).orElse(null);
+        if (!hasRole(authentication, "ROLE_ADMIN")) {
+            return forbidden("OPNsense 원문 진단은 관리자만 실행할 수 있습니다.");
+        }
+        final OPNsenseCredential credential = credentialService.findCredential(agentId).orElse(null);
         if (credential == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("message", "OPNsense 설정이 없습니다: " + agentId));
@@ -275,7 +296,8 @@ public class OPNsenseController {
         final OPNsenseApiClient.Result result = strategy.probe(apiClient, connection);
 
         final Map<String, Object> body = new LinkedHashMap<>();
-        body.put("agent_id", agentId);
+        body.put("node_id", credential.getNode().getNodeId());
+        body.put("agent_id", credential.getNode().getAgentId());
         body.put("target", strategy.name());
         // 운영자가 "이 조회가 무엇을 보는가" 를 숫자만 보고 추측하지 않게 합니다.
         body.put("description", strategy.description());
@@ -288,8 +310,8 @@ public class OPNsenseController {
                 : apiClient.summarize(result.body()));
         // 원문은 앞부분만 돌려줍니다. 규칙 목록은 수백 KB 일 수 있습니다.
         body.put("raw_preview", truncate(result.rawBody(), 4000));
-        log.info("opnsense probe: agent={} target={} ok={} status={}",
-                agentId, strategy.name(), result.ok(), result.statusCode());
+        log.info("opnsense probe: node_id={} target={} ok={} status={}",
+                credential.getNode().getNodeId(), strategy.name(), result.ok(), result.statusCode());
         return ResponseEntity.ok(body);
     }
 
@@ -335,7 +357,7 @@ public class OPNsenseController {
             entry.put("product", config.getProduct());
             entry.put("vendor", config.getVendor());
             entry.put("format", config.getFormat());
-            entry.put("has_credential", repository.existsByAgentId(agentId));
+            entry.put("has_credential", credentialService.hasCredentialForAgentIdentifier(agentId));
             candidates.add(entry);
         });
 
@@ -353,7 +375,7 @@ public class OPNsenseController {
             entry.put("product", null);
             entry.put("vendor", null);
             entry.put("format", null);
-            entry.put("has_credential", repository.existsByAgentId(agentId));
+            entry.put("has_credential", credentialService.hasCredentialForAgentIdentifier(agentId));
             entry.put("detected", false);
             candidates.add(entry);
         }
@@ -376,5 +398,14 @@ public class OPNsenseController {
             return null;
         }
         return value.length() <= maxLength ? value : value.substring(0, maxLength) + "...(truncated)";
+    }
+
+    private static boolean hasRole(Authentication authentication, String... roles) {
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> java.util.Arrays.asList(roles).contains(authority.getAuthority()));
+    }
+
+    private static ResponseEntity<Map<String, Object>> forbidden(String message) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", message));
     }
 }

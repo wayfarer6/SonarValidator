@@ -1,31 +1,36 @@
 # Agent (SonarValidator_Prober) DB 스키마
 
 `SonarValidator_Prober`가 사용하는 **로컬 SQLite 데이터베이스** 스키마 문서입니다.
-모든 내용은 실제 소스(`database/schema.cpp`, `Installer/default_template.sqlite`)를 기준으로 작성했습니다.
+런타임 DDL은 `database/schema.cpp`, 설치 시 복사되는 기본 DB는
+`Installer/default_template.sqlite`를 기준으로 작성했습니다.
 
 - **DBMS**: SQLite 3
-- **파일 위치**: `<데이터 디렉터리>/prober_db.sqlite` (기본 `/etc/sonar_validator_prober/data` 계열, `SONAR_DATA_DIR`로 변경 가능)
+- **파일 위치**: `<데이터 디렉터리>/prober_db.sqlite` (기본 `/var/lib/sonar_validator_prober`, `SONAR_DATA_DIR`로 변경 가능)
 - **템플릿**: `/etc/sonar_validator_prober/sqlite_template.sqlite` (`Installer/default_template.sqlite`를 `Installer.sh`가 복사)
+- **설정 경로**: `/etc/sonar_validator_prober/default.conf` (`SONAR_CONFIG_PATH`로 변경 가능). 테스트 실행에서는 저장소 루트의 `agent_test/default.conf`를 사용합니다.
 - **DDL 단일 진실**: `database/schema.cpp` 의 `database_schema::CreateTablesSql()`
   - `AppInitializer::InitializeDatabase()` 가 런타임 DB에 `sqlite3_exec` 로 적용
-  - `./build/schema_dump | sqlite3 Installer/default_template.sqlite` 로 템플릿 재생성
-  - 모든 문장이 `CREATE ... IF NOT EXISTS` 라서 **멱등**(몇 번 실행해도 안전)
+  - DDL은 없는 테이블/인덱스를 생성하지만 기존 테이블의 컬럼이나 타입을 변경하지 않음
+- **초기 DB**: 템플릿을 복사한 뒤 위 DDL을 적용하므로, 템플릿의 기존 테이블 정의도 런타임에 남음
 
 ---
 
 ## 1. 테이블 분류
 
-| 구분 | 테이블 | 생성 주체 | 성격 |
+| 구분 | 테이블 | 생성/보유 위치 | 성격 |
 |---|---|---|---|
-| **런타임(수집)** | `nic_status`, `settings` | `schema.cpp` | 텔레메트리 원본(JSON) + key-value 설정 |
-| **런타임(수집)** | `route_table`, `nic_info`, `nic_address`, `vlan_status`, `trunk_status`, `arp_table` | `schema.cpp` | 한 번의 수집 = 한 스냅샷 |
-| **설계(템플릿 전용)** | `Agent_info` | 템플릿 SQLite | 에이전트 정적 정보 |
-| **설계(템플릿 전용)** | `subnet_table`, `vlan_table`, `nic_table` | 템플릿 SQLite | 네트워크 설계(토폴로지) 스키마 |
-| **설계(템플릿 전용)** | `router_table`, `router_config_table`, `firewall_rule_table` | 템플릿 SQLite | 설계 규칙 테이블(런타임 미사용) |
+| **런타임 DDL (8개)** | `settings`, `nic_status`, `route_table`, `nic_info`, `nic_address`, `vlan_status`, `trunk_status`, `arp_table` | `schema.cpp` | 설정과 수집 스냅샷 |
+| **레거시 설계 (7개)** | `Agent_info`, `subnet_table`, `vlan_table`, `nic_table`, `router_table`, `router_config_table`, `firewall_rule_table` | 설치 템플릿 | 과거/설계용 테이블, 런타임 수집 DDL에서 생성하지 않음 |
+
+> `default_template.sqlite`에는 위 런타임 8개와 레거시 설계 7개가 모두 들어 있습니다.
+> 따라서 템플릿은 설계 테이블만 담은 빈 기반 DB가 아닙니다. 설치 DB는 템플릿의 기존 런타임 테이블을
+> 유지하고 `CREATE TABLE IF NOT EXISTS`로 없는 테이블만 보충합니다.
 
 > ⚠️ `vlan_table`(설계)과 `vlan_status`(런타임)은 **의도적으로 별개**입니다.
 > 같은 테이블을 재사용하면 설계 데이터를 수집 결과가 덮어씁니다.
 > (`telemetry_store_test` 가 `vlan_table` 이 변경되지 않음을 검증)
+> 기본 템플릿의 런타임 `route_table`도 현재 DDL과 맞춰 `metric INTEGER`,
+> `distance`, `metric_raw`를 포함합니다. 기존 설치 DB 파일은 자동 변경되지 않습니다.
 
 ---
 
@@ -134,7 +139,12 @@ entity "arp_table" as arp_table {
   interfaces : TEXT
 }
 
-nic_info ||--o{ nic_address : "agent + collected_at"
+nic_info ||--o{ nic_address : "논리 조인: agent + collected_at + name/interface_name"
+
+note bottom
+  nic_info ↔ nic_address는 실제 FOREIGN KEY가 아닌 논리 관계.
+  런타임 SQLite DDL에는 이 관계의 FK 제약이 없다.
+end note
 
 @enduml
 ```
@@ -174,7 +184,7 @@ nic_info ||--o{ nic_address : "agent + collected_at"
 | `protocol` | TEXT | `ospf`, `connected`, `kernel` … |
 | `prefix` | TEXT | `10.20.111.0/24` |
 | `next_hop` | TEXT | 다음 홉 (direct 는 NULL/빈 값) |
-| `metric` | **INTEGER** | 파서가 정수로 냅니다(Java 계약) |
+| `metric` | **INTEGER** | 현재 기준 DDL 타입. 파서가 정수로 냅니다(Java 계약) |
 | `interface_name` | TEXT | 출구 인터페이스 |
 | `selected` | INTEGER | FIB 설치 여부 0/1 |
 | `fib` | INTEGER | fib 플래그 0/1 |
@@ -186,7 +196,8 @@ nic_info ||--o{ nic_address : "agent + collected_at"
 
 > **타입 변경 이력 (2026-09-25)**: `metric` 을 TEXT → INTEGER 로 변경.
 > `[110/200]` 은 `distance=110`, `metric=200` 으로 **분리**됩니다.
-> 이 DDL은 `IF NOT EXISTS` 라 기존 DB에는 적용되지 않지만, SQLite의 타입 친화도(affinity) 덕분에 정수를 넣어도 정상 동작합니다.
+> 새 기본 템플릿은 이 변경을 반영합니다. 기존 설치 DB는 `CREATE TABLE IF NOT EXISTS`만으로
+> 스키마가 갱신되지 않으므로 마이그레이션 또는 DB 재생성이 필요합니다.
 
 ### 3.4 `nic_info` — NIC 정보 (`ip a` 인터페이스 1개 = 1행)
 
@@ -220,6 +231,9 @@ nic_info ||--o{ nic_address : "agent + collected_at"
 | `scope` | TEXT | `global`, `link`, `host` |
 
 인덱스: `idx_nic_address_snapshot (agent, collected_at)`
+
+> 실제 FK는 없습니다. 인터페이스 주소를 NIC에 연결할 때 `agent`, `collected_at`,
+> NIC의 `name`과 주소의 `interface_name`으로 논리적으로 매칭합니다.
 
 ### 3.6 `vlan_status` — VLAN 런타임 상태 (`show vlan brief` 1줄 = 1행)
 
@@ -270,15 +284,17 @@ nic_info ||--o{ nic_address : "agent + collected_at"
 
 인덱스: `idx_arp_table_snapshot (agent, collected_at)`
 
-> ⚠️ 현재 파서는 아직 `entries` 를 만들지 않습니다(추가 예정).
-> 키가 없으면 `telemetry_store` 가 조용히 0행으로 처리합니다.
+파서는 `entries` 배열을 생성하고, 수집기는 항목이 있을 때 스냅샷에 포함합니다.
+배열이 없거나 비어 있으면 저장할 행이 없습니다.
 
 ---
 
 ## 4. 설계(템플릿 전용) 테이블
 
-`Installer/default_template.sqlite` 에만 존재하며 `schema.cpp` DDL에는 없습니다.
-(레거시/설계 스키마 — 현재 런타임 코드는 `vlan_table` 만 테스트에서 참조)
+레거시 설계 테이블 7개입니다. `schema.cpp`의 런타임 DDL에는 없지만,
+현재 `Installer/default_template.sqlite`에는 포함되어 있습니다.
+현재 프로덕션 코드가 이 테이블을 정규화된 런타임 저장소로 사용하는 것은 아니며,
+`vlan_table`은 테스트에서 런타임 `vlan_status`와 분리되어 있는지 확인하는 데 참조됩니다.
 
 ```plantuml
 @startuml Agent_SQLite_ER_Design
@@ -338,6 +354,11 @@ entity "firewall_rule_table" as firewall_rule_table {
 subnet_table ||--o{ vlan_table : "subnet_id"
 subnet_table ||--o{ nic_table : "subent_id"
 subnet_table ||--o{ router_table : "src/dst_subnet_id"
+
+note bottom
+  위 선은 컬럼 이름을 기준으로 한 논리 관계다.
+  설치 템플릿에는 실제 FOREIGN KEY 제약이 정의되어 있지 않다.
+end note
 @enduml
 ```
 
@@ -371,12 +392,13 @@ subnet_table ||--o{ router_table : "src/dst_subnet_id"
 ## 6. 설계 원칙 / 주의점
 
 - **스냅샷 묶음**: 모든 런타임 테이블이 `(agent, collected_at)` 로 묶입니다. 같은 시각 값 = 한 번의 수집.
+- **NIC 주소 관계**: `nic_info`와 `nic_address`는 FK가 아니라 `(agent, collected_at, name/interface_name)` 기준의 논리 조인입니다.
 - **한 번의 수집 = 태스크 하나 = 트랜잭션 하나**: 행이 수천 개여도 커밋이 1회라 빠르고, 중간 실패 시 롤백되어 반쪽 스냅샷이 남지 않습니다.
 - **JSON은 문자열로**: `flags`/`ports`/`trunk_vlans`/`interfaces` 는 JSON **배열 문자열**로 저장합니다(정규화하지 않음).
 - **파싱 실패는 데이터**: `telemetry_store` 는 키가 없거나 형식이 다르면 그 행을 건너뜁니다(예외를 밖으로 던지지 않음).
 - **`metric` 계약**: `distance`/`metric` 정수 분리는 Java Backend 계약과 일치해야 합니다. 원문은 `metric_raw`.
-- **DDL 멱등**: `CREATE TABLE IF NOT EXISTS` 이므로 기존 DB에는 새 컬럼이 추가되지 않습니다. 스키마를 바꾸려면 마이그레이션 또는 DB 재생성이 필요합니다.
-- **템플릿 vs 런타임**: 템플릿에는 설계 테이블 7개가 포함되고, 런타임 DDL이 수집 테이블 7개를 추가합니다.
+- **DDL 멱등성의 한계**: `CREATE TABLE IF NOT EXISTS`는 테이블/인덱스 존재만 보장하며 기존 테이블의 컬럼/타입을 갱신하지 않습니다. 스키마 변경 시 마이그레이션 또는 템플릿 재생성이 필요합니다.
+- **템플릿 vs 런타임**: 템플릿은 런타임 DDL 테이블 8개와 레거시 설계 테이블 7개를 포함합니다. 런타임 DDL은 8개 테이블을 생성/보장합니다.
 
 ---
 

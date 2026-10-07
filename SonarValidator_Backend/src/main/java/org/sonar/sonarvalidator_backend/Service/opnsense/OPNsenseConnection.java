@@ -1,5 +1,8 @@
 package org.sonar.sonarvalidator_backend.Service.opnsense;
 
+import java.net.URI;
+import java.util.Locale;
+
 /**
  * OPNsense 접속 정보입니다. (요청 시점의 값)
  *
@@ -34,9 +37,21 @@ public record OPNsenseConnection(
      * @return 호출 가능하면 {@code true}
      */
     public boolean isUsable() {
-        return baseUrl != null && !baseUrl.isBlank()
+        return isSecureTransport()
                 && apiKey != null && !apiKey.isBlank()
                 && apiSecret != null && !apiSecret.isBlank();
+    }
+
+    /** Basic credentials are never sent to an explicit or malformed non-HTTPS URL. */
+    public boolean isSecureTransport() {
+        try {
+            final URI uri = URI.create(normalizedBaseUrl());
+            return "https".equalsIgnoreCase(uri.getScheme())
+                    && uri.getHost() != null
+                    && uri.getUserInfo() == null;
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     /**
@@ -52,10 +67,16 @@ public record OPNsenseConnection(
             return "";
         }
         String value = baseUrl.trim();
-        if (!value.startsWith("http://") && !value.startsWith("https://")) {
+        if (!value.regionMatches(true, 0, "http://", 0, "http://".length())
+                && !value.regionMatches(true, 0, "https://", 0, "https://".length())) {
             // 스킴을 생략한 입력은 https 로 간주합니다.
             // (OPNsense 는 기본이 https 이고, 평문 http 는 자격증명 노출 위험이 큽니다)
             value = "https://" + value;
+        }
+        final int schemeEnd = value.indexOf("://");
+        if (schemeEnd > 0) {
+            value = value.substring(0, schemeEnd).toLowerCase(Locale.ROOT)
+                    + value.substring(schemeEnd);
         }
         while (value.endsWith("/")) {
             value = value.substring(0, value.length() - 1);

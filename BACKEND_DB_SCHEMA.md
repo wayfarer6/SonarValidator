@@ -14,7 +14,7 @@
 
 ---
 
-## 1. 테이블 목록 (14개 엔티티 → 14개 테이블)
+## 1. 테이블 목록 (17개 엔티티 → 17개 테이블)
 
 | #  | 엔티티                      | 테이블                   | 성격                 |
 | -- | --------------------------- | ------------------------ | -------------------- |
@@ -36,7 +36,7 @@
 | 16 | `InterfaceEntity`         | `network_interface`    | 장치 인터페이스      |
 | 17 | `RestAPIConnectionConfig` | `rest_api_node_config` | REST API 노드 설정   |
 
-> `Configuration` 은 `configuration` 테이블(노드 허브)이며, `device_log`/`network_interface`/`opnsense_firewall`/`rest_api_node_config` 가 `node_id` 로 참조합니다.
+> `Configuration` 은 `configuration` 테이블(노드 허브)입니다. `device_log`/`network_interface`/`opnsense_firewall`/`opnsense_credential`/`rest_api_node_config`는 FK로 노드를 참조하지만, `quarantine_state.node_id`는 노드 삭제 후에도 감사 이력을 보존하기 위해 FK를 두지 않습니다.
 > `User` 는 `"USER"` (PostgreSQL 예약어 회피를 위해 **큰따옴표**로 감싼 테이블명).
 
 ---
@@ -70,7 +70,7 @@ entity "project" as project {
   category : VARCHAR(100)
   description : VARCHAR(1000)
   status : VARCHAR(50)
-  user_id : BIGINT <<FK -> USER>>
+  user_id : BIGINT <<FK -> USER, NULLABLE>>
   management_prefix : VARCHAR(255)
   created_at : TIMESTAMP
   updated_at : TIMESTAMP
@@ -130,7 +130,7 @@ entity "quarantine_state" as quarantine_state {
   * id : BIGINT <<PK IDENTITY>>
   --
   agent_id : VARCHAR(120)
-  node_id : INTEGER <<FK -> configuration>>
+  node_id : INTEGER  ' 감사 이력 보존을 위해 FK 없음
   scope : VARCHAR(20)  ' NODE|CONNECTION
   target_cidr : VARCHAR(80)
   project_key : VARCHAR(120)
@@ -284,13 +284,13 @@ entity "ai_provider" as ai_provider {
 entity "opnsense_credential" as opnsense_credential {
   * id : BIGINT <<PK IDENTITY>>
   --
-  * agent_id : VARCHAR(128) <<UNIQUE>>
+  * node_id : INTEGER <<FK -> configuration.node_id, UNIQUE>>
   display_name : VARCHAR(128)
   * base_url : VARCHAR(255)
   api_key : VARCHAR(255)
   secret_encrypted : VARCHAR(1024)
   * allow_insecure_tls : BOOLEAN
-  status : VARCHAR(255)  ' UNVERIFIED|OK|FAILED
+  status : VARCHAR(20)  ' UNVERIFIED|OK|FAILED
   last_checked_at : TIMESTAMP
   last_error : VARCHAR(500)
   detected_version : VARCHAR(64)
@@ -316,12 +316,12 @@ entity "network_interface" as network_interface {
 entity "rest_api_node_config" as rest_api_node_config {
   * id : BIGINT <<PK IDENTITY>>
   --
-  node_id : INTEGER <<FK -> configuration>>
+  node_id : INTEGER <<FK -> configuration, UNIQUE, NULLABLE>>
   apikey : VARCHAR(255)
   baseurl : VARCHAR(255)
 }
 
-app_user ||--o{ project : "owner(user_id)"
+app_user o|--o{ project : "optional owner(user_id), @ManyToOne"
 project ||--o{ project_subnet : "project_id"
 project ||--o{ project_rule : "project_id"
 project ||--o{ notification : "project_id"
@@ -329,8 +329,8 @@ project ||--o{ log_analysis : "project_id"
 configuration ||--o{ device_log : "node_id"
 configuration ||--o{ network_interface : "node_id"
 configuration ||--o| opnsense_firewall : "node_id"
+configuration ||--o| opnsense_credential : "node_id"
 configuration ||--o| rest_api_node_config : "node_id"
-configuration ||--o{ quarantine_state : "node_id"
 @enduml
 ```
 
@@ -430,7 +430,7 @@ configuration ||--o{ quarantine_state : "node_id"
 | --------------------- | ------------ | ------------------------------ | ------------------------------- |
 | `id`                | BIGINT       | PK, IDENTITY                   |                                 |
 | `agent_id`          | VARCHAR(120) |                                |                                 |
-| `node_id`           | INTEGER      | FK →`configuration.node_id` |                                 |
+| `node_id`           | INTEGER      |                              | 노드 삭제 후에도 격리 이력 보존 (FK 없음) |
 | `scope`             | VARCHAR(20)  |                                | `NODE`(기본) / `CONNECTION` |
 | `target_cidr`       | VARCHAR(80)  |                                | 연결 단위 격리 대상 대역        |
 | `project_key`       | VARCHAR(120) |                                |                                 |
@@ -629,13 +629,13 @@ configuration ||--o{ quarantine_state : "node_id"
 | 컬럼                            | 타입          | 제약                      | 설명                                 |
 | ------------------------------- | ------------- | ------------------------- | ------------------------------------ |
 | `id`                          | BIGINT        | PK, IDENTITY              |                                      |
-| `agent_id`                    | VARCHAR(128)  | NOT NULL,**UNIQUE** |                                      |
+| `node_id`                     | INTEGER       | NOT NULL, **UNIQUE FK → `configuration.node_id`** | OPNsense 장치 정본 |
 | `display_name`                | VARCHAR(128)  |                           |                                      |
 | `base_url`                    | VARCHAR(255)  | NOT NULL                  |                                      |
 | `api_key`                     | VARCHAR(255)  |                           |                                      |
 | `secret_encrypted`            | VARCHAR(1024) |                           | 필드명`secret`                     |
 | `allow_insecure_tls`          | BOOLEAN       | NOT NULL                  |                                      |
-| `status`                      | VARCHAR(255)  |                           | `UNVERIFIED` / `OK` / `FAILED` |
+| `status`                      | VARCHAR(20)   |                           | `UNVERIFIED` / `OK` / `FAILED` |
 | `last_checked_at`             | TIMESTAMP     |                           |                                      |
 | `last_error`                  | VARCHAR(500)  |                           |                                      |
 | `detected_version`            | VARCHAR(64)   |                           |                                      |
@@ -660,10 +660,12 @@ configuration ||--o{ quarantine_state : "node_id"
 
 ### 3.17 `rest_api_node_config` — REST API 노드 설정
 
+> Legacy JPA 엔티티입니다. 현재 OPNsense 서비스 경로에는 사용처가 없으며, OPNsense 자격 증명의 정본은 `opnsense_credential`입니다. 신규 접속 정보는 이 테이블에 저장하지 않습니다.
+
 | 컬럼        | 타입                                          | 설명                 |
 | ----------- | --------------------------------------------- | -------------------- |
 | `id`      | BIGINT, PK IDENTITY                           |                      |
-| `node_id` | INTEGER, FK →`configuration.node_id` (1:1) |                      |
+| `node_id` | INTEGER, UNIQUE FK →`configuration.node_id` (선택적 1:1) | 노드별 설정 |
 | `apikey`  | VARCHAR(255)                                  |                      |
 | `baseurl` | VARCHAR(255)                                  | `http://host:port` |
 
@@ -705,8 +707,9 @@ configuration ||--o{ quarantine_state : "node_id"
 | `idx_quarantine_agent`          | INDEX  | `quarantine_state` | `(agent_id, released_at)`    |
 | `idx_quarantine_node`           | INDEX  | `quarantine_state` | `(node_id, released_at)`     |
 | `idx_quarantine_released`       | INDEX  | `quarantine_state` | `(released_at)`              |
+| `uk_opnsense_credential_node` | UNIQUE | `opnsense_credential` | `(node_id)` |
 
-**UNIQUE 컬럼(단일)**: `"USER".username`, `project.project_key`, `expected_agent.agent_id`, `notification.notification_id`, `log_analysis.analysis_id`, `policy_advice.advice_id`, `compliance_change.change_id`, `configuration.agent_id`, `opnsense_credential.agent_id`.
+**UNIQUE 컬럼/키**: `"USER".username`, `project.project_key`, `expected_agent.agent_id`, `notification.notification_id`, `log_analysis.analysis_id`, `policy_advice.advice_id`, `compliance_change.change_id`, `configuration.agent_id`, `opnsense_credential.node_id`, `rest_api_node_config.node_id` (OneToOne).
 
 ---
 
@@ -740,4 +743,40 @@ JPA_DDL_AUTO=validate
 - **시각 타입**: 대부분 `java.util.Date` (TIMESTAMP). `@JsonFormat` 로 UTC ISO-8601 직렬화합니다.
 - **마이그레이션 부재**: 저장소에 Flyway/Liquibase/`.sql` 이 없습니다. 스키마 이력이 필요하면 마이그레이션 도구 도입이 필요합니다.
 - **`opnsense_firewall`**: `@MapsId` 로 PK가 곧 FK(`node_id`)인 1:1 관계입니다.
+- **`opnsense_credential`**: `node_id`가 `configuration.node_id`를 참조하는 필수 1:1 관계입니다. credential 자연 키가 Agent 식별자가 되는 것이 아니라 노드 정본에 귀속됩니다. 기존 UI의 Agent-ID 경로는 API 호환 별칭으로 Configuration을 먼저 조회하고, 응답에는 `node_id`를 포함합니다.
+- **`quarantine_state.node_id`**: `configuration.node_id`의 값이지만 FK는 없습니다. 노드 삭제 뒤에도 격리 감사 이력을 보존합니다.
 - **NamingStrategy**: Spring Boot 기본(CamelCaseToUnderscores)이 적용됩니다. 명시적 `@Column(name=...)` 이 있는 컬럼은 그 이름을 우선합니다.
+
+### 기존 PostgreSQL 데이터의 OPNsense credential 이전
+
+`opnsense_credential`에 Agent-ID 문자열만 저장하던 DB는 새 엔티티 검증 전에 한 번 이전해야 합니다. 먼저 모든 credential의 `agent_id`가 `configuration.agent_id`와 대응하는지 확인하고, 대응되지 않는 행은 노드 정본을 등록/수정한 뒤 아래 작업을 실행합니다. 이 스크립트는 기존 테이블이 구버전(`agent_id` 보유, `node_id` 미보유)일 때 사용하는 단회 이전입니다.
+
+```sql
+BEGIN;
+
+ALTER TABLE opnsense_credential ADD COLUMN node_id INTEGER;
+
+UPDATE opnsense_credential AS credential
+SET node_id = configuration.node_id
+FROM configuration
+WHERE configuration.agent_id = credential.agent_id;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM opnsense_credential WHERE node_id IS NULL) THEN
+    RAISE EXCEPTION 'OPNsense credential has no matching configuration node; resolve agent_id before migration';
+  END IF;
+END $$;
+
+ALTER TABLE opnsense_credential ALTER COLUMN node_id SET NOT NULL;
+ALTER TABLE opnsense_credential
+  ADD CONSTRAINT uk_opnsense_credential_node UNIQUE (node_id);
+ALTER TABLE opnsense_credential
+  ADD CONSTRAINT fk_opnsense_credential_node
+  FOREIGN KEY (node_id) REFERENCES configuration(node_id);
+ALTER TABLE opnsense_credential DROP COLUMN agent_id;
+
+COMMIT;
+```
+
+운영 설정은 `ddl-auto=validate`이므로 애플리케이션 기동 전에 이전을 완료해야 합니다. 이 저장소에는 마이그레이션 실행기가 없으므로 운영 절차에서 백업 후 DB 관리자가 적용합니다.

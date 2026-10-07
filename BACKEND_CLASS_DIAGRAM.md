@@ -12,7 +12,9 @@
 ## 1. 전체 개요 (계층 구조)
 
 에이전트(C++ Prober)는 **WebSocket Envelope 프로토콜**로, 브라우저는 **REST**로 접속합니다.
-컨트롤러 → 서비스 → 리포지토리/엔티티의 전형적 계층이며, 정책 생성/검증은 `Policy` 패키지가 담당합니다.
+개요도는 요청이 들어오는 **Controller/API 계층**과 업무 규칙을 수행하는 **Service 계층**을 분리하고,
+각 계층 안의 컴포넌트를 업무 영역별로 묶었습니다. 화살표는 주요 위임 관계만 표시합니다.
+세부 메서드 및 전체 의존 관계는 아래의 계층별 다이어그램을 참고합니다.
 
 ```plantuml
 @startuml Backend_Overview
@@ -20,6 +22,9 @@ title Backend 전체 개요
 
 skinparam classAttributeIconSize 0
 skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam linetype ortho
+top to bottom direction
 
 package "Config (@Configuration/@Component)" {
   class WebSocketConfig
@@ -30,58 +35,80 @@ package "Config (@Configuration/@Component)" {
   class AdminAccountInitializer
 }
 
-package "Controller (@RestController)" {
-  class AgentStatusController
-  class AgentBundleController
-  class ExpectedAgentController
-  class QuarantineController
-  class PolicyManagement
-  class PolicyAdviceController
-  class ProjectController
-  class NetworkTopologyController
-  class ComplianceController
-  class NotificationController
-  class LogController
-  class OPNsenseController
-  class OfflineImportController
-  class AiProviderController
-  class AuthController
-  class UserController
-  class RouterController
-  class CliIngestController
+package "1. API / Controller (@RestController)" as ControllerLayer {
+  package "프로젝트 · 정책 · 위반 대응" as ProjectControllers {
+    class ProjectController
+    class PolicyManagement
+    class PolicyAdviceController
+    class NetworkTopologyController
+    class ComplianceController
+  }
+  package "Agent · 장비 운영" as AgentControllers {
+    class AgentStatusController
+    class AgentBundleController
+    class ExpectedAgentController
+    class QuarantineController
+    class OPNsenseController
+    class OfflineImportController
+    class RouterController
+    class CliIngestController
+  }
+  package "공통 관리" as CommonControllers {
+    class NotificationController
+    class LogController
+    class AiProviderController
+    class AuthController
+    class UserController
+  }
 }
 
-package "Service" {
-  class AgentMessageRouterService
-  class AgentSessionRegistry
-  class AgentTelemetryStore
-  class AgentBundleService
-  class ExpectedAgentService
-  class NodeRegistryService
-  class PolicyRegistryService
-  class QuarantineService
-  class ProjectService
-  class ComplianceService
-  class NotificationService
-  class LogService
-  class ViolationAdvisorService
-  class OfflineSnapshotService
+package "2. Service (업무 로직 / 유스케이스)" as ServiceLayer {
+  package "프로젝트 · 정책 · 위반 대응" as ProjectServices {
+    class ProjectService
+    class PolicyRegistryService
+    class QuarantineService
+    class ComplianceService
+    class ViolationAdvisorService
+  }
+  package "Agent · 장비 운영" as AgentServices {
+    class AgentMessageRouterService
+    class AgentSessionRegistry
+    class AgentTelemetryStore
+    class AgentBundleService
+    class ExpectedAgentService
+    class NodeRegistryService
+    class DeviceConfigService
+    class DeviceTypeResolver
+    class OfflineSnapshotService
+    class CliIngestService
+    class CliIngestionService
+    class OPNsenseCredentialService
+    class OPNsenseProbeStrategies
+  }
+  package "공통 관리" as CommonServices {
+    class NotificationService
+    class LogService
+    class UserService
+    class AiProviderService
+  }
 }
 
-package "Policy (BDD / 전략)" {
+package "3. Policy (검증 / 장비별 전략)" as PolicyLayer {
   class SegmentationBddEngine
   class DevicePolicies
   class QuarantineMethods
+  class PolicyPushNotifier
 }
 
-package "Repository (Spring Data JPA)" {
+package "4. Repository (Spring Data JPA)" as RepositoryLayer {
   class ProjectRepository
   class ExpectedAgentRepository
   class QuarantineStateRepository
   class NotificationRepository
+  class ComplianceChangeRepository
 }
 
-package "Model / entity (@Entity)" {
+package "5. Model / Entity (@Entity)" as EntityLayer {
   class Project
   class ProjectSubnet
   class ProjectRule
@@ -97,36 +124,96 @@ AgentMessageRouterService --> AgentSessionRegistry
 AgentMessageRouterService --> AgentTelemetryStore
 AgentMessageRouterService --> QuarantineService
 AgentMessageRouterService --> PolicyRegistryService
+AgentMessageRouterService --> NodeRegistryService
+AgentMessageRouterService --> DeviceConfigService
+AgentMessageRouterService --> LogService
+AgentMessageRouterService --> NotificationService
+AgentMessageRouterService --> CliIngestionService
 
 AgentStatusController --> AgentMessageRouterService
 AgentStatusController --> AgentTelemetryStore
+AgentStatusController --> AgentSessionRegistry
+AgentStatusController --> DeviceConfigService
+AgentStatusController --> ExpectedAgentService
+AgentStatusController --> QuarantineService
 AgentBundleController --> AgentBundleService
 ExpectedAgentController --> ExpectedAgentService
+ExpectedAgentController --> AgentMessageRouterService
 QuarantineController --> QuarantineService
-PolicyManagement --> SegmentationBddEngine
+PolicyManagement --> ProjectService
+PolicyManagement --> QuarantineService
+PolicyManagement --> NotificationService
+PolicyManagement --> PolicyPushNotifier
 PolicyAdviceController --> ViolationAdvisorService
+PolicyAdviceController --> NotificationService
 ProjectController --> ProjectService
+NetworkTopologyController --> ProjectService
+NetworkTopologyController --> AgentMessageRouterService
+NetworkTopologyController --> NodeRegistryService
+NetworkTopologyController --> QuarantineService
+ComplianceController --> ComplianceService
 NotificationController --> NotificationService
 LogController --> LogService
+OPNsenseController --> OPNsenseCredentialService
+OPNsenseController --> AgentMessageRouterService
+OPNsenseController --> OPNsenseProbeStrategies
+OfflineImportController --> OfflineSnapshotService
+OfflineImportController --> AgentMessageRouterService
 AiProviderController --> AiProviderService
 AuthController --> UserService
 UserController --> UserService
+RouterController --> AgentMessageRouterService
+CliIngestController --> CliIngestService
 
 ProjectService --> ProjectRepository
 ExpectedAgentService --> ExpectedAgentRepository
 QuarantineService --> QuarantineStateRepository
+QuarantineService --> ComplianceService
+QuarantineService --> NotificationService
+QuarantineService --> NodeRegistryService
+QuarantineService --> ProjectRepository
 QuarantineService --> QuarantineMethods
+ProjectService --> ComplianceService
+ProjectService --> NotificationService
 PolicyRegistryService --> DevicePolicies
+PolicyRegistryService --> QuarantineService
 NotificationService --> NotificationRepository
-ComplianceService --> ProjectRepository
+ComplianceService --> ComplianceChangeRepository
+CliIngestService --> CliIngestionService
+CliIngestService --> DeviceConfigService
+OfflineSnapshotService --> DeviceConfigService
+OfflineSnapshotService --> AgentMessageRouterService
+
+ProjectService --> SegmentationBddEngine
+PolicyAdviceController --> ProjectService : 정책 위반 정보 참조
+ViolationAdvisorService --> ProjectService : 분석 대상 프로젝트
+PolicyPushNotifier ..> AgentMessageRouterService : Agent에 정책 전달
 
 ProjectRepository --> Project
-ProjectRepository --> ProjectSubnet
-ProjectRepository --> ProjectRule
 QuarantineStateRepository --> QuarantineState
 NotificationRepository --> Notification
 @enduml
 ```
+
+### 관계를 간단히 설명하면
+
+- **Controller는 API 진입점입니다.** 프로젝트 요청, 정책 조회/전달, 위반 조언 요청, 격리 요청처럼
+  기능과 URL의 책임에 따라 나뉘며, 입력을 받고 적절한 Service에 위임합니다.
+- **Service는 업무 처리 담당입니다.** 프로젝트 저장과 망분리 검증은 `ProjectService`,
+  위반 조언은 `ViolationAdvisorService`, 격리·해제는 `QuarantineService`가 처리합니다.
+  한 Service가 여러 Controller에서 재사용되거나 다른 Service와 협력할 수 있으므로
+  Controller와 Service가 항상 일대일로 대응하지는 않습니다.
+- 예를 들어 **프로젝트의 정책/위반 정보 조회**는 `ProjectController` 또는 `PolicyManagement`에서
+  `ProjectService`로 이어지고, `ProjectService`가 정책 검증 엔진을 사용합니다.
+  **위반 대응 조언**은 `PolicyAdviceController`가 `ViolationAdvisorService`에 위임하고,
+  조언 서비스가 프로젝트 정보를 참조합니다.
+- **격리 요청**은 `QuarantineController → QuarantineService`로 들어갑니다.
+  격리 서비스는 장비별 전략을 선택하고 상태를 저장하며, 필요한 경우 Agent에 명령을 전달합니다.
+  변경 이력과 알림도 관련 Service를 통해 기록합니다.
+- 기능별 Controller로 나눈 이유는 API 책임과 접근 경계를 분명히 하고, 프로젝트·정책·격리 등
+  서로 다른 업무 기능을 독립적으로 수정하기 위해서입니다. 대신 업무 흐름이 여러 Service를
+  지나 복잡해질 수 있으므로, 개요도에서는 핵심 경로만 보여 주고 상세 의존은 하위 다이어그램으로
+  분리했습니다.
 
 ---
 
@@ -258,9 +345,12 @@ class LogController <<@RestController /api/v1/logs>> {
 
 class OPNsenseController <<@RestController /api/v1/opnsense>> {
   + listCredentials()
-  + saveCredential(body)
-  + verify(id)
-  + probe(id)
+  + getCredential(nodeId | agentIdAlias)
+  + saveCredential(nodeId | agentIdAlias, body) <<ADMIN/OPERATOR>>
+  + deleteCredential(nodeId | agentIdAlias) <<ADMIN/OPERATOR>>
+  + verify(nodeId | agentIdAlias) <<ADMIN/OPERATOR>>
+  + verifyAll() <<ADMIN/OPERATOR>>
+  + probe(nodeId | agentIdAlias) <<ADMIN>>
 }
 
 class OfflineImportController <<@RestController /api/v1/offline>> {
@@ -298,23 +388,37 @@ class RouterController <<@RestController /api/v1/routes>> {
 
 AgentStatusController --> AgentMessageRouterService
 AgentStatusController --> AgentTelemetryStore
+AgentStatusController --> AgentSessionRegistry
+AgentStatusController --> DeviceConfigService
+AgentStatusController --> ExpectedAgentService
+AgentStatusController --> QuarantineService
 AgentBundleController --> AgentBundleService
 ExpectedAgentController --> ExpectedAgentService
+ExpectedAgentController --> AgentMessageRouterService
 QuarantineController --> QuarantineService
-PolicyManagement --> SegmentationBddEngine
 PolicyManagement --> ProjectService
+PolicyManagement --> QuarantineService
+PolicyManagement --> NotificationService
+PolicyManagement --> PolicyPushNotifier
 PolicyAdviceController --> ViolationAdvisorService
+PolicyAdviceController --> NotificationService
 ProjectController --> ProjectService
 NetworkTopologyController --> ProjectService
+NetworkTopologyController --> AgentMessageRouterService
 NetworkTopologyController --> NodeRegistryService
+NetworkTopologyController --> QuarantineService
 ComplianceController --> ComplianceService
 NotificationController --> NotificationService
 LogController --> LogService
 OPNsenseController --> OPNsenseCredentialService
+OPNsenseController --> AgentMessageRouterService
+OPNsenseController --> OPNsenseProbeStrategies
 OfflineImportController --> OfflineSnapshotService
+OfflineImportController --> AgentMessageRouterService
 AiProviderController --> AiProviderService
 AuthController --> UserService
 UserController --> UserService
+RouterController --> AgentMessageRouterService
 @enduml
 ```
 
@@ -414,6 +518,12 @@ class ComplianceService <<@Service>> {
   + changes(...)
 }
 
+class UserService <<@Service>> {
+  + login(...)
+  + create(...)
+  + changePassword(...)
+}
+
 class NotificationService <<@Service>> {
   + notify(...)
   + list(...)
@@ -464,7 +574,6 @@ skinparam classAttributeIconSize 0
 skinparam shadowing false
 
 package "Service.cli" {
-  class CliIngestController <<Controller>>
   class CliIngestService <<@Service>>
   class CliIngestionService <<@Service>>
   class CliOutputParser <<@Service>>
@@ -596,6 +705,8 @@ AiProviderService --> AiProviderRepository
 AiProviderService --> OpenAiCompatibleClient
 AiProviderService ..> LogAnalysis
 OPNsenseCredentialService --> OPNsenseApiClient
+OPNsenseCredentialService --> OPNsenseCredentialRepository
+OPNsenseCredentialService --> ConfigurationRepository : resolve node_id / legacy agent_id alias
 OPNsenseCredentialService --> OPNsenseProbeStrategies
 OPNsenseProbeStrategies --> OPNsenseProbeStrategy
 ProbeStrategies ..> OPNsenseProbeStrategy
@@ -919,7 +1030,7 @@ package "Model.entity (@Entity)" {
     + isDefault / enabled : Boolean
   }
   class Configuration {
-    + id : Integer
+    + nodeId : Integer
     + agentId / hostname : String
     + deviceType : DeviceType
   }
@@ -934,14 +1045,14 @@ package "Model.entity (@Entity)" {
     + name / managementIp / version : String
   }
   class OPNsenseCredential {
-    + agentId : String
+    + node : Configuration
     + displayName / baseUrl : String
     + apiKey / secret : String
     + allowInsecureTls : boolean
     + status : Status
     + lastError / detectedVersion : String
   }
-  class RestAPIConnectionConfig {
+  class RestAPIConnectionConfig <<legacy, no active call sites>> {
     + id : Long
     + node : Configuration
     + apikey / baseurl : String
@@ -950,8 +1061,6 @@ package "Model.entity (@Entity)" {
 
 package "Repository" {
   interface ProjectRepository
-  interface ProjectSubnetRepository
-  interface ProjectRuleRepository
   interface ExpectedAgentRepository
   interface QuarantineStateRepository
   interface NotificationRepository
@@ -960,7 +1069,6 @@ package "Repository" {
   interface PolicyAdviceRepository
   interface ComplianceChangeRepository
   interface ConfigurationRepository
-  interface InterfaceRepository
   interface UserRepository
   interface AiProviderRepository
   interface OPNSenseFirewallRepository
@@ -969,7 +1077,7 @@ package "Repository" {
 
 Project "1" *-- "0..*" ProjectSubnet
 Project "1" *-- "0..*" ProjectRule
-Project "1" o-- "1" User : owner
+Project "0..*" --> "0..1" User : optional owner (@ManyToOne)
 ProjectRule ..> PolicyRule : origin
 ProjectSubnet ..> ZoneClass
 
@@ -986,10 +1094,13 @@ UserRepository ..> User
 AiProviderRepository ..> AiProvider
 OPNSenseFirewallRepository ..> OPNSenseFirewall
 OPNsenseCredentialRepository ..> OPNsenseCredential
+Configuration "1" <-- "0..1" OPNsenseCredential : node_id (unique FK)
 @enduml
 ```
 
-> 리포지토리는 모두 `JpaRepository<엔티티, ID>`를 확장하고, 파생 쿼리(`findByAgentId`, `findByProjectKeyOrderBy...`)와 `@Query`(DeviceLog/Notification 검색)를 사용합니다.
+> 리포지토리는 모두 `JpaRepository<엔티티, ID>`를 확장하고, 파생 쿼리(`findByProjectKeyOrderBy...`)와 `@Query`(DeviceLog/Notification 검색 및 OPNsense credential의 node_id 조회)를 사용합니다. OPNsense credential API의 정본 키는 `node_id`이며 기존 Agent-ID 요청은 Configuration을 통한 호환 조회입니다.
+
+> `RestAPIConnectionConfig`는 현재 서비스/컨트롤러에서 사용처가 없는 legacy 엔티티입니다. OPNsense 접속 정보는 `OPNsenseCredential`만 정본으로 사용하며, 두 테이블을 동기화하지 않습니다.
 
 ---
 
@@ -1039,9 +1150,9 @@ SonarValidatorBackendApplication ..> SiteProperties
 | `Policy.strategy`(+`vendor`)    | `DevicePolicies`, 벤더별 `*Policy`                                                                                                | 벤더별 정책 JSON 생성           |
 | `Policy.advice`                   | `PolicyAdviceParser`, `PolicyAdviceAnswer`                                                                                        | AI 어드바이스 파싱              |
 | `Model`                           | 라우팅/주소/구역/설정 파서                                                                                                            | 도메인 모델                     |
-| `Model.entity`                    | 14개`@Entity`                                                                                                                       | JPA 영속 엔티티                 |
+| `Model.entity`                    | 17개`@Entity`                                                                                                                       | JPA 영속 엔티티                 |
 | `Model.dto`                       | `Envelope`, `ProjectDto`, `ProjectMapper`                                                                                       | 웹소켓 봉투/프로젝트 DTO        |
-| `Repository`                      | 16개 인터페이스                                                                                                                       | Spring Data JPA                 |
+| `Repository`                      | 13개 인터페이스                                                                                                                       | Spring Data JPA                 |
 | `Util` / `View`                 | `Timestamps`, `ProjectView`                                                                                                       | 유틸/뷰                         |
 
 ---

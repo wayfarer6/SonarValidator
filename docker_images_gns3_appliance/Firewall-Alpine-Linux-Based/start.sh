@@ -1,5 +1,7 @@
 #!/bin/sh
 
+/root/gns3-fix-links.sh
+
 echo "[1/4] Checking SSH host keys..."
 # 이미 호스트 키가 생성되어 있는지 확인하고 없을 때만 생성
 if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then

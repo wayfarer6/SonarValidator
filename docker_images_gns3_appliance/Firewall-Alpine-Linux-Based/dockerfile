@@ -5,11 +5,12 @@ WORKDIR /root
 # 스크립트 및 설정 파일 복사
 COPY build-script.sh .
 COPY start.sh .
+COPY gns3-fix-links.sh .
 COPY nftables.conf /etc/nftables.conf
 COPY dnsmasq.conf /etc/dnsmasq.conf
 
 # 권한 부여 및 패키지 설치
-RUN chmod +x build-script.sh start.sh && ./build-script.sh
+RUN chmod +x build-script.sh start.sh gns3-fix-links.sh && ./build-script.sh
 
 # 컨테이너 구동 시 여러 데몬(SSH, nftables, dnsmasq)을 실행하는 스크립트 지정
 CMD ["/root/start.sh"]

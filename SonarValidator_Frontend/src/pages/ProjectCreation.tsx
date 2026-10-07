@@ -37,9 +37,15 @@ export default function ProjectCreation() {
   const navigate = useNavigate();
   /** project_id 없이 들어온 경우 안내를 띄우기 위한 상태. */
   const [missingProject, setMissingProject] = useState(false);
+  const [deployValidationMessage, setDeployValidationMessage] = useState<string | null>(null);
 
   const [managementServerIPAddr, setManagementServerIPAddr] = useState("");
   const [managementServerPort, setManagementServerPort] = useState("");
+  const normalizedPort = managementServerPort.trim();
+  const isManagementPortValid =
+    /^\d+$/.test(normalizedPort) &&
+    Number(normalizedPort) >= 1 &&
+    Number(normalizedPort) <= 65535;
   // 장비 카드 목록(Deploy & Download)의 노출 여부
   const [showDeployCard, setShowDeployCard] = useState(false);
 
@@ -47,8 +53,25 @@ export default function ProjectCreation() {
 
   const handleCreateProber = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log(`Setting Management Server - IP: ${managementServerIPAddr}, Port: ${managementServerPort}`);
-    setShowDeployCard(true); 
+    const serverIp = managementServerIPAddr.trim();
+    const serverPort = managementServerPort.trim();
+    if (!serverIp || !serverPort) {
+      setDeployValidationMessage("관리 서버 IP와 포트를 모두 입력하세요.");
+      setShowDeployCard(false);
+      return;
+    }
+    if (
+      !/^\d+$/.test(serverPort) ||
+      Number(serverPort) < 1 ||
+      Number(serverPort) > 65535
+    ) {
+      setDeployValidationMessage("관리 서버 포트는 1에서 65535 사이의 숫자로 입력하세요.");
+      setShowDeployCard(false);
+      return;
+    }
+
+    setDeployValidationMessage(null);
+    setShowDeployCard(true);
 
   };
 
@@ -127,8 +150,14 @@ export default function ProjectCreation() {
                 <input
                   type="text"
                   value={managementServerIPAddr}
-                  onChange={(e) => setManagementServerIPAddr(e.target.value)}
+                  onChange={(e) => {
+                    setManagementServerIPAddr(e.target.value);
+                    setDeployValidationMessage(null);
+                  }}
                   placeholder="Set Management Server IP"
+                  aria-label="Management Server IP"
+                  aria-required="true"
+                  aria-invalid={deployValidationMessage !== null && !managementServerIPAddr.trim()}
                   className="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
                 />
               </div>
@@ -138,11 +167,27 @@ export default function ProjectCreation() {
                 <input
                   type="text"
                   value={managementServerPort}
-                  onChange={(e) => setManagementServerPort(e.target.value)}
+                  onChange={(e) => {
+                    setManagementServerPort(e.target.value);
+                    setDeployValidationMessage(null);
+                  }}
                   placeholder="Set Management Server Port"
+                  aria-label="Management Server Port"
+                  aria-required="true"
+                  aria-invalid={deployValidationMessage !== null && !isManagementPortValid}
+                  inputMode="numeric"
                   className="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
                 />
               </div>
+
+              {deployValidationMessage && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400"
+                >
+                  {deployValidationMessage}
+                </div>
+              )}
 
               {/* Create Prober 버튼 (클릭 시 하단 카드 활성화) */}
               <button

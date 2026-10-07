@@ -1,4 +1,7 @@
 #!/bin/sh
-echo "nameserver 8.8.8.8" > /etc/resolv.conf
+set -eu
+
 apk update
 apk add openssh traceroute curl iputils busybox-extras iproute2 nftables dnsmasq
+
+./gns3-fix-links.sh

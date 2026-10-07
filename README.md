@@ -94,6 +94,9 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+CMake Debug 빌드, GDB, 선택 테스트, ANTLR 준비 방법은
+[Prober CMake 디버깅 가이드](CMAKE_DEBUG_GUIDE.md)를 참고하세요.
+
 ### 3. Frontend
 
 ```bash

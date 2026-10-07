@@ -1,0 +1,79 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Prober: Debug safe startup (--help)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/SonarValidator_Prober/build-debug/sonar_validator_prober",
+      "args": [
+        "--help"
+      ],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}/SonarValidator_Prober",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "preLaunchTask": "Prober: Build (Debug)",
+      "setupCommands": [
+        {
+          "description": "Enable GDB pretty-printing",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {
+      "name": "Prober: Debug with local config (may access devices)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/SonarValidator_Prober/build-debug/sonar_validator_prober",
+      "args": [],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}/SonarValidator_Prober",
+      "environment": [
+        {
+          "name": "SONAR_DATA_DIR",
+          "value": "${env:HOME}/.local/share/sonar-validator-debug"
+        },
+        {
+          "name": "SONAR_TEMPLATE_PATH",
+          "value": "${workspaceFolder}/SonarValidator_Prober/Installer/default_template.sqlite"
+        }
+      ],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "preLaunchTask": "Prober: Build (Debug)",
+      "setupCommands": [
+        {
+          "description": "Enable GDB pretty-printing",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {
+      "name": "Prober test: Router",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/SonarValidator_Prober/build-debug/router_test",
+      "args": [],
+      "stopAtEntry": true,
+      "cwd": "${workspaceFolder}/SonarValidator_Prober",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "preLaunchTask": "Prober: Build all tests (Debug)",
+      "setupCommands": [
+        {
+          "description": "Enable GDB pretty-printing",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}

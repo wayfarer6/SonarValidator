@@ -1,32 +1,6 @@
-// ⚠️ 상태: 미완 (WIP) — SONAR-25
-//
-// 이 테스트는 **아직 CI 에 걸지 않았습니다.**
-//
-// ## 왜 미완인가
-//
-// 응답하지 않는 주소(192.0.2.1)로 connect 를 걸고 제한 시간 안에
-// 반환하는지 보려 했는데, **테스트 자체가 hang** 합니다.
-//
-// 확인한 사실:
-//   - 소켓이 SYN-SENT 에 남는다
-//   - 주 스레드가 sigsuspend 에 머문다
-//   - ConnectWithTimeout(non-blocking + poll) 을 적용해도 동일하다
-//   - expires_after() 는 비동기 전용이라 동기 connect 에는 효과가 없다
-//     (Beast 문서로 확인) — 이건 유효한 발견이다
-//
-// 아직 가리지 못한 것:
-//   - hang 이 ConnectWithTimeout 안에서인지, 그 밖(예: 서비스 객체
-//     생성자의 resolver/DNS) 에서인지 확인 필요
-//   - 테스트를 gdb 로 잡을 때 ptrace_scope 제한으로 스택을 못 봤다
-//     (/proc/sys/kernel/yama/ptrace_scope 완화 필요)
-//
-// ## 그래서 남긴 결론
-//
-// 이 테스트는 **주소를 블랙홀로 두고 hang 을 기대하는** 방식이 불안정하다.
-// 대신 **실제 서버를 띄우고 SIGTERM 으로 종료되는지** 보는 통합 테스트가
-// 더 현실적이다 (management_service_integration_test 가 이미 그 구조를 갖고 있다).
-//
-// 참고: docs/Agent/Appendix_SIGTERM_Hang_Analysis.md
+// Live-network shutdown smoke test. It is excluded from default CTest because
+// TEST-NET routing varies by environment; deterministic timeout/cleanup coverage
+// lives in connect_with_timeout_test and command_runner_test.
 
 #include <chrono>
 #include <cstdlib>
@@ -64,8 +38,7 @@ namespace
     /**
      * fetchPolicy 가 제한 시간 안에 반환하는지 확인합니다.
      *
-     * 타임아웃(expires_after)이 없으면 이 future 는 영원히 ready 가 되지
-     * 않습니다. 그 경우를 "미종료" 로 판정합니다.
+     * 연결과 응답 대기가 모두 제한 시간 안에 끝나는지 확인합니다.
      *
      * @param budget 허용 대기 시간 (연결 타임아웃 + 정지 확인 여유)
      * @return 제한 시간 내 반환했으면 true
@@ -93,7 +66,7 @@ namespace
             if (std::chrono::steady_clock::now() >= deadline)
             {
                 // 정지 요청을 보내 봅니다. 그래도 반환하지 않으면
-                // expires_after() 가 빠진 것입니다.
+                // 연결/응답 경로 중 하나가 예산 안에 종료되지 않았습니다.
                 source.request_stop();
                 if (future.wait_for(std::chrono::seconds(3)) != std::future_status::ready)
                 {

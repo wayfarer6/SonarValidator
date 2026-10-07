@@ -42,8 +42,13 @@ SonarValidator_Frontend/dist
 SonarValidator_Frontend/.vite
 SonarValidator_Frontend/coverage
 
-# --- C++ 프로버 (이미지와 무관) ---
-SonarValidator_Prober
+# --- C++ 프로버 빌드 산출물 ---
+# backend 이미지가 prober 바이너리를 직접 빌드하므로 소스는 컨텍스트에 포함한다.
+SonarValidator_Prober/.idea
+SonarValidator_Prober/build
+SonarValidator_Prober/build_static
+SonarValidator_Prober/antlr4-build
+SonarValidator_Prober/antlr4-runtime-src
 
 # --- Windows 메타데이터 잔재 ---
 # 이 저장소에는 파일마다 "파일명:Zone.Identifier" 가 섞여 있다.

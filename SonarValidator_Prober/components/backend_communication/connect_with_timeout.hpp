@@ -2,10 +2,15 @@
 #define SONAR_VALIDATOR_PROBER_CONNECT_WITH_TIMEOUT_HPP_
 
 #include <chrono>
+#include <cerrno>
 
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
+
+#include <poll.h>
+#include <sys/socket.h>
+#include <sys/time.h>
 
 namespace sonar::net
 {
@@ -62,10 +67,28 @@ inline boost::system::error_code ConnectWithTimeout(
     auto& socket = beast::get_lowest_layer(stream).socket();
     boost::system::error_code ec;
 
+    boost::system::error_code ignored;
+    socket.close(ignored);
+
     if (results.empty())
     {
         return net::error::make_error_code(net::error::host_not_found);
     }
+
+    struct CloseOnFailure
+    {
+        tcp::socket& socket;
+        bool keep_open{false};
+
+        ~CloseOnFailure()
+        {
+            if (!keep_open)
+            {
+                boost::system::error_code ignored;
+                socket.close(ignored);
+            }
+        }
+    } close_on_failure{socket};
 
     const auto endpoint = results.begin()->endpoint();
 
@@ -86,7 +109,7 @@ inline boost::system::error_code ConnectWithTimeout(
     // 정상 경로는 EINPROGRESS(would_block) 로 돌아옵니다.
     if (ec && ec != net::error::in_progress && ec != net::error::would_block)
     {
-        return ec;  // 즉시 실패 (연결 거부 등)
+        return ec;
     }
 
     if (ec)  // 진행 중 → poll 로 제한 시간만 대기
@@ -135,6 +158,7 @@ inline boost::system::error_code ConnectWithTimeout(
     (void)::setsockopt(socket.native_handle(), SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     (void)::setsockopt(socket.native_handle(), SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
 
+    close_on_failure.keep_open = true;
     return {};
 }
 

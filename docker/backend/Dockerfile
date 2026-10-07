@@ -3,11 +3,10 @@
 # SonarValidator Backend (Spring Boot 4.1.1 / Java 26)
 # =============================================================================
 #
-# 5단계로 나눈다.
+# 3개 빌드 단계로 나눈다 (builder 는 사전에 만든 BASE_IMAGE 를 사용).
 #   1) prober-builder : C++23 Prober(Agent) 정적 바이너리 빌드
-#   2) base           : docker/base 에서 직접 구운 JDK 26 + Maven 이미지
-#   3) builder        : 소스를 컴파일해 실행 가능한 fat jar 생성 (바이너리 스테이징 포함)
-#   4) runtime        : JDK 만 담은 최소 Ubuntu + 비root 사용자
+#   2) builder        : 소스를 컴파일해 실행 가능한 fat jar 생성 (바이너리 스테이징 포함)
+#   3) runtime        : JDK 와 번들 생성에 필요한 프로버 바이너리를 담은 Ubuntu
 #
 # 런타임에 Maven 은 필요 없다. base 이미지에서 /opt/java 만 복사해 오므로
 # 최종 이미지에는 Maven 과 apt 캐시가 들어가지 않는다.
@@ -16,7 +15,8 @@
 # 정적 링크 바이너리(`build_static/sonar_validator_prober`)는 빌드 산출물로
 # 저장소에 커밋되지 않지만, 배포 시 번들에 포함시켜야 하므로 여기서
 # 구성 단계에 구성한다. 그래서 최종 jar 는 `/tmp/sonar_stage` 의
-# 바이너리를 함께 포함한 설치 번들을 만들 수 있다.
+# 바이너리를 함께 포함한 설치 번들을 만들 수 있다. 런타임에서도 번들 요청 때
+# 파일을 읽어야 하므로 최종 이미지의 동일 경로로 복사한다.
 #
 # 빌드 (저장소 루트에서)
 #   docker build -t sonar-validator/backend:latest -f docker/backend/Dockerfile .
@@ -28,12 +28,13 @@
 # Prober 정적 바이너리 빌드용 베이스 이미지
 # 개발 환경에 맞춘 gcc/cmake 등을 포함합니다.
 ARG BUILDER_IMAGE=ubuntu:24.04
+ARG BASE_IMAGE=sonar-validator/jdk26-base:26.0.2.1
 
 # Prober 빌드 스테이지
 FROM ${BUILDER_IMAGE} AS prober-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential g++ cmake \
+      ca-certificates build-essential g++ cmake \
       curl unzip \
       libsqlite3-dev libssl-dev \
       libboost-dev nlohmann-json3-dev \
@@ -60,14 +61,13 @@ COPY SonarValidator_Prober/ ./
 
 RUN cmake -S . -B build_static \
       -DCMAKE_BUILD_TYPE=Release \
+      -DSONAR_STATIC_LINK=ON \
+      -DCMAKE_EXE_LINKER_FLAGS=-static \
       -DANTLR4_RUNTIME_ROOT=/opt/antlr4-install && \
     cmake --build build_static --target sonar_validator_prober --parallel $(nproc) && \
     mkdir -p /tmp/sonar_stage && \
     cp build_static/sonar_validator_prober /tmp/sonar_stage/ && \
     ls -la /tmp/sonar_stage/
-
-# Backend 빌드용 베이스 이미지
-ARG BASE_IMAGE=sonar-validator/jdk26-base:26.0.2.1
 
 # Backend builder 스테이지
 FROM ${BASE_IMAGE} AS builder
@@ -122,6 +122,10 @@ RUN apt-get update \
 
 # JDK 만 가져온다. Maven 은 복사하지 않는다.
 COPY --from=builder /opt/java /opt/java
+
+# 번들 생성은 런타임 요청 시 실행되므로 빌드 스테이지에만 두지 않고
+# 서비스의 기본 스테이징 경로에도 프로버 바이너리를 복사한다.
+COPY --from=builder /tmp/sonar_stage/ /tmp/sonar_stage/
 
 ENV JAVA_HOME=/opt/java
 ENV PATH="/opt/java/bin:${PATH}"

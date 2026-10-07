@@ -31,7 +31,7 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
     while (!stop_token.stop_requested())
     {
         // 서버에 policy-request 봉투를 보내고 같은 correlation_id 의 응답을 기다립니다.
-        const Json policy =
+        const nlohmann::json policy =
             management_service.fetchPolicy(config.GetDeviceType(), agent_id, stop_token);
 
         if (policy.is_null() || policy.is_boolean())
@@ -43,7 +43,20 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
         std::cout << "[INFO] Management worker received policy: " << policy.dump() << '\n';
 
         // 장치 유형(DeviceType)별로 정책 처리 함수를 분기합니다.
-        ReceivePolicy(config, management_service, policy);
+        const bool applied = ReceivePolicy(config, management_service, policy);
+        const std::string policy_id = policy.value("policy_id", std::string{});
+        if (policy_id.empty())
+        {
+            std::cerr << "[MGMT] policy response has no policy_id; result was not acknowledged\n";
+        }
+        else if (!management_service.ReportPolicyApplied(config.GetDeviceType(),
+                                                          agent_id,
+                                                          policy_id,
+                                                          applied))
+        {
+            std::cerr << "[MGMT] failed to report policy result: policy_id="
+                      << policy_id << '\n';
+        }
 
         // 정책 적용 직후 잠깐 수신 창을 엽니다.
         //
@@ -61,10 +74,10 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
                 continue;
             }
 
-            Json message;
+            nlohmann::json message;
             try
             {
-                message = Json::parse(raw);
+                message = nlohmann::json::parse(raw);
             }
             catch (const std::exception&)
             {

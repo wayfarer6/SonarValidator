@@ -16,7 +16,17 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Threads REQUIRED)
-find_package(SQLite3 REQUIRED)
+
+option(SONAR_STATIC_LINK "Link Prober dependencies statically" OFF)
+if(SONAR_STATIC_LINK)
+    set(_SONAR_SAVED_LIBRARY_SUFFIXES "${CMAKE_FIND_LIBRARY_SUFFIXES}")
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+    find_package(SQLite3 REQUIRED)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES "${_SONAR_SAVED_LIBRARY_SUFFIXES}")
+    unset(_SONAR_SAVED_LIBRARY_SUFFIXES)
+else()
+    find_package(SQLite3 REQUIRED)
+endif()
 
 # --------------------------------------------------------------- nlohmann/json --
 # 시스템에 설치된 헤더를 우선 쓰고, 없으면 FetchContent 로 받는다.
@@ -128,13 +138,13 @@ set(SONAR_PARSER_SOURCES
     components/parser/cli_output_parser.cpp
     ${SONAR_ANTLR4_GENERATED_SOURCES})
 
-# 장치별 구현. 모두 "JSON -> 모델" 로만 변환하고 파싱은 parser 에 위임한다.
+# 장치 도메인 구현. CLI 텍스트 파싱은 공통 parser 에 위임한다.
 set(SONAR_DEVICE_SOURCES
+    components/device/router/router.cpp
     components/device/switch/switch_interface/switch.cpp
     components/device/switch/vendor/openvswitch/openvswitch.cpp
     components/device/switch/vendor/arista/aristavEOS.cpp
     components/device/router/routing_table/routing_table.cpp
-    components/device/router/vendor/cisco/cisco8000v.cpp
     components/device/firewall/firewall_interface/firewall.cpp
     components/device/vm/ubuntu/vm_service.cpp)
 
@@ -153,8 +163,10 @@ set(SONAR_DATABASE_SOURCES
     database/telemetry_store.cpp)
 
 set(SONAR_SUPPORT_SOURCES
+    components/policy/policy_command.cpp
     components/policy/policy_receiver.cpp
     components/policy/quarantine_handler.cpp
+    components/terminal/command_runner.cpp
     components/terminal/terminal_session.cpp
     utils/cli_options.cpp
     utils/data_directory.cpp)
@@ -241,6 +253,30 @@ add_executable(envelope_test
 sonar_configure_target(envelope_test)
 add_test(NAME envelope_test COMMAND envelope_test)
 
+# Server-originated policy command DTO validation (no device commands executed)
+add_executable(policy_command_test
+    components/policy/policy_command_test.cpp
+    components/policy/policy_command.cpp)
+sonar_configure_target(policy_command_test)
+add_test(NAME policy_command_test COMMAND policy_command_test)
+
+add_executable(connect_with_timeout_test
+    components/backend_communication/connect_with_timeout_test.cpp)
+sonar_configure_target(connect_with_timeout_test)
+add_test(NAME connect_with_timeout_test COMMAND connect_with_timeout_test)
+
+add_executable(command_runner_test
+    components/terminal/command_runner_test.cpp
+    components/terminal/command_runner.cpp)
+sonar_configure_target(command_runner_test)
+add_test(NAME command_runner_test COMMAND command_runner_test)
+
+add_executable(terminal_session_test
+    components/terminal/terminal_session_test.cpp
+    components/terminal/terminal_session.cpp)
+sonar_configure_target(terminal_session_test)
+add_test(NAME terminal_session_test COMMAND terminal_session_test)
+
 # 격리 명령 수신 판정 (장치 조작 없음 — 문자열 계약/오인 방지)
 # Isolate()/Release() 는 실제 ip link 를 건드리므로 호출하지 않습니다.
 add_executable(quarantine_handler_test
@@ -264,13 +300,21 @@ add_executable(routing_table_test
 sonar_configure_target(routing_table_test)
 add_test(NAME routing_table_test COMMAND routing_table_test)
 
+# Router model (라우터가 라우팅 상태를 소유하는지 검증)
+add_executable(router_test
+    components/device/router/router_test.cpp
+    components/device/router/router.cpp
+    components/device/router/routing_table/routing_table.cpp
+    ${SONAR_PARSER_SOURCES})
+sonar_configure_target(router_test)
+add_test(NAME router_test COMMAND router_test)
+
 # 스위치 (ANTLR ParseOvsTopology / ParseRunningConfig 위임 검증)
 add_executable(switch_test
     components/device/switch/switch_interface/switch_test.cpp
     components/device/switch/switch_interface/switch.cpp
     components/device/switch/vendor/openvswitch/openvswitch.cpp
     components/device/switch/vendor/arista/aristavEOS.cpp
-    components/device/router/vendor/cisco/cisco8000v.cpp
     components/device/router/routing_table/routing_table.cpp
     ${SONAR_PARSER_SOURCES})
 sonar_configure_target(switch_test)
@@ -318,9 +362,8 @@ add_executable(cli_output_parser_test
 sonar_configure_target(cli_output_parser_test)
 add_test(NAME cli_output_parser_test COMMAND cli_output_parser_test)
 
-# SIGTERM 종료 회귀 테스트 — ⚠️ 미완 (SONAR-25)
-#   블랙홀 주소를 쓰는 방식이 테스트 자체에서 hang 한다. CI 에 걸지 않는다.
-#   (빌드만 하려면 --target sigterm_shutdown_test)
+# SIGTERM live-network smoke test. Excluded from default build/CTest because
+# TEST-NET routing differs by environment; deterministic unit tests cover the timeouts.
 add_executable(sigterm_shutdown_test EXCLUDE_FROM_ALL
     module/management_module/sigterm_shutdown_test.cpp
     ${SONAR_MODULE_SOURCES}

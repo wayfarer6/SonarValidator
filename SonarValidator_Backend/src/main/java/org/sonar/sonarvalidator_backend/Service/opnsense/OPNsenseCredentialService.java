@@ -1,89 +1,52 @@
 package org.sonar.sonarvalidator_backend.Service.opnsense;
 
-import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
-import org.sonar.sonarvalidator_backend.Model.entity.OPNsenseCredential;
-import org.sonar.sonarvalidator_backend.Repository.OPNsenseCredentialRepository;
-import org.sonar.sonarvalidator_backend.Service.secret.SecretCipher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.sonar.sonarvalidator_backend.Model.Configuration;
+import org.sonar.sonarvalidator_backend.Model.DeviceType;
+import org.sonar.sonarvalidator_backend.Model.entity.OPNsenseCredential;
+import org.sonar.sonarvalidator_backend.Repository.ConfigurationRepository;
+import org.sonar.sonarvalidator_backend.Repository.OPNsenseCredentialRepository;
+import org.sonar.sonarvalidator_backend.Service.NodeRegistryService;
+import org.sonar.sonarvalidator_backend.Service.secret.SecretCipher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.JsonNode;
 
-/**
- * OPNsense 접속 정보의 저장/조회와 연결 확인을 담당합니다.
- *
- * <h2>시크릿 취급 원칙</h2>
- * <ol>
- *   <li>저장할 때는 <b>암호화</b>합니다. ({@link SecretCipher}, AES-GCM)</li>
- *   <li>응답에는 <b>마스킹된 값만</b> 넣습니다. 저장된 비밀을 다시 읽어
- *       보여줄 이유가 없고, 보여주면 그 자체가 유출 경로가 됩니다.</li>
- *   <li>수정 시 시크릿을 <b>비워 두면 기존 값 유지</b>합니다.
- *       매번 다시 입력하게 하면 운영자가 평문을 여기저기 붙여 넣게 됩니다.</li>
- *   <li>평문 시크릿은 {@link OPNsenseConnection} 안에서만 존재하고,
- *       그 객체는 호출 직후 버려집니다.</li>
- * </ol>
- *
- * <h2>연결 확인(테스트)이 중요한 이유</h2>
- * <p>URL 과 키가 맞는지 <b>저장 시점에</b> 알려주지 않으면, 운영자는
- * "저장됐다" 는 화면을 믿고 넘어갔다가 정책 푸시 단계에서 처음 실패를
- * 봅니다. 그때는 원인 후보가 너무 많습니다. 그래서 저장 직후
- * {@link #verify} 로 확인하고 결과를 DB 에 남깁니다.
- */
+/** Stores OPNsense credentials attached to the canonical configuration node. */
 @Service
 public class OPNsenseCredentialService {
 
     private static final Logger log = LoggerFactory.getLogger(OPNsenseCredentialService.class);
+    private static final Pattern NUMERIC_NODE_ID = Pattern.compile("[0-9]+");
 
     private final OPNsenseCredentialRepository repository;
+    private final ConfigurationRepository configurationRepository;
+    private final NodeRegistryService nodeRegistry;
     private final SecretCipher secretCipher;
     private final OPNsenseApiClient apiClient;
 
-    /**
-     * 노드 정본 등록 통로입니다. (선택 의존)
-     *
-     * <p>OPNsense 는 Agent 가 없으므로, 자격증명 등록 시점에
-     * {@code configuration} 에 노드를 만들어 두어야 방화벽 상태와 격리가
-     * 참조할 {@code node_id} 가 존재합니다. (DB Design v1.5)
-     *
-     * <p>없으면(단위 테스트) 자격증명만 저장합니다.
-     */
-    private org.sonar.sonarvalidator_backend.Service.NodeRegistryService nodeRegistry;
-
-    /**
-     * @param repository   자격증명 저장소
-     * @param secretCipher 시크릿 암호화기
-     * @param apiClient    OPNsense API 클라이언트
-     */
     public OPNsenseCredentialService(OPNsenseCredentialRepository repository,
+                                     ConfigurationRepository configurationRepository,
+                                     NodeRegistryService nodeRegistry,
                                      SecretCipher secretCipher,
                                      OPNsenseApiClient apiClient) {
         this.repository = repository;
+        this.configurationRepository = configurationRepository;
+        this.nodeRegistry = nodeRegistry;
         this.secretCipher = secretCipher;
         this.apiClient = apiClient;
     }
 
-    /**
-     * 노드 정본 등록 통로를 주입합니다.
-     *
-     * @param nodeRegistry 노드 등록 서비스 (테스트에서는 생략 가능)
-     */
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    public void setNodeRegistry(org.sonar.sonarvalidator_backend.Service.NodeRegistryService nodeRegistry) {
-        this.nodeRegistry = nodeRegistry;
-    }
-
-    /**
-     * 저장된 접속 정보 목록을 조회합니다.
-     *
-     * @return 목록 (시크릿 제외)
-     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listAll() {
         final List<Map<String, Object>> result = new ArrayList<>();
@@ -93,143 +56,105 @@ public class OPNsenseCredentialService {
         return result;
     }
 
-    /**
-     * 특정 Agent 의 접속 정보를 조회합니다.
-     *
-     * @param agentId Agent 식별자
-     * @return 응답 맵 (없으면 null)
-     */
     @Transactional(readOnly = true)
-    public Map<String, Object> get(String agentId) {
-        return repository.findByAgentId(agentId).map(this::toResponse).orElse(null);
+    public Map<String, Object> get(String nodeIdentifier) {
+        return findCredential(nodeIdentifier).map(this::toResponse).orElse(null);
+    }
+
+    /** Resolves either a canonical numeric node_id or the legacy Agent-ID API alias. */
+    @Transactional(readOnly = true)
+    public Optional<OPNsenseCredential> findCredential(String nodeIdentifier) {
+        final Configuration node = findNode(nodeIdentifier);
+        return node == null ? Optional.empty() : repository.findByNodeId(node.getNodeId());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasCredentialForAgentIdentifier(String agentIdentifier) {
+        final String normalized = normalizeIdentifier(agentIdentifier);
+        if (normalized == null) {
+            return false;
+        }
+        final Configuration node = configurationRepository.findByAgentId(normalized).orElse(null);
+        return node != null && repository.existsByNodeId(node.getNodeId());
     }
 
     /**
-     * 접속 정보를 저장합니다. (없으면 생성, 있으면 수정)
-     *
-     * <p>시크릿을 비워 두면 기존 값을 유지합니다. (위 클래스 주석 참고)
-     *
-     * @param agentId          Agent 식별자
-     * @param displayName      표시 이름
-     * @param baseUrl          기준 URL
-     * @param apiKey           API Key (null/빈 값이면 기존 유지)
-     * @param apiSecret        API Secret 평문 (null/빈 값이면 기존 유지)
-     * @param allowInsecureTls 자체 서명 인증서 허용 여부
-     * @param verifyNow        저장 직후 연결 확인을 수행할지 여부
-     * @return 저장 결과 (연결 확인 결과 포함)
-     * @throws IllegalArgumentException agentId 또는 baseUrl 이 비었을 때
+     * Saves credentials in the same transaction as node resolution. Registration
+     * failures propagate before credential persistence, so no orphan is possible.
      */
     @Transactional
-    public Map<String, Object> save(String agentId,
+    public Map<String, Object> save(String nodeIdentifier,
                                     String displayName,
                                     String baseUrl,
                                     String apiKey,
                                     String apiSecret,
                                     boolean allowInsecureTls,
                                     boolean verifyNow) {
-        if (agentId == null || agentId.isBlank()) {
-            throw new IllegalArgumentException("agent_id 는 필수입니다.");
+        final String normalized = normalizeIdentifier(nodeIdentifier);
+        if (normalized == null) {
+            throw new IllegalArgumentException("node_id 는 필수입니다.");
         }
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("OPNsense 주소(base_url)는 필수입니다.");
         }
+        if (!new OPNsenseConnection(baseUrl.trim(), "key", "secret", allowInsecureTls)
+                .isSecureTransport()) {
+            throw new IllegalArgumentException("OPNsense 자격증명은 HTTPS 주소에서만 사용할 수 있습니다.");
+        }
 
-        final OPNsenseCredential credential = repository.findByAgentId(agentId)
+        final Configuration node = resolveNodeForSave(normalized);
+        if (node == null || node.getNodeId() == null) {
+            throw new IllegalStateException("OPNsense 자격증명을 저장할 노드를 등록하지 못했습니다.");
+        }
+
+        final OPNsenseCredential credential = repository.findByNodeId(node.getNodeId())
                 .orElseGet(() -> {
                     final OPNsenseCredential created = new OPNsenseCredential();
-                    created.setAgentId(agentId.trim());
-                    created.setCreatedAt(new java.util.Date());
+                    created.setNode(node);
+                    created.setCreatedAt(new Date());
                     return created;
                 });
-
         credential.setBaseUrl(baseUrl.trim());
         credential.setDisplayName(displayName == null || displayName.isBlank()
-                ? agentId.trim()
+                ? displayNameFor(node)
                 : displayName.trim());
         credential.setAllowInsecureTls(allowInsecureTls);
-
-        // 빈 값이면 "변경 없음" 으로 해석합니다.
         if (apiKey != null && !apiKey.isBlank()) {
             credential.setApiKey(apiKey.trim());
         }
         if (apiSecret != null && !apiSecret.isBlank()) {
             credential.setSecret(secretCipher.encrypt(apiSecret.trim()));
         }
-        credential.setUpdatedAt(new java.util.Date());
+        credential.setUpdatedAt(new Date());
 
         OPNsenseCredential saved = repository.save(credential);
-
-        // ⚠️ DB Design v1.5 — OPNsense 는 REST API 로 직접 연결되므로 Agent 가
-        //   없습니다. 그래서 자격증명 등록 시점에 <b>노드 정본을 만들어</b>
-        //   두어야 방화벽 상태({@code opnsense_firewall.node_id})와 격리가
-        //   참조할 노드 번호가 존재합니다. 실패해도 자격증명 저장은 계속합니다.
-        registerNode(saved.getAgentId());
-
         if (verifyNow) {
             saved = verifyAndRecord(saved);
         }
-        log.info("opnsense credential saved: agent={} url={} status={}",
-                saved.getAgentId(), saved.getBaseUrl(), saved.getStatus());
+        log.info("opnsense credential saved: node_id={} url={} status={}",
+                saved.getNode().getNodeId(), saved.getBaseUrl(), saved.getStatus());
         return toResponse(saved);
     }
 
-    /**
-     * OPNsense 장치의 노드 정본을 등록합니다. (방화벽 유형 강제)
-     *
-     * <p>노드 등록 통로가 없으면(단위 테스트) 아무 일도 하지 않습니다.
-     *
-     * @param agentId 장치 식별자
-     */
-    private void registerNode(String agentId) {
-        if (nodeRegistry == null || agentId == null || agentId.isBlank()) {
-            return;
-        }
-        try {
-            nodeRegistry.resolveOrCreate(agentId,
-                    org.sonar.sonarvalidator_backend.Model.DeviceType.FIREWALL);
-        } catch (RuntimeException ex) {
-            // 노드 적재 실패가 자격증명 저장을 막으면 안 됩니다.
-            log.warn("node registration failed for opnsense agent={}: {}", agentId, ex.getMessage());
-        }
-    }
-
-    /**
-     * 저장된 접속 정보를 삭제합니다.
-     *
-     * @param agentId Agent 식별자
-     * @return 삭제했으면 {@code true}
-     */
     @Transactional
-    public boolean delete(String agentId) {
-        final var found = repository.findByAgentId(agentId);
+    public boolean delete(String nodeIdentifier) {
+        final Optional<OPNsenseCredential> found = findCredential(nodeIdentifier);
         if (found.isEmpty()) {
             return false;
         }
         repository.delete(found.get());
-        log.info("opnsense credential deleted: agent={}", agentId);
+        log.info("opnsense credential deleted: node_id={}", found.get().getNode().getNodeId());
         return true;
     }
 
-    /**
-     * 연결을 확인하고 결과를 DB 에 기록합니다.
-     *
-     * @param agentId Agent 식별자
-     * @return 확인 결과 (응답 맵)
-     * @throws IllegalArgumentException 등록되지 않은 Agent 인 경우
-     */
     @Transactional
-    public Map<String, Object> verify(String agentId) {
-        final OPNsenseCredential credential = repository.findByAgentId(agentId)
+    public Map<String, Object> verify(String nodeIdentifier) {
+        final OPNsenseCredential credential = findCredential(nodeIdentifier)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "OPNsense 접속 정보가 등록되지 않았습니다: " + agentId));
+                        "OPNsense 접속 정보가 등록되지 않았습니다: " + nodeIdentifier));
         return toResponse(verifyAndRecord(credential));
     }
 
-    /**
-     * 모든 등록 항목의 연결을 확인합니다.
-     *
-     * @return 항목별 결과 목록
-     */
     @Transactional
     public List<Map<String, Object>> verifyAll() {
         final List<Map<String, Object>> result = new ArrayList<>();
@@ -239,39 +164,71 @@ public class OPNsenseCredentialService {
         return result;
     }
 
-    /**
-     * 실제 호출로 연결을 확인하고 엔티티에 결과를 반영합니다.
-     *
-     * @param credential 자격증명 엔티티
-     * @return 갱신된 엔티티
-     */
+    private Configuration resolveNodeForSave(String normalizedIdentifier) {
+        if (NUMERIC_NODE_ID.matcher(normalizedIdentifier).matches()) {
+            final Integer nodeId;
+            try {
+                nodeId = Integer.valueOf(normalizedIdentifier);
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("node_id is outside the supported range");
+            }
+            return configurationRepository.findById(nodeId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "configuration node does not exist: " + normalizedIdentifier));
+        }
+        return nodeRegistry.resolveOrCreateRequired(normalizedIdentifier, DeviceType.FIREWALL);
+    }
+
+    private Configuration findNode(String identifier) {
+        final String normalized = normalizeIdentifier(identifier);
+        if (normalized == null) {
+            return null;
+        }
+        if (NUMERIC_NODE_ID.matcher(normalized).matches()) {
+            try {
+                return configurationRepository.findById(Integer.valueOf(normalized)).orElse(null);
+            } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
+        return configurationRepository.findByAgentId(normalized).orElse(null);
+    }
+
+    private static String normalizeIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return null;
+        }
+        final String normalized = identifier.trim();
+        if (!NUMERIC_NODE_ID.matcher(normalized).matches() && normalized.length() > 120) {
+            throw new IllegalArgumentException("node identifier must be at most 120 characters");
+        }
+        return normalized;
+    }
+
+    private static String displayNameFor(Configuration node) {
+        return node.getAgentId() == null ? "OPNsense node " + node.getNodeId() : node.getAgentId();
+    }
+
     private OPNsenseCredential verifyAndRecord(OPNsenseCredential credential) {
         final OPNsenseConnection connection = toConnection(credential);
         if (connection == null) {
             credential.markChecked(false, null, "API Key 또는 Secret 이 없습니다.");
             return repository.save(credential);
         }
-
         final OPNsenseApiClient.Result result = apiClient.checkConnection(connection);
         if (result.ok()) {
             final String version = apiClient.extractVersion(result.body());
             credential.markChecked(true, version, null);
-            log.info("opnsense connection verified: agent={} version={}",
-                    credential.getAgentId(), version == null ? "(unknown)" : version);
+            log.info("opnsense connection verified: node_id={} version={}",
+                    credential.getNode().getNodeId(), version == null ? "(unknown)" : version);
         } else {
             credential.markChecked(false, null, result.error());
-            log.warn("opnsense connection failed: agent={} reason={}",
-                    credential.getAgentId(), result.error());
+            log.warn("opnsense connection failed: node_id={} reason={}",
+                    credential.getNode().getNodeId(), result.error());
         }
         return repository.save(credential);
     }
 
-    /**
-     * 엔티티를 호출용 접속 정보로 바꿉니다. (시크릿 복호화 포함)
-     *
-     * @param credential 자격증명 엔티티
-     * @return 접속 정보, 시크릿 복호화 실패 시 null
-     */
     public OPNsenseConnection toConnection(OPNsenseCredential credential) {
         if (credential == null) {
             return null;
@@ -281,9 +238,8 @@ public class OPNsenseCredentialService {
             try {
                 secret = secretCipher.decrypt(credential.getSecret());
             } catch (IllegalStateException ex) {
-                // 키가 바뀌었거나 값이 손상된 경우입니다. 재입력이 필요합니다.
-                log.error("cannot decrypt OPNsense secret for agent={}: {}",
-                        credential.getAgentId(), ex.getMessage());
+                log.error("cannot decrypt OPNsense secret for node_id={}: {}",
+                        credential.getNode().getNodeId(), ex.getMessage());
                 return null;
             }
         }
@@ -294,41 +250,29 @@ public class OPNsenseCredentialService {
                 credential.isAllowInsecureTls());
     }
 
-    /**
-     * 엔티티를 응답 맵으로 바꿉니다.
-     *
-     * <p>시크릿은 <b>마스킹된 값</b>만 넣고, 값이 있는지 여부를 별도
-     * 플래그로 알려줍니다. 프론트엔드는 그 플래그로 "저장됨" 을 표시하고
-     * 입력란은 비워 둡니다.
-     *
-     * @param credential 자격증명 엔티티
-     * @return 응답 맵
-     */
     public Map<String, Object> toResponse(OPNsenseCredential credential) {
         final Map<String, Object> body = new LinkedHashMap<>();
-        body.put("agent_id", credential.getAgentId());
+        body.put("node_id", credential.getNode().getNodeId());
+        // Kept for existing UI clients. This is derived from the associated
+        // canonical node, never used as the credential's persistence key.
+        body.put("agent_id", credential.getNode().getAgentId());
         body.put("display_name", credential.getDisplayName());
         body.put("base_url", credential.getBaseUrl());
         body.put("api_key_masked", OPNsenseConnection.mask(credential.getApiKey()));
-        // 시크릿 값 자체는 절대 내려보내지 않습니다.
         body.put("has_api_key", credential.getApiKey() != null && !credential.getApiKey().isBlank());
         body.put("has_secret", secretCipher.isPresent(credential.getSecret()));
         body.put("allow_insecure_tls", credential.isAllowInsecureTls());
         body.put("status", credential.getStatus() == null ? null : credential.getStatus().name());
-        body.put("last_checked_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(credential.getLastCheckedAt()));
+        body.put("last_checked_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(
+                credential.getLastCheckedAt()));
         body.put("last_error", credential.getLastError());
         body.put("detected_version", credential.getDetectedVersion());
-        body.put("created_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(credential.getCreatedAt()));
+        body.put("created_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(
+                credential.getCreatedAt()));
         body.put("updated_at", credential.getUpdatedAt());
         return body;
     }
 
-    /**
-     * 아직 등록되지 않은 Agent 목록을 만듭니다. (설정 모달의 안내용)
-     *
-     * @param knownAgentIds 전체 Agent 식별자
-     * @return 설정이 필요한 Agent 식별자 목록
-     */
     @Transactional(readOnly = true)
     public List<String> agentsWithoutCredential(List<String> knownAgentIds) {
         final List<String> result = new ArrayList<>();
@@ -336,19 +280,13 @@ public class OPNsenseCredentialService {
             return result;
         }
         for (final String agentId : knownAgentIds) {
-            if (agentId != null && !agentId.isBlank() && !repository.existsByAgentId(agentId)) {
-                result.add(agentId);
+            if (agentId != null && !agentId.isBlank() && !hasCredentialForAgentIdentifier(agentId)) {
+                result.add(agentId.trim());
             }
         }
         return result;
     }
 
-    /**
-     * 디버그용으로 응답 본문 요약을 만듭니다.
-     *
-     * @param body 응답 본문
-     * @return 요약
-     */
     public Map<String, Object> summarize(JsonNode body) {
         return apiClient.summarize(body);
     }

@@ -527,7 +527,7 @@ bool HandleCommand(const ProberConfig& config,
             envelope::Make(envelope::kAck,
                            agent_skip,
                            correlation_skip,
-                           ToPayload(skipped)));
+                           BuildAck(skipped)));
         return true;
     }
 

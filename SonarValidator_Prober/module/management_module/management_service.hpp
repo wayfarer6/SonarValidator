@@ -5,14 +5,13 @@
 #include <stop_token>
 #include <string>
 #include <vector>
+#include <nlohmann/json.hpp>
 #include "components/backend_communication/network.hpp"
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include "components/backend_communication/envelope.hpp"
-#include "components/device/switch/switch_interface/switch.hpp"
-#include "components/device/firewall/firewall_interface/firewall.hpp"
-#include "components/device/router/routing_table/routing_table.hpp"
+#include "components/policy/policy_command.hpp"
 #include "module/configuration_module/prober_config.hpp"
 #include "components/terminal/terminal_session.hpp"
 #include <thread>
@@ -72,6 +71,8 @@ public:
     bool TryReceive(std::string& message, std::chrono::milliseconds timeout);
 
     // 공통 명령 실행 유틸
+    // 호출 스레드를 무기한 차단하지 않도록 출력 수집/명령 실행은 kCommandTimeout 내로 제한합니다.
+    static constexpr std::chrono::seconds kCommandTimeout{20};
     bool RunCommand(const std::string& command);
     std::string RunCommandOutput(const std::string& command);
 
@@ -83,23 +84,24 @@ public:
     // (내부적으로 private CliCommand({"FastCli"}, ...) 에 위임합니다.)
     std::string QueryAristaCli(const std::string& command);
 
-    // 벤더별 정책 적용 (policy_receiver에서 호출)
-    bool ApplyOpenVSwitchPolicy(const Json& policy);
-    bool ApplyAristaSwitchPolicy(const Json& policy);
-    bool ApplyCiscoSwitchPolicy(const Json& policy);
-    bool ApplyCiscoRouterPolicy(const Json& policy);
-    bool ApplyFrrRouterPolicy(const Json& policy);
-    bool ApplyNftablesPolicy(const Json& policy);
-    bool ApplyVmPolicy(const Json& policy);
+    // 벤더별 정책 구현 및 validated policy command 디스패치
+    bool ApplyOpenVSwitchPolicy(const nlohmann::json& policy);
+    bool ApplyAristaSwitchPolicy(const nlohmann::json& policy);
+    bool ApplyCiscoSwitchPolicy(const nlohmann::json& policy);
+    bool ApplyCiscoRouterPolicy(const nlohmann::json& policy);
+    bool ApplyFrrRouterPolicy(const nlohmann::json& policy);
+    bool ApplyNftablesPolicy(const nlohmann::json& policy);
+    bool ApplyVmPolicy(const nlohmann::json& policy);
+    bool ApplyPolicyCommand(const PolicyCommand& command);
 
 private:
     // VM 의 netplan 스키마(network_config)를 /etc/netplan 에 써서 적용합니다.
     // ApplyVmPolicy 에서 분기하며, 실패 시 기존 설정을 건드리지 않습니다.
-    bool ApplyNetplanPolicy(const Json& policy, const std::string& command);
+    bool ApplyNetplanPolicy(const nlohmann::json& policy, const std::string& command);
 
     // netplan 이 없는 이미지를 위한 폴백: network_config 의 주소/경로를
     // ip 명령으로 직접 적용합니다. (런타임 적용 — 재부팅 시 소멸)
-    bool ApplyAddressesWithIp(const Json& policy,
+    bool ApplyAddressesWithIp(const nlohmann::json& policy,
                               const nlohmann::json::const_iterator& ethernets,
                               const std::string& command);
 

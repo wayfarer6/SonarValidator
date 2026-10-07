@@ -1,42 +1,80 @@
 {
-    "tasks": [
-        {
-            "type": "cppbuild",
-            "label": "C/C++: g++-15 활성 파일 빌드",
-            "command": "/usr/bin/g++-15",
-            "args": [
-                "-fdiagnostics-color=always",
-                "-g",
-                "-std=c++23",
-                "-I${workspaceFolder}/SonarValidator_Prober",
-                "${file}",
-                "${workspaceFolder}/SonarValidator_Prober/prober_config.cpp",
-                "${workspaceFolder}/SonarValidator_Prober/init.cpp",
-                "${workspaceFolder}/SonarValidator_Prober/management_service.cpp",
-                "${workspaceFolder}/SonarValidator_Prober/database/database_service.cpp",
-                "${workspaceFolder}/SonarValidator_Prober/telemetry/telemetry_service.cpp",
-                "${workspaceFolder}/SonarValidator_Prober/router/routing_table.cpp",
-                "${workspaceFolder}/SonarValidator_Prober/switch/switch.cpp",
-                "${workspaceFolder}/SonarValidator_Prober/firewall/firewall.cpp",
-                "-o",
-                "${workspaceFolder}/SonarValidator_Prober/output/sonar_validator_prober-debug",
-                "-lsqlite3",
-                "-lpthread",
-                "-lssl",
-                "-lcrypto"
-            ],
-            "options": {
-                "cwd": "${fileDirname}"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "detail": "디버거에서 생성된 작업입니다."
-        }
-    ],
-    "version": "2.0.0"
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Prober: CMake configure (Debug)",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-S",
+        "${workspaceFolder}/SonarValidator_Prober",
+        "-B",
+        "${workspaceFolder}/SonarValidator_Prober/build-debug",
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DANTLR4_RUNTIME_ROOT=${env:HOME}/tools/antlr4-install"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "Prober: Build (Debug)",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "${workspaceFolder}/SonarValidator_Prober/build-debug",
+        "--parallel",
+        "4",
+        "--target",
+        "sonar_validator_prober"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Prober: CMake configure (Debug)",
+      "dependsOrder": "sequence",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Prober: Build all tests (Debug)",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "${workspaceFolder}/SonarValidator_Prober/build-debug",
+        "--parallel",
+        "4"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Prober: CMake configure (Debug)",
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "Prober: Run tests (Debug)",
+      "type": "shell",
+      "command": "ctest",
+      "args": [
+        "--test-dir",
+        "${workspaceFolder}/SonarValidator_Prober/build-debug",
+        "--output-on-failure"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "Prober: Build all tests (Debug)",
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    }
+  ]
 }

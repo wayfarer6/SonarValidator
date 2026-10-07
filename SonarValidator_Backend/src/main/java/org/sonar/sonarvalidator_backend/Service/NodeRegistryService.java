@@ -136,6 +136,39 @@ public class NodeRegistryService {
     }
 
     /**
+     * Resolves or creates a node and propagates persistence failures to callers.
+     *
+     * <p>Credential registration must not continue when this operation fails:
+     * the credential row is meaningful only when attached to a persisted node.
+     * Unlike telemetry ingestion, this method deliberately does not swallow
+     * repository errors.
+     *
+     * @param agentId external node identifier used by existing API clients
+     * @param type    known device type
+     * @return persisted canonical node
+     */
+    @Transactional
+    public Configuration resolveOrCreateRequired(
+            String agentId,
+            org.sonar.sonarvalidator_backend.Model.DeviceType type) {
+        if (agentId == null || agentId.isBlank()) {
+            throw new IllegalArgumentException("node identifier is required");
+        }
+        final String key = agentId.trim();
+        if (key.length() > 120) {
+            throw new IllegalArgumentException("node identifier must be at most 120 characters");
+        }
+        final Configuration node = repository.findByAgentId(key)
+                .orElseGet(() -> Configuration.from(key, null));
+        if (type != null) {
+            node.setDeviceType(type);
+        } else {
+            applyType(node, null);
+        }
+        return repository.save(node);
+    }
+
+    /**
      * 노드 번호를 조회합니다.
      *
      * @param agentId 장비(Agent) 식별자

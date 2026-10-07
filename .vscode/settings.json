@@ -1,5 +1,14 @@
 {
     "cmake.ignoreCMakeListsMissing": true,
+    "cmake.configureOnOpen": true,
+    "cmake.sourceDirectory": "${workspaceFolder}/SonarValidator_Prober",
+    "cmake.buildDirectory": "${workspaceFolder}/SonarValidator_Prober/build-debug",
+    "cmake.configureArgs": [
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DANTLR4_RUNTIME_ROOT=${env:HOME}/tools/antlr4-install"
+    ],
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/SonarValidator_Prober/build-debug/compile_commands.json",
     "java.compile.nullAnalysis.mode": "automatic",
     "java.configuration.updateBuildConfiguration": "automatic"
 }

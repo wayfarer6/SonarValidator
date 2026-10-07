@@ -6,10 +6,9 @@
 class ManagementService;
 class ProberConfig;
 
-// 서버로부터 수신한 정책을 장치 유형(DeviceType)에 따라
-// 스위치/라우터/방화벽 전용 처리 함수로 분기합니다.
-// (VM은 네트워크 제어 대상이 아니며, NIC/연결 상태는 텔레메트리로 전송합니다.)
-void ReceivePolicy(const ProberConfig& config,
+// 서버 정책 JSON을 검증된 PolicyCommand로 변환하고 ManagementService에 위임합니다.
+// 반환값은 배치에 포함된 모든 명령이 성공적으로 적용됐는지를 나타냅니다.
+bool ReceivePolicy(const ProberConfig& config,
                    ManagementService& management_service,
                    const nlohmann::json& policy);
 

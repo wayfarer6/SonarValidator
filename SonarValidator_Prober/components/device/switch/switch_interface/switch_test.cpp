@@ -98,54 +98,6 @@ int main()
     assert(found_eth0);
 
 
-/*
-ARISTA(config)#show running-config | grep Ethernet
-*/
-
-const std::string arista_ethernet_list = R"(
-interface Ethernet1
-interface Ethernet2
-interface Ethernet3
-interface Ethernet4
-interface Ethernet5
-interface Ethernet6
-interface Ethernet7
-interface Ethernet8
-interface Ethernet9
-interface Ethernet10
-interface Ethernet11
-interface Ethernet12 )";
-
-/*
-ARISTA(config)#show running-config | grep '^vlan [0-9]'
-*/ 
-const std::string vlan_list = R"(
-vlan 8
-vlan 9
-vlan 99 // 한개가 공백자니 숫자나오기전에 잘라주면
-)";
-
-
-/*
-ARISTA(config)#show ip interface brief
-*/
-
-const std::string ip_interface_brief = R"(
-                                                                        Address
-Interface       IP Address          Status      Protocol         MTU    Owner  
---------------- ------------------- ----------- ------------- --------- -------
-Management1     unassigned          up          up              1500           
-Vlan8           10.0.8.1/24         up          up              1500           
-Vlan9           10.0.9.1/24         up          up              1500           
-Vlan99          172.18.10.2/24      up          up              1500           
-)";
-
-
-Switch aristavEosSwitch("ARISTA");
-aristavEosSwitch.addPort("Ethernet1","Ethernet1");
-aristavEosSwitch.addPort("Ethernet2","Ethernet2");
-aristavEosSwitch.addPort("Ethernet3","Ethernet3");
-aristavEosSwitch.addVlan(8, "Ethernet1");
 
 
 

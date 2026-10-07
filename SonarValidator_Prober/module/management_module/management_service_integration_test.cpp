@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <nlohmann/json.hpp>
 
 #include "components/device/device_type.hpp"
 #include "components/backend_communication/envelope.hpp"
@@ -66,10 +67,10 @@ namespace
                 continue;
             }
 
-            Json message;
+            nlohmann::json message;
             try
             {
-                message = Json::parse(raw);
+                message = nlohmann::json::parse(raw);
             }
             catch (const std::exception&)
             {
@@ -83,7 +84,7 @@ namespace
 
             if (envelope::IsType(message, envelope::kCommand))
             {
-                const Json& payload = envelope::Payload(message);
+                const nlohmann::json& payload = envelope::Payload(message);
                 if (payload.contains("monitor_interval"))
                 {
                     std::cout << "  [hold] would set monitor interval to "
@@ -126,7 +127,8 @@ int main(int argc, char** argv)
 
     // 1) fetchPolicy 는 hello 로 세션을 등록한 뒤 policy-request/policy-response 를 왕복합니다.
     //    내부에서 correlation_id 로 응답을 매칭하므로, 응답이 돌아왔다면 그 자체가 검증입니다.
-    const Json policy = service.fetchPolicy(DeviceType::kVirtualMachine, "integration-vm-01");
+    const nlohmann::json policy =
+        service.fetchPolicy(DeviceType::kVirtualMachine, "integration-vm-01");
 
     if (policy.is_null() || policy.is_boolean() || !policy.is_object())
     {
@@ -162,7 +164,8 @@ int main(int argc, char** argv)
            "ack envelope sent");
 
     // 3) 두 번째 요청도 성공해야 합니다. (연결 재사용 + correlation_id 증가)
-    const Json second = service.fetchPolicy(DeviceType::kVirtualMachine, "integration-vm-01");
+    const nlohmann::json second =
+        service.fetchPolicy(DeviceType::kVirtualMachine, "integration-vm-01");
     Expect(second.is_object(), "second policy request reuses the connection");
 
     // 4) 서버 -> 에이전트 푸시 경로 확인 (수동 트리거 대기)

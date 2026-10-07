@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <thread>
 
 #include <fcntl.h>
 #include <poll.h>
@@ -118,9 +119,35 @@ void TerminalSession::Close()
     }
     if (child_pid_ > 0)
     {
-        kill(child_pid_, SIGTERM);
+        const pid_t pid = child_pid_;
+        (void)kill(-pid, SIGTERM);
+        (void)kill(pid, SIGTERM);
         int status = 0;
-        waitpid(child_pid_, &status, 0);
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::milliseconds(200);
+        bool reaped = false;
+        while (std::chrono::steady_clock::now() < deadline)
+        {
+            const pid_t waited = waitpid(pid, &status, WNOHANG);
+            if (waited == pid || (waited < 0 && errno == ECHILD))
+            {
+                reaped = true;
+                break;
+            }
+            if (waited < 0 && errno != EINTR)
+            {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        if (!reaped)
+        {
+            (void)kill(-pid, SIGKILL);
+            (void)kill(pid, SIGKILL);
+            while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+            {
+            }
+        }
         child_pid_ = -1;
     }
 }

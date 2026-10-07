@@ -3,15 +3,15 @@
     {
       "name": "Linux",
       "includePath": [
-        "${workspaceFolder}",
         "${workspaceFolder}/SonarValidator_Prober",
-        "${workspaceFolder}/Workspace",
-        "${workspaceFolder}/**"
+        "${env:HOME}/tools/antlr4-install/include",
+        "${env:HOME}/tools/antlr4-install/include/antlr4-runtime"
       ],
-      "compilerPath": "/usr/bin/g++-15",
+      "compilerPath": "/usr/bin/g++",
       "cStandard": "c17",
       "cppStandard": "c++23",
-      "intelliSenseMode": "linux-gcc-x64"
+      "intelliSenseMode": "linux-gcc-x64",
+      "compileCommands": "${workspaceFolder}/SonarValidator_Prober/build-debug/compile_commands.json"
     }
   ],
   "version": 4

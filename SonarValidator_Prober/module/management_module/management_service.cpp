@@ -1,21 +1,19 @@
 #include "module/management_module/management_service.hpp"
 #include "components/backend_communication/connect_with_timeout.hpp"
 #include "components/policy/policy_json.hpp"
+#include "components/terminal/command_runner.hpp"
 #include <nlohmann/json.hpp>
 #include <utility>
-#include <future>
 #include <sstream>
 #include <iostream>
-#include <cstdio>
-#include <array>
 #include <chrono>
 #include <fstream>
 #include <stop_token>
 #include <string>
 #include <vector>
-#include <poll.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
+#include <thread>
+
+using Json = nlohmann::json;
 
 namespace
 {
@@ -207,19 +205,6 @@ bool ManagementService::ApplyAddressesWithIp(const Json& policy,
 
     return all_ok;
 }
-struct TerminalHandler
-{
-    void operator()(FILE* pipe) const
-    {
-        if (pipe != nullptr)
-        {
-            pclose(pipe);
-        }
-    }
-};
-
-using TerminalFile = std::unique_ptr<FILE, TerminalHandler>;
-
 ManagementService::ManagementService()
     : host_(), port_(0), target_(), ioc_(), resolver_(ioc_), stream_(ioc_), connected_(false)
 {
@@ -521,37 +506,82 @@ bool ManagementService::ReportPolicyApplied(const DeviceType device_type,
 
 bool ManagementService::RunCommand(const std::string& command)
 {
-    FILE* pipe = popen(command.c_str(), "r");
-    if (pipe == nullptr)
+    const command_runner::Result result =
+        command_runner::RunWithStatus(command, kCommandTimeout);
+    if (!result.completed)
     {
+        std::cerr << "[COMMAND] execution timed out or failed to complete\n";
         return false;
     }
-
-    std::array<char, 256> buffer;
-    while (std::fgets(buffer.data(), buffer.size(), pipe) != nullptr)
+    if (result.exit_code != 0)
     {
-        // 출력을 소비해 파이프 블로킹을 방지합니다.
+        std::cerr << "[COMMAND] execution failed with exit code " << result.exit_code << '\n';
+        return false;
     }
-
-    const int status = pclose(pipe);
-    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    return true;
 }
 
 std::string ManagementService::RunCommandOutput(const std::string& command)
 {
-    TerminalFile pipe(popen(command.c_str(), "r"));
-    if (!pipe)
+    const command_runner::Result result =
+        command_runner::RunWithStatus(command, kCommandTimeout);
+    if (!result.completed)
     {
-        return {};
+        std::cerr << "[COMMAND] output command timed out or failed to complete\n";
+    }
+    else if (result.exit_code != 0)
+    {
+        std::cerr << "[COMMAND] output command failed with exit code "
+                  << result.exit_code << '\n';
+    }
+    return result.output;
+}
+
+bool ManagementService::ApplyPolicyCommand(const PolicyCommand& command)
+{
+    Json payload = command.payload;
+    payload["command"] = PolicyCommand::ActionName(command.action);
+
+    switch (command.device_type)
+    {
+    case DeviceType::kSwitch:
+        if (command.product == "OpenVSwitch")
+        {
+            return ApplyOpenVSwitchPolicy(payload);
+        }
+        if (command.product == "Arista")
+        {
+            return ApplyAristaSwitchPolicy(payload);
+        }
+        if (command.product == "Cisco")
+        {
+            return ApplyCiscoSwitchPolicy(payload);
+        }
+        break;
+    case DeviceType::kRouter:
+        if (command.product == "FRR")
+        {
+            return ApplyFrrRouterPolicy(payload);
+        }
+        if (command.product == "Cisco 8000v" || command.product == "Cisco IOS XE" ||
+            command.product == "Cisco")
+        {
+            return ApplyCiscoRouterPolicy(payload);
+        }
+        break;
+    case DeviceType::kFirewall:
+        if (command.product == "nftables")
+        {
+            return ApplyNftablesPolicy(payload);
+        }
+        break;
+    case DeviceType::kVirtualMachine:
+        return ApplyVmPolicy(payload);
     }
 
-    std::array<char, 128> buffer;
-    std::string result;
-    while (std::fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
-    {
-        result += buffer.data();
-    }
-    return result;
+    std::cerr << "[POLICY] Unsupported product '" << command.product
+              << "' for device type\n";
+    return false;
 }
 
 std::string ManagementService::CliCommand(const std::vector<std::string>& argv,

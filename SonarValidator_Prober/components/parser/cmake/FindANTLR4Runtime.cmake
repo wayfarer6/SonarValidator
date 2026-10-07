@@ -56,10 +56,17 @@ set(SONAR_ANTLR4_AVAILABLE FALSE)
 if(ANTLR4_RUNTIME_ROOT)
     # 주의: find_library 호출 전에 결과 변수를 미리 set() 하면
     #       "이미 정의됨" 으로 판단되어 탐색이 건너뛰어진다. (set 금지)
+    unset(SONAR_ANTLR4_RUNTIME_LIB CACHE)
+    set(_SONAR_SAVED_LIBRARY_SUFFIXES "${CMAKE_FIND_LIBRARY_SUFFIXES}")
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     find_library(SONAR_ANTLR4_RUNTIME_LIB
         NAMES antlr4-runtime
-        PATHS "${ANTLR4_RUNTIME_ROOT}/lib"
+        PATHS
+            "${ANTLR4_RUNTIME_ROOT}/lib"
+            "${ANTLR4_RUNTIME_ROOT}/lib/${CMAKE_LIBRARY_ARCHITECTURE}"
         NO_DEFAULT_PATH)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES "${_SONAR_SAVED_LIBRARY_SUFFIXES}")
+    unset(_SONAR_SAVED_LIBRARY_SUFFIXES)
 
     if(SONAR_ANTLR4_RUNTIME_LIB)
         set(SONAR_ANTLR4_AVAILABLE TRUE)

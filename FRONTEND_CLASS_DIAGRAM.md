@@ -22,6 +22,8 @@ skinparam shadowing false
 
 package "진입점 / 셸" {
   class main
+  class AuthProvider <<provider>>
+  class ThemeProvider <<provider>>
   class App <<component>>
   class AppLayout <<component>>
   class AppHeader <<component>>
@@ -94,7 +96,9 @@ package "UI 킷 (TailAdmin)" {
   class UIKit <<grouped>>
 }
 
-main --> App : render
+main --> App : render (AuthProvider 안)
+main --> AuthProvider
+main --> ThemeProvider
 App --> AuthContext : useAuth()
 App --> AppLayout : 보호 라우트
 App --> ProjectEditor
@@ -105,12 +109,13 @@ App --> LogManagement
 App --> DashboardHome
 AppLayout --> AppHeader
 AppLayout --> AppSidebar
-AppLayout --> SidebarContext
-App --> ThemeContext
-App --> SidebarContext
-App --> ProjectWizardContext
+AppLayout --> SidebarContext : SidebarProvider
+AppLayout --> ProjectWizardContext : ProjectWizardProvider
+ThemeProvider --> ThemeContext
 
 ProjectEditor --> ProjectComponents
+ProjectCreation --> ProjectWizardContext
+ProjectCreation --> AgentDeployCard : only after valid IP and port
 ProjectEditor --> ProjectWizardContext
 Agent --> AgentComponents
 PolicyManagement --> PolicyComponents
@@ -198,15 +203,19 @@ note right of App
   라우트 요약:
   /                       Home
   /signin, /signup        인증
+  /profile                프로필
   /project                목록/편집
   /project/editor/:id     편집기
-  /project/create/*       생성 마법사
+  /project/create         생성 마법사 시작
+  /project/create/ViewNodes, /project/create/subnet,
+  /project/create/segmentation, /project/create/preview
   /agent                  에이전트
-  /policy, /policy/export 정책
+  /policy, /policy/export 정책 / JSON·CSV 내보내기
   /compliance, /compliance/export
   /log, /log/export       로그
   /network                네트워크
-  /notification           알림
+  /notification, /notification/export 알림
+  NetworkTopologyMermaid 페이지 파일은 현재 App 라우트에 미등록
 end note
 @enduml
 ```
@@ -441,6 +450,13 @@ package "dashboard" {
 }
 
 package "project" {
+  class ProjectCreation <<page>> {
+    - managementServerIPAddr : string
+    - managementServerPort : string
+    - deployValidationMessage : string?
+    + handleCreateProber(event) void
+    .. non-empty IP + integer port 1..65535 required before showing deployment cards ..
+  }
   class AgentDeployCard <<component>> {
     + AgentDeviceType
     + AGENT_DEVICE_TYPES
@@ -544,14 +560,14 @@ package "정책/컴플라이언스" {
 package "운영" {
   class Agent
   class NetworkManagement
-  class NetworkTopologyMermaid
+  class NetworkTopologyMermaid <<not routed>>
   class LogManagement
   class Notification
   class UserProfiles
 }
 
 package "인증/기타" {
-  class AuthLayout
+  class AuthPageLayout
   class SignIn
   class SignUp
   class NotFound
@@ -576,9 +592,9 @@ NetworkSegmentationRule --> ProjectWizardContext
 TopologyRulePreview --> ProjectWizardContext
 DetectedNetworkNodes --> apiIndex : getAllDiscoveredDevices
 PolicyManagement --> PolicyComponents
-PolicyExporter --> compliancePdf : exportComplianceReportPdf
+PolicyExporter --> apiIndex : violations / forbidden pairs
 Compliance --> ComplianceComponents
-ComplianceExporter --> compliancePdf
+ComplianceExporter --> compliancePdf : exportComplianceReportPdf
 Agent --> AgentComponents
 NetworkManagement --> apiIndex : getTopology
 NetworkTopologyMermaid --> topologyMermaid
@@ -587,6 +603,11 @@ Notification --> apiNotifications
 UserProfiles --> UserProfileComponents
 SignIn --> SignInForm
 SignUp --> SignUpForm
+
+note right of PolicyExporter
+  JSON/CSV 내보내기는 페이지 내부에서 생성.
+  compliancePdf와는 연결되지 않음.
+end note
 @enduml
 ```
 
@@ -742,8 +763,8 @@ package "components/common" {
 | `src/hooks/`      | `useApi`, `useApiAction`, `usePolling`, `useModal`, `useGoBack`                                                            | 데이터/상태 훅   |
 | `src/lib/api/`    | `client`, `index`, `types`, `auth`, `projects`, `aiLogs`, `notifications`, `offline`, `opnsense`, `policyAdvice` | REST 계층        |
 | `src/lib/`        | `agentView`, `mermaid`, `topology/mermaid`, `policy/zones`, `pdf/compliancePdf`, `userInfo`, `mockData`                | 도메인 유틸      |
-| `src/components/` | dashboard, project, policy, compliance, ai, offline, opnsense, auth, UserProfile, common, header                                     | 도메인 컴포넌트  |
-| `src/components/ui  | form                                                                                                                                 | charts           |
+| `src/components/` | dashboard, project, policy, compliance, ai, offline, opnsense, auth, UserProfile, common, header | 도메인 컴포넌트 |
+| `src/components/` | ui, form, charts, tables                                                                     | 공통 UI 킷       |
 | `src/pages/`      | 약 35개 화면                                                                                                                         | 라우트 컴포넌트  |
 
 ---

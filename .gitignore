@@ -45,6 +45,13 @@ Build/
 build-*/
 build_static/
 
+# Agent test build output and generated runtime database/configuration
+agent_test/build/
+agent_test/lib/
+agent_test/sonar_validator_prober
+agent_test/data/*
+!agent_test/data/.gitkeep
+
 # CMake generated files
 CMakeFiles/
 CMakeCache.txt

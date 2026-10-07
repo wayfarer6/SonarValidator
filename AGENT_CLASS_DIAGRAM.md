@@ -53,12 +53,23 @@ package "텔레메트리 수집" {
   class cli_parser <<namespace>>
 }
 
+package "장치 분류" {
+  class DeviceType <<enumeration>>
+}
+
 package "장치 모델" {
-  class NetworkInterface
-  class RoutingTable
+  class Router
   class Switch
   class Firewall
   class VmService
+}
+
+package "네트워크 인터페이스 모델" {
+  class NetworkInterface
+}
+
+package "라우팅 상태 모델" {
+  class RoutingTable
 }
 
 package "데이터 저장" {
@@ -79,10 +90,14 @@ main --> ManagementWorker : jthread
 main --> TelemetryWorker : jthread
 main --> DatabaseWorker : jthread
 
+AppInitializer --> ProberConfig : 설정/장치 유형
+ProberConfig ..> DeviceType
 ManagementWorker --> ManagementService : 연결/정책 적용
 ManagementWorker --> policy_receiver : 분기 위임
+ManagementWorker --> ManagementService : 정책 적용 ACK
 policy_receiver --> quarantine : 격리 명령 처리
 ManagementService --> TerminalSession : 영속 CLI 세션
+ManagementService --> command_runner : 시간·출력 제한 명령
 
 TelemetryWorker --> TelemetryMonitor : 루프 구동
 TelemetryMonitor --> collector : 수집
@@ -215,7 +230,7 @@ skinparam shadowing false
 
 class ManagementWorker <<free function>> {
   + ManagementWorker(stop_token, config)
-  .. 1초 command_deadline 동안 서버 push 수신 ..
+  .. 정책 적용 결과 ACK, 1초 push 수신 창 ..
 }
 
 class TelemetryWorker <<free function>> {
@@ -254,6 +269,7 @@ class ManagementService {
   + fetchPolicy(device_type, device_id, stop_token) json
   + ReportPolicyApplied(device_type, device_id, policy_id, applied) bool
   + TryReceive(message, timeout) bool
+  + ApplyPolicyCommand(command) bool
   + RunCommand(command) bool
   + RunCommandOutput(command) string
   + ExecuteIosCli(commands) string
@@ -274,8 +290,15 @@ class ManagementService {
   - ResolveAgentId(device_id) string
 }
 
-class TerminalHandler <<internal struct>> {
-  + operator()(int fd) void
+class command_runner <<namespace>> {
+  + Run(command, timeout, max_output_bytes) string
+  + RunWithStatus(command, timeout, max_output_bytes) Result
+}
+
+class "command_runner::Result" as CommandResult <<struct>> {
+  + output : string
+  + exit_code : int
+  + completed : bool
 }
 
 class TelemetryService {
@@ -309,7 +332,7 @@ class TerminalSession {
 
 class ConnectWithTimeout <<sonar::net>> {
   + ConnectWithTimeout(stream, results, timeout) error_code
-  .. non-blocking connect + poll + SO_RCVTIMEO/SO_SNDTIMEO ..
+  .. 실패 소켓 정리 + non-blocking connect + poll + I/O timeout ..
 }
 
 class envelope <<namespace>> {
@@ -523,10 +546,22 @@ class policy_receiver <<namespace>> {
   + ReceivePolicy(config, mgmt, policy) void
 }
 
-class ReceiveSwitchPolicy <<internal free function>>
-class ReceiveRouterPolicy <<internal free function>>
-class ReceiveFirewallPolicy <<internal free function>>
-class ReceiveVmPolicy <<internal free function>>
+class PolicyCommand <<struct>> {
+  + device_type : DeviceType
+  + product : string
+  + action : PolicyAction
+  + payload : json
+  + Parse(device_type, product, policy, error) optional<PolicyCommand>
+  + ActionName(action) string
+}
+
+enum PolicyAction {
+  kOn
+  kOff
+  kCreate
+  kRemove
+  kGet
+}
 
 class quarantine <<namespace>> {
   + kIsolate = "quarantine"
@@ -559,14 +594,9 @@ class policy_json <<namespace>> {
   + Has(object, key) bool
 }
 
-policy_receiver ..> ReceiveSwitchPolicy
-policy_receiver ..> ReceiveRouterPolicy
-policy_receiver ..> ReceiveFirewallPolicy
-policy_receiver ..> ReceiveVmPolicy
-ReceiveSwitchPolicy ..> ManagementService : Apply*Policy
-ReceiveRouterPolicy ..> ManagementService : Apply*Policy
-ReceiveFirewallPolicy ..> ManagementService : ApplyNftablesPolicy
-ReceiveVmPolicy ..> ManagementService : ApplyVmPolicy
+policy_receiver ..> PolicyCommand : Parse / validate
+policy_receiver ..> ManagementService : ApplyPolicyCommand
+ManagementService ..> PolicyCommand : 장치/제품별 실행기 선택
 
 policy_receiver ..> policy_json : 필드 안전 파싱
 quarantine --> Outcome : 생성
@@ -590,14 +620,109 @@ end note
 
 ---
 
-## 6. 장치 모델 (공통 네트워크 객체 · 라우터 · 스위치 · 방화벽 · VM)
+## 6. 장치 유형 분기와 네트워크 데이터 모델
+
+`DeviceType`의 네 값은 공통 `Device` 기반 클래스의 하위 타입이 아닙니다.
+장치 유형은 `ProberConfig`에 저장되는 분류값입니다. 서버 정책 JSON은 `PolicyCommand`가
+액션을 검증·타입화하고, `ManagementService`가 장치 유형과 제품에 맞는 실행기로 분기합니다.
+텔레메트리는 장치 도메인 모델을 경유하지 않고 CLI 출력에서 JSON `CollectedState`를 구성합니다.
+`RoutingTable`은 장치 자체가 아니라 라우터의 경로 및 연결 상태를 담는 모델이고 `Router`가 소유합니다.
+`Switch`, `Firewall`, `Router`는 별도의 장치 모델이며 서로 상속하지 않습니다.
 
 ```plantuml
 @startuml Agent_DeviceModel
-title 장치 모델 계층
+title 장치 유형 분기 · 네트워크 데이터 타입
 
 skinparam classAttributeIconSize 0
 skinparam shadowing false
+
+enum DeviceType {
+  kSwitch
+  kVirtualMachine
+  kFirewall
+  kRouter
+}
+
+class ProberConfig {
+  - device_type_ : DeviceType
+  - product_name_ : string
+  + GetDeviceType() DeviceType
+  + GetProductName() string
+}
+
+class Router {
+  - name_ : string
+  - routing_table_ : RoutingTable
+  + getName() string
+  + setName(name) void
+  + getRoutingTable() RoutingTable&
+}
+
+class policy_receiver <<namespace>>
+class PolicyCommand <<struct>> {
+  + device_type : DeviceType
+  + product : string
+  + action : PolicyAction
+  + payload : json
+  + Parse(device_type, product, policy, error) optional<PolicyCommand>
+}
+
+enum PolicyAction {
+  kOn
+  kOff
+  kCreate
+  kRemove
+  kGet
+}
+
+class collector <<namespace>> {
+  + CollectState(config, mgmt) CollectedState
+  + BuildStateFromOutputs(device_type, product_name, outputs) CollectedState
+}
+
+enum ProductKind <<internal>> {
+  kLinux
+  kFrr
+  kFirewall
+  kCisco
+  kArista
+  kOpenVSwitch
+  kOther
+}
+
+class CollectedState <<struct>> {
+  + snapshot : json
+  + nic : json
+  + route : json
+  + vlan : json
+  + trunk : json
+  + arp : json
+  + rules : json
+  + topology : json
+  + any_success : bool
+}
+
+class ManagementService {
+  + RunCommandOutput(command) string
+  + ExecuteIosCli(commands) string
+  + QueryAristaCli(command) string
+  + ApplyOpenVSwitchPolicy(policy) bool
+  + ApplyAristaSwitchPolicy(policy) bool
+  + ApplyCiscoRouterPolicy(policy) bool
+  + ApplyFrrRouterPolicy(policy) bool
+  + ApplyNftablesPolicy(policy) bool
+  + ApplyVmPolicy(policy) bool
+  + ApplyPolicyCommand(command) bool
+}
+
+class cli_parser <<namespace>> {
+  + ParseNicStatus(raw) json
+  + ParseRouteStatus(raw, vendor) json
+  + ParseArpTable(raw, vendor) json
+  + ParseSwitchVlan(raw) json
+  + ParseSwitchPorts(raw) json
+  + ParseFirewallRules(raw) json
+}
 
 abstract class NetworkInterface {
   + {abstract} Kind() string
@@ -624,7 +749,7 @@ class Nic {
   + ToJson() json
 }
 
-class NicAddress <<struct>> {
+class "Nic::Address" as NicAddress <<nested struct>> {
   + family : string
   + address : string
   + prefix_len : string
@@ -666,6 +791,10 @@ class VlanMode <<enumeration>> {
   kAccess
   kTrunk
   kNative
+}
+
+class VlanIdList <<type alias>> {
+  .. std::vector<int> ..
 }
 
 class RoutingTable {
@@ -717,17 +846,10 @@ class CiscoRoutingTableView {
 
 class Switch {
   - name_ : string
-  - routing_table_ : RoutingTable
-  - ports_ : map<string, Subnet>
   - bridges_ : vector<BridgeInfo>
   + getName() string
   + setName(name) void
   + loadTopology(raw, vendor) void
-  + addRoute(destination, next_hop) void
-  + addPort(destination, port) void
-  + addVlan(subnet_id, port) void
-  + updateRoutingTable(destination, next_hop) void
-  + updatePort(destination, port) void
   + getBridges() vector<BridgeInfo>&
 }
 
@@ -737,7 +859,6 @@ class BridgeInfo <<struct>> {
 }
 
 class SwitchVendor <<enumeration>> {
-  CiscoIosXe
   AristavEOS
   OpenVSwitch
 }
@@ -751,10 +872,6 @@ class OpenVSwitchTopologyParser {
 }
 
 class AristaTopologyParser {
-  + parse(raw) vector<BridgeInfo>
-}
-
-class CiscoTopologyParser {
   + parse(raw) vector<BridgeInfo>
 }
 
@@ -789,41 +906,66 @@ class NftRule <<struct>> {
   + connection_state : string
 }
 
-class VmService <<static utility>> {
+class VmService <<static utility, currently uncalled>> {
   + CollectNicStatus() json
 }
+
+ProberConfig ..> DeviceType
+policy_receiver ..> ProberConfig
+policy_receiver ..> PolicyCommand : 검증/타입화
+policy_receiver ..> ManagementService
+PolicyCommand ..> PolicyAction
+ManagementService ..> PolicyCommand : 실행 분기
+Router *-- RoutingTable : 라우팅/연결 상태
+note right of policy_receiver
+  서버 JSON 정책을 명령 객체로
+  검증하고 ManagementService에 위임
+end note
+
+collector ..> ProberConfig
+collector ..> ProductKind
+collector --> CollectedState
+collector ..> ManagementService : 조회 명령 실행
+collector ..> cli_parser : 출력 파싱
 
 NetworkInterface <|-- Nic
 NetworkInterface <|-- Port
 Port <|-- PortInfo
 Nic *-- NicAddress
-NetworkInterface ..> Vlan : VlanIds() / VlanIdList
-Vlan *-- VlanMode
+NetworkInterface ..> VlanIdList : VlanIds()
+Vlan ..> VlanMode : Mode
 
 RoutingTable *-- RouteEntry
 RoutingTableView <|-- FrrRoutingTableView
 RoutingTableView <|-- CiscoRoutingTableView
-RoutingTable ..> RoutingTableView : 렌더링 위임
-RoutingTable ..> FrrRoutingTableView
-RoutingTable ..> CiscoRoutingTableView
+RoutingTableView ..> RoutingTable : Render(table)
 
-Switch *-- RoutingTable
 Switch *-- BridgeInfo
 BridgeInfo *-- PortInfo
 Switch ..> SwitchVendor : 파서 선택
 TopologyParser <|-- OpenVSwitchTopologyParser
 TopologyParser <|-- AristaTopologyParser
-TopologyParser <|-- CiscoTopologyParser
 Switch ..> TopologyParser : loadTopology 위임
 
 Firewall *-- NftTable
 NftTable *-- NftChain
 NftChain *-- NftRule
 
-ManagementService --> RoutingTable : 사용
-ManagementService --> Switch : 사용
-ManagementService --> Firewall : 사용
-collector ..> VmService : (VM) 수집
+note bottom of DeviceType
+  장치 클래스 계층이 아닌 분류 enum.
+  정책 분기 기준으로 사용.
+end note
+
+note bottom of Router
+  라우팅 상태 모델의 소유자.
+  서버 정책 실행은 별도의
+  PolicyCommand를 통해 처리.
+end note
+
+note bottom of VmService
+  현재 collector에서 호출되지 않는
+  별도 정적 NIC 수집 유틸리티.
+end note
 @enduml
 ```
 
@@ -986,7 +1128,7 @@ TelemetryMonitor ..> offline : 전송 실패 시 저장
 | `DeviceType`                         | `components/device/device_type.hpp`                    | `kSwitch`, `kVirtualMachine`, `kFirewall`, `kRouter`                                  | 정책/명령 분기 기준  |
 | `cli_parser::Vendor`                 | `components/parser/cli_output_parser.hpp`              | `kOpenVSwitch`, `kFrr`, `kCisco`, `kArista`, `kNftables`, `kUbuntu`, `kUnknown` | 파서 출력 형식 선택  |
 | `collector::ProductKind`             | `module/telemetry_module/command_collector.cpp` (내부) | `kLinux`, `kFrr`, `kFirewall`, `kCisco`, `kArista`, `kOpenVSwitch`, `kOther`    | 조회 명령 선택       |
-| `SwitchVendor`                       | `components/device/switch/switch_interface/switch.hpp` | `CiscoIosXe`, `AristavEOS`, `OpenVSwitch`                                               | 토폴로지 파서 선택   |
+| `SwitchVendor`                       | `components/device/switch/switch_interface/switch.hpp` | `AristavEOS`, `OpenVSwitch`                                               | 스위치 브리지 파서 선택   |
 | `Vlan::Mode`                         | `components/network_object/vlan.hpp`                   | `kUnknown`, `kAccess`, `kTrunk`, `kNative`                                            | VLAN 취급 모드       |
 | `telemetry_store::ColumnValue::Kind` | `database/telemetry_store.cpp` (내부)                  | `kText`, `kInteger`                                                                       | SQL 바인딩 타입 구분 |
 
@@ -1017,6 +1159,6 @@ TelemetryMonitor ..> offline : 전송 실패 시 저장
 | `ColumnValue`, `Kind`                                   | `database/telemetry_store.cpp`                    | SQL 바인딩 값 표현            |
 | `DatabaseService::Impl`                                   | `database/database_service.hpp`                   | pimpl                         |
 | `ParseSession`, `CollectingErrorListener`, `*Visitor` | `components/parser/cli_output_parser.cpp`         | ANTLR 파싱 세션/방문자        |
-| `ReceiveSwitch/Router/Firewall/VmPolicy`                  | `components/policy/policy_receiver.cpp`           | 벤더별 정책 분기              |
+| `PolicyCommand`, `PolicyAction`                           | `components/policy/policy_command.hpp`            | 서버 정책 액션 검증/타입화     |
 
 > `MonitorWorker` 는 현재 사용되지 않는 자리(placeholder)이며 `main.cpp`에서 기동하지 않습니다.

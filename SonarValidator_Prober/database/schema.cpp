@@ -16,9 +16,9 @@ namespace database_schema
 //              때문에 파서도 `distance` / `metric` 을 정수로 냅니다.
 //              숫자로 해석할 수 없는 원문만 `metric_raw`(문자열)로 남깁니다.
 //              이 DDL 은 CREATE TABLE IF NOT EXISTS 라서 이미 만들어진 DB 에는
-//              적용되지 않습니다. 기존 DB 는 컬럼 타입 TEXT 로 남지만 SQLite 는
-//              타입 친화도(affinity) 로 값을 저장하므로 정수를 넣어도 그대로
-//              동작합니다. 새로 만드는 DB 부터 INTEGER 입니다.
+//              적용되지 않습니다. 구형 route_table 은 distance/metric_raw 컬럼도
+//              없어 현재 INSERT 와 호환되지 않으므로 마이그레이션 또는 DB 재생성이
+//              필요합니다. 기본 설치 템플릿은 최신 정의로 갱신되어 있습니다.
 // ---------------------------------------------------------------------------
 const std::string& CreateTablesSql()
 {

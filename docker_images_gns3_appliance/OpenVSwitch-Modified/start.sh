@@ -1,5 +1,7 @@
 #!/bin/sh
 
+/root/gns3-fix-links.sh
+
 # 1. SSH 호스트 키 중복 생성 방지 체크
 if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
     ssh-keygen -A

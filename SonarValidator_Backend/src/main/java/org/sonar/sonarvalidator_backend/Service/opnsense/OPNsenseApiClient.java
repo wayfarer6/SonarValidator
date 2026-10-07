@@ -398,8 +398,8 @@ public class OPNsenseApiClient {
     private HttpClient buildClient(OPNsenseConnection connection) {
         final HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(CONNECT_TIMEOUT)
-                // OPNsense 는 자체 서명 인증서를 쓰는 경우가 많아 리다이렉트를 따릅니다.
-                .followRedirects(HttpClient.Redirect.NORMAL);
+                // Never follow a redirect: it could downgrade HTTPS and expose Basic auth.
+                .followRedirects(HttpClient.Redirect.NEVER);
 
         if (connection.allowInsecureTls()) {
             log.warn("OPNsense TLS verification is DISABLED for {} — "
