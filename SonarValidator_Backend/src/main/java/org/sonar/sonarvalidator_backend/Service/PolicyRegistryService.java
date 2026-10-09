@@ -270,15 +270,31 @@ public class PolicyRegistryService {
         //                 차단으로 제한해야 합니다. 전부 차단하면 트렁크에 붙은
         //                 무관한 존이 함께 죽어, 방화벽을 노드 격리하지 않는
         //                 이유 자체가 무너집니다.
-        final var state = quarantineService.activeState(agentId, null);
-        if (state == null) {
+        final var states = quarantineService.activeStates(agentId);
+        if (states.isEmpty()) {
             return policy;
         }
 
-        final boolean connectionScoped =
-                state.getScope() == org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION;
+        final var connectionStates = states.stream()
+            .filter(state -> state.getScope()
+                == org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION)
+            .toList();
+        final boolean hasNodeScope = states.stream().anyMatch(state -> state.getScope()
+            != org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION);
+        if (hasNodeScope) {
+            applyQuarantinePolicy(policy, agentId, false, null);
+            return policy;
+        }
+        if (connectionStates.isEmpty()) {
+            return policy;
+        }
 
-        applyQuarantinePolicy(policy, agentId, connectionScoped, state.getTargetCidr());
+        final List<String> targetCidrs = connectionStates.stream()
+            .map(org.sonar.sonarvalidator_backend.Model.entity.QuarantineState::getTargetCidr)
+            .filter(cidr -> cidr != null && !cidr.isBlank())
+            .distinct()
+            .toList();
+        applyQuarantinePolicy(policy, agentId, true, targetCidrs);
         return policy;
     }
 
@@ -291,17 +307,18 @@ public class PolicyRegistryService {
      * @param targetCidr      연결 단위 격리 대상 CIDR (없으면 null)
      */
     private void applyQuarantinePolicy(ObjectNode policy, String agentId,
-                                        boolean connectionScoped, String targetCidr) {
+                                        boolean connectionScoped, List<String> targetCidrs) {
+        final String targets = targetCidrs == null ? "" : String.join(", ", targetCidrs);
         // 차단 사실을 응답 자체에 남깁니다. Agent 로그와 서버 상태를 대조할 때
         // "왜 정책이 차단본인가" 를 설명할 유일한 단서입니다.
         policy.put("quarantined", true);
         policy.put("quarantine_scope", connectionScoped ? "connection" : "node");
-        if (connectionScoped && targetCidr != null && !targetCidr.isBlank()) {
-            policy.put("quarantine_target_cidr", targetCidr);
+        if (connectionScoped && !targets.isBlank()) {
+            policy.put("quarantine_target_cidr", targets);
         }
         policy.put("quarantine_note", connectionScoped
-                ? "이 장치는 운영자에 의해 격리되었습니다. 대상 대역(" + targetCidr
-                        + ")으로 가는 연결만 차단됩니다."
+                ? "이 장치는 운영자에 의해 격리되었습니다. 대상 대역(" + targets
+                + ")의 송수신 연결만 차단됩니다."
                 : "이 장치는 운영자에 의해 격리되었습니다. 모든 전달 트래픽이 차단됩니다.");
 
         final ObjectNode summary = policy.has("summary")
@@ -319,20 +336,21 @@ public class PolicyRegistryService {
         intent.put("direction", "both");
         intent.put("action", "deny");
         intent.put("reason", connectionScoped
-                ? "운영자 격리 — 대상 대역 " + targetCidr + " 연결 차단"
+            ? "운영자 격리 — 대상 대역 " + targets + " 연결 차단"
                 : "운영자 격리 — 모든 트래픽 차단");
-        if (connectionScoped && targetCidr != null && !targetCidr.isBlank()) {
-            intent.put("destination_subnet", targetCidr);
+        if (connectionScoped && !targets.isBlank()) {
+            final ArrayNode targetArray = intent.putArray("destination_subnet");
+            targetCidrs.forEach(targetArray::add);
         }
         intents.insert(0, intent);
 
         if (connectionScoped) {
             // ⚠️ 연결 단위 격리는 기존 규칙을 전부 뒤집지 않습니다.
-            //   대상 대역으로 향하는 규칙만 차단합니다. 나머지는 그대로 두어
+            //   대상 대역의 송수신 트래픽만 차단합니다. 나머지는 그대로 두어
             //   무관한 존이 살아 있게 합니다.
-            addConnectionDrop(policy, targetCidr);
-            log.warn("policy for agent={} overridden to quarantine (connection-only target={})",
-                    agentId, targetCidr);
+            targetCidrs.forEach(targetCidr -> addConnectionDrop(policy, targetCidr));
+            log.warn("policy for agent={} overridden to quarantine (connection-only targets={})",
+                    agentId, targets);
             return;
         }
 
@@ -358,7 +376,7 @@ public class PolicyRegistryService {
     }
 
     /**
-     * 특정 대역으로 향하는 차단 규칙을 추가합니다. (연결 단위 격리)
+    * 특정 대역의 송수신을 차단하는 규칙을 추가합니다. (연결 단위 격리)
      *
      * <p>기존 규칙 목록은 건드리지 않고 차단 규칙을 <b>앞에</b> 넣습니다.
      * 뒤에 넣으면 허용 규칙이 먼저 매칭되어 차단이 무력해집니다.
@@ -383,7 +401,6 @@ public class PolicyRegistryService {
         drop.putArray("command").add("create");
         drop.put("rule_id", "quarantine-" + targetCidr.replace('/', '_').replace('.', '_'));
         drop.putArray("reason").add("운영자 격리 — 대상 대역 " + targetCidr + " 차단");
-        drop.putArray("destination_subnet").add(targetCidr);
         drop.putArray("action").add("drop");
 
         final ObjectNode target = drop.putObject("rule_target");
@@ -391,10 +408,15 @@ public class PolicyRegistryService {
         target.putArray("table_name").add(firewallTable());
         target.putArray("chain_name").add("forward");
 
-        final ObjectNode match = drop.putObject("match_criteria");
-        match.putArray("ip_daddr").add(targetCidr);
+        final ObjectNode destinationDrop = drop.deepCopy();
+        destinationDrop.put("rule_id", drop.get("rule_id").asText() + "-destination");
+        destinationDrop.putObject("match_criteria").putArray("ip_daddr").add(targetCidr);
+        final ObjectNode sourceDrop = drop.deepCopy();
+        sourceDrop.put("rule_id", drop.get("rule_id").asText() + "-source");
+        sourceDrop.putObject("match_criteria").putArray("ip_saddr").add(targetCidr);
 
-        policies.insert(0, drop);
+        policies.insert(0, sourceDrop);
+        policies.insert(0, destinationDrop);
     }
 
     /**

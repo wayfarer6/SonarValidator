@@ -42,8 +42,20 @@ function currentHostname(): string {
 }
 
 /** API base URL 입니다. 끝의 슬래시는 제거합니다. */
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const localApiHost = currentHostname();
+
+/**
+ * Forwarded local environments may expose the frontend as localhost while
+ * the backend is addressed as 127.0.0.1. Keep the request host same-site so
+ * SameSite=Lax session cookies are sent on subsequent API calls.
+ */
 export const API_BASE_URL: string = (
-  import.meta.env.VITE_API_BASE_URL ?? `http://${currentHostname()}:3000`
+  configuredApiBaseUrl &&
+  (localApiHost === "localhost" || localApiHost === "127.0.0.1") &&
+  /^https?:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/i.test(configuredApiBaseUrl)
+    ? configuredApiBaseUrl.replace(/^(https?:\/\/)(localhost|127\.0\.0\.1)/i, `$1${localApiHost}`)
+    : configuredApiBaseUrl ?? `http://${localApiHost}:3000`
 ).replace(/\/+$/, "");
 
 /**

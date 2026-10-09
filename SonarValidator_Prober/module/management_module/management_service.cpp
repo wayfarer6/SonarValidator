@@ -961,6 +961,8 @@ bool ManagementService::ApplyNftablesPolicy(const Json& policy)
             std::string src;
             std::string dst;
             std::string protocol;
+            std::vector<std::string> source_subnets;
+            std::vector<std::string> destination_subnets;
             const auto match = policy.find("match_criteria");
             if (match != policy.end())
             {
@@ -969,10 +971,41 @@ bool ManagementService::ApplyNftablesPolicy(const Json& policy)
                 protocol = policy_json::AsString(*match, "protocol");
             }
 
+            const auto source_subnet = policy.find("source_subnet");
+            if (source_subnet != policy.end() && source_subnet->is_array())
+            {
+                for (const auto& subnet : *source_subnet)
+                {
+                    if (subnet.is_string()) source_subnets.push_back(subnet.get<std::string>());
+                }
+            }
+            const auto destination_subnet = policy.find("destination_subnet");
+            if (destination_subnet != policy.end() && destination_subnet->is_array())
+            {
+                for (const auto& subnet : *destination_subnet)
+                {
+                    if (subnet.is_string()) destination_subnets.push_back(subnet.get<std::string>());
+                }
+            }
+
             const std::string action = policy_json::AsString(policy, "action");
             std::string expr;
             if (!src.empty()) expr += "ip saddr " + src + " ";
             if (!dst.empty()) expr += "ip daddr " + dst + " ";
+            if (src.empty() && !source_subnets.empty())
+            {
+                expr += "ip saddr { ";
+                for (const auto& subnet : source_subnets) expr += subnet + ", ";
+                expr.erase(expr.size() - 2);
+                expr += " } ";
+            }
+            if (dst.empty() && !destination_subnets.empty())
+            {
+                expr += "ip daddr { ";
+                for (const auto& subnet : destination_subnets) expr += subnet + ", ";
+                expr.erase(expr.size() - 2);
+                expr += " } ";
+            }
             if (!protocol.empty()) expr += "ip protocol " + protocol + " ";
 
             return RunCommand(NftScript("add rule " + table_family + " " + table_name + " " +

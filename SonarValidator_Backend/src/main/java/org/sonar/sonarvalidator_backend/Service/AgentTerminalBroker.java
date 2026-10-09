@@ -39,14 +39,30 @@ public class AgentTerminalBroker {
     }
 
     public boolean openBrowser(String agentId, WebSocketSession session) {
-        if (!agents.containsKey(agentId) || browsers.putIfAbsent(agentId, session) != null) {
+        final WebSocketSession agent = agents.get(agentId);
+        if (agent == null || !agent.isOpen()) {
+            if (agent != null) {
+                agents.remove(agentId, agent);
+            }
+            log.warn("terminal browser rejected: no open agent session for {}", agentId);
             return false;
+        }
+        final WebSocketSession previous = browsers.putIfAbsent(agentId, session);
+        if (previous != null) {
+            if (previous.isOpen()) {
+                log.warn("terminal browser rejected: browser session already active for {}", agentId);
+                return false;
+            }
+            if (!browsers.replace(agentId, previous, session)) {
+                return false;
+            }
         }
         send(session, Map.of("type", "terminal-status", "status", "connecting"));
         if (sendAgent(agentId, Map.of("type", "terminal-open"))) {
             return true;
         }
         browsers.remove(agentId, session);
+        log.warn("terminal browser rejected: could not send terminal-open to agent {}", agentId);
         return false;
     }
 
@@ -65,6 +81,10 @@ public class AgentTerminalBroker {
         if (browsers.remove(agentId, session)) {
             sendAgent(agentId, Map.of("type", "terminal-close"));
         }
+    }
+
+    public void rejectBrowser(String agentId, WebSocketSession session) {
+        browsers.remove(agentId, session);
     }
 
     public void agentClosed(String agentId, WebSocketSession session) {

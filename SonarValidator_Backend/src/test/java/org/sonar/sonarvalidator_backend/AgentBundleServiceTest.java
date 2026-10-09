@@ -52,7 +52,8 @@ class AgentBundleServiceTest {
                 "",                 // serverIp 자동 감지 (테스트에서는 override 를 씀)
                 CONFIGURED_PORT,
                 "",
-                "");
+                "",
+                "test-terminal-shared-secret-that-is-long-enough");
     }
 
     /**
@@ -148,6 +149,7 @@ class AgentBundleServiceTest {
                 "요청 포트가 들어가야 합니다 (설정값 3000 이 아니라):\n" + conf);
         assertTrue(conf.contains("NODE_TYPE=Router;"), conf);
         assertTrue(conf.contains("AGENT_NAME=Gateway-Router;"), conf);
+        assertTrue(conf.contains("TERMINAL_SHARED_SECRET=test-terminal-shared-secret-that-is-long-enough;"), conf);
     }
 
     @Test

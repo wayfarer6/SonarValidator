@@ -32,6 +32,9 @@ public:
     std::uint64_t GetMemorySizeBytes() const;
     const std::string &GetServerIpv4() const;
     std::uint16_t GetServerPort() const;
+    const std::string &GetTerminalSharedSecret() const;
+    void SetTerminalSharedSecret(std::string terminal_shared_secret);
+    void DetectTerminalSharedSecret();
 
     // 제어평면(관리망) 대역 목록입니다. (쉼표 구분 다중 대역)
     //
@@ -82,6 +85,7 @@ private:
     std::uint64_t memory_size_bytes_; // 총 메모리 크기(바이트)
     std::string server_ipv4_;         // 중앙 서버 IPv4
     std::uint16_t server_port_;       // 중앙 서버 포트
+    std::string terminal_shared_secret_;
     std::string architecture_;        // CPU 아키텍처
     std::string management_prefixes_; // 제어평면(관리망) 대역 (쉼표 구분)
 };

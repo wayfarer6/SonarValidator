@@ -23,9 +23,12 @@ if(SONAR_STATIC_LINK)
     set(_SONAR_SAVED_LIBRARY_SUFFIXES "${CMAKE_FIND_LIBRARY_SUFFIXES}")
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
     find_package(SQLite3 REQUIRED)
+    find_library(SONAR_OPENSSL_CRYPTO_LIBRARY NAMES crypto REQUIRED)
     set(CMAKE_FIND_LIBRARY_SUFFIXES "${_SONAR_SAVED_LIBRARY_SUFFIXES}")
     unset(_SONAR_SAVED_LIBRARY_SUFFIXES)
+    find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 else()
+    find_package(OpenSSL REQUIRED COMPONENTS Crypto)
     find_package(SQLite3 REQUIRED)
 endif()
 
@@ -205,9 +208,29 @@ add_executable(sonar_validator_prober
 
 sonar_configure_target(sonar_validator_prober)
 
-target_link_libraries(sonar_validator_prober PRIVATE SQLite::SQLite3 OpenSSL::Crypto)
+if(SONAR_STATIC_LINK)
+    target_link_libraries(sonar_validator_prober PRIVATE
+        SQLite::SQLite3 ${SONAR_OPENSSL_CRYPTO_LIBRARY})
+else()
+    target_link_libraries(sonar_validator_prober PRIVATE SQLite::SQLite3 OpenSSL::Crypto)
+endif()
 target_compile_definitions(sonar_validator_prober PRIVATE
     $<$<CONFIG:Debug>:SONAR_DEBUG_BUILD=1>)
+
+add_custom_target(installer_bundle
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/Installer/systemd"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/Installer/rc-service"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:sonar_validator_prober>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/sonar_validator_prober"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/components/system_service_registration/systemd/prober.service"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/systemd/sonar_validator_prober.service"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/components/system_service_registration/rc-service/sonar_validator_prober"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/rc-service/sonar_validator_prober"
+    DEPENDS sonar_validator_prober
+    COMMENT "Stage binary and service scripts in Installer/")
 
 # =============================================================================
 #  도구: 스키마 DDL 덤프

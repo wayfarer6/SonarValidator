@@ -17,6 +17,8 @@ import org.sonar.sonarvalidator_backend.Model.entity.DeviceLog;
 import org.sonar.sonarvalidator_backend.Repository.DeviceLogRepository;
 import org.sonar.sonarvalidator_backend.Service.NodeRegistryService;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -225,25 +227,46 @@ public class LogService {
         // 여기서 한 번만 변환합니다. (형식이 깨진 값은 null = 제한 없음)
         final Date fromDate = org.sonar.sonarvalidator_backend.Util.Timestamps.parse(from);
         final Date toDate = org.sonar.sonarvalidator_backend.Util.Timestamps.parse(to);
+        final String normalizedAgentId = blankToNull(agentId);
+        final String normalizedProjectKey = blankToNull(projectKey);
+        final String searchTerm = blankToNull(search);
+        Specification<DeviceLog> specification = (root, query, builder) ->
+            builder.conjunction();
+        if (normalizedAgentId != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.equal(root.get("agentId"), normalizedAgentId));
+        }
+        if (normalizedProjectKey != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.equal(root.get("projectKey"), normalizedProjectKey));
+        }
+        if (fromDate != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.greaterThanOrEqualTo(root.get("loggedAt"), fromDate));
+        }
+        if (toDate != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.lessThanOrEqualTo(root.get("loggedAt"), toDate));
+        }
+        if (maxSeverity != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.lessThanOrEqualTo(root.get("severityNum"), maxSeverity));
+        }
+        if (searchTerm != null) {
+            final String searchPattern = "%" + searchTerm.toLowerCase(java.util.Locale.ROOT) + "%";
+            specification = specification.and((root, query, builder) -> builder.or(
+                builder.like(builder.lower(root.get("message")), searchPattern),
+                builder.like(builder.lower(root.get("raw")), searchPattern)));
+        }
+        if (highlightedOnly) {
+            specification = specification.and((root, query, builder) ->
+                builder.isTrue(root.get("highlighted")));
+        }
 
-        final List<DeviceLog> logs = repository.search(
-                blankToNull(agentId),
-                blankToNull(projectKey),
-                fromDate,
-                toDate,
-                maxSeverity,
-                blankToNull(search),
-                highlightedOnly,
-                PageRequest.of(0, pageSize));
-
-        final long total = repository.countMatching(
-                blankToNull(agentId),
-                blankToNull(projectKey),
-                fromDate,
-                toDate,
-                maxSeverity,
-                blankToNull(search),
-                highlightedOnly);
+        final var sort = Sort.by(Sort.Order.desc("loggedAt"), Sort.Order.desc("id"));
+        final List<DeviceLog> logs = repository.findAll(
+            specification, PageRequest.of(0, pageSize, sort)).getContent();
+        final long total = repository.count(specification);
 
         final Map<String, Object> filters = new LinkedHashMap<>();
         filters.put("agent_id", blankToNull(agentId));
@@ -305,15 +328,36 @@ public class LogService {
 
         // 최신순으로 넉넉히 가져온 뒤 뒤집어 시간순으로 만듭니다.
         // (저장소 쿼리가 최신순이므로, 오래된 것부터 보려면 한 번 뒤집어야 합니다)
-        final List<DeviceLog> recent = repository.search(
-                blankToNull(agentId),
-                blankToNull(projectKey),
-                org.sonar.sonarvalidator_backend.Util.Timestamps.parse(from),
-                org.sonar.sonarvalidator_backend.Util.Timestamps.parse(to),
-                maxSeverity,
-                null,
-                false,
-                PageRequest.of(0, maxCount));
+        final String normalizedAgentId = blankToNull(agentId);
+        final String normalizedProjectKey = blankToNull(projectKey);
+        final Date fromDate = org.sonar.sonarvalidator_backend.Util.Timestamps.parse(from);
+        final Date toDate = org.sonar.sonarvalidator_backend.Util.Timestamps.parse(to);
+        Specification<DeviceLog> specification = (root, query, builder) ->
+            builder.conjunction();
+        if (normalizedAgentId != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.equal(root.get("agentId"), normalizedAgentId));
+        }
+        if (normalizedProjectKey != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.equal(root.get("projectKey"), normalizedProjectKey));
+        }
+        if (fromDate != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.greaterThanOrEqualTo(root.get("loggedAt"), fromDate));
+        }
+        if (toDate != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.lessThanOrEqualTo(root.get("loggedAt"), toDate));
+        }
+        if (maxSeverity != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.lessThanOrEqualTo(root.get("severityNum"), maxSeverity));
+        }
+        final List<DeviceLog> recent = repository.findAll(
+            specification,
+            PageRequest.of(0, maxCount, Sort.by(Sort.Order.desc("loggedAt"), Sort.Order.desc("id"))))
+            .getContent();
 
         final List<DeviceLog> ordered = new ArrayList<>(recent);
         java.util.Collections.reverse(ordered);
@@ -323,14 +367,34 @@ public class LogService {
     /** 필터에 걸린 전체 건수를 셉니다. (분석 시 잘림 여부 판단용) */
     @Transactional(readOnly = true)
     public long countFor(String agentId, String projectKey, String from, String to, String severity) {
-        return repository.countMatching(
-                blankToNull(agentId),
-                blankToNull(projectKey),
-                org.sonar.sonarvalidator_backend.Util.Timestamps.parse(from),
-                org.sonar.sonarvalidator_backend.Util.Timestamps.parse(to),
-                normalizer.parseSeverity(severity),
-                null,
-                false);
+        final String normalizedAgentId = blankToNull(agentId);
+        final String normalizedProjectKey = blankToNull(projectKey);
+        final Date fromDate = org.sonar.sonarvalidator_backend.Util.Timestamps.parse(from);
+        final Date toDate = org.sonar.sonarvalidator_backend.Util.Timestamps.parse(to);
+        final Integer maxSeverity = normalizer.parseSeverity(severity);
+        Specification<DeviceLog> specification = (root, query, builder) ->
+            builder.conjunction();
+        if (normalizedAgentId != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.equal(root.get("agentId"), normalizedAgentId));
+        }
+        if (normalizedProjectKey != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.equal(root.get("projectKey"), normalizedProjectKey));
+        }
+        if (fromDate != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.greaterThanOrEqualTo(root.get("loggedAt"), fromDate));
+        }
+        if (toDate != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.lessThanOrEqualTo(root.get("loggedAt"), toDate));
+        }
+        if (maxSeverity != null) {
+            specification = specification.and((root, query, builder) ->
+                builder.lessThanOrEqualTo(root.get("severityNum"), maxSeverity));
+        }
+        return repository.count(specification);
     }
 
     /**

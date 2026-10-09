@@ -12,6 +12,7 @@
         "${workspaceFolder}/SonarValidator_Prober/build-debug",
         "-DCMAKE_BUILD_TYPE=Debug",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DSONAR_DEBUG_BUILD=ON",
         "-DANTLR4_RUNTIME_ROOT=${env:HOME}/tools/antlr4-install"
       ],
       "options": {

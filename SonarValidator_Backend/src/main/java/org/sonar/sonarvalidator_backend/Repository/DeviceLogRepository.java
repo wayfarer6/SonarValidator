@@ -5,10 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.sonar.sonarvalidator_backend.Model.entity.DeviceLog;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 /**
  * 장비 로그 저장소입니다.
@@ -34,7 +32,8 @@ import org.springframework.data.repository.query.Param;
  * 형식에 따라 결과가 달라집니다. <b>API 경계는 문자열로 유지</b>하고
  * 이 저장소에 들어오기 전에 변환합니다.
  */
-public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long> {
+public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long>,
+        JpaSpecificationExecutor<DeviceLog> {
 
     /**
      * 필터 조합으로 로그를 최신순 조회합니다.
@@ -51,63 +50,6 @@ public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long> {
      * @param pageable      페이지 크기 제한
      * @return 로그 목록 (최신순)
      */
-    @Query("""
-            SELECT l FROM DeviceLog l
-            WHERE (:agentId IS NULL OR l.agentId = :agentId)
-              AND (:projectKey IS NULL OR l.projectKey = :projectKey)
-              AND (:from IS NULL OR l.loggedAt >= :from)
-              AND (:to IS NULL OR l.loggedAt <= :to)
-              AND (:maxSeverity IS NULL OR l.severityNum <= :maxSeverity)
-              AND (:search IS NULL
-                   OR LOWER(l.message) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(l.raw) LIKE LOWER(CONCAT('%', :search, '%')))
-              AND (:highlightedOnly = FALSE OR l.highlighted = TRUE)
-            ORDER BY l.loggedAt DESC, l.id DESC
-            """)
-    List<DeviceLog> search(@Param("agentId") String agentId,
-                           @Param("projectKey") String projectKey,
-                           @Param("from") Date from,
-                           @Param("to") Date to,
-                           @Param("maxSeverity") Integer maxSeverity,
-                           @Param("search") String search,
-                           @Param("highlightedOnly") boolean highlightedOnly,
-                           Pageable pageable);
-
-    /**
-     * 위와 같은 조건의 전체 건수를 셉니다.
-     *
-     * <p>화면에 "N건 중 M건 표시" 를 보여주려면 총계가 필요합니다.
-     * 목록 조회에 페이지 제한이 걸려 있어 {@code size()} 로는 알 수 없습니다.
-     *
-     * @param agentId       장비 식별자
-     * @param projectKey    프로젝트 키
-     * @param from          기간 시작
-     * @param to            기간 끝
-     * @param maxSeverity   최대 심각도 번호
-     * @param search        검색어
-     * @param highlightedOnly 표시된 로그만
-     * @return 조건에 맞는 전체 건수
-     */
-    @Query("""
-            SELECT COUNT(l) FROM DeviceLog l
-            WHERE (:agentId IS NULL OR l.agentId = :agentId)
-              AND (:projectKey IS NULL OR l.projectKey = :projectKey)
-              AND (:from IS NULL OR l.loggedAt >= :from)
-              AND (:to IS NULL OR l.loggedAt <= :to)
-              AND (:maxSeverity IS NULL OR l.severityNum <= :maxSeverity)
-              AND (:search IS NULL
-                   OR LOWER(l.message) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(l.raw) LIKE LOWER(CONCAT('%', :search, '%')))
-              AND (:highlightedOnly = FALSE OR l.highlighted = TRUE)
-            """)
-    long countMatching(@Param("agentId") String agentId,
-                       @Param("projectKey") String projectKey,
-                       @Param("from") Date from,
-                       @Param("to") Date to,
-                       @Param("maxSeverity") Integer maxSeverity,
-                       @Param("search") String search,
-                       @Param("highlightedOnly") boolean highlightedOnly);
-
     /**
      * 지문으로 기존 로그를 찾습니다. (중복 수집 방지)
      *

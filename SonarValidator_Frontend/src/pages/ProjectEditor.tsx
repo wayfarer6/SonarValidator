@@ -17,6 +17,7 @@ import {
   validateProject,
   getForbiddenPairs,
 } from "../lib/api/projects";
+import { listAgentOverview } from "../lib/api";
 import { pushPolicy } from "../lib/api";
 import type {
   ApiRule,
@@ -65,6 +66,7 @@ export default function ProjectEditor() {
   );
 
   const forbiddenPairs = useApi(() => getForbiddenPairs(projectId), [projectId]);
+  const agentOverview = useApi(() => listAgentOverview(projectId), [projectId]);
 
   // ---------------------------------------------------------------------
   // 편집 상태 (서버 응답을 로컬 draft 로 복사해 편집)
@@ -191,6 +193,17 @@ export default function ProjectEditor() {
       prev.map((subnet) =>
         subnet.id === subnetId
           ? { ...subnet, cidr, manually_edited: true }
+          : subnet,
+      ),
+    );
+    setDirty(true);
+  };
+
+  const updateSubnetAgent = (subnetId: string, agentId: string | null) => {
+    setSubnets((prev) =>
+      prev.map((subnet) =>
+        subnet.id === subnetId
+          ? { ...subnet, agent_id: agentId, manually_edited: true }
           : subnet,
       ),
     );
@@ -495,6 +508,11 @@ export default function ProjectEditor() {
                 subnets={subnets}
                 onChange={updateSubnetClass}
                 onCidrChange={updateSubnetCidr}
+                onAgentChange={updateSubnetAgent}
+                agents={(agentOverview.data?.agents ?? []).map((agent) => ({
+                  agent_id: agent.agent_id,
+                  label: agent.agent_id,
+                }))}
                 onRemove={removeSubnet}
                 onAdd={addSubnet}
                 violatingSubnetIds={violatingSubnetIds}

@@ -96,6 +96,9 @@ ctest --test-dir build --output-on-failure
 
 CMake Debug 빌드, GDB, 선택 테스트, ANTLR 준비 방법은
 [Prober CMake 디버깅 가이드](CMAKE_DEBUG_GUIDE.md)를 참고하세요.
+VS Code에서 Agent를 실제 실행해 브레이크포인트를 확인하거나 권한이 필요한 테스트를
+수행할 때도 같은 가이드의 **실제 Agent 프로세스 테스트** 절을 참고하세요. sudo 명령은
+사용자가 직접 실행하며, VS Code 자체를 sudo로 실행할 필요는 없습니다.
 
 ### 3. Frontend
 

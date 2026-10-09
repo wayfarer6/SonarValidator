@@ -139,26 +139,6 @@ export interface AgentDeployCardProps {
   onImportOffline?: () => void;
 }
 
-/**
- * 장비와 프로젝트로 기본 Agent 이름을 만듭니다.
- *
- * <p>배포 스크립트가 쓰는 이름 규칙({@code <장치>-agent})과 맞춥니다.
- * 이름을 자동으로 채워 주는 이유는, 사람이 매번 다른 이름을 지으면
- * 목록과 장치가 서로 다른 말을 하게 되기 때문입니다.
- *
- * @param device 선택한 장비
- * @param projectId 프로젝트 키 (프로젝트마다 다른 이름이 필요할 때 대비)
- */
-function defaultAgentName(device: AgentDeviceType, projectId?: string): string {
-  const base = device.label
-    .replace(/\s*\(for poc\)/i, "")
-    .trim()
-    .replace(/\s+/g, "-");
-  // 프로젝트가 여러 개면 같은 장비 이름이 겹칠 수 있으므로 앞머리를 붙입니다.
-  // ⚠️ 프로젝트를 고르지 않았으면(예: Agent 목록 화면) 장비 이름만 씁니다.
-  return projectId ? `${projectId}-${base}-agent` : `${base}-agent`;
-}
-
 /** 장비 카드 한 장. */
 function DeviceCard({
   device,
@@ -269,10 +249,11 @@ export default function AgentDeployCard({
     "idle" | "downloading" | "done" | "error"
   >("idle");
   const [bundleError, setBundleError] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
 
   // OPNsense 자격증명 모달
   const [opnsenseOpen, setOpnsenseOpen] = useState(false);
-  const [opnsenseAgentId, setOpnsenseAgentId] = useState("");
+  const [opnsenseAgentId] = useState("");
   const [opnsenseSavedCount, setOpnsenseSavedCount] = useState(0);
 
   /**
@@ -303,15 +284,14 @@ export default function AgentDeployCard({
   const configPreview = useMemo(() => {
     const serverIp = managementServerIPAddr.trim() || "localhost";
     const serverPort = managementServerPort.trim() || "3000";
-    const name = agentName.trim() || defaultAgentName(selected ?? AGENT_DEVICE_TYPES[0], projectId);
     return [
       "# agent 생성시 서버측에서 ip, port 인증서 등을 지정함",
       `SERVER_IP=${serverIp};`,
       `SERVER_PORT=${serverPort};`,
       `NODE_TYPE=${selected?.nodeType ?? "VM"};`,
-      `AGENT_NAME=${name};`,
+      `AGENT_NAME=${agentName.trim() || "<노드 이름>"};`,
     ].join("\n");
-  }, [managementServerIPAddr, managementServerPort, selected, agentName, projectId]);
+  }, [managementServerIPAddr, managementServerPort, selected, agentName]);
 
   const saveServerSettings = async () => {
     const serverIp = serverIpDraft.trim();
@@ -407,19 +387,12 @@ export default function AgentDeployCard({
       //    그래서 IP 가 그대로 agent_id 가 되어(예: 10.20.0.3) 목록에 유령 레코드가
       //    생겼고, 비워 두면 "opnsense-1" 이 되어 실제 이름(OPNsense-Firewall)과
       //    어긋나 기존 설정을 불러오지 못했습니다(404).
-      //    다른 장비 카드와 같이 `defaultAgentName` 으로 장치 이름을 만듭니다.
-      setOpnsenseAgentId((current) =>
-        current.trim() === "" ? defaultAgentName(device, projectId) : current,
-      );
+      //    실제 노드 이름을 입력하도록 이름은 자동 생성하지 않습니다.
       setOpnsenseOpen(true);
       return;
     }
     setSelectedLabel(device.label);
-    // 장비를 고르면 이름을 미리 채워 줍니다. 비워 두면 운영자는
-    // "무슨 이름을 지어야 하는지" 부터 고민하게 됩니다.
-    setAgentName((current) =>
-      current.trim() === "" ? defaultAgentName(device, projectId) : current,
-    );
+    setAgentName("");
     setRegisterState("idle");
     setRegisterError(null);
   };
@@ -669,15 +642,23 @@ export default function AgentDeployCard({
             )}
           </div>
 
-          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-            프로버의{" "}
-            <code className="font-mono">Installer/default.conf</code> 에 아래 값을
-            넣으세요. 저장 위치는 배포 이미지에 포함되어 있습니다.
-          </p>
-
-          <pre className="overflow-x-auto rounded bg-gray-50 p-3 font-mono text-[11px] text-gray-700 dark:bg-gray-900 dark:text-gray-200">
-            {configPreview}
-          </pre>
+          <div className="mt-3">
+            <button
+              type="button"
+              aria-expanded={showConfig}
+              onClick={() => setShowConfig((visible) => !visible)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              {showConfig ? "설정값 숨기기" : "설정값 보기"}
+            </button>
+            {showConfig && (
+              <div className="mt-2">
+                <pre className="overflow-x-auto rounded bg-gray-50 p-3 font-mono text-[11px] text-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                  {configPreview}
+                </pre>
+              </div>
+            )}
+          </div>
 
           {/* 설정을 손으로 옮기지 않도록 서버가 채운 Agent 파일을 내려줍니다. */}
           <div className="mt-3 flex flex-wrap items-center gap-2">

@@ -163,6 +163,10 @@ services:
       #    운영에서는 반드시 고정된 값을 주입할 것.
       SONAR_SECRET_KEY: ${SONAR_SECRET_KEY:-}
 
+      # 원격 Agent terminal WebSocket 인증용. env_file 변수는 동일 키의
+      # 명시적 environment 항목에서 빈 기본값으로 덮이지 않도록 별도 전달합니다.
+      SONAR_TERMINAL_SHARED_SECRET: ${SONAR_TERMINAL_SHARED_SECRET:?SONAR_TERMINAL_SHARED_SECRET must be set in .env}
+
       # ---------------------------------------------------------------------
       # CORS 허용 출처
       # ---------------------------------------------------------------------

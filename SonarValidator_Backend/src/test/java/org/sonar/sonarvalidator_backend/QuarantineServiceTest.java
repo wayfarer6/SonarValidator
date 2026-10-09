@@ -23,9 +23,12 @@ import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.sonar.sonarvalidator_backend.Model.entity.ComplianceChange;
 import org.sonar.sonarvalidator_backend.Model.entity.ExpectedAgent;
 import org.sonar.sonarvalidator_backend.Model.entity.Notification;
+import org.sonar.sonarvalidator_backend.Model.entity.Project;
+import org.sonar.sonarvalidator_backend.Model.entity.ProjectSubnet;
 import org.sonar.sonarvalidator_backend.Model.entity.QuarantineState;
 import org.sonar.sonarvalidator_backend.Repository.ComplianceChangeRepository;
 import org.sonar.sonarvalidator_backend.Repository.NotificationRepository;
+import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
 import org.sonar.sonarvalidator_backend.Repository.QuarantineStateRepository;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
 import org.sonar.sonarvalidator_backend.Service.ComplianceService;
@@ -104,6 +107,24 @@ class QuarantineServiceTest {
                             .filter(s -> args[0] != null && args[0].equals(s.getNodeId())
                                     && s.getReleasedAt() == null)
                             .findFirst();
+                    case "findAllByAgentIdAndReleasedAtIsNull" -> quarantineRows.stream()
+                            .filter(s -> args[0] != null && args[0].equals(s.getAgentId())
+                                    && s.getReleasedAt() == null)
+                            .toList();
+                    case "findAllByNodeIdAndReleasedAtIsNull" -> quarantineRows.stream()
+                            .filter(s -> args[0] != null && args[0].equals(s.getNodeId())
+                                    && s.getReleasedAt() == null)
+                            .toList();
+                    case "findFirstByAgentIdAndTargetCidrAndReleasedAtIsNull" -> quarantineRows.stream()
+                            .filter(s -> args[0] != null && args[0].equals(s.getAgentId())
+                                    && args[1] != null && args[1].equals(s.getTargetCidr())
+                                    && s.getReleasedAt() == null)
+                            .findFirst();
+                    case "findFirstByNodeIdAndTargetCidrAndReleasedAtIsNull" -> quarantineRows.stream()
+                            .filter(s -> args[0] != null && args[0].equals(s.getNodeId())
+                                    && args[1] != null && args[1].equals(s.getTargetCidr())
+                                    && s.getReleasedAt() == null)
+                            .findFirst();
                     case "findByNodeIdOrderByQuarantinedAtDesc" -> quarantineRows.stream()
                             .filter(s -> args[0] != null && args[0].equals(s.getNodeId()))
                             .toList();
@@ -160,6 +181,20 @@ class QuarantineServiceTest {
                 new RecordingRegistry(connected, sent),
                 new ComplianceService(complianceRepository),
                 new NotificationService(notificationRepository));
+        final Project project = new Project();
+        project.setProjectKey("PRJ-1");
+        final ProjectSubnet firewallSubnet = new ProjectSubnet();
+        firewallSubnet.setSubnetId("Subnet-9");
+        firewallSubnet.setCidr("10.0.9.0/24");
+        firewallSubnet.setAgentId("GNS3.Firewall");
+        project.setSubnets(new ArrayList<>(List.of(firewallSubnet)));
+        final ProjectRepository projectRepository = of(ProjectRepository.class,
+            (method, args) -> switch (method) {
+                case "findByProjectKey" -> "PRJ-1".equals(args[0])
+                    ? Optional.of(project) : Optional.empty();
+                default -> UNHANDLED;
+            });
+        service.setProjectRepository(projectRepository);
     }
 
     // ------------------------------------------------------------------
@@ -367,13 +402,26 @@ class QuarantineServiceTest {
     }
 
     @Test
+    @DisplayName("VM은 target CIDR을 지정해도 VLAN 격리할 수 없다")
+    void virtualMachineCannotUseSubnetIsolation() {
+        final Map<String, Object> result = service.isolate(
+                "VM-1", null, "PRJ-1", "test", "tester", "10.0.9.0/24");
+
+        assertEquals(Boolean.TRUE, result.get("rejected"), "VM 격리 거부");
+        assertTrue(String.valueOf(result.get("reason")).contains("스위치, 라우터, 방화벽"));
+        assertTrue(quarantineRows.isEmpty(), "격리 상태를 생성하지 않음");
+        assertTrue(sent.isEmpty(), "Agent 명령을 보내지 않음");
+    }
+
+    @Test
     @DisplayName("연결 단위 격리는 해제도 Agent 명령을 보내지 않는다")
     void connectionScopedReleaseSendsNoCommand() {
         connected.add("GNS3.Firewall");
         service.isolate("GNS3.Firewall", null, "PRJ-1", "위반", "tester", "10.0.9.0/24");
         sent.clear();
 
-        final Map<String, Object> result = service.release("GNS3.Firewall", null, "tester");
+        final Map<String, Object> result = service.release(
+            "GNS3.Firewall", null, "tester", "10.0.9.0/24");
 
         assertTrue(sent.isEmpty(), "해제도 명령 없음 (규칙 되돌리기는 정책 경로)");
         assertEquals(Boolean.TRUE, result.get("released"), "해제 성공");
@@ -385,7 +433,7 @@ class QuarantineServiceTest {
     void isolateByNodeWithoutAgent() {
         // Agent 를 연결하지 않아도 노드 번호로 상태가 남아야 합니다.
         final Map<String, Object> result =
-                service.isolateByNode(12, "PRJ-1", "REST 전용 방화벽", "tester", "10.0.9.0/24");
+            service.isolateByNode(12, "PRJ-1", "REST 전용 장비", "tester", null);
 
         assertEquals(12, result.get("node_id"), "노드 번호 기록");
         assertEquals(Boolean.TRUE, result.get("active"), "격리 상태 저장");

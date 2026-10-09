@@ -136,9 +136,11 @@ public class QuarantineController {
     @DeleteMapping("/{agentId}")
     public Map<String, Object> release(@PathVariable String agentId,
                                        @RequestParam(value = "node_id", required = false) Integer nodeId,
-                                       @RequestParam(value = "released_by", required = false) String releasedBy) {
-        log.info("quarantine release request for agent={} node={} by={}", agentId, nodeId, releasedBy);
-        return quarantineService.release(agentId, nodeId, releasedBy);
+                           @RequestParam(value = "released_by", required = false) String releasedBy,
+                           @RequestParam(value = "target_cidr", required = false) String targetCidr) {
+        log.info("quarantine release request for agent={} node={} target={} by={}",
+            agentId, nodeId, targetCidr, releasedBy);
+        return quarantineService.release(agentId, nodeId, releasedBy, targetCidr);
     }
 
     /**

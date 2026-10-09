@@ -448,7 +448,10 @@ export interface ApiComplianceChanges {
  */
 export interface ApiQuarantineState {
   agent_id: string;
+  node_id?: number | null;
   project_id: string | null;
+  scope?: "NODE" | "CONNECTION" | null;
+  target_cidr?: string | null;
   reason: string | null;
   requested_by: string | null;
   command_delivered: boolean;

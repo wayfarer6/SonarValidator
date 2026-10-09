@@ -31,6 +31,11 @@ public interface QuarantineStateRepository extends JpaRepository<QuarantineState
      */
     Optional<QuarantineState> findByAgentIdAndReleasedAtIsNull(String agentId);
 
+        Optional<QuarantineState> findFirstByAgentIdAndTargetCidrAndReleasedAtIsNull(
+            String agentId, String targetCidr);
+
+        List<QuarantineState> findAllByAgentIdAndReleasedAtIsNull(String agentId);
+
     /**
      * 특정 <b>노드</b>의 현재 격리 중인 상태를 조회합니다.
      *
@@ -42,6 +47,11 @@ public interface QuarantineStateRepository extends JpaRepository<QuarantineState
      * @return 현재 격리 상태 (격리 중이 아니면 비어 있음)
      */
     Optional<QuarantineState> findByNodeIdAndReleasedAtIsNull(Integer nodeId);
+
+        Optional<QuarantineState> findFirstByNodeIdAndTargetCidrAndReleasedAtIsNull(
+            Integer nodeId, String targetCidr);
+
+        List<QuarantineState> findAllByNodeIdAndReleasedAtIsNull(Integer nodeId);
 
     /**
      * 특정 노드의 격리 이력을 최신순으로 조회합니다. (해제 포함)

@@ -110,6 +110,7 @@ public class AgentBundleService {
      * 인터페이스 이름을 모르거나 DHCP 로 바뀔 때 씁니다.
      */
     private final List<String> managementCidrs;
+    private final String terminalSharedSecret;
 
     /**
      * @param stageDirectory      배포 자산 디렉터리
@@ -129,7 +130,8 @@ public class AgentBundleService {
             // ⚠️ 관리망 대역은 이제 사이트 설정과 같은 값을 씁니다.
             //    (sonar.site.management-prefix 가 단일 진실 공급원)
             //    별도 키로 두면 배포와 격리 경고가 서로 다른 대역을 말할 수 있습니다.
-            @Value("${sonar.site.management-prefix:}") String managementCidrs) {
+            @Value("${sonar.site.management-prefix:}") String managementCidrs,
+            @Value("${sonar.terminal.shared-secret:}") String terminalSharedSecret) {
         this.stageDirectory = stageDirectory;
         this.serverIp = serverIp == null ? "" : serverIp.trim();
         this.serverPort = serverPort;
@@ -137,6 +139,7 @@ public class AgentBundleService {
         this.managementCidrs = (managementCidrs == null || managementCidrs.isBlank())
                 ? List.of()
                 : List.of(managementCidrs.split("\\s*,\\s*"));
+        this.terminalSharedSecret = terminalSharedSecret;
     }
 
     /**
@@ -366,6 +369,10 @@ public class AgentBundleService {
      */
     public byte[] build(String agentId, String nodeType, String serverIpOverride,
                         String serverPortOverride, String dataDirectory) {
+        if (terminalSharedSecret == null || terminalSharedSecret.trim().length() < 32) {
+            throw new IllegalStateException(
+                    "sonar.terminal.shared-secret must contain at least 32 characters to build an Agent bundle");
+        }
         final String type = normalizeNodeType(nodeType);
         final ResolvedServer resolved = resolveServer(serverIpOverride, serverPortOverride);
         final String ip = resolved.ip();
@@ -389,7 +396,8 @@ public class AgentBundleService {
                 // 긴 링크 이름도 마찬가지입니다.
                 tar.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_POSIX);
 
-                put(tar, "default.conf", defaultConf(ip, port, type, agentId, dataDirectory));
+                put(tar, "default.conf", defaultConf(ip, port, type, agentId, dataDirectory,
+                    terminalSharedSecret));
                 put(tar, "README.txt", readme(agentId, type, ip, port));
                 putFile(tar, "sonar_validator_prober");
                 putOptionalFile(tar, "Installer.sh");
@@ -443,7 +451,7 @@ public class AgentBundleService {
      * @return 파일 내용
      */
     private String defaultConf(String ip, int port, String nodeType, String agentId,
-                               String dataDirectory) {
+                               String dataDirectory, String terminalSharedSecret) {
         final StringBuilder text = new StringBuilder();
         text.append("# SonarValidator Agent 설정\n")
                 .append("# 이 파일은 서버가 생성했습니다. 손으로 고치지 마세요.\n")
@@ -456,6 +464,9 @@ public class AgentBundleService {
         // ⚠️ AGENT_NAME 이 핵심입니다. 배포 예정 등록 이름과 같아야
         //    "예정" 과 "연결" 이 한 줄로 합쳐집니다.
         text.append("AGENT_NAME=").append(agentId).append(";\n");
+        if (terminalSharedSecret != null && !terminalSharedSecret.isBlank()) {
+            text.append("TERMINAL_SHARED_SECRET=").append(terminalSharedSecret.trim()).append(";\n");
+        }
 
         final String dir = blankToNull(dataDirectory);
         if (dir != null) {

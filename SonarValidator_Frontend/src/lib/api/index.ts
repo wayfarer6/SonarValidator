@@ -332,7 +332,7 @@ export function listComplianceChanges(options?: {
  */
 export function quarantineAgent(
   agentId: string,
-  options?: { projectId?: string; reason?: string; requestedBy?: string },
+  options?: { projectId?: string; reason?: string; requestedBy?: string; targetCidr?: string },
 ): Promise<ApiQuarantineState> {
   return apiRequest<ApiQuarantineState>(
     `/api/v1/quarantine/${encodeURIComponent(agentId)}`,
@@ -342,6 +342,7 @@ export function quarantineAgent(
         project_id: options?.projectId,
         reason: options?.reason,
         requested_by: options?.requestedBy,
+        target_cidr: options?.targetCidr,
       },
     },
   );
@@ -351,10 +352,11 @@ export function quarantineAgent(
 export function releaseQuarantine(
   agentId: string,
   releasedBy?: string,
+  targetCidr?: string,
 ): Promise<ApiQuarantineRelease> {
   return apiRequest<ApiQuarantineRelease>(
     `/api/v1/quarantine/${encodeURIComponent(agentId)}`,
-    { method: "DELETE", params: { released_by: releasedBy } },
+    { method: "DELETE", params: { released_by: releasedBy, target_cidr: targetCidr } },
   );
 }
 

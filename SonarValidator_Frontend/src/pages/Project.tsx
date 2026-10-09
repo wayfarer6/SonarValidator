@@ -10,7 +10,7 @@ import Badge from "../components/ui/badge/Badge";
 import { Link, useNavigate } from "react-router";
 import { useApi } from "../hooks/useApi";
 import { useApiAction } from "../hooks/useApiAction";
-import { createProject, listProjects } from "../lib/api/projects";
+import { createProject, deleteProject, listProjects } from "../lib/api/projects";
 import AgentDeployCard from "../components/project/AgentDeployCard";
 import ProjectAgentList from "../components/project/ProjectAgentList";
 
@@ -46,6 +46,7 @@ export default function Project() {
   const navigate = useNavigate();
   const { data, loading, error, offline, reload } = useApi(() => listProjects(), []);
   const createAction = useApiAction(createProject);
+  const deleteAction = useApiAction(deleteProject);
 
   const { isOpen, openModal, closeModal } = useModal();
   const [projectName, setProjectName] = useState("");
@@ -63,6 +64,7 @@ export default function Project() {
 
   /** 이름 검증 실패 문구. `alert()` 대신 인라인으로 보여 줍니다. */
   const [nameError, setNameError] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
   /**
    * 프로젝트를 생성하고 **생성 마법사**로 이동합니다.
@@ -100,6 +102,20 @@ export default function Project() {
     closeModal();
     reload();
     navigate(`/project/create?project_id=${encodeURIComponent(created.project_id)}`);
+  };
+
+  const handleDelete = async (projectId: string, projectName: string) => {
+    if (!window.confirm(`'${projectName}' 프로젝트를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) {
+      return;
+    }
+
+    setDeletingProjectId(projectId);
+    const deleted = await deleteAction.run(projectId);
+    setDeletingProjectId(null);
+    if (deleted) {
+      if (deployingProjectId === projectId) setDeployingProjectId(null);
+      reload();
+    }
   };
 
   const projects = data?.projects ?? [];
@@ -219,8 +235,22 @@ export default function Project() {
                   >
                     Manage
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(project.project_id, project.name)}
+                    disabled={deleteAction.submitting}
+                    className="rounded-lg border border-error-300 px-3.5 py-2 text-sm font-medium text-error-600 hover:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-error-500/40 dark:text-error-400 dark:hover:bg-error-500/10"
+                  >
+                    {deletingProjectId === project.project_id ? "Deleting..." : "Delete"}
+                  </button>
                 </div>
               </div>
+
+              {deleteAction.error && deletingProjectId === null && (
+                <p role="alert" className="mt-3 text-sm text-error-600 dark:text-error-400">
+                  프로젝트를 삭제하지 못했습니다: {deleteAction.error}
+                </p>
+              )}
 
               <ProjectAgentList projectId={project.project_id} />
 

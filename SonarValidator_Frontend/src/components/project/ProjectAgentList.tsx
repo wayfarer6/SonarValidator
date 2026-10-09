@@ -49,6 +49,18 @@ export default function ProjectAgentList({ projectId }: { projectId: string }) {
             {projectAgents.length}
           </span>
         )}
+        <button
+          type="button"
+          onClick={reload}
+          disabled={loading}
+          className="ml-auto rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+          aria-label="Agent 목록 새로고침"
+          title="Agent 목록 새로고침"
+        >
+          <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
+            <path d="M16.5 8A6.75 6.75 0 0 0 4.8 5.3L3.5 7M3.5 7V3.8M3.5 7h3.2M3.5 12a6.75 6.75 0 0 0 11.7 2.7l1.3-1.7m0 0v3.2m0-3.2h-3.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
 
       {loading && <p className="text-xs text-gray-500">Agent 목록을 불러오는 중...</p>}

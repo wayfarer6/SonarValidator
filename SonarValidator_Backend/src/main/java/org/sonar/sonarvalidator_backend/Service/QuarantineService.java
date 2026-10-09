@@ -299,7 +299,18 @@ public class QuarantineService {
             log.warn("rejected isolation of {} ({}) — not isolatable", display, deviceType);
             return excludedResponse(display, projectKey, deviceType, why);
         }
-        if (strategy.mode() == QuarantineMethod.Mode.SUBNET && !context.hasSubnet()) {
+        final boolean connectionScoped = context.hasSubnet();
+        if (connectionScoped && deviceType != DeviceType.SWITCH
+                && deviceType != DeviceType.ROUTER && deviceType != DeviceType.FIREWALL) {
+            return excludedResponse(display, projectKey, deviceType,
+                    "VLAN 서브넷 격리는 스위치, 라우터, 방화벽에서만 지원됩니다.");
+        }
+        if (targetCidr != null && !targetCidr.isBlank()
+            && !isManagedSubnet(projectKey, effectiveAgentId, targetCidr)) {
+            return excludedResponse(display, projectKey, deviceType,
+                "선택한 서브넷이 해당 Agent의 프로젝트 관리 대상과 일치하지 않습니다.");
+        }
+        if (strategy.mode() == QuarantineMethod.Mode.SUBNET && !connectionScoped) {
             log.warn("rejected subnet-scoped isolation of {} — target_cidr missing", display);
             return excludedResponse(display, projectKey, deviceType,
                     strategy.exclusionReason() == null
@@ -307,8 +318,9 @@ public class QuarantineService {
                             : strategy.exclusionReason());
         }
 
-        final Optional<QuarantineState> active =
-                findActive(effectiveAgentId, effectiveNodeId);
+        final Optional<QuarantineState> active = connectionScoped
+            ? findActive(effectiveAgentId, effectiveNodeId, targetCidr)
+            : findActive(effectiveAgentId, effectiveNodeId);
         final boolean retry = active.isPresent();
 
         final QuarantineState state;
@@ -328,9 +340,9 @@ public class QuarantineService {
             created.setRequestedBy(operator);
             created.setQuarantinedAt(new Date());
             created.setCommandDelivered(false);
-            created.setScope(strategy.mode() == QuarantineMethod.Mode.SUBNET
+                created.setScope(connectionScoped
                     ? QuarantineState.Scope.CONNECTION : QuarantineState.Scope.NODE);
-            created.setTargetCidr(context.hasSubnet() ? targetCidr : null);
+                created.setTargetCidr(connectionScoped ? targetCidr : null);
             state = repository.save(created);
             log.warn("quarantining {} type={} scope={} target={} project={} by={} reason={}",
                     display, deviceType, created.getScope(), created.getTargetCidr(),
@@ -345,8 +357,8 @@ public class QuarantineService {
         //     노드 격리하지 않는 이유 자체가 무너집니다. 대신 서버가 정책
         //     푸시({@code quarantineOverride})로 <b>대상 서브넷만</b> 차단하는
         //     규칙을 내려보냅니다.
-        final boolean deviceScoped = strategy.mode() == QuarantineMethod.Mode.DEVICE;
-        final boolean delivered = deviceScoped && context.hasAgent()
+        final boolean delivered = !connectionScoped
+            && strategy.mode() == QuarantineMethod.Mode.DEVICE && context.hasAgent()
                 && sendCommand(effectiveAgentId, ACTION_QUARANTINE, projectKey, state.getReason(),
                         strategy.mode(), state.getTargetCidr());
         if (delivered != state.isCommandDelivered()) {
@@ -457,6 +469,11 @@ public class QuarantineService {
      */
     @Transactional
     public Map<String, Object> release(String agentId, Integer nodeId, String releasedBy) {
+        return release(agentId, nodeId, releasedBy, null);
+    }
+
+    @Transactional
+    public Map<String, Object> release(String agentId, Integer nodeId, String releasedBy, String targetCidr) {
         final String operator = releasedBy == null || releasedBy.isBlank() ? "operator" : releasedBy;
 
         final Configuration node = resolveNode(agentId, nodeId);
@@ -469,7 +486,9 @@ public class QuarantineService {
         final String display = firstNonBlank(effectiveAgentId,
                 effectiveNodeId == null ? null : "node-" + effectiveNodeId, agentId);
 
-        final Optional<QuarantineState> active = findActive(effectiveAgentId, effectiveNodeId);
+        final Optional<QuarantineState> active = targetCidr == null || targetCidr.isBlank()
+            ? findActive(effectiveAgentId, effectiveNodeId)
+            : findActive(effectiveAgentId, effectiveNodeId, targetCidr);
         if (active.isEmpty()) {
             final Map<String, Object> body = new LinkedHashMap<>();
             body.put("agent_id", effectiveAgentId);
@@ -740,6 +759,20 @@ public class QuarantineService {
         return Optional.empty();
     }
 
+    private Optional<QuarantineState> findActive(String agentId, Integer nodeId, String targetCidr) {
+        if (agentId != null && !agentId.isBlank()) {
+                final Optional<QuarantineState> byAgent =
+                    repository.findFirstByAgentIdAndTargetCidrAndReleasedAtIsNull(agentId, targetCidr);
+            if (byAgent.isPresent()) {
+                return byAgent;
+            }
+        }
+        if (nodeId != null) {
+            return repository.findFirstByNodeIdAndTargetCidrAndReleasedAtIsNull(nodeId, targetCidr);
+        }
+        return Optional.empty();
+    }
+
     /**
      * 첫 번째로 비어 있지 않은 문자열을 돌려줍니다.
      *
@@ -892,6 +925,41 @@ public class QuarantineService {
         return findActive(agentId, nodeId).orElse(null);
     }
 
+    @Transactional(readOnly = true)
+    public List<QuarantineState> activeStates(String agentId) {
+        if (agentId == null || agentId.isBlank()) {
+            return List.of();
+        }
+        return repository.findAllByAgentIdAndReleasedAtIsNull(agentId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuarantineState> activeConnectionStates(String agentId) {
+        return activeStates(agentId).stream()
+                .filter(state -> state.getScope() == QuarantineState.Scope.CONNECTION)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isSubnetQuarantined(String agentId, String targetCidr) {
+        return targetCidr != null && activeConnectionStates(agentId).stream()
+                .anyMatch(state -> targetCidr.equalsIgnoreCase(state.getTargetCidr()));
+    }
+
+    private boolean isManagedSubnet(String projectKey, String agentId, String targetCidr) {
+        if (projectRepository == null || projectKey == null || projectKey.isBlank() || agentId == null) {
+            return false;
+        }
+        return projectRepository.findByProjectKey(projectKey)
+                .map(project -> project.toPolicySubnets().stream().anyMatch(subnet ->
+                        agentId.equalsIgnoreCase(subnet.getAgentId())
+                                && org.sonar.sonarvalidator_backend.Policy.PolicySubnet.normalizeCidr(
+                                        targetCidr).equals(
+                                        org.sonar.sonarvalidator_backend.Policy.PolicySubnet.normalizeCidr(
+                                                subnet.getCidr()))))
+                .orElse(false);
+    }
+
     /**
      * 현재 격리 중인 <b>노드 번호</b> 집합입니다.
      *
@@ -905,7 +973,7 @@ public class QuarantineService {
                 PageRequest.of(0, HISTORY_LIMIT));
         final Set<Integer> ids = new LinkedHashSet<>();
         for (final QuarantineState row : rows) {
-            if (row.getNodeId() != null) {
+            if (row.getNodeId() != null && row.getScope() != QuarantineState.Scope.CONNECTION) {
                 ids.add(row.getNodeId());
             }
         }
@@ -926,6 +994,9 @@ public class QuarantineService {
                 PageRequest.of(0, HISTORY_LIMIT));
         final Set<String> ids = new LinkedHashSet<>();
         for (final QuarantineState row : rows) {
+            if (row.getScope() == QuarantineState.Scope.CONNECTION) {
+                continue;
+            }
             // ⚠️ Agent 없는 장비(REST 전용)는 agent_id 가 null 입니다.
             //   그대로 넣으면 집합에 null 이 섞여 호출부의 contains() 가
             //   예상 밖으로 true 를 돌려줄 수 있습니다.
@@ -934,6 +1005,15 @@ public class QuarantineService {
             }
         }
         return ids;
+    }
+
+    @Transactional(readOnly = true)
+    public Set<String> quarantinedNodeAgentIds() {
+        return listActive(null).stream()
+                .filter(row -> !"CONNECTION".equals(row.get("scope")))
+                .map(row -> (String) row.get("agent_id"))
+                .filter(id -> id != null && !id.isBlank())
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     /**

@@ -214,6 +214,21 @@ void ProberConfig::DetectServerPort()
     }
 }
 
+const std::string& ProberConfig::GetTerminalSharedSecret() const
+{
+    return terminal_shared_secret_;
+}
+
+void ProberConfig::SetTerminalSharedSecret(std::string terminal_shared_secret)
+{
+    terminal_shared_secret_ = std::move(terminal_shared_secret);
+}
+
+void ProberConfig::DetectTerminalSharedSecret()
+{
+    terminal_shared_secret_ = ReadDefaultValue("TERMINAL_SHARED_SECRET");
+}
+
 // 기본 설정의 AGENT_NAME 을 읽어옵니다.
 // 배포 스크립트가 이름을 써 두면 그 이름을 그대로 쓰고, 없으면 빈 문자열을
 // 돌려줍니다(호출자가 자동 생성 이름으로 대체).

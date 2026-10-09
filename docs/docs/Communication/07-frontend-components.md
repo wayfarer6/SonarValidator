@@ -277,8 +277,8 @@ Agent 다운로드 카드는 저장된 주소를 기본값으로 불러오며, �
 먼저 아래 SQL을 적용해야 합니다.
 
 ```sql
-ALTER TABLE project ADD COLUMN IF NOT EXISTS management_server_ip varchar(255);
-ALTER TABLE project ADD COLUMN IF NOT EXISTS management_server_port integer;
+ALTER TABLE project ADD COLUMN IF NOT EXISTS project_management_server_ip varchar(255);
+ALTER TABLE project ADD COLUMN IF NOT EXISTS project_management_server_port integer;
 ```
 
 ### 3.5 API
@@ -300,6 +300,32 @@ ALTER TABLE project ADD COLUMN IF NOT EXISTS management_server_port integer;
 허용 포트로 구성됩니다. TCP/UDP 포트는 1–65535 범위이며 ICMP는 포트를 사용하지
 않습니다. 서버 BDD 검증은 IP 대역·포트·프로토콜을 함께 검사하고, 정책 위반 내보내기
 파일에는 반례 연결의 출발/도착 IP, 프로토콜, 포트 및 판정 사유를 포함합니다.
+
+### 3.7 프론트엔드 중심 검증 및 SSH 장비 설정
+
+일반적인 기능 검증은 브라우저 UI와 Backend API 결과를 중심으로 수행합니다. 실제
+장비에서 Agent 동작까지 확인해야 하는 경우에는 배포 자동화를 전제로 하지 않고,
+운영자가 SSH로 대상 노드에 접속해 해당 노드의 설정 파일을 직접 확인·수정한 뒤
+Agent를 구동합니다. 노드별 주소와 식별자가 다르므로 설정을 다른 장비에서 그대로
+복사하지 않습니다.
+
+1. 프로젝트를 만들거나 기존 프로젝트를 열고 **Add Agent**를 엽니다.
+2. 장비 유형을 선택하고 Management Server IP/Port를 입력·저장합니다. 저장한 값이 카드에
+  다시 표시되는지 확인합니다.
+3. Agent 이름을 확인한 뒤 다운로드를 실행합니다. 파일이 `.tar.gz`로 내려오는지 확인하고,
+  필요하면 압축을 풀어 `Installer/default.conf`의 `SERVER_IP`, `SERVER_PORT`,
+  `NODE_TYPE`, `AGENT_NAME`이 화면 선택과 일치하는지 검사합니다.
+4. **배포 예정 등록**을 실행하고 Agent 현황에서 해당 장비가 프로젝트에 속한 미연결 상태로
+  표시되는지 확인합니다. 로컬 `AGENT_NAME`과 등록한 이름이 같아야 합니다.
+5. 다른 장비 유형/이름으로 반복해 설정이 섞이지 않는지, 프로젝트를 새로고침해도 서버 주소와
+  등록 정보가 유지되는지 확인합니다.
+
+실제 장비 검증이 필요한 경우에는 SSH로 노드에 접속해 `default.conf`의 서버 주소/포트,
+장비 유형, `AGENT_NAME`을 확인하고 필요한 항목만 해당 노드에서 수정합니다. 변경 전
+현재 설정을 보존하고, 수정 후 Agent를 기동해 frontend의 Agent 현황에서 등록한 동일한
+이름으로 연결 및 telemetry 상태를 확인합니다. 서버 주소는 노드가 도달 가능한 Backend
+인터페이스여야 합니다. 이 절차는 노드별 수동 작업이며 공통 바이너리 배포나 일괄 SSH
+설치 기능이 이미 구현되어 있다는 의미는 아닙니다.
 
 ---
 

@@ -72,6 +72,8 @@ public class SecurityConfig {
             "/api/v1/telemetry",
             // Agent terminal channel. It also requires the configured shared secret.
             "/api/v1/terminal/agent",
+            // Browser terminal authenticates and authorizes in its handshake interceptor.
+            "/api/v1/terminal/browser",
             // 헬스 체크
             "/actuator/health",
             // H2 콘솔 (local 프로필 전용)

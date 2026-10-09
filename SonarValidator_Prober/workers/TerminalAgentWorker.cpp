@@ -61,13 +61,13 @@ std::string Base64Encode(std::string_view input)
 
 void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
 {
-    const char* configured_secret = std::getenv("SONAR_TERMINAL_SHARED_SECRET");
-    if (configured_secret == nullptr || std::char_traits<char>::length(configured_secret) < 32)
+    const std::string& configured_secret = config.GetTerminalSharedSecret();
+    if (configured_secret.size() < 32)
     {
         std::cerr << "[TERMINAL] disabled: SONAR_TERMINAL_SHARED_SECRET must contain at least 32 characters\n";
         return;
     }
-    const std::string shared_secret(configured_secret);
+    const std::string& shared_secret = configured_secret;
     const std::string agent_id =
         config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
 
@@ -89,7 +89,9 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
             }
 
             stream.handshake(config.GetServerIpv4(), "/api/v1/terminal/agent");
+            std::cerr << "[TERMINAL] WebSocket handshake completed\n";
             stream.text(true);
+            std::cerr << "[TERMINAL] WebSocket text mode enabled\n";
             const Json hello{
                 {"type", "terminal-hello"},
                 {"agent_id", agent_id},
@@ -97,6 +99,7 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
                 {"device_type", envelope::DeviceTypeToString(config.GetDeviceType())}};
             const std::string hello_payload = hello.dump();
             stream.write(net::buffer(hello_payload));
+            std::cerr << "[TERMINAL] terminal-hello sent\n";
 
             beast::flat_buffer read_buffer;
             std::deque<std::shared_ptr<std::string>> write_queue;
@@ -224,7 +227,7 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
         {
             if (!stop_token.stop_requested())
             {
-                std::cerr << "[TERMINAL] Agent terminal channel disconnected: "
+                std::cerr << "[TERMINAL] Agent terminal channel disconnected after setup/write: "
                           << error.what() << '\n';
             }
         }

@@ -252,6 +252,7 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
         if (fs::exists(path) && LoadConfig(path, config))
         {
             config.DetectProductName();  // 제품군은 매번 재탐지합니다.
+            config.DetectTerminalSharedSecret();
             // 관리 대역도 설정에서 다시 읽습니다. 랩/프로젝트가 바뀌면
             // default.conf 만 고쳐도 격리 경고/제외가 따라가야 합니다.
             config.DetectManagementPrefixes();
@@ -286,6 +287,7 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     initial_config.DetectArchitecture();
     initial_config.DetectServerIpv4();
     initial_config.DetectServerPort();
+    initial_config.DetectTerminalSharedSecret();
     // ⚠️ 제어평면(관리망) 대역을 설정에서 읽습니다. 이 값이 없으면 격리가
     //    관리 경로를 내려 해제 명령이 도달하지 못하므로 default.conf 에
     //    MANAGEMENT_PREFIX 를 두게 했습니다. (없으면 안전한 기본값으로 폴백)

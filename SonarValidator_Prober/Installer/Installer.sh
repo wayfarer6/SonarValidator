@@ -19,15 +19,15 @@ fi
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
-SOURCE_BINARY="$PROJECT_DIR/build/sonar_validator_prober"
+SOURCE_BINARY="$SCRIPT_DIR/sonar_validator_prober"
 TARGET_BINARY="/usr/local/bin/sonar_validator_prober"
 TARGET_CONFIG="/etc/sonar_validator_prober/default.conf"
 TARGET_TEMPLATE="/etc/sonar_validator_prober/sqlite_template.sqlite"
 TARGET_DATA_DIR="/var/lib/sonar_validator_prober"
 
 if [ ! -x "$SOURCE_BINARY" ]; then
-	echo "Binary not found: $SOURCE_BINARY" >&2
-	echo "Build the project first with: cmake --build build" >&2
+	echo "Binary not found in Installer bundle: $SOURCE_BINARY" >&2
+	echo "Build first, then stage it with: cmake --build build --target installer_bundle" >&2
 	exit 1
 fi
 
@@ -42,18 +42,18 @@ fi
 
 
 install -o root -g root -Dm755 "$SOURCE_BINARY" "$TARGET_BINARY"
-install -o root -g root  -Dm644 "$PROJECT_DIR/Installer/default.conf" "$TARGET_CONFIG"
-install -o root -g root  -Dm644 "$PROJECT_DIR/Installer/default_template.sqlite" "$TARGET_TEMPLATE"
+install -o root -g root -Dm644 "$SCRIPT_DIR/default.conf" "$TARGET_CONFIG"
+install -o root -g root -Dm644 "$SCRIPT_DIR/default_template.sqlite" "$TARGET_TEMPLATE"
 install -o sonar -g sonar  -d -m750 "$TARGET_DATA_DIR"
 
 if [ "$INIT_SYSTEM" = "systemd" ]; then
-	install -Dm644 "$PROJECT_DIR/systemd/prober.service" \
+	install -Dm644 "$SCRIPT_DIR/systemd/sonar_validator_prober.service" \
 		/etc/systemd/system/sonar_validator_prober.service
 	systemctl daemon-reload
 	systemctl enable --now sonar_validator_prober.service
 	echo "Installed and started with systemd."
 elif [ "$INIT_SYSTEM" = "openrc" ]; then
-	install -Dm755 "$PROJECT_DIR/rc-service/sonar_validator_prober" \
+	install -Dm755 "$SCRIPT_DIR/rc-service/sonar_validator_prober" \
 		/etc/init.d/sonar_validator_prober
 	rc-update add sonar_validator_prober default
 	rc-service sonar_validator_prober start

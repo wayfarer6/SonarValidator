@@ -8,6 +8,9 @@ Type=simple
 ExecStart=/usr/local/bin/sonar_validator_prober
 Restart=always
 StateDirectory=sonar_validator_prober
+Environment=SONAR_CONFIG_PATH=/etc/sonar_validator_prober/default.conf
+Environment=SONAR_TEMPLATE_PATH=/etc/sonar_validator_prober/sqlite_template.sqlite
+Environment=SONAR_DATA_DIR=/var/lib/sonar_validator_prober
 
 [Install]
 WantedBy=multi-user.target

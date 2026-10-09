@@ -115,7 +115,7 @@ public class NetworkTopologyController {
             }
         }
 
-        final Set<String> quarantinedAgents = quarantineService.quarantinedAgentIds();
+        final Set<String> quarantinedAgents = quarantineService.quarantinedNodeAgentIds();
         // ⚠️ DB Design v1.5 — Agent 없는 장비(방화벽)는 agent_id 가 없으므로
         //   노드 번호로 격리 여부를 판단해야 합니다.
         final Set<Integer> quarantinedNodes = quarantineService.quarantinedNodeIds();
@@ -125,8 +125,9 @@ public class NetworkTopologyController {
             final String agentId = subnet.getAgentId();
             // ⚠️ Agent 식별자는 운영자가 적어 넣은 값이라 대소문자가 섞입니다.
             //    (VDI-1 / vdi-1) 그래서 관대하게 비교합니다.
-            final boolean quarantined = agentId != null && quarantinedAgents.stream()
-                    .anyMatch(id -> id != null && id.equalsIgnoreCase(agentId));
+                final boolean quarantined = agentId != null && (
+                    quarantinedAgents.stream().anyMatch(id -> id != null && id.equalsIgnoreCase(agentId))
+                    || quarantineService.isSubnetQuarantined(agentId, subnet.getCidr()));
             final Map<String, Object> node = new LinkedHashMap<>();
             node.put("id", subnet.getId());
             node.put("label", subnet.getName() == null ? subnet.getId() : subnet.getName());

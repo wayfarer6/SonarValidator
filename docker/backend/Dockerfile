@@ -62,7 +62,7 @@ COPY SonarValidator_Prober/ ./
 RUN cmake -S . -B build_static \
       -DCMAKE_BUILD_TYPE=Release \
       -DSONAR_STATIC_LINK=ON \
-      -DCMAKE_EXE_LINKER_FLAGS=-static \
+  -DCMAKE_EXE_LINKER_FLAGS=-static \
       -DANTLR4_RUNTIME_ROOT=/opt/antlr4-install && \
     cmake --build build_static --target sonar_validator_prober --parallel $(nproc) && \
     mkdir -p /tmp/sonar_stage && \

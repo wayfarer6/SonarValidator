@@ -3,6 +3,11 @@ import { TrashBinIcon, PlusIcon } from "../../icons";
 import type { SubnetClass, ApiSubnet } from "../../lib/api/types";
 import { ZONE_CLASSES, zoneInfo } from "../../lib/policy/zones";
 
+interface AgentOption {
+  agent_id: string;
+  label?: string | null;
+}
+
 interface SubnetEditorProps {
   /** 편집 중인 서브넷 목록. */
   subnets: ApiSubnet[];
@@ -10,6 +15,10 @@ interface SubnetEditorProps {
   onChange: (subnetId: string, subnetClass: SubnetClass) => void;
   /** CIDR 변경 콜백. */
   onCidrChange?: (subnetId: string, cidr: string) => void;
+  /** Agent 담당자 변경 콜백. */
+  onAgentChange?: (subnetId: string, agentId: string | null) => void;
+  /** 프로젝트에서 선택 가능한 Agent. */
+  agents?: AgentOption[];
   /** 삭제 콜백. */
   onRemove: (subnetId: string) => void;
   /** 새 서브넷 추가 콜백. */
@@ -38,6 +47,8 @@ export default function SubnetEditor({
   subnets,
   onChange,
   onCidrChange,
+  onAgentChange,
+  agents = [],
   onRemove,
   onAdd,
   violatingSubnetIds,
@@ -93,6 +104,7 @@ export default function SubnetEditor({
                 <th className="border-b p-2 font-medium dark:border-gray-600">Subnet ID</th>
                 <th className="border-b p-2 font-medium dark:border-gray-600">CIDR</th>
                 <th className="border-b p-2 font-medium dark:border-gray-600">Class</th>
+                <th className="border-b p-2 font-medium dark:border-gray-600">담당 Agent</th>
                 <th className="border-b p-2 font-medium dark:border-gray-600">Source</th>
                 {!readOnly && <th className="border-b p-2 dark:border-gray-600"></th>}
               </tr>
@@ -140,6 +152,24 @@ export default function SubnetEditor({
                         {ZONE_CLASSES.map((zone) => (
                           <option key={zone.value} value={zone.value}>
                             {zone.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="p-2">
+                      <select
+                        value={subnet.agent_id ?? ""}
+                        disabled={readOnly || !onAgentChange}
+                        onChange={(event) =>
+                          onAgentChange?.(subnet.id, event.target.value || null)
+                        }
+                        className={selectClass}
+                        aria-label={`${subnet.name ?? subnet.id} 담당 Agent`}
+                      >
+                        <option value="">담당 Agent 미지정</option>
+                        {agents.map((agent) => (
+                          <option key={agent.agent_id} value={agent.agent_id}>
+                            {agent.label || agent.agent_id}
                           </option>
                         ))}
                       </select>
