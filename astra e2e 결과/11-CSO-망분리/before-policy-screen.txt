@@ -1,0 +1,97 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+73
+Default Administrator
+Policy
+Home
+Policy
+Project
+Astra E2E Router 수집 검증 2026-10-09
+0규칙
+D-AI-PBL-Poc-Project
+73규칙
+D-AI-PBL-Poc-Project 위반 현황
+
+규칙 73건 · 서브넷 29건 검사
+
+위반 18건
+새로고침
+편집 화면에서 위반 해결
+정책 푸시
+강제 푸시
+CRITICAL
+18
+
+등급을 건너뛰는 직접 연결 — 즉시 조치
+
+MAJOR
+0
+
+포트 미지정 등 정책 약화 — 검토 필요
+
+MINOR
+0
+
+참고 수준
+
+오류: 네트워크 연결 제한 — 등급을 건너뛰는 직접 연결 18건이 있습니다.
+AI 조언
+
+메시지를 누르면 AI 가 근본 원인과 해결 선택지를 제안합니다. 아래 위반 행을 누르면 그 위반만 집중해서 묻습니다.
+
+심각도	Rule	경로	사유	반례 패킷	조언
+CRITICAL	E2E-observed-007	VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae
+Confidential → Open	ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	icmp 10.10.131.0 -> 10.30.141.0	AI 조언
+CRITICAL	E2E-observed-008	VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae
+Confidential → Open	ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	icmp 10.10.131.0 -> 1.1.1.1	AI 조언
+CRITICAL	E2E-observed-009	VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae
+Confidential → Open	ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	tcp 10.10.131.0 -> 10.30.141.0:22	AI 조언
+CRITICAL	E2E-observed-010	VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae
+Confidential → Open	ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	tcp 10.10.131.0 -> 1.1.1.1:443	AI 조언
+CRITICAL	E2E-observed-017	VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9
+Confidential → Open	KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	icmp 10.10.132.0 -> 10.30.141.0	AI 조언
+CRITICAL	E2E-observed-018	VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9
+Confidential → Open	KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	icmp 10.10.132.0 -> 1.1.1.1	AI 조언
+CRITICAL	E2E-observed-019	VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9
+Confidential → Open	KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	tcp 10.10.132.0 -> 10.30.141.0:22	AI 조언
+CRITICAL	E2E-observed-020	VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9
+Confidential → Open	KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	tcp 10.10.132.0 -> 1.1.1.1:443	AI 조언
+CRITICAL	E2E-observed-027	VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e
+Confidential → Open	AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	icmp 10.10.133.0 -> 10.30.141.0	AI 조언
+CRITICAL	E2E-observed-028	VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e
+Confidential → Open	AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	icmp 10.10.133.0 -> 1.1.1.1	AI 조언
+CRITICAL	E2E-observed-029	VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e
+Confidential → Open	AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	tcp 10.10.133.0 -> 10.30.141.0:22	AI 조언
+CRITICAL	E2E-observed-030	VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e
+Confidential → Open	AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)	tcp 10.10.133.0 -> 1.1.1.1:443	AI 조언
+CRITICAL	E2E-observed-063	Subnet-0004
+Open → Confidential	Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)	icmp 10.30.141.0 -> 10.10.131.0	AI 조언
+CRITICAL	E2E-observed-064	Subnet-0004
+Open → Confidential	Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)	icmp 10.30.141.0 -> 10.10.132.0	AI 조언
+CRITICAL	E2E-observed-065	Subnet-0004
+Open → Confidential	Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)	icmp 10.30.141.0 -> 10.10.133.0	AI 조언
+CRITICAL	E2E-observed-071	Subnet-0004
+Open → Confidential	Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)	tcp 10.30.141.0 -> 10.10.131.0:22	AI 조언
+CRITICAL	E2E-observed-072	Subnet-0004
+Open → Confidential	Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)	tcp 10.30.141.0 -> 10.10.132.0:22	AI 조언
+CRITICAL	E2E-observed-073	Subnet-0004
+Open → Confidential	Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)	tcp 10.30.141.0 -> 10.10.133.0:22	AI 조언

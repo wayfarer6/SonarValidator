@@ -1,0 +1,409 @@
+{
+  "project_id": "PRJ-D488B7A4",
+  "project_name": "D-AI-PBL-Poc-Project",
+  "compliant": false,
+  "rule_count": 73,
+  "subnet_count": 29,
+  "violation_count": 18,
+  "messages": [
+    "오류: 네트워크 연결 제한 — 등급을 건너뛰는 직접 연결 18건이 있습니다."
+  ],
+  "metrics": {
+    "bdd_variables": 88,
+    "bdd_nodes_total": 11531,
+    "bdd_nodes_allowed": 409,
+    "bdd_nodes_forbidden": 211,
+    "bdd_nodes_violating": 162,
+    "allowed_combinations": 240652780288,
+    "forbidden_combinations": 17626545782784,
+    "violating_combinations": 25820529408,
+    "address_space": 309485009821345068724781056
+  },
+  "by_severity": {
+    "CRITICAL": 18,
+    "MAJOR": 0,
+    "MINOR": 0
+  },
+  "violations": [
+    {
+      "rule_id": "E2E-observed-007",
+      "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst_subnet": "Subnet-0004",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.10.131.0 -> 10.30.141.0",
+      "sampled_src_ip": "10.10.131.0",
+      "sampled_dst_ip": "10.30.141.0",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-008",
+      "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst_subnet": "Internet-Probe-1",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.10.131.0 -> 1.1.1.1",
+      "sampled_src_ip": "10.10.131.0",
+      "sampled_dst_ip": "1.1.1.1",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-009",
+      "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst_subnet": "Subnet-0004",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.10.131.0 -> 10.30.141.0:22",
+      "sampled_src_ip": "10.10.131.0",
+      "sampled_dst_ip": "10.30.141.0",
+      "sampled_port": 22
+    },
+    {
+      "rule_id": "E2E-observed-010",
+      "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst_subnet": "Internet-Probe-1",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.10.131.0 -> 1.1.1.1:443",
+      "sampled_src_ip": "10.10.131.0",
+      "sampled_dst_ip": "1.1.1.1",
+      "sampled_port": 443
+    },
+    {
+      "rule_id": "E2E-observed-017",
+      "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst_subnet": "Subnet-0004",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.10.132.0 -> 10.30.141.0",
+      "sampled_src_ip": "10.10.132.0",
+      "sampled_dst_ip": "10.30.141.0",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-018",
+      "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst_subnet": "Internet-Probe-1",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.10.132.0 -> 1.1.1.1",
+      "sampled_src_ip": "10.10.132.0",
+      "sampled_dst_ip": "1.1.1.1",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-019",
+      "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst_subnet": "Subnet-0004",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.10.132.0 -> 10.30.141.0:22",
+      "sampled_src_ip": "10.10.132.0",
+      "sampled_dst_ip": "10.30.141.0",
+      "sampled_port": 22
+    },
+    {
+      "rule_id": "E2E-observed-020",
+      "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst_subnet": "Internet-Probe-1",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.10.132.0 -> 1.1.1.1:443",
+      "sampled_src_ip": "10.10.132.0",
+      "sampled_dst_ip": "1.1.1.1",
+      "sampled_port": 443
+    },
+    {
+      "rule_id": "E2E-observed-027",
+      "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst_subnet": "Subnet-0004",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.10.133.0 -> 10.30.141.0",
+      "sampled_src_ip": "10.10.133.0",
+      "sampled_dst_ip": "10.30.141.0",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-028",
+      "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst_subnet": "Internet-Probe-1",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.10.133.0 -> 1.1.1.1",
+      "sampled_src_ip": "10.10.133.0",
+      "sampled_dst_ip": "1.1.1.1",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-029",
+      "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst_subnet": "Subnet-0004",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.10.133.0 -> 10.30.141.0:22",
+      "sampled_src_ip": "10.10.133.0",
+      "sampled_dst_ip": "10.30.141.0",
+      "sampled_port": 22
+    },
+    {
+      "rule_id": "E2E-observed-030",
+      "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst_subnet": "Internet-Probe-1",
+      "src_class": "Confidential",
+      "dst_class": "Open",
+      "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.10.133.0 -> 1.1.1.1:443",
+      "sampled_src_ip": "10.10.133.0",
+      "sampled_dst_ip": "1.1.1.1",
+      "sampled_port": 443
+    },
+    {
+      "rule_id": "E2E-observed-063",
+      "src_subnet": "Subnet-0004",
+      "dst_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "src_class": "Open",
+      "dst_class": "Confidential",
+      "reason": "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.30.141.0 -> 10.10.131.0",
+      "sampled_src_ip": "10.30.141.0",
+      "sampled_dst_ip": "10.10.131.0",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-064",
+      "src_subnet": "Subnet-0004",
+      "dst_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "src_class": "Open",
+      "dst_class": "Confidential",
+      "reason": "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.30.141.0 -> 10.10.132.0",
+      "sampled_src_ip": "10.30.141.0",
+      "sampled_dst_ip": "10.10.132.0",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-065",
+      "src_subnet": "Subnet-0004",
+      "dst_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "src_class": "Open",
+      "dst_class": "Confidential",
+      "reason": "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "icmp",
+      "sampled_packet": "icmp 10.30.141.0 -> 10.10.133.0",
+      "sampled_src_ip": "10.30.141.0",
+      "sampled_dst_ip": "10.10.133.0",
+      "sampled_port": null
+    },
+    {
+      "rule_id": "E2E-observed-071",
+      "src_subnet": "Subnet-0004",
+      "dst_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "src_class": "Open",
+      "dst_class": "Confidential",
+      "reason": "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.30.141.0 -> 10.10.131.0:22",
+      "sampled_src_ip": "10.30.141.0",
+      "sampled_dst_ip": "10.10.131.0",
+      "sampled_port": 22
+    },
+    {
+      "rule_id": "E2E-observed-072",
+      "src_subnet": "Subnet-0004",
+      "dst_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "src_class": "Open",
+      "dst_class": "Confidential",
+      "reason": "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.30.141.0 -> 10.10.132.0:22",
+      "sampled_src_ip": "10.30.141.0",
+      "sampled_dst_ip": "10.10.132.0",
+      "sampled_port": 22
+    },
+    {
+      "rule_id": "E2E-observed-073",
+      "src_subnet": "Subnet-0004",
+      "dst_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "src_class": "Open",
+      "dst_class": "Confidential",
+      "reason": "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+      "severity": "CRITICAL",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp 10.30.141.0 -> 10.10.133.0:22",
+      "sampled_src_ip": "10.30.141.0",
+      "sampled_dst_ip": "10.10.133.0",
+      "sampled_port": 22
+    }
+  ],
+  "by_rule": [
+    {
+      "rule_id": "E2E-observed-007",
+      "count": 1,
+      "reasons": [
+        "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-008",
+      "count": 1,
+      "reasons": [
+        "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-009",
+      "count": 1,
+      "reasons": [
+        "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-010",
+      "count": 1,
+      "reasons": [
+        "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-017",
+      "count": 1,
+      "reasons": [
+        "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-018",
+      "count": 1,
+      "reasons": [
+        "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-019",
+      "count": 1,
+      "reasons": [
+        "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-020",
+      "count": 1,
+      "reasons": [
+        "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-027",
+      "count": 1,
+      "reasons": [
+        "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-028",
+      "count": 1,
+      "reasons": [
+        "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-029",
+      "count": 1,
+      "reasons": [
+        "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-030",
+      "count": 1,
+      "reasons": [
+        "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점) (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-063",
+      "count": 1,
+      "reasons": [
+        "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-064",
+      "count": 1,
+      "reasons": [
+        "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-065",
+      "count": 1,
+      "reasons": [
+        "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-071",
+      "count": 1,
+      "reasons": [
+        "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-072",
+      "count": 1,
+      "reasons": [
+        "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)"
+      ]
+    },
+    {
+      "rule_id": "E2E-observed-073",
+      "count": 1,
+      "reasons": [
+        "Public-Web-Server · VLAN141 · DMZ-Router (10.30.141.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)"
+      ]
+    }
+  ]
+}

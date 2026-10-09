@@ -137,7 +137,7 @@ export default function Agent() {
       const config = configByAgent.get(agent.agent_id);
       return {
         agentId: agent.agent_id,
-        lastSeen: agent.registered_at,
+        lastSeen: config?.last_seen ?? null,
         hasTelemetry: agent.telemetry_seen,
         // 화면에는 제품명을 씁니다. 형식(파서 키)은 내부 이름이라 운영자에게 의미가 약합니다.
         // product 가 없으면 vendor 로, 그것도 없으면 format 으로 내려갑니다.
@@ -386,7 +386,7 @@ export default function Agent() {
         setQuarantineMessage(
           result.released === false
             ? `${targetCidr} 는 격리 중이 아니어서 아무것도 하지 않았습니다.`
-            : `${agentId} 의 ${targetCidr} 격리를 해제했습니다.`,
+            : `${agentId} 의 ${targetCidr} 격리 해제를 요청했습니다. 다음 정책 수신 때 차단 규칙이 제거됩니다.`,
         );
       }
       // 서버가 확정한 상태를 다시 받아 화면을 맞춥니다.
@@ -460,7 +460,9 @@ export default function Agent() {
       ? `${targetCidr} 는 이미 격리 중입니다.`
       : `${agentId} 의 ${targetCidr} 격리를 요청했습니다.`);
 
-    if (result.delivered === false) {
+    if (result.scope === "CONNECTION") {
+      parts.push(result.applied === true ? "Agent가 VLAN 격리를 적용했습니다." : "Agent의 다음 정책 수신과 적용 확인을 기다립니다.");
+    } else if (result.delivered === false) {
       parts.push(
         "정책 명령은 지금 전달되지 않았습니다. Agent 가 다시 연결되면 정책 요청 때 반영됩니다.",
       );
@@ -724,7 +726,9 @@ export default function Agent() {
                           ) : null}
                           {(connectionQuarantinesByAgent.get(row.agentId) ?? []).map((state) => (
                             <div key={`${row.agentId}:${state.target_cidr}`} className="flex flex-wrap items-center gap-2">
-                              <Badge size="sm" color="error">{state.target_cidr}</Badge>
+                              <Badge size="sm" color={state.applied === true ? "error" : "warning"}>
+                                {state.target_cidr} · {state.applied === true ? "적용 확인" : state.applied === false ? "적용 실패" : "적용 대기"}
+                              </Badge>
                               <Button
                                 size="sm"
                                 variant="outline"

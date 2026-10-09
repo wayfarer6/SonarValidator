@@ -1,0 +1,17 @@
+{
+  "total": 0,
+  "returned": 0,
+  "truncated": false,
+  "limit": 10,
+  "filters": {
+    "agent_id": null,
+    "project_id": null,
+    "from": null,
+    "to": null,
+    "severity": null,
+    "max_severity_num": null,
+    "search": null,
+    "highlighted_only": false
+  },
+  "logs": []
+}

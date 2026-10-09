@@ -1,0 +1,19 @@
+
+
+ubuntu@ubuntu-cloud:~$ 
+
+ubuntu@ubuntu-cloud:~$ if ping -c 1 -W 2 10.10.132.10 >/dev/null 2>&1; then echo ASTRA_RESULT_0=PASS; else echo ASTRA_RESULT_0=BLOCK; fi; if ping -c 1 -W 2 10.10.133.10 >/dev/null 2>&1; then echo ASTRA_RESULT_1=PASS; else echo ASTRA_RESULT_1=BLOCK; fi; if ping -c 1 -W 2 10.20.111.250 >/dev/null 2>&1; then echo ASTRA_RESULT_2=PASS; else echo ASTRA_RESULT_2=BLOCK; fi; if ping -c 1 -W 2 10.20.112.250 >/dev/null 2>&1; then echo ASTRA_RESULT_3=PASS; else echo ASTRA_RESULT_3=BLOCK; fi; if ping -c 1 -W 2 10.40.121.250 >/dev/null 2>&1; then echo ASTRA_RESULT_4=PASS; else echo ASTRA_RESULT_4=BLOCK; fi; if ping -c 1 -W 2 10.40.122.250 >/dev/null 2>&1; then echo ASTRA_RESULT_5=PASS; else echo ASTRA_RESULT_5=BLOCK; fi; if ping -c 1 -W 2 10.30.141.10 >/dev/null 2>&1; then echo ASTRA_RESULT_6=PASS; else echo ASTRA_RESULT_6=BLOCK; fi; if ping -c 1 -W 2 1.1.1.1 >/dev/null 2>&1; then echo ASTRA_RESULT_7=PASS; else echo ASTRA_RESULT_7=BLOCK; fi; if timeout 3 bash -c 'echo > /dev/tcp/10.30.141.10/22' >/dev/null 2>&1; then echo ASTRA_RESULT_8=PASS; else echo ASTRA_RESULT_8=BLOCK; fi; if timeout 3 bash -c 'echo > /dev/tcp/1.1.1.1/443' >/dev/null 2>&1; then echo ASTRA_RESULT_9=PASS; else echo ASTRA_RESULT_9=BLOCK; fi
+
+ASTRA_RESULT_0=PASS
+ASTRA_RESULT_1=PASS
+ASTRA_RESULT_2=PASS
+ASTRA_RESULT_3=PASS
+ASTRA_RESULT_4=PASS
+ASTRA_RESULT_5=PASS
+ASTRA_RESULT_6=PASS
+ASTRA_RESULT_7=PASS
+ASTRA_RESULT_8=PASS
+ASTRA_RESULT_9=PASS
+ubuntu@ubuntu-cloud:~$ 
+
+ubuntu@ubuntu-cloud:~$ 

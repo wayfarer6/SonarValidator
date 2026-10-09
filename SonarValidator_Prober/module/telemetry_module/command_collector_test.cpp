@@ -410,6 +410,20 @@ void TestFirewall()
               << "개, 라우트 " << state.route["routes"].size() << "건 수집\n";
 }
 
+void TestNativeFirewallSets()
+{
+    const std::string native = R"({"nftables":[
+      {"set":{"family":"inet","table":"astra_cso","name":"confidential_v4","type":"ipv4_addr","flags":["interval"],"elem":[{"prefix":{"addr":"10.10.131.0","len":24}}]}},
+      {"rule":{"family":"inet","table":"astra_cso","chain":"forward","expr":[{"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"saddr"}},"right":"@confidential_v4"}},{"counter":{"packets":7,"bytes":588}},{"drop":null}],"comment":"C-to-O-deny"}}
+    ]})";
+    const auto state = collector::BuildStateFromOutputs(DeviceType::kFirewall, "nftables",
+        {{"nft -j list ruleset", native}, {"nft list ruleset", "unsupported text set syntax"}});
+    assert(state.any_success);
+    assert(state.rules["format"] == "nftables-json");
+    assert(state.rules["nftables"] == Json::parse(native)["nftables"]);
+    assert(state.snapshot["firewall_rules"]["nftables"][1]["rule"]["expr"][2].contains("drop"));
+}
+
 // ---------------------------------------------------------------------------
 //  7) Open vSwitch 스위치 (컨테이너) — ovs-vsctl 로 L2 설정 수집
 //
@@ -637,6 +651,7 @@ int main()
     TestAristaSwitch();
     TestFrrRouter();
     TestFirewall();
+    TestNativeFirewallSets();
     TestOpenVSwitchSwitch();
     TestRobustness();
 

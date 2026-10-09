@@ -1,0 +1,563 @@
+{
+  "schema": "sonar.offline.snapshot",
+  "schema_version": 1,
+  "agent_id": "Switch-2",
+  "agent_name": "Switch-2",
+  "device_type": "SWITCH",
+  "product": "OpenVSwitch",
+  "vendor": "Open vSwitch",
+  "kernel": "6.18.40.1-microsoft-standard-WSL2",
+  "collected_at": "2026-10-09T08:29:43.508861066Z",
+  "exported_at": "2026-10-09T08:29:46.277690227Z",
+  "reason": "server-export",
+  "summary": {
+    "interfaces": 15,
+    "firewall_rules": 0,
+    "routes": 0,
+    "vlans": 2,
+    "format": "OpenvSwitch"
+  },
+  "offline_origin": false,
+  "payload": {
+    "agent": "Switch-2",
+    "device_type": "SWITCH",
+    "kernel": "6.18.40.1-microsoft-standard-WSL2",
+    "nic_status": {
+      "interfaces": [
+        {
+          "addresses": [
+            {
+              "address": "127.0.0.1",
+              "family": "inet",
+              "interface": "lo",
+              "preferred_lft": "forever",
+              "prefix_len": 8,
+              "scope": "host",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "::1",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 128,
+              "scope": "host",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "00:00:00:00:00:00",
+          "flags": [
+            "LOOPBACK",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 1,
+          "link_type": "loopback",
+          "mac": "00:00:00:00:00:00",
+          "mtu": "65536",
+          "name": "lo",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ],
+          "group": "default",
+          "index": 2,
+          "link_type": "ether",
+          "mac": "ea:08:f0:ae:4e:7b",
+          "mtu": "1500",
+          "name": "ovs-system",
+          "qdisc": "noop",
+          "qlen": "1000",
+          "state": "DOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::a81e:4ff:feb8:d44f",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 3,
+          "link_type": "ether",
+          "mac": "aa:1e:04:b8:d4:4f",
+          "mtu": "1500",
+          "name": "br0",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a00",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 34,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:00",
+          "mtu": "1500",
+          "name": "eth0",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a01",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 36,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:01",
+          "mtu": "1500",
+          "name": "eth1",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a02",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 38,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:02",
+          "mtu": "1500",
+          "name": "eth2",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a03",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 40,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:03",
+          "mtu": "1500",
+          "name": "eth3",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a04",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 42,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:04",
+          "mtu": "1500",
+          "name": "eth4",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a05",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 44,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:05",
+          "mtu": "1500",
+          "name": "eth5",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a06",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 46,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:06",
+          "mtu": "1500",
+          "name": "eth6",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a07",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 47,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:07",
+          "mtu": "1500",
+          "name": "eth7",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a08",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 48,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:08",
+          "mtu": "1500",
+          "name": "eth8",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a09",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 49,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:09",
+          "mtu": "1500",
+          "name": "eth9",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:58ff:fe96:6a0a",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 50,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:0a",
+          "mtu": "1500",
+          "name": "eth10",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "172.16.255.103",
+              "family": "inet",
+              "interface": "eth11",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:58ff:fe96:6a0b",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 52,
+          "link_type": "ether",
+          "mac": "02:42:58:96:6a:0b",
+          "mtu": "1500",
+          "name": "eth11",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        }
+      ],
+      "parsed": true
+    },
+    "ovs_topology": {
+      "bridge_count": 1,
+      "bridges": [
+        {
+          "name": "br0",
+          "ports": [
+            {
+              "interfaces": [
+                {
+                  "name": "br0",
+                  "type": "internal"
+                }
+              ],
+              "name": "br0",
+              "tag": [],
+              "trunks": []
+            },
+            {
+              "interfaces": [
+                {
+                  "name": "eth2"
+                }
+              ],
+              "name": "eth2",
+              "tag": 122,
+              "trunks": []
+            },
+            {
+              "interfaces": [
+                {
+                  "name": "eth0"
+                }
+              ],
+              "name": "eth0",
+              "tag": [],
+              "trunks": [
+                121,
+                122
+              ]
+            },
+            {
+              "interfaces": [
+                {
+                  "name": "eth1"
+                }
+              ],
+              "name": "eth1",
+              "tag": 121,
+              "trunks": []
+            }
+          ]
+        }
+      ],
+      "parsed": true
+    },
+    "product": "OpenVSwitch",
+    "trunk_status": {
+      "port_count": 3,
+      "ports": [
+        {
+          "access_vlan": 122,
+          "admin_enabled": true,
+          "mode": "access",
+          "name": "eth2",
+          "trunk_vlans": []
+        },
+        {
+          "admin_enabled": true,
+          "mode": "trunk",
+          "name": "eth0",
+          "trunk_vlans": [
+            121,
+            122
+          ]
+        },
+        {
+          "access_vlan": 121,
+          "admin_enabled": true,
+          "mode": "access",
+          "name": "eth1",
+          "trunk_vlans": []
+        }
+      ]
+    },
+    "vendor": "OpenVSwitch",
+    "vlan_status": {
+      "vlan_count": 2,
+      "vlans": [
+        {
+          "name": "VLAN121",
+          "ports": [
+            "eth1"
+          ],
+          "status": "active",
+          "vlan_id": 121
+        },
+        {
+          "name": "VLAN122",
+          "ports": [
+            "eth2"
+          ],
+          "status": "active",
+          "vlan_id": 122
+        }
+      ]
+    }
+  }
+}

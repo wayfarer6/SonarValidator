@@ -85,6 +85,14 @@ public class PolicyRegistryService {
      */
     private static final long VALID_HOURS = 24;
 
+    private boolean automaticEnforcementEnabled = true;
+
+    /** Collect and validate configurations without competing with externally managed ACLs. */
+    @org.springframework.beans.factory.annotation.Value("${sonar.policy.automatic-enforcement-enabled:true}")
+    public void setAutomaticEnforcementEnabled(boolean enabled) {
+        this.automaticEnforcementEnabled = enabled;
+    }
+
     /**
      * 프로젝트 조회 통로입니다.
      *
@@ -213,6 +221,12 @@ public class PolicyRegistryService {
         final DeviceType type = (deviceType == null) ? DeviceType.VM : deviceType;
         final String id = PolicyJson.firstNonBlank(deviceId, agentId, "unknown");
 
+        if (!automaticEnforcementEnabled) {
+            final ObjectNode policy = forDevice(type, id);
+            ((ObjectNode) policy.get("summary")).put("source", "external-enforcement");
+            return quarantineOverride(agentId, policy);
+        }
+
         if (this.repository == null) {
             return quarantineOverride(agentId, forDevice(type, id));
         }
@@ -270,7 +284,25 @@ public class PolicyRegistryService {
         //                 차단으로 제한해야 합니다. 전부 차단하면 트렁크에 붙은
         //                 무관한 존이 함께 죽어, 방화벽을 노드 격리하지 않는
         //                 이유 자체가 무너집니다.
+        // Desired state is sent even when empty, so releasing the final VLAN removes
+        // only the agent-owned quarantine rules. Never append vendor-specific drops.
+        final ArrayNode targets = policy.putArray("subnet_quarantine");
         final var states = quarantineService.activeStates(agentId);
+        for (final var state : states) {
+            if (state.getScope() != org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION) continue;
+            final ObjectNode target = targets.addObject();
+            target.put("id", state.getId());
+            target.put("cidr", state.getTargetCidr());
+            if (repository != null && state.getProjectKey() != null) {
+                repository.findByProjectKey(state.getProjectKey()).ifPresent(project ->
+                    project.getSubnets().stream()
+                        .filter(subnet -> agentId.equalsIgnoreCase(subnet.getAgentId())
+                            && PolicySubnet.normalizeCidr(state.getTargetCidr()).equals(PolicySubnet.normalizeCidr(subnet.getCidr())))
+                        .findFirst().ifPresent(subnet -> {
+                            if (subnet.getVlanId() != null) target.put("vlan_id", subnet.getVlanId());
+                        }));
+            }
+        }
         if (states.isEmpty()) {
             return policy;
         }
@@ -348,7 +380,8 @@ public class PolicyRegistryService {
             // ⚠️ 연결 단위 격리는 기존 규칙을 전부 뒤집지 않습니다.
             //   대상 대역의 송수신 트래픽만 차단합니다. 나머지는 그대로 두어
             //   무관한 존이 살아 있게 합니다.
-            targetCidrs.forEach(targetCidr -> addConnectionDrop(policy, targetCidr));
+            // Prober reconciles subnet_quarantine independently of normal policies,
+            // using OVS, nftables or iptables for its actual platform.
             log.warn("policy for agent={} overridden to quarantine (connection-only targets={})",
                     agentId, targets);
             return;
@@ -376,55 +409,10 @@ public class PolicyRegistryService {
     }
 
     /**
-    * 특정 대역의 송수신을 차단하는 규칙을 추가합니다. (연결 단위 격리)
+     * 장비 변경 명령이 없는 빈 정책을 만듭니다. (폴백 경로)
      *
-     * <p>기존 규칙 목록은 건드리지 않고 차단 규칙을 <b>앞에</b> 넣습니다.
-     * 뒤에 넣으면 허용 규칙이 먼저 매칭되어 차단이 무력해집니다.
-     *
-     * @param policy     정책 (직접 수정됩니다)
-     * @param targetCidr 차단할 대상 대역 (null/빈 값이면 아무것도 하지 않음)
-     */
-    private void addConnectionDrop(ObjectNode policy, String targetCidr) {
-        if (targetCidr == null || targetCidr.isBlank()) {
-            // 대상이 없으면 "무엇을 막을지" 알 수 없습니다. 이 경우 전부 차단으로
-            // 떨어지면 위험하므로, 기존 규칙을 그대로 두고 의도만 남깁니다.
-            log.warn("connection-scoped quarantine without target_cidr; policy left intact");
-            return;
-        }
-        final ArrayNode policies = policy.has("policies") && policy.get("policies").isArray()
-                ? (ArrayNode) policy.get("policies")
-                : policy.putArray("policies");
-
-        final ObjectNode drop = JSON.objectNode();
-        drop.putArray("vendor").add("Linux");
-        drop.putArray("product").add("nftables");
-        drop.putArray("command").add("create");
-        drop.put("rule_id", "quarantine-" + targetCidr.replace('/', '_').replace('.', '_'));
-        drop.putArray("reason").add("운영자 격리 — 대상 대역 " + targetCidr + " 차단");
-        drop.putArray("action").add("drop");
-
-        final ObjectNode target = drop.putObject("rule_target");
-        target.putArray("table_family").add("inet");
-        target.putArray("table_name").add(firewallTable());
-        target.putArray("chain_name").add("forward");
-
-        final ObjectNode destinationDrop = drop.deepCopy();
-        destinationDrop.put("rule_id", drop.get("rule_id").asText() + "-destination");
-        destinationDrop.putObject("match_criteria").putArray("ip_daddr").add(targetCidr);
-        final ObjectNode sourceDrop = drop.deepCopy();
-        sourceDrop.put("rule_id", drop.get("rule_id").asText() + "-source");
-        sourceDrop.putObject("match_criteria").putArray("ip_saddr").add(targetCidr);
-
-        policies.insert(0, sourceDrop);
-        policies.insert(0, destinationDrop);
-    }
-
-    /**
-     * 장치 유형에 맞는 최소 선언 정책을 만듭니다. (폴백 경로)
-     *
-     * <p>배정된 서브넷이 없는 Agent 용입니다. 실제 정책이 아니므로 "무엇을
-     * 허용/차단하는가" 는 담기지 않고, 문서 스키마 형태의 <b>기본 선언</b>만
-     * 담깁니다.
+     * <p>배정된 서브넷이 없는 Agent 용입니다. 등록과 수집만으로 기존 네트워크
+     * 설정이 바뀌지 않도록 식별 정보와 빈 {@code policies} 배열을 반환합니다.
      *
      * @param deviceType 장치 유형 (null 이면 VM 으로 간주)
      * @param deviceId 장치 식별자
@@ -448,9 +436,10 @@ public class PolicyRegistryService {
         summary.put("denied", 0);
         summary.put("peers", 0);
 
-        // C++ policy_receiver 의 ReceivePolicy 는 "policies" 배열을 우선 처리합니다.
-        final ArrayNode policies = policy.putArray("policies");
-        policies.add(policyStrategyFor(type).defaultRule());
+        // Registration/collection is not permission to configure the device.
+        // In particular, the example firewall declaration contains drop chains.
+        // An unassigned agent must receive no commands until a policy is configured.
+        policy.putArray("policies");
         return policy;
     }
 
@@ -552,8 +541,13 @@ public class PolicyRegistryService {
         }
         final String needle = agentId.trim();
         for (final Project project : repositoryRef.findAllByOrderByCreatedAtDesc()) {
+            // Operator drafts must not become a partially classified enforcement policy.
+            if (project.getSubnets().stream().anyMatch(item -> item.getZoneClass() == null
+                    || item.getCidr() == null || item.getCidr().isBlank())) continue;
             for (final ProjectSubnet subnet : project.getSubnets()) {
-                if (needle.equalsIgnoreCase(subnet.getAgentId())) {
+                if (needle.equalsIgnoreCase(subnet.getAgentId())
+                        && subnet.getZoneClass() != null
+                        && subnet.getCidr() != null && !subnet.getCidr().isBlank()) {
                     return new ProjectMatch(project, subnet);
                 }
             }

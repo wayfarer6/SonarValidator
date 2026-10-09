@@ -64,6 +64,10 @@ public class ProjectSubnet {
     @Column(nullable = false, length = 80)
     private String cidr;
 
+    /** VLAN identity survives even before an IP prefix is known. */
+    @Column(name = "vlan_id")
+    private Integer vlanId;
+
     /**
      * 보안 등급.
      *
@@ -95,6 +99,7 @@ public class ProjectSubnet {
         final PolicySubnet subnet = new PolicySubnet();
         subnet.setId(subnetId);
         subnet.setCidr(cidr);
+        subnet.setVlanId(vlanId);
         subnet.setZoneClass(zoneClass);
         subnet.setName(name);
         subnet.setAgentId(agentId);
@@ -111,7 +116,8 @@ public class ProjectSubnet {
     public static ProjectSubnet from(PolicySubnet subnet) {
         final ProjectSubnet entity = new ProjectSubnet();
         entity.setSubnetId(subnet.getId());
-        entity.setCidr(subnet.getCidr());
+        entity.setCidr(subnet.getCidr() == null ? "" : subnet.getCidr());
+        entity.setVlanId(subnet.getVlanId());
         entity.setZoneClass(subnet.getZoneClass());
         entity.setName(subnet.getName());
         entity.setAgentId(subnet.getAgentId());

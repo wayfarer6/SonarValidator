@@ -93,6 +93,7 @@ public final class ProjectMapper {
             final Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("id", subnet.getSubnetId());
             entry.put("cidr", subnet.getCidr());
+            entry.put("vlan_id", subnet.getVlanId());
             entry.put("subnet_class", subnet.getZoneClass() == null ? null : subnet.getZoneClass().label());
             entry.put("name", subnet.getName());
             entry.put("agent_id", subnet.getAgentId());

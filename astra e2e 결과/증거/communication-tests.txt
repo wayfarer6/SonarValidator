@@ -1,0 +1,73 @@
+Internal ctest changing into directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+UpdateCTestConfiguration  from :/home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/DartConfiguration.tcl
+UpdateCTestConfiguration  from :/home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/DartConfiguration.tcl
+Test project /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 14
+    Start 14: telemetry_service_test
+
+14: Test command: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/telemetry_service_test
+14: Working Directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+14: Test timeout computed to be: 10000000
+14: telemetry_service_test host=127.0.0.1 port=3307
+14:   [ok]   hello -> ack
+14: telemetry_service_test passed
+1/3 Test #14: telemetry_service_test ................   Passed    0.02 sec
+test 15
+    Start 15: websocket_receive_test
+
+15: Test command: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/websocket_receive_test
+15: Working Directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+15: Test timeout computed to be: 10
+15: [ok] local WebSocket handshake
+15: [ok] initial telemetry send
+15: [ok] idle read returns without a message
+15: [ok] idle polling respects its timeout
+15: [ok] write works while asynchronous read is pending
+15: [ok] fragmented receive stays bounded
+15: [ok] fragmented receive stays bounded
+15: [ok] fragmented receive stays bounded
+15: [ok] fragmented receive stays bounded
+15: [ok] fragmented receive stays bounded
+15: [ok] fragmented receive stays bounded
+15: [ok] fragmented receive stays bounded
+15: [ok] fragmented receive stays bounded
+15: [ok] fragmented receive stays bounded
+15: [ok] second send reaches peer after idle polling
+15: [ok] fragmented message survives multiple polling windows
+15: [ok] connection remains usable for subsequent messages
+15: [ok] leave an idle read pending before destruction
+15: [ok] destructor cancels idle read without waiting for peer close
+2/3 Test #15: websocket_receive_test ................   Passed    0.39 sec
+test 17
+    Start 17: management_service_integration_test
+
+17: Test command: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/management_service_integration_test
+17: Working Directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+17: Test timeout computed to be: 10000000
+17: management_service_integration_test host=127.0.0.1 port=3307
+17:   [ok]   policy-response payload is an object
+17:   [ok]   policy has policy_id
+17:   [ok]   policy has device_type
+17:   [ok]   policy has policies array
+17:   [ok]   device_id echoed back
+17:   [ok]   device_type is a known token
+17:   [ok]   policy rule scalar wrapped in array
+17:   [ok]   ack envelope sent
+17:   [ok]   second policy request reuses the connection
+17: management_service_integration_test passed
+3/3 Test #17: management_service_integration_test ...   Passed    0.13 sec
+
+The following tests passed:
+	telemetry_service_test
+	websocket_receive_test
+	management_service_integration_test
+
+100% tests passed, 0 tests failed out of 3
+
+Total Test time (real) =   0.56 sec

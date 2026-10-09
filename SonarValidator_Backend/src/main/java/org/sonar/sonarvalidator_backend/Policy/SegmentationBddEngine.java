@@ -159,6 +159,13 @@ public class SegmentationBddEngine {
             if (subnet.getId() != null) {
                 byId.put(subnet.getId(), subnet);
             }
+            if (subnet.getZoneClass() == null || subnet.getCidr() == null || subnet.getCidr().isBlank()) {
+                report.getViolations().add(new PolicyViolation(
+                        "classification-required", subnet.getId(), null,
+                        subnet.getZoneClass(), null, "-", "-", PacketVariables.ANY_PORT,
+                        "VLAN/서브넷의 IP 대역과 CSO 등급을 지정해야 검증할 수 있습니다.",
+                        PolicyViolation.Severity.MINOR));
+            }
             if (subnet.getCidr() != null && !subnet.getCidr().isBlank()) {
                 byCidr.putIfAbsent(PolicySubnet.normalizeCidr(subnet.getCidr()), subnet);
             }
@@ -376,9 +383,6 @@ public class SegmentationBddEngine {
             if (source == null || target == null || source.getZoneClass() == null || target.getZoneClass() == null) {
                 continue;
             }
-            if (!ZoneClass.forbidsDirectConnection(source.getZoneClass(), target.getZoneClass())) {
-                continue;
-            }
             final BddNode ruleSet = ruleToBdd(manager, source, target, rule);
             if (ruleSet == null) {
                 continue;
@@ -401,12 +405,31 @@ public class SegmentationBddEngine {
                     ? PacketVariables.protocolOf(assignment)
                     : rule.getProtocol();
 
+            // An aggregate labelled Sensitive may contain a Confidential range.
+            // The BDD intersection is authoritative; report the actual forbidden
+            // pair containing the witness instead of filtering on aggregate labels.
+            PolicySubnet witnessSource = source;
+            PolicySubnet witnessTarget = target;
+            witnessPair:
+            for (final PolicySubnet candidateSource : byId.values()) {
+                if (!containsAddress(candidateSource, sourceIp)) continue;
+                for (final PolicySubnet candidateTarget : byId.values()) {
+                    if (candidateSource.getZoneClass() != null && candidateTarget.getZoneClass() != null
+                            && ZoneClass.forbidsDirectConnection(candidateSource.getZoneClass(), candidateTarget.getZoneClass())
+                            && containsAddress(candidateTarget, targetIp)) {
+                        witnessSource = candidateSource;
+                        witnessTarget = candidateTarget;
+                        break witnessPair;
+                    }
+                }
+            }
+
             report.getViolations().add(new PolicyViolation(
                     rule.getId(),
-                    source.getId(),
-                    target.getId(),
-                    source.getZoneClass(),
-                    target.getZoneClass(),
+                    witnessSource.getId(),
+                    witnessTarget.getId(),
+                    witnessSource.getZoneClass(),
+                    witnessTarget.getZoneClass(),
                     sourceIp,
                     targetIp,
                     sampledPort,
@@ -415,10 +438,20 @@ public class SegmentationBddEngine {
                     //   처럼 등급만 말해서, 운영자가 어느 서브넷을 고쳐야 하는지
                     //   알 수 없었습니다. 위반은 <b>서브넷 사이의 연결</b> 문제이므로
                     //   출발/도착 서브넷을 이름으로 지목합니다.
-                    describeForbidden(source, target),
+                    describeForbidden(witnessSource, witnessTarget),
                     PolicyViolation.Severity.CRITICAL,
                     sampledProtocol));
             report.getViolatedRuleIds().add(rule.getId());
+        }
+    }
+
+    private static boolean containsAddress(PolicySubnet subnet, String address) {
+        try {
+            final var cidr = PacketVariables.parseCidr(subnet.getCidr());
+            final int mask = cidr.prefixLength() == 0 ? 0 : -1 << (32 - cidr.prefixLength());
+            return (PacketVariables.parseIp(address) & mask) == (cidr.address() & mask);
+        } catch (IllegalArgumentException ex) {
+            return false;
         }
     }
 

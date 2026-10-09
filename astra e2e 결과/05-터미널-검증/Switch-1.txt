@@ -1,0 +1,5 @@
+{"type":"terminal-status","status":"connecting"}{"type":"terminal-ready"}Switch-1:~# id; hostname; printf 'ASTRA_%s_OK\n' TERMINAL
+uid=0(root) gid=0(root) groups=0(root),0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)
+Switch-1
+ASTRA_TERMINAL_OK
+Switch-1:~# 

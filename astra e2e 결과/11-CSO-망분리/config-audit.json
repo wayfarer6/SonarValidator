@@ -1,0 +1,156 @@
+[
+  {
+    "ip": "172.16.255.2",
+    "name": "Firewall",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Firewall",
+      "AGENT_NAME": "Firewall",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.1",
+    "name": "Gateway-Router",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Router",
+      "AGENT_NAME": "Gateway-Router",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.3",
+    "name": "DMZ-Router",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Router",
+      "AGENT_NAME": "DMZ-Router",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.4",
+    "name": "C4I-Network-Router",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Router",
+      "AGENT_NAME": "C4I-Network-Router",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.5",
+    "name": "Survillance-Network-Router",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Router",
+      "AGENT_NAME": "Survillance-Network-Router",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.6",
+    "name": "VDI-Router",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Router",
+      "AGENT_NAME": "VDI-Router",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.101",
+    "name": "Switch-0",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Switch",
+      "AGENT_NAME": "Switch-0",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.102",
+    "name": "Switch-1",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Switch",
+      "AGENT_NAME": "Switch-1",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.103",
+    "name": "Switch-2",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Switch",
+      "AGENT_NAME": "Switch-2",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.104",
+    "name": "Switch-3",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Switch",
+      "AGENT_NAME": "Switch-3",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  },
+  {
+    "ip": "172.16.255.105",
+    "name": "Switch-4",
+    "settings": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "Switch",
+      "AGENT_NAME": "Switch-4",
+      "MANAGEMENT_PREFIX": "172.16.255.0/24"
+    },
+    "settings_match": true,
+    "secret_matches_backend": true,
+    "html_entities_absent": true
+  }
+]

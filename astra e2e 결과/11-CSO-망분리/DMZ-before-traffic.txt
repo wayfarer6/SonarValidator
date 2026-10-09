@@ -1,0 +1,39 @@
+
+ubuntu-cloud login: 
+ubuntu-cloud login: 
+hostname; id; ip -4 -br addr; ip route; ss -ltn
+
+Welcome to Ubuntu 24.10 (GNU/Linux 6.11.0-8-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Fri Oct  9 09:01:01 UTC 2026
+
+  System load:  0.08              Processes:             92
+  Usage of /:   75.8% of 2.25GB   Users logged in:       0
+  Memory usage: 17%               IPv4 address for ens3: 10.30.141.10
+  Swap usage:   0%
+
+
+0 updates can be applied immediately.
+
+
+The list of available updates is more than a week old.
+To check for new updates run: sudo apt update
+
+[?2004hubuntu@ubuntu-cloud:~$ hostname; id; ip -4 -br addr; ip route; ss -ltn
+[?2004lubuntu-cloud
+uid=1000(ubuntu) gid=1000(ubuntu) groups=1000(ubuntu),4(adm),24(cdrom),27(sudo),30(dip),104(lxd)
+[36mlo               [0mUNKNOWN        [35m127.0.0.1[0m/8 
+[36mens3             [0m[32mUP             [0m[35m10.30.141.10[0m/24 
+default via [35m10.30.141.1 [0mdev [36mens3 [0mproto static 
+[35m10.30.141.0/24 [0mdev [36mens3 [0mproto kernel scope link src [35m10.30.141.10 [0m
+State     Recv-Q    Send-Q       Local Address:Port        Peer Address:Port    
+LISTEN    0         4096            127.0.0.54:53               0.0.0.0:*       
+LISTEN    0         4096               0.0.0.0:22               0.0.0.0:*       
+LISTEN    0         4096         127.0.0.53%lo:53               0.0.0.0:*       
+LISTEN    0         4096                  [::]:22                  [::]:*       
+[?2004hubuntu@ubuntu-cloud:~$ 
+[?2004l[?2004hubuntu@ubuntu-cloud:~$ 

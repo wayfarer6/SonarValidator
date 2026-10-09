@@ -173,10 +173,9 @@ class AgentMessageRouterTest {
         // C++ policy_receiver 는 "policies" 배열을 우선 처리합니다.
         final JsonNode rules = policy.path("policies");
         assertTrue(rules.isArray());
-        assertEquals(1, rules.size());
-        // 문서 스키마 규칙: 스칼라도 배열로 감쌈
-        assertTrue(rules.get(0).path("command").isArray());
-        assertEquals("on", rules.get(0).path("command").get(0).asString(""));
+        // 미배정 장비는 등록만으로 네트워크 설정을 변경하지 않습니다.
+        assertEquals(0, rules.size());
+        assertEquals("default", policy.path("summary").path("source").asString(""));
         assertEquals(1L, router.policyRequestCount());
     }
 

@@ -1,0 +1,87 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+19
+Default Administrator
+Networks
+Home
+Networks
+View Network
+Astra E2E Router 수집 검증 2026-10-09
+D-AI-PBL-Poc-Project
+Network Topology (CSO Security Zones)
+Confidential — 기밀망
+Sensitive — 내부 업무망
+Open — 공개망
+−
+100%
++
+
+Open Zone
+
+Sensitive Zone
+
+eth0.111
+
+eth0
+
+eth7
+
+eth1.141
+
+eth0
+
+eth1.121
+
+eth1.122
+
+eth0.112
+
+eth1
+
+docker0
+
+br-806483bc5620
+
+서브넷
+
+11
+
+연결 규칙
+
+0
+
+금지 연결
+
+0
+
+포트 미지정
+
+0
+
+라우팅 테이블 (수집된 장치)
+새로고침
+DMZ-RouterFRR · 경로 14건
+Gateway-RouterFRR · 경로 15건
+VDI-RouterFRR · 경로 14건
+Survillance-Network-RouterFRR · 경로 14건
+C4I-Network-RouterFRR · 경로 14건
+test-vmUbuntu · 경로 5건

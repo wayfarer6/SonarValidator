@@ -24,6 +24,35 @@ class SegmentationBddEngineTest {
 
     private final SegmentationBddEngine engine = new SegmentationBddEngine();
 
+    @Test
+    void aggregateSensitiveLabelCannotHideConfidentialOverlapInEitherDirection() {
+        var subnets = List.of(
+                PolicySubnet.of("C", "10.10.131.0/24", ZoneClass.CONFIDENTIAL),
+                PolicySubnet.of("Aggregate", "10.10.0.0/16", ZoneClass.SENSITIVE),
+                PolicySubnet.of("O", "10.30.141.0/24", ZoneClass.OPEN));
+        for (boolean reverse : List.of(false, true)) {
+            var rule = new PolicyRule("overlap", reverse ? "O" : "Aggregate", reverse ? "Aggregate" : "O", 443);
+            var report = engine.validate(subnets, List.of(rule));
+            assertThat(report.isCompliant()).isFalse();
+            assertThat(report.getViolations()).singleElement().satisfies(v -> {
+                assertThat(v.severity()).isEqualTo(PolicyViolation.Severity.CRITICAL);
+                assertThat(v.sourceZone()).isEqualTo(reverse ? ZoneClass.OPEN : ZoneClass.CONFIDENTIAL);
+                assertThat(v.targetZone()).isEqualTo(reverse ? ZoneClass.CONFIDENTIAL : ZoneClass.OPEN);
+                assertThat(reverse ? v.sampledTargetIp() : v.sampledSourceIp()).startsWith("10.10.131.");
+                assertThat(v.sampledPort()).isEqualTo(443);
+            });
+        }
+    }
+
+    @Test
+    void nonOverlappingSensitiveRangeRemainsAllowed() {
+        var subnets = List.of(
+                PolicySubnet.of("C", "10.10.131.0/24", ZoneClass.CONFIDENTIAL),
+                PolicySubnet.of("S", "10.10.132.0/24", ZoneClass.SENSITIVE),
+                PolicySubnet.of("O", "10.30.141.0/24", ZoneClass.OPEN));
+        assertThat(engine.validate(subnets, List.of(new PolicyRule("ok", "S", "O", 443))).isCompliant()).isTrue();
+    }
+
     /** 랩 실제 대역을 흉내 낸 서브넷 3개 (Confidential / Sensitive / Open). */
     private static List<PolicySubnet> labSubnets() {
         return List.of(

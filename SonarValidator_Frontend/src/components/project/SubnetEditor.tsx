@@ -12,8 +12,9 @@ interface SubnetEditorProps {
   /** 편집 중인 서브넷 목록. */
   subnets: ApiSubnet[];
   /** 등급 변경 콜백. */
-  onChange: (subnetId: string, subnetClass: SubnetClass) => void;
+  onChange: (subnetId: string, subnetClass: SubnetClass | null) => void;
   /** CIDR 변경 콜백. */
+  onNameChange?: (subnetId: string, name: string) => void;
   onCidrChange?: (subnetId: string, cidr: string) => void;
   /** Agent 담당자 변경 콜백. */
   onAgentChange?: (subnetId: string, agentId: string | null) => void;
@@ -46,6 +47,7 @@ interface SubnetEditorProps {
 export default function SubnetEditor({
   subnets,
   onChange,
+  onNameChange,
   onCidrChange,
   onAgentChange,
   agents = [],
@@ -120,10 +122,10 @@ export default function SubnetEditor({
                   >
                     <td className="p-2 font-mono">
                       <div className="flex flex-col gap-1">
-                        <span>{subnet.id}</span>
-                        {subnet.name && (
-                          <span className="text-[10px] text-gray-400">{subnet.name}</span>
-                        )}
+                        <span>{subnet.vlan_id ? `VLAN ${subnet.vlan_id}` : subnet.id}</span>
+                        <input aria-label={`${subnet.id} 이름`} value={subnet.name ?? ""}
+                          disabled={readOnly || !onNameChange} className={inputClass}
+                          onChange={e => onNameChange?.(subnet.id, e.target.value)} placeholder="VLAN/서브넷 이름" />
                       </div>
                     </td>
                     <td className="p-2">
@@ -133,7 +135,7 @@ export default function SubnetEditor({
                         type="text"
                         value={subnet.cidr}
                         disabled={readOnly}
-                        placeholder="10.0.0.0/24"
+                        placeholder="IP 대역 미수집 (CIDR 입력)"
                         onChange={(e) =>
                           onCidrChange
                             ? onCidrChange(subnet.id, e.target.value)
@@ -144,11 +146,12 @@ export default function SubnetEditor({
                     </td>
                     <td className="p-2">
                       <select
-                        value={subnet.subnet_class ?? "Open"}
+                        value={subnet.subnet_class ?? ""}
                         disabled={readOnly}
-                        onChange={(e) => onChange(subnet.id, e.target.value as SubnetClass)}
+                        onChange={(e) => onChange(subnet.id, (e.target.value || null) as SubnetClass | null)}
                         className={selectClass}
                       >
+                        <option value="">미분류 — 사용자 지정 필요</option>
                         {ZONE_CLASSES.map((zone) => (
                           <option key={zone.value} value={zone.value}>
                             {zone.label}

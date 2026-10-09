@@ -30,6 +30,7 @@ export type RuleOrigin = "MANUAL" | "DISCOVERED";
 
 /** 편집기에서 다루는 서브넷 한 건. */
 export interface ApiSubnet {
+  vlan_id?: number | null;
   id: string;
   cidr: string;
   subnet_class: SubnetClass | null;

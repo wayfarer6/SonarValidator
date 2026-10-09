@@ -1,0 +1,58 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+13
+Default Administrator
+Networks
+Home
+Networks
+View Network
+D-AI-PBL-Poc-Project
+Network Topology (CSO Security Zones)
+Confidential — 기밀망
+Sensitive — 내부 업무망
+Open — 공개망
+−
+100%
++
+
+서브넷이 없습니다
+
+서브넷
+
+0
+
+연결 규칙
+
+0
+
+금지 연결
+
+0
+
+포트 미지정
+
+0
+
+라우팅 테이블 (수집된 장치)
+새로고침
+test-vmUbuntu · 경로 5건
+Gateway-RouterFRR · 경로 4건

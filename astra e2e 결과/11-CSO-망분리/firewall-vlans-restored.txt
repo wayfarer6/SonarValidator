@@ -1,0 +1,12 @@
+lo               UNKNOWN        127.0.0.1/8 
+eth1.131@eth1    UP             10.10.131.1/24 
+eth1.132@eth1    UP             10.10.132.1/24 
+eth1.133@eth1    UP             10.10.133.1/24 
+eth0             UNKNOWN        10.99.143.2/24 
+eth4             UNKNOWN        172.16.255.2/24 
+default via 10.99.143.1 dev eth0 
+10.10.131.0/24 dev eth1.131 proto kernel scope link src 10.10.131.1 
+10.10.132.0/24 dev eth1.132 proto kernel scope link src 10.10.132.1 
+10.10.133.0/24 dev eth1.133 proto kernel scope link src 10.10.133.1 
+10.99.143.0/24 dev eth0 proto kernel scope link src 10.99.143.2 
+172.16.255.0/24 dev eth4 proto kernel scope link src 172.16.255.2 

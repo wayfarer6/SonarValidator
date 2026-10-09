@@ -4,6 +4,7 @@
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
+#include "components/backend_communication/timed_websocket_reader.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -20,6 +21,7 @@ private:
     net::io_context ioc_;                           // Boost.Asio I/O 컨텍스트
     tcp::resolver resolver_;                        // DNS 리졸버
     websocket::stream<beast::tcp_stream> stream_;   // WebSocket 스트림
+    sonar::net::TimedWebSocketReader reader_;
     bool connected_;                                // 연결 상태
 
     void initialize(std::string host, int port, std::string target);

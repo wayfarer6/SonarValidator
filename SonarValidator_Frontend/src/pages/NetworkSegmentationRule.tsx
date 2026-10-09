@@ -23,7 +23,7 @@ interface RuleRow {
 // (되살릴 때는 InitRULES/useState 초기값을 이 배열로 바꾸면 됩니다)
 //
 // 주의: 아래 src/dst(Subnet-0001..0005)는 서버가 만드는 서브넷 id 와 다를 수
-// 있어서, 그대로 쓰면 validateRules 가 "존재하지 않는 서브넷이 선택되었습니다."
+// 있어서, 그대로 쓰면 validateRules 가 "서브넷을 선택하고 CSO 등급을 지정해야 합니다."
 // 위반으로 보고합니다. 그래서 지금은 빈 목록에서 시작합니다.
 // ---------------------------------------------------------------------------
 // const INITIAL_RULES: RuleRow[] = [
@@ -69,7 +69,7 @@ function validateRules(rules: RuleRow[], subnets: WizardSubnet[]): ValidationRes
   const messages: FeedbackMessage[] = [];
   const violations: Violation[] = [];
 
-  const classOf = (subnetId: string): SubnetClass | undefined =>
+  const classOf = (subnetId: string): SubnetClass | null | undefined =>
     subnets.find((subnet) => subnet.id === subnetId)?.subnetClass;
 
   for (const rule of rules) {
@@ -77,7 +77,7 @@ function validateRules(rules: RuleRow[], subnets: WizardSubnet[]): ValidationRes
     const dstClass = classOf(rule.dst);
 
     if (!srcClass || !dstClass) {
-      violations.push({ ruleId: rule.id, reason: "존재하지 않는 서브넷이 선택되었습니다." });
+      violations.push({ ruleId: rule.id, reason: "서브넷을 선택하고 CSO 등급을 지정해야 합니다." });
       continue;
     }
 

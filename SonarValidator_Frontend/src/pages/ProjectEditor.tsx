@@ -6,13 +6,14 @@ import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
 import Input from "../components/form/input/InputField";
 import Label from "../components/form/Label";
+import DiscoveredVlans from "../components/project/DiscoveredVlans";
+import { getProjectForEditing } from "../lib/api/discovery";
 import SubnetEditor from "../components/project/SubnetEditor";
 import RuleEditor from "../components/project/RuleEditor";
 import ViolationSummary from "../components/project/ViolationSummary";
 import { useApi } from "../hooks/useApi";
 import { useApiAction } from "../hooks/useApiAction";
 import {
-  getProject,
   updateProject,
   validateProject,
   getForbiddenPairs,
@@ -61,7 +62,7 @@ export default function ProjectEditor() {
   // 서버 상태 로드
   // ---------------------------------------------------------------------
   const { data, loading, error, offline, reload } = useApi(
-    () => getProject(projectId),
+    () => getProjectForEditing(projectId),
     [projectId],
   );
 
@@ -105,11 +106,12 @@ export default function ProjectEditor() {
       subnets: subnets.map((subnet) => ({
         id: subnet.id,
         cidr: subnet.cidr,
+        vlan_id: subnet.vlan_id,
         subnet_class: subnet.subnet_class,
         name: subnet.name,
         agent_id: subnet.agent_id,
         // 사람이 등급을 지정했으므로 확인됨으로 표시합니다.
-        manually_edited: true,
+        manually_edited: subnet.manually_edited,
       })),
       rules: rules.map((rule) => ({
         id: rule.id,
@@ -171,7 +173,7 @@ export default function ProjectEditor() {
   // ---------------------------------------------------------------------
   // 편집 핸들러
   // ---------------------------------------------------------------------
-  const updateSubnetClass = (subnetId: string, subnetClass: SubnetClass) => {
+  const updateSubnetClass = (subnetId: string, subnetClass: SubnetClass | null) => {
     setSubnets((prev) =>
       prev.map((subnet) =>
         subnet.id === subnetId
@@ -249,7 +251,7 @@ export default function ProjectEditor() {
         {
           id: `Subnet-${String(sequence).padStart(4, "0")}`,
           cidr: `10.0.${thirdOctet}.0/24`,
-          subnet_class: "Open" as SubnetClass,
+          subnet_class: null,
           name: null,
           agent_id: null,
           manually_edited: true,
@@ -461,6 +463,8 @@ export default function ProjectEditor() {
               </div>
             </div>
 
+            <DiscoveredVlans projectId={projectId} />
+
             {/* 검증 결과 */}
             <ViolationSummary
               report={report}
@@ -507,7 +511,8 @@ export default function ProjectEditor() {
               <SubnetEditor
                 subnets={subnets}
                 onChange={updateSubnetClass}
-                onCidrChange={updateSubnetCidr}
+                onNameChange={(id, name) => { setSubnets(prev => prev.map(s => s.id === id ? {...s, name, manually_edited: true} : s)); setDirty(true); }}
+              onCidrChange={updateSubnetCidr}
                 onAgentChange={updateSubnetAgent}
                 agents={(agentOverview.data?.agents ?? []).map((agent) => ({
                   agent_id: agent.agent_id,

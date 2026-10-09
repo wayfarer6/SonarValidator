@@ -1,0 +1,74 @@
+[
+  {
+    "case": "C_to_O",
+    "passed": true,
+    "compliant": false,
+    "violation_count": 1
+  },
+  {
+    "case": "O_to_C",
+    "passed": true,
+    "compliant": false,
+    "violation_count": 1
+  },
+  {
+    "case": "C_to_Internet",
+    "passed": true,
+    "compliant": false,
+    "violation_count": 1
+  },
+  {
+    "case": "C_to_S",
+    "passed": true,
+    "compliant": true,
+    "violation_count": 0
+  },
+  {
+    "case": "S_to_O",
+    "passed": true,
+    "compliant": true,
+    "violation_count": 0
+  },
+  {
+    "case": "S_to_C",
+    "passed": true,
+    "compliant": true,
+    "violation_count": 0
+  },
+  {
+    "case": "C_to_C",
+    "passed": true,
+    "compliant": true,
+    "violation_count": 0
+  },
+  {
+    "case": "O_to_O",
+    "passed": true,
+    "compliant": true,
+    "violation_count": 0
+  },
+  {
+    "case": "Disabled_forbidden",
+    "passed": true,
+    "compliant": true,
+    "violation_count": 0
+  },
+  {
+    "case": "Unbounded_TCP",
+    "passed": true,
+    "compliant": false,
+    "violation_count": 1
+  },
+  {
+    "case": "Invalid_TCP_port",
+    "passed": true,
+    "compliant": false,
+    "violation_count": 1
+  },
+  {
+    "case": "CIDR_overlap",
+    "passed": true,
+    "compliant": false,
+    "violation_count": 1
+  }
+]

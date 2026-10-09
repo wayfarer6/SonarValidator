@@ -300,6 +300,21 @@ public class QuarantineService {
             return excludedResponse(display, projectKey, deviceType, why);
         }
         final boolean connectionScoped = context.hasSubnet();
+        if (connectionScoped) {
+            try {
+                final var target = org.sonar.sonarvalidator_backend.Policy.PacketVariables.parseCidr(targetCidr);
+                for (final String prefix : resolveManagementPrefix(projectKey).split(",")) {
+                    final var management = org.sonar.sonarvalidator_backend.Policy.PacketVariables.parseCidr(prefix.trim());
+                    final int length = Math.min(target.prefixLength(), management.prefixLength());
+                    final int mask = length == 0 ? 0 : -1 << (32 - length);
+                    if ((target.address() & mask) == (management.address() & mask)) {
+                        return excludedResponse(display, projectKey, deviceType, "관리망과 겹치는 서브넷은 격리할 수 없습니다.");
+                    }
+                }
+            } catch (IllegalArgumentException ex) {
+                return excludedResponse(display, projectKey, deviceType, "유효한 IPv4 CIDR을 지정해야 합니다.");
+            }
+        }
         if (connectionScoped && deviceType != DeviceType.SWITCH
                 && deviceType != DeviceType.ROUTER && deviceType != DeviceType.FIREWALL) {
             return excludedResponse(display, projectKey, deviceType,
@@ -1083,7 +1098,7 @@ public class QuarantineService {
         // (null 이면 아직 ack 가 오지 않았거나 구버전 Agent 입니다.)
         final String ackKey = firstNonBlank(state.getAgentId(),
                 state.getNodeId() == null ? null : "node-" + state.getNodeId());
-        final Map<String, Object> ack = ackKey == null ? null : lastAck.get(ackKey);
+        final Map<String, Object> ack = ackFor(state);
         body.put("applied", ack == null ? null : ack.get("ok"));
         if (ack != null) {
             body.put("applied_detail", ack.get("detail"));
@@ -1116,7 +1131,16 @@ public class QuarantineService {
         entry.put("released_at", row.getReleasedAt() == null ? null : row.getReleasedAt().toInstant().toString());
         entry.put("released_by", row.getReleasedBy());
         entry.put("active", row.isActive());
+        final Map<String, Object> ack = ackFor(row);
+        entry.put("applied", ack == null ? null : ack.get("ok"));
+        entry.put("applied_detail", ack == null ? null : ack.get("detail"));
         return entry;
+    }
+
+    private Map<String, Object> ackFor(QuarantineState state) {
+        if (state.getScope() != QuarantineState.Scope.CONNECTION) return lastAck.get(state.getAgentId());
+        final var ack = lastAck.get(state.getAgentId() + ":" + state.getTargetCidr());
+        return ack != null && java.util.Objects.equals(ack.get("state_id"), state.getId()) ? ack : null;
     }
 
     /**
@@ -1142,6 +1166,21 @@ public class QuarantineService {
         }
 
         final String action = text(payload, "action");
+        if ("subnet-quarantine".equals(action) && payload.path("targets").isArray()) {
+            final var active = activeConnectionStates(agentId);
+            for (final JsonNode target : payload.path("targets")) {
+                for (final var state : active) {
+                    if (!java.util.Objects.equals(state.getTargetCidr(), target.path("cidr").asText())
+                            || state.getId() == null || state.getId() != target.path("id").asLong(-1)) continue;
+                    final Map<String, Object> record = new LinkedHashMap<>();
+                    record.put("state_id", state.getId());
+                    record.put("ok", payload.path("ok").asBoolean(false));
+                    record.put("detail", text(payload, "detail"));
+                    lastAck.put(agentId + ":" + state.getTargetCidr(), record);
+                }
+            }
+            return;
+        }
         // 격리/해제가 아닌 ack (예: 정책 적용 보고)는 여기서 다루지 않습니다.
         if (action == null || !(action.equals(ACTION_QUARANTINE) || action.equals(ACTION_RELEASE))) {
             return;

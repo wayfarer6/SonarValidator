@@ -1,0 +1,96 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+45
+Default Administrator
+Subnet Advance Configuration
+Home
+Subnet Advance Configuration
+Subnet Advance Configuration
+Continue
+
+수집된 설정에서 만든 초안입니다
+
+장비에서 수집한 VLAN/서브넷 초안입니다. 이름은 자동 생성되며 CSO는 미분류입니다. 이름·IP 대역·CSO를 확인하고 저장하세요.
+
+수집된 VLAN · 9개 VLAN / 14개 장비 항목
+VLAN 새로고침
+
+스위치의 access/trunk 포트와 라우터의 VLAN 인터페이스 수집 결과입니다. IP 대역은 주소가 수집된 장비에 표시됩니다. VLAN 번호만으로 IP 대역이나 장비 간 연결을 추정하지 않습니다.
+
+장비	VLAN	Access / VLAN 인터페이스	Trunk 포트	이 장비에서 수집한 IP 대역
+Switch-1	111	eth1	eth0	IP 대역 미수집 (L2 VLAN)
+Switch-1	112	eth2	eth0	IP 대역 미수집 (L2 VLAN)
+Switch-2	121	eth1	eth0	IP 대역 미수집 (L2 VLAN)
+Switch-2	122	eth2	eth0	IP 대역 미수집 (L2 VLAN)
+Switch-3	131	eth1	eth0	IP 대역 미수집 (L2 VLAN)
+Switch-3	132	eth2	eth0	IP 대역 미수집 (L2 VLAN)
+Switch-3	133	eth3	eth0	IP 대역 미수집 (L2 VLAN)
+Switch-4	141	eth1	eth0	IP 대역 미수집 (L2 VLAN)
+DMZ-Router	141	eth1.141	—	10.30.141.0/24
+VDI-Router	121	eth1.121	—	10.40.121.0/24
+VDI-Router	122	eth1.122	—	10.40.122.0/24
+Survillance-Network-Router	111	eth0.111	—	10.20.111.0/24
+Survillance-Network-Router	112	eth0.112	—	10.20.112.0/24
+Switch-0	10	eth0, eth1, eth2, eth3, eth4	—	IP 대역 미수집 (L2 VLAN)
+VLAN / Subnet 편집
+Subnet-0001 10.99.10.0/24 (Open) · C4I-Network-Router / eth0 · C4I-Network-Router
+Subnet-0002 10.99.143.0/24 (Open) · C4I-Network-Router / eth1 · C4I-Network-Router
+Subnet-0003 172.16.255.0/24 (Open) · C4I-Network-Router / eth7 · C4I-Network-Router
+Subnet-0004 10.30.141.0/24 (Open) · VLAN 141 · DMZ-Router / eth1.141 · DMZ-Router
+Subnet-0005 192.168.122.0/24 (Open) · Gateway-Router / eth0 · Gateway-Router
+Subnet-0006 10.40.121.0/24 (Open) · VLAN 121 · VDI-Router / eth1.121 · VDI-Router
+Subnet-0007 10.40.122.0/24 (Open) · VLAN 122 · VDI-Router / eth1.122 · VDI-Router
+Subnet-0008 10.20.111.0/24 (Open) · VLAN 111 · Survillance-Network-Router / eth0.111 · Survillance-Network-Router
+Subnet-0009 10.20.112.0/24 (Open) · VLAN 112 · Survillance-Network-Router / eth0.112 · Survillance-Network-Router
+Subnet-0010 172.17.0.0/16 (Open) · test-vm / docker0 · test-vm
+Subnet-0011 172.18.0.0/16 (Open) · test-vm / br-806483bc5620 · test-vm
+VLAN 141 IP 대역 미수집 (미분류) · VLAN141 · Switch-4 · 확인 필요
+VLAN 131 IP 대역 미수집 (미분류) · VLAN131 · Switch-3 · 확인 필요
+VLAN 132 IP 대역 미수집 (미분류) · VLAN132 · Switch-3 · 확인 필요
+VLAN 133 IP 대역 미수집 (미분류) · VLAN133 · Switch-3 · 확인 필요
+VLAN 121 IP 대역 미수집 (미분류) · VLAN121 · Switch-2 · 확인 필요
+VLAN 122 IP 대역 미수집 (미분류) · VLAN122 · Switch-2 · 확인 필요
+VLAN 111 IP 대역 미수집 (미분류) · VLAN111 · Switch-1 · 확인 필요
+VLAN 112 IP 대역 미수집 (미분류) · VLAN112 · Switch-1 · 확인 필요
+VLAN 10 IP 대역 미수집 (미분류) · VLAN10 · Switch-0 · 확인 필요
+VLAN 121 10.40.121.0/24 (미분류) · VLAN121 · VDI-Router · 확인 필요
+VLAN 122 10.40.122.0/24 (미분류) · VLAN122 · VDI-Router · 확인 필요
+VLAN 111 10.20.111.0/24 (미분류) · VLAN111 · Survillance-Network-Router · 확인 필요
+VLAN 112 10.20.112.0/24 (미분류) · VLAN112 · Survillance-Network-Router · 확인 필요
+VLAN 141 10.30.141.0/24 (미분류) · VLAN141 · DMZ-Router · 확인 필요
+VLAN/서브넷 저장
+미분류 — 사용자 지정 필요
+Confidential
+Sensitive
+Open
+Import Offline Prober Data
+새로고침
+
+관리 서버에 연결할 수 없는 장비는 Prober 가 설정을 JSON 파일로 남깁니다. 그 파일을 아래 영역에 끌어다 놓으면 장치 목록에 반영됩니다.
+
+📄
+Drop Here
+파일을 끌어다 놓거나 클릭해서 선택하세요 (.json, 최대 8.0 MB)
+파일로 반영된 장치
+0
+
+아직 파일로 반영된 장치가 없습니다.

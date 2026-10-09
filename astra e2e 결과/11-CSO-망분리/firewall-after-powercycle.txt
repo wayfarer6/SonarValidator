@@ -1,0 +1,49 @@
+ 09:17:00 up  4:40,  0 users,  load average: 6.63, 4.85, 3.35
+PID   USER     TIME  COMMAND
+    1 root      0:00 /bin/sh
+  382 root      0:00 /gns3/bin/busybox sh -c while true; do TERM=vt100 /gns3/bin/busybox sh; done
+  388 root      0:00 /gns3/bin/busybox sh
+  466 root      0:00 sshd: /usr/sbin/sshd [listener] 0 of 10-100 startups
+  470 dnsmasq   0:00 dnsmasq
+  495 root      0:00 /bin/sh /etc/sonar_validator_prober/supervise.sh
+  496 root      0:00 /root/Installer/sonar_validator_prober
+  506 root      0:00 sshd-session: root [priv]
+  508 root      0:00 sshd-session: root@notty
+  509 root      0:00 sh -c uptime; ps w; ip -4 -br addr; nft list table inet astra_cso; sha256sum /root/Installer/sonar_validator_prober
+  511 root      0:00 ps w
+lo               UNKNOWN        127.0.0.1/8 
+eth1.131@eth1    UP             10.10.131.1/24 
+eth1.132@eth1    UP             10.10.132.1/24 
+eth1.133@eth1    UP             10.10.133.1/24 
+eth0             UNKNOWN        10.99.143.2/24 
+eth4             UNKNOWN        172.16.255.2/24 
+table inet astra_cso {
+	set confidential_v4 {
+		type ipv4_addr
+		flags interval
+		elements = { 10.10.131.0/24, 10.10.132.0/24,
+			     10.10.133.0/24 }
+	}
+
+	set sensitive_v4 {
+		type ipv4_addr
+		flags interval
+		elements = { 10.20.111.0/24, 10.20.112.0/24,
+			     10.40.121.0/24, 10.40.122.0/24 }
+	}
+
+	chain forward {
+		type filter hook forward priority -50; policy accept;
+		meta nfproto ipv6 iifname { "eth1.131", "eth1.132", "eth1.133" } counter packets 0 bytes 0 drop comment "CSO-no-IPv6-bypass-out"
+		meta nfproto ipv6 oifname { "eth1.131", "eth1.132", "eth1.133" } counter packets 0 bytes 0 drop comment "CSO-no-IPv6-bypass-in"
+		iifname "eth1.131" ip saddr != 10.10.131.0/24 counter packets 0 bytes 0 drop comment "CSO-anti-spoof-131"
+		iifname "eth1.132" ip saddr != 10.10.132.0/24 counter packets 0 bytes 0 drop comment "CSO-anti-spoof-132"
+		iifname "eth1.133" ip saddr != 10.10.133.0/24 counter packets 0 bytes 0 drop comment "CSO-anti-spoof-133"
+		ip saddr @confidential_v4 ip daddr @confidential_v4 counter packets 0 bytes 0 accept comment "CSO-C-to-C"
+		ip saddr @confidential_v4 ip daddr @sensitive_v4 counter packets 0 bytes 0 accept comment "CSO-C-to-S"
+		ip saddr @sensitive_v4 ip daddr @confidential_v4 counter packets 0 bytes 0 accept comment "CSO-S-to-C"
+		ip saddr @confidential_v4 counter packets 0 bytes 0 drop comment "CSO-C-to-Open-Internet-deny"
+		ip daddr @confidential_v4 counter packets 0 bytes 0 drop comment "CSO-Open-Internet-to-C-deny"
+	}
+}
+7e8118790d40f975c079da2265b3200368d57f84c2970f21f731817bdd793538  /root/Installer/sonar_validator_prober

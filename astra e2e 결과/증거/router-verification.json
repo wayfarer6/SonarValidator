@@ -1,0 +1,127 @@
+{
+  "time_kst": "2026-10-09T16:46:21.624159+09:00",
+  "routers": [
+    {
+      "agent": "Gateway-Router",
+      "ip": "172.16.255.1",
+      "service_started": true,
+      "sha256_match": true,
+      "connected": true,
+      "telemetry_seen": true,
+      "project_id": "PRJ-D488B7A4",
+      "interfaces": 10,
+      "vlans": 0,
+      "routes": 15,
+      "arp_entries": 16,
+      "ipv4_addresses": [
+        "10.255.255.1/32",
+        "10.99.10.1/24",
+        "127.0.0.1/8",
+        "172.16.255.1/24",
+        "192.168.122.10/24"
+      ],
+      "missing_addresses": [],
+      "extra_addresses": [],
+      "missing_routes": [],
+      "warnings": []
+    },
+    {
+      "agent": "DMZ-Router",
+      "ip": "172.16.255.3",
+      "service_started": true,
+      "sha256_match": true,
+      "connected": true,
+      "telemetry_seen": true,
+      "project_id": "PRJ-D488B7A4",
+      "interfaces": 11,
+      "vlans": 1,
+      "routes": 14,
+      "arp_entries": 15,
+      "ipv4_addresses": [
+        "10.255.255.3/32",
+        "10.30.141.1/24",
+        "10.99.10.3/24",
+        "127.0.0.1/8",
+        "172.16.255.3/24"
+      ],
+      "missing_addresses": [],
+      "extra_addresses": [],
+      "missing_routes": [],
+      "warnings": []
+    },
+    {
+      "agent": "C4I-Network-Router",
+      "ip": "172.16.255.4",
+      "service_started": true,
+      "sha256_match": true,
+      "connected": true,
+      "telemetry_seen": true,
+      "project_id": "PRJ-D488B7A4",
+      "interfaces": 10,
+      "vlans": 0,
+      "routes": 14,
+      "arp_entries": 14,
+      "ipv4_addresses": [
+        "10.255.255.4/32",
+        "10.99.10.4/24",
+        "10.99.143.1/24",
+        "127.0.0.1/8",
+        "172.16.255.4/24"
+      ],
+      "missing_addresses": [],
+      "extra_addresses": [],
+      "missing_routes": [],
+      "warnings": []
+    },
+    {
+      "agent": "Survillance-Network-Router",
+      "ip": "172.16.255.5",
+      "service_started": true,
+      "sha256_match": true,
+      "connected": true,
+      "telemetry_seen": true,
+      "project_id": "PRJ-D488B7A4",
+      "interfaces": 12,
+      "vlans": 2,
+      "routes": 14,
+      "arp_entries": 14,
+      "ipv4_addresses": [
+        "10.20.111.1/24",
+        "10.20.112.1/24",
+        "10.255.255.5/32",
+        "10.99.10.5/24",
+        "127.0.0.1/8",
+        "172.16.255.5/24"
+      ],
+      "missing_addresses": [],
+      "extra_addresses": [],
+      "missing_routes": [],
+      "warnings": []
+    },
+    {
+      "agent": "VDI-Router",
+      "ip": "172.16.255.6",
+      "service_started": true,
+      "sha256_match": true,
+      "connected": true,
+      "telemetry_seen": true,
+      "project_id": "PRJ-D488B7A4",
+      "interfaces": 12,
+      "vlans": 2,
+      "routes": 14,
+      "arp_entries": 14,
+      "ipv4_addresses": [
+        "10.255.255.6/32",
+        "10.40.121.1/24",
+        "10.40.122.1/24",
+        "10.99.10.6/24",
+        "127.0.0.1/8",
+        "172.16.255.6/24"
+      ],
+      "missing_addresses": [],
+      "extra_addresses": [],
+      "missing_routes": [],
+      "warnings": []
+    }
+  ]
+}

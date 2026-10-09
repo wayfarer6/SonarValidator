@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Gateway-Router",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": true
+  },
+  {
+    "name": "DMZ-Router",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": true
+  },
+  {
+    "name": "C4I-Network-Router",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": true
+  },
+  {
+    "name": "Survillance-Network-Router",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": true
+  },
+  {
+    "name": "VDI-Router",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": true
+  },
+  {
+    "name": "Switch-0",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": null
+  },
+  {
+    "name": "Switch-1",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": null
+  },
+  {
+    "name": "Switch-2",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": null
+  },
+  {
+    "name": "Switch-3",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": null
+  },
+  {
+    "name": "Switch-4",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": null
+  }
+]

@@ -1,0 +1,25 @@
+1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+76: eth0    inet 10.99.143.2/24 scope global eth0\       valid_lft forever preferred_lft forever
+80: eth4    inet 172.16.255.2/24 scope global eth4\       valid_lft forever preferred_lft forever
+default via 10.99.143.1 dev eth0 
+10.99.143.0/24 dev eth0 proto kernel scope link src 10.99.143.2 
+172.16.255.0/24 dev eth4 proto kernel scope link src 172.16.255.2 
+table ip filter {
+	chain input {
+		type filter hook input priority filter; policy accept;
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy accept;
+	}
+
+	chain output {
+		type filter hook output priority filter; policy accept;
+	}
+}
+table ip nat {
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "eth0" masquerade
+	}
+}

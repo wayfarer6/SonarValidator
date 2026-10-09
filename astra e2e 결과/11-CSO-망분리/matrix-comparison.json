@@ -1,0 +1,7 @@
+{
+  "checks": 73,
+  "before_reachable": 73,
+  "after_allowed_pass": 55,
+  "after_forbidden_blocked": 18,
+  "unexpected": 0
+}

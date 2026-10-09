@@ -1,0 +1,251 @@
+[
+  {
+    "name": "Switch-0",
+    "ip": "172.16.255.101",
+    "connected": true,
+    "telemetry_seen": true,
+    "interfaces": 15,
+    "vlans": [
+      10
+    ],
+    "ports": [
+      {
+        "port": "eth3",
+        "tag": [
+          10
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth1",
+        "tag": [
+          10
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth0",
+        "tag": [
+          10
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth4",
+        "tag": [
+          10
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth2",
+        "tag": [
+          10
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "br0",
+        "tag": [],
+        "trunks": [],
+        "matches": true
+      }
+    ],
+    "address_match": true,
+    "sha256_match": true,
+    "warnings": []
+  },
+  {
+    "name": "Switch-1",
+    "ip": "172.16.255.102",
+    "connected": true,
+    "telemetry_seen": true,
+    "interfaces": 15,
+    "vlans": [
+      111,
+      112
+    ],
+    "ports": [
+      {
+        "port": "eth0",
+        "tag": [],
+        "trunks": [
+          111,
+          112
+        ],
+        "matches": true
+      },
+      {
+        "port": "eth2",
+        "tag": [
+          112
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth1",
+        "tag": [
+          111
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "br0",
+        "tag": [],
+        "trunks": [],
+        "matches": true
+      }
+    ],
+    "address_match": true,
+    "sha256_match": true,
+    "warnings": []
+  },
+  {
+    "name": "Switch-2",
+    "ip": "172.16.255.103",
+    "connected": true,
+    "telemetry_seen": true,
+    "interfaces": 15,
+    "vlans": [
+      121,
+      122
+    ],
+    "ports": [
+      {
+        "port": "eth1",
+        "tag": [
+          121
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth0",
+        "tag": [],
+        "trunks": [
+          121,
+          122
+        ],
+        "matches": true
+      },
+      {
+        "port": "eth2",
+        "tag": [
+          122
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "br0",
+        "tag": [],
+        "trunks": [],
+        "matches": true
+      }
+    ],
+    "address_match": true,
+    "sha256_match": true,
+    "warnings": []
+  },
+  {
+    "name": "Switch-3",
+    "ip": "172.16.255.104",
+    "connected": true,
+    "telemetry_seen": true,
+    "interfaces": 15,
+    "vlans": [
+      131,
+      132,
+      133
+    ],
+    "ports": [
+      {
+        "port": "eth2",
+        "tag": [
+          132
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth3",
+        "tag": [
+          133
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth1",
+        "tag": [
+          131
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "br0",
+        "tag": [],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth0",
+        "tag": [],
+        "trunks": [
+          131,
+          132,
+          133
+        ],
+        "matches": true
+      }
+    ],
+    "address_match": true,
+    "sha256_match": true,
+    "warnings": []
+  },
+  {
+    "name": "Switch-4",
+    "ip": "172.16.255.105",
+    "connected": true,
+    "telemetry_seen": true,
+    "interfaces": 15,
+    "vlans": [
+      141
+    ],
+    "ports": [
+      {
+        "port": "br0",
+        "tag": [],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth1",
+        "tag": [
+          141
+        ],
+        "trunks": [],
+        "matches": true
+      },
+      {
+        "port": "eth0",
+        "tag": [],
+        "trunks": [
+          141
+        ],
+        "matches": true
+      }
+    ],
+    "address_match": true,
+    "sha256_match": true,
+    "warnings": []
+  }
+]

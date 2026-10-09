@@ -1,0 +1,22 @@
+{
+  "compliant": true,
+  "rule_count": 0,
+  "subnet_count": 11,
+  "violation_count": 0,
+  "messages": [
+    "망분리 정책을 준수합니다. (규칙 0건, 서브넷 11건)"
+  ],
+  "violated_rule_ids": [],
+  "metrics": {
+    "bdd_variables": 88,
+    "bdd_nodes_total": 90,
+    "bdd_nodes_allowed": 1,
+    "bdd_nodes_forbidden": 1,
+    "bdd_nodes_violating": 1,
+    "allowed_combinations": 0,
+    "forbidden_combinations": 0,
+    "violating_combinations": 0,
+    "address_space": 3.094850098213451e+26
+  },
+  "violations": []
+}

@@ -1,0 +1,23 @@
+{
+  "agent_id": "Firewall",
+  "node_id": 12,
+  "scope": "CONNECTION",
+  "target_cidr": "10.10.131.0/24",
+  "project_id": "PRJ-D488B7A4",
+  "reason": "ASTRA VLAN isolation regression",
+  "requested_by": "operator",
+  "command_delivered": false,
+  "quarantined_at": "2026-10-09T09:32:38.427Z",
+  "released_at": null,
+  "released_by": null,
+  "active": true,
+  "delivered": false,
+  "retry": false,
+  "warning": "방화벽 연결 격리입니다. 규칙은 서버가 정책 푸시로 내려보내며, 장치가 연결되면 적용됩니다.",
+  "applied": null,
+  "connected": true,
+  "warnings": [
+    "방화벽은 인터페이스가 아니라 규칙으로 격리합니다. 대상 대역 10.10.131.0/24 으로 가는 연결만 차단됩니다.",
+    "제어평면(172.16.255.0/24) 은 차단 대상에서 제외되어야 합니다. 차단 규칙이 관리 대역을 포함하면 해제 경로가 끊깁니다."
+  ]
+}

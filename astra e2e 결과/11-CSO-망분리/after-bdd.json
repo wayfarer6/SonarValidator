@@ -1,0 +1,29 @@
+{
+  "project_id": "PRJ-D488B7A4",
+  "project_name": "D-AI-PBL-Poc-Project",
+  "compliant": true,
+  "rule_count": 55,
+  "subnet_count": 29,
+  "violation_count": 0,
+  "messages": [
+    "망분리 정책을 준수합니다. (규칙 73건, 서브넷 29건)"
+  ],
+  "metrics": {
+    "bdd_variables": 88,
+    "bdd_nodes_total": 9664,
+    "bdd_nodes_allowed": 318,
+    "bdd_nodes_forbidden": 211,
+    "bdd_nodes_violating": 1,
+    "allowed_combinations": 214832250880,
+    "forbidden_combinations": 17626545782784,
+    "violating_combinations": 0,
+    "address_space": 309485009821345068724781056
+  },
+  "by_severity": {
+    "CRITICAL": 0,
+    "MAJOR": 0,
+    "MINOR": 0
+  },
+  "violations": [],
+  "by_rule": []
+}

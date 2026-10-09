@@ -1,0 +1,10 @@
+[
+  {
+    "agent_id": "Firewall",
+    "project_id": "PRJ-D488B7A4",
+    "device_type": "FIREWALL",
+    "node_type": "Firewall",
+    "status": "Deployed",
+    "registered": true
+  }
+]

@@ -1,0 +1,665 @@
+{
+  "schema": "sonar.offline.snapshot",
+  "schema_version": 1,
+  "agent_id": "Survillance-Network-Router",
+  "agent_name": "Survillance-Network-Router",
+  "device_type": "ROUTER",
+  "product": "FRR",
+  "vendor": "FRR",
+  "kernel": "5.15.83-0-virt",
+  "collected_at": "2026-10-09T08:29:42.462080789Z",
+  "exported_at": "2026-10-09T08:29:46.345730164Z",
+  "reason": "server-export",
+  "summary": {
+    "interfaces": 12,
+    "firewall_rules": 0,
+    "routes": 14,
+    "vlans": 2,
+    "format": "FRRRouter"
+  },
+  "offline_origin": false,
+  "payload": {
+    "agent": "Survillance-Network-Router",
+    "arp_table": {
+      "entries": [
+        {
+          "address": "10.99.10.3",
+          "family": "inet",
+          "interface": "eth1",
+          "interfaces": [
+            "eth1"
+          ],
+          "mac": "0c:48:c8:cb:00:00",
+          "state": "REACHABLE"
+        },
+        {
+          "address": "10.99.10.4",
+          "family": "inet",
+          "interface": "eth1",
+          "interfaces": [
+            "eth1"
+          ],
+          "mac": "0c:97:0f:9f:00:00",
+          "state": "STALE"
+        },
+        {
+          "address": "172.16.255.245",
+          "family": "inet",
+          "interface": "eth2",
+          "interfaces": [
+            "eth2"
+          ],
+          "mac": "0c:5a:c9:63:00:00",
+          "state": "REACHABLE"
+        },
+        {
+          "address": "10.99.10.6",
+          "family": "inet",
+          "interface": "eth1",
+          "interfaces": [
+            "eth1"
+          ],
+          "mac": "0c:ec:d3:e9:00:00",
+          "state": "REACHABLE"
+        },
+        {
+          "address": "10.99.10.1",
+          "family": "inet",
+          "interface": "eth1",
+          "interfaces": [
+            "eth1"
+          ],
+          "mac": "0c:ca:e8:a1:00:01",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::42:4fff:fe9d:dd0b",
+          "family": "inet6",
+          "interface": "eth2",
+          "interfaces": [
+            "eth2"
+          ],
+          "mac": "02:42:4f:9d:dd:0b",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::42:81ff:fe2b:110b",
+          "family": "inet6",
+          "interface": "eth2",
+          "interfaces": [
+            "eth2"
+          ],
+          "mac": "02:42:81:2b:11:0b",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::42:58ff:fe96:6a0b",
+          "family": "inet6",
+          "interface": "eth2",
+          "interfaces": [
+            "eth2"
+          ],
+          "mac": "02:42:58:96:6a:0b",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::42:81ff:fe2b:1101",
+          "family": "inet6",
+          "interface": "eth1",
+          "interfaces": [
+            "eth1"
+          ],
+          "mac": "02:42:81:2b:11:01",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::42:54ff:fed6:9e0b",
+          "family": "inet6",
+          "interface": "eth2",
+          "interfaces": [
+            "eth2"
+          ],
+          "mac": "02:42:54:d6:9e:0b",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::42:c3ff:fea4:5104",
+          "family": "inet6",
+          "interface": "eth2",
+          "interfaces": [
+            "eth2"
+          ],
+          "mac": "02:42:c3:a4:51:04",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::42:c1ff:fead:170b",
+          "family": "inet6",
+          "interface": "eth2",
+          "interfaces": [
+            "eth2"
+          ],
+          "mac": "02:42:c1:ad:17:0b",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::42:4fff:fe9d:dd00",
+          "family": "inet6",
+          "interface": "eth0",
+          "interfaces": [
+            "eth0"
+          ],
+          "mac": "02:42:4f:9d:dd:00",
+          "state": "STALE"
+        },
+        {
+          "address": "fe80::e5a:c9ff:fe63:0",
+          "family": "inet6",
+          "interface": "eth2",
+          "interfaces": [
+            "eth2"
+          ],
+          "mac": "0c:5a:c9:63:00:00",
+          "state": "STALE"
+        }
+      ],
+      "entry_count": 14,
+      "parsed": true
+    },
+    "device_type": "ROUTER",
+    "kernel": "5.15.83-0-virt",
+    "nic_status": {
+      "interfaces": [
+        {
+          "addresses": [
+            {
+              "address": "127.0.0.1",
+              "family": "inet",
+              "interface": "lo",
+              "preferred_lft": "forever",
+              "prefix_len": 8,
+              "scope": "host",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "10.255.255.5",
+              "family": "inet",
+              "interface": "lo",
+              "preferred_lft": "forever",
+              "prefix_len": 32,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "::1",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 128,
+              "scope": "host",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "00:00:00:00:00:00",
+          "flags": [
+            "LOOPBACK",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 1,
+          "link_type": "loopback",
+          "mac": "00:00:00:00:00:00",
+          "mtu": "65536",
+          "name": "lo",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::ee3:23ff:fed2:0",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 2,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:00",
+          "mtu": "1500",
+          "name": "eth0",
+          "qdisc": "pfifo_fast",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.99.10.5",
+              "family": "inet",
+              "interface": "eth1",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::ee3:23ff:fed2:1",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 3,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:01",
+          "mtu": "1500",
+          "name": "eth1",
+          "qdisc": "pfifo_fast",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "172.16.255.5",
+              "family": "inet",
+              "interface": "eth2",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::ee3:23ff:fed2:2",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 4,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:02",
+          "mtu": "1500",
+          "name": "eth2",
+          "qdisc": "pfifo_fast",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ],
+          "group": "default",
+          "index": 5,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:03",
+          "mtu": "1500",
+          "name": "eth3",
+          "qdisc": "noop",
+          "qlen": "1000",
+          "state": "DOWN"
+        },
+        {
+          "addresses": [],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ],
+          "group": "default",
+          "index": 6,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:04",
+          "mtu": "1500",
+          "name": "eth4",
+          "qdisc": "noop",
+          "qlen": "1000",
+          "state": "DOWN"
+        },
+        {
+          "addresses": [],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ],
+          "group": "default",
+          "index": 7,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:05",
+          "mtu": "1500",
+          "name": "eth5",
+          "qdisc": "noop",
+          "qlen": "1000",
+          "state": "DOWN"
+        },
+        {
+          "addresses": [],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ],
+          "group": "default",
+          "index": 8,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:06",
+          "mtu": "1500",
+          "name": "eth6",
+          "qdisc": "noop",
+          "qlen": "1000",
+          "state": "DOWN"
+        },
+        {
+          "addresses": [],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST"
+          ],
+          "group": "default",
+          "index": 9,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:07",
+          "mtu": "1500",
+          "name": "eth7",
+          "qdisc": "noop",
+          "qlen": "1000",
+          "state": "DOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.20.111.1",
+              "family": "inet",
+              "interface": "eth0.111",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::ee3:23ff:fed2:0",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 10,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:00",
+          "mtu": "1500",
+          "name": "eth0.111",
+          "parent": "eth0",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.20.112.1",
+              "family": "inet",
+              "interface": "eth0.112",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::ee3:23ff:fed2:0",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 11,
+          "link_type": "ether",
+          "mac": "0c:e3:23:d2:00:00",
+          "mtu": "1500",
+          "name": "eth0.112",
+          "parent": "eth0",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [],
+          "flags": [
+            "NOARP",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 12,
+          "mtu": "1472",
+          "name": "pimreg",
+          "parent": "NONE",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        }
+      ],
+      "parsed": true
+    },
+    "product": "FRR",
+    "route_status": {
+      "parsed": true,
+      "protocols": [
+        "ospf",
+        "kernel"
+      ],
+      "route_count": 14,
+      "routes": [
+        {
+          "destination": "0.0.0.0/0",
+          "extras": [
+            "nhid",
+            "38"
+          ],
+          "interface_name": "eth1",
+          "is_default": true,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.1"
+        },
+        {
+          "destination": "10.10.128.0/21",
+          "extras": [
+            "nhid",
+            "37"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.4"
+        },
+        {
+          "destination": "10.20.111.0/24",
+          "interface_name": "eth0.111",
+          "is_default": false,
+          "pref_src": "10.20.111.1",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.20.112.0/24",
+          "interface_name": "eth0.112",
+          "is_default": false,
+          "pref_src": "10.20.112.1",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.30.141.0/24",
+          "extras": [
+            "nhid",
+            "35"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.3"
+        },
+        {
+          "destination": "10.40.121.0/24",
+          "extras": [
+            "nhid",
+            "36"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.6"
+        },
+        {
+          "destination": "10.40.122.0/24",
+          "extras": [
+            "nhid",
+            "36"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.6"
+        },
+        {
+          "destination": "10.99.10.0/24",
+          "interface_name": "eth1",
+          "is_default": false,
+          "pref_src": "10.99.10.5",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.99.143.0/24",
+          "extras": [
+            "nhid",
+            "37"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.4"
+        },
+        {
+          "destination": "10.255.255.1",
+          "extras": [
+            "nhid",
+            "38"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.1"
+        },
+        {
+          "destination": "10.255.255.3",
+          "extras": [
+            "nhid",
+            "35"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.3"
+        },
+        {
+          "destination": "10.255.255.4",
+          "extras": [
+            "nhid",
+            "37"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.4"
+        },
+        {
+          "destination": "10.255.255.6",
+          "extras": [
+            "nhid",
+            "36"
+          ],
+          "interface_name": "eth1",
+          "is_default": false,
+          "metric": 20,
+          "protocol": "ospf",
+          "via": "10.99.10.6"
+        },
+        {
+          "destination": "172.16.255.0/24",
+          "interface_name": "eth2",
+          "is_default": false,
+          "pref_src": "172.16.255.5",
+          "protocol": "kernel",
+          "scope": "link"
+        }
+      ]
+    },
+    "vendor": "FRR"
+  }
+}

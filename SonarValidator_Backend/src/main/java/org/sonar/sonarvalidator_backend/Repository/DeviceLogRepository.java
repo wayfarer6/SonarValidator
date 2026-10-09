@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.sonar.sonarvalidator_backend.Model.entity.DeviceLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
 
 /**
  * 장비 로그 저장소입니다.

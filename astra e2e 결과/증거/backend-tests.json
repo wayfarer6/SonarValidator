@@ -1,0 +1,306 @@
+[
+  {
+    "name": "org.sonar.sonarvalidator_backend.ProjectManagementPrefixTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.017"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.CsoViolationWarningTest",
+    "tests": "7",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.073"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.UnassignedAgentPolicyTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.149"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.CliIngestServiceTest",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.033"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.OfflineSnapshotImportTest",
+    "tests": "12",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.086"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.ProjectDiscoveryTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.063"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.OPNsenseCredentialRepositoryTest",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.248"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.CliIngestionServiceTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.134"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.IpValueObjectTest",
+    "tests": "28",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.101"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.DeviceConfigParserTest",
+    "tests": "7",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.037"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.OPNsenseAuthorizationTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.598"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.AuthenticationTest",
+    "tests": "15",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "11.893"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.OpenAiCompatibleClientTest",
+    "tests": "14",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.043"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.PolicySiteConfigTest",
+    "tests": "5",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.011"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.OPNsenseCredentialServiceTest",
+    "tests": "6",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.788"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.SonarValidatorBackendApplicationTests",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "7.805"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.SitePropertiesTest",
+    "tests": "5",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.005"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.WebSocketBufferSizeTest",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.001"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.CliOutputParserTest",
+    "tests": "13",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.173"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.TerminalBrowserHandshakeInterceptorTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.716"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.PolicyAdviceTest",
+    "tests": "27",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.088"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.AiProviderTransactionSafetyTest",
+    "tests": "5",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.022"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.QuarantineServiceTest",
+    "tests": "22",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.055"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.SegmentationBddEngineTest",
+    "tests": "15",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.27"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.BddManagerTest",
+    "tests": "14",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.066"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.Service.cli.query.CliQueryStrategiesTest",
+    "tests": "16",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.143"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.OPNSenseFirewallRepositoryTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "12.836"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.StrategyExtractionTest",
+    "tests": "30",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.056"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.ExpectedAgentServiceTest",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.194"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.QuarantinePolicyOverrideTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.029"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.NotificationServiceTest",
+    "tests": "15",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.042"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.ProjectDtoSerializationTest",
+    "tests": "6",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.039"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.ExpectedAgentOverviewTest",
+    "tests": "7",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.017"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.AgentMessageRouterTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.097"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.AgentBundleServiceTest",
+    "tests": "11",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.31"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.OPNsenseConnectionSecurityTest",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.511"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.LogNormalizerTest",
+    "tests": "15",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.074"
+  },
+  {
+    "name": "org.sonar.sonarvalidator_backend.Service.AgentTerminalBrokerTest",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.948"
+  }
+]

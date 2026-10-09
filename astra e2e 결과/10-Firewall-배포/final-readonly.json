@@ -1,0 +1,20 @@
+{
+  "agents": {
+    "status": 200,
+    "requested_connected": 11
+  },
+  "editing": {
+    "status": 200,
+    "vlan_rows": 14,
+    "subnet_rows": 25
+  },
+  "logs": {
+    "status": 200,
+    "total": 0,
+    "returned": 0
+  },
+  "config": {
+    "status": 200
+  },
+  "page_errors": []
+}

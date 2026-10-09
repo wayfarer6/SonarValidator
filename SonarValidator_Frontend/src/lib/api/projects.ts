@@ -19,6 +19,7 @@ import type {
 
 /** 서버로 보낼 서브넷 본문입니다. */
 export interface SubnetInput {
+  vlan_id?: number | null;
   id: string;
   cidr: string;
   subnet_class: SubnetClass | null;

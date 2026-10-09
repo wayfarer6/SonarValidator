@@ -1,0 +1,116 @@
+{
+  "project_id": "PRJ-D488B7A4",
+  "name": "D-AI-PBL-Poc-Project",
+  "category": "test",
+  "description": "테스트용 프로젝트 입니다.",
+  "status": "Planning",
+  "management_prefix": null,
+  "management_server_ip": "172.16.255.245",
+  "management_server_port": 3000,
+  "created_at": "2026-10-08T02:32:55.254Z",
+  "updated_at": "2026-10-09T08:25:10.539Z",
+  "subnet_count": 11,
+  "rule_count": 0,
+  "subnets": [
+    {
+      "id": "Subnet-0001",
+      "cidr": "10.99.10.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "C4I-Network-Router / eth0",
+      "agent_id": "C4I-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0002",
+      "cidr": "10.99.143.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "C4I-Network-Router / eth1",
+      "agent_id": "C4I-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0003",
+      "cidr": "172.16.255.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "C4I-Network-Router / eth7",
+      "agent_id": "C4I-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0004",
+      "cidr": "10.30.141.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "VLAN 141 · DMZ-Router / eth1.141",
+      "agent_id": "DMZ-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0005",
+      "cidr": "192.168.122.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "Gateway-Router / eth0",
+      "agent_id": "Gateway-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0006",
+      "cidr": "10.40.121.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "VLAN 121 · VDI-Router / eth1.121",
+      "agent_id": "VDI-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0007",
+      "cidr": "10.40.122.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "VLAN 122 · VDI-Router / eth1.122",
+      "agent_id": "VDI-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0008",
+      "cidr": "10.20.111.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "VLAN 111 · Survillance-Network-Router / eth0.111",
+      "agent_id": "Survillance-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0009",
+      "cidr": "10.20.112.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "VLAN 112 · Survillance-Network-Router / eth0.112",
+      "agent_id": "Survillance-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0010",
+      "cidr": "172.17.0.0/16",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "test-vm / docker0",
+      "agent_id": "test-vm",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0011",
+      "cidr": "172.18.0.0/16",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "test-vm / br-806483bc5620",
+      "agent_id": "test-vm",
+      "manually_edited": true
+    }
+  ],
+  "rules": []
+}

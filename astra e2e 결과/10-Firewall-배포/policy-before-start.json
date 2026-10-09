@@ -1,0 +1,20 @@
+{
+  "agent_id": "Firewall",
+  "correlation_id": "astra-predeployment",
+  "device_type": "FIREWALL",
+  "error": null,
+  "payload": {
+    "policy_id": "pol-firewall-0001",
+    "device_type": "FIREWALL",
+    "device_id": "Firewall",
+    "valid_until": "2026-10-10T09:01:53.134416889Z",
+    "summary": {
+      "source": "external-enforcement",
+      "allowed": 0,
+      "denied": 0,
+      "peers": 0
+    },
+    "policies": []
+  },
+  "type": "policy-response"
+}

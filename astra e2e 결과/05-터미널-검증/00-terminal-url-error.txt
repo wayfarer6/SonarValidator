@@ -1,0 +1,1 @@
+운영 Frontend :80 터미널 열기 시 흰 화면. Playwright pageerror: TypeError: Failed to construct 'URL': Invalid URL. API_BASE_URL 빈 문자열을 new URL에 base 없이 전달. AgentTerminal.tsx에 window.location.origin을 base로 추가.

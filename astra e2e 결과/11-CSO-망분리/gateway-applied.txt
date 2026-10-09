@@ -1,0 +1,12 @@
+ * service local added to runlevel default
+Chain ASTRA_CSO_WAN (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 DROP       all  --  *      eth0    10.10.131.0/24       0.0.0.0/0            /* ASTRA-C-WAN-deny */
+    0     0 DROP       all  --  eth0   *       0.0.0.0/0            10.10.131.0/24       /* ASTRA-WAN-C-deny */
+    0     0 DROP       all  --  *      eth0    10.10.132.0/24       0.0.0.0/0            /* ASTRA-C-WAN-deny */
+    0     0 DROP       all  --  eth0   *       0.0.0.0/0            10.10.132.0/24       /* ASTRA-WAN-C-deny */
+    0     0 DROP       all  --  *      eth0    10.10.133.0/24       0.0.0.0/0            /* ASTRA-C-WAN-deny */
+    0     0 DROP       all  --  eth0   *       0.0.0.0/0            10.10.133.0/24       /* ASTRA-WAN-C-deny */
+    0     0 DROP       all  --  *      eth0    10.99.143.0/24       0.0.0.0/0            /* ASTRA-C-WAN-deny */
+    0     0 DROP       all  --  eth0   *       0.0.0.0/0            10.99.143.0/24       /* ASTRA-WAN-C-deny */
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            0.0.0.0/0           

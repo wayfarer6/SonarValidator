@@ -151,6 +151,37 @@ class DeviceConfigParserTest {
                 config.getFirewallRules().toString());
     }
 
+    @Test
+    void nativeNftSetsAndFullExpressionsSurviveNormalization() {
+        final JsonNode payload = json("""
+                {"firewall_rules":{"parsed":true,"nftables":[
+                  {"set":{"family":"inet","table":"astra_cso","name":"confidential_v4","elem":[{"prefix":{"addr":"10.10.131.0","len":24}}]}},
+                  {"chain":{"family":"inet","table":"astra_cso","name":"forward","policy":"accept"}},
+                  {"rule":{"family":"inet","table":"astra_cso","chain":"forward","expr":[{"match":{"op":"==","left":{"payload":{"protocol":"ip","field":"saddr"}},"right":"@confidential_v4"}},{"counter":{"packets":7,"bytes":588}},{"drop":null}],"comment":"C-to-O-deny"}}
+                ]}}
+                """);
+        final var config = new AlpineFirewallConfigParser().parse("fw", "nftables", payload);
+        assertEquals(3, config.getFirewallRules().size());
+        assertTrue(config.getFirewallRules().get(0).contains("10.10.131.0"));
+        assertTrue(config.getFirewallRules().get(2).contains("@confidential_v4"));
+        assertTrue(config.getFirewallRules().get(2).contains("C-to-O-deny"));
+        assertTrue(config.getFirewallRules().get(2).contains("drop"));
+        assertTrue(config.getWarnings().isEmpty());
+    }
+
+    @Test
+    void partialLegacyNftParseIsReportedAndMatchTextIsPreserved() {
+        final var config = new AlpineFirewallConfigParser().parse("fw", "nftables", json("""
+                {"firewall_rules":{"parsed":false,"parse_error":"unsupported set","tables":[
+                  {"family":"inet","name":"filter","chains":[{"name":"forward","rules":[
+                    {"match":"ip saddr 10.10.131.0/24","action":"drop"}
+                  ]}]}
+                ]}}
+                """));
+        assertTrue(config.getWarnings().stream().anyMatch(w -> w.contains("unsupported set")));
+        assertTrue(config.getFirewallRules().get(0).contains("ip saddr 10.10.131.0/24 drop"));
+    }
+
     /**
      * Open vSwitch: 액세스 포트의 tag 와 트렁크의 trunks 가
      * VLAN 정의와 포트 모드로 동시에 반영돼야 합니다.

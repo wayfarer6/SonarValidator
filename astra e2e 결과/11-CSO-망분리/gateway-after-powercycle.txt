@@ -1,0 +1,21 @@
+ 09:18:29 up 0 min,  0 users,  load average: 0.05, 0.01, 0.00
+ * status: started
+ * status: started
+Chain ASTRA_CSO_WAN (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 DROP       all  --  *      eth0    10.10.131.0/24       0.0.0.0/0            /* ASTRA-C-WAN-deny */
+    0     0 DROP       all  --  eth0   *       0.0.0.0/0            10.10.131.0/24       /* ASTRA-WAN-C-deny */
+    0     0 DROP       all  --  *      eth0    10.10.132.0/24       0.0.0.0/0            /* ASTRA-C-WAN-deny */
+    0     0 DROP       all  --  eth0   *       0.0.0.0/0            10.10.132.0/24       /* ASTRA-WAN-C-deny */
+    0     0 DROP       all  --  *      eth0    10.10.133.0/24       0.0.0.0/0            /* ASTRA-C-WAN-deny */
+    0     0 DROP       all  --  eth0   *       0.0.0.0/0            10.10.133.0/24       /* ASTRA-WAN-C-deny */
+    0     0 DROP       all  --  *      eth0    10.99.143.0/24       0.0.0.0/0            /* ASTRA-C-WAN-deny */
+    0     0 DROP       all  --  eth0   *       0.0.0.0/0            10.99.143.0/24       /* ASTRA-WAN-C-deny */
+    0     0 RETURN     all  --  *      *       0.0.0.0/0            0.0.0.0/0           
+
+Neighbor ID     Pri State           Up Time         Dead Time Address         Interface                        RXmtL RqstL DBsmL
+10.255.255.3      1 2-Way/DROther   17.561s           32.438s 10.99.10.3      eth1:10.99.10.1                      0     0     0
+10.255.255.4      1 Full/DR         10.970s           39.023s 10.99.10.4      eth1:10.99.10.1                      2     0     0
+10.255.255.5      1 2-Way/DROther   17.853s           32.146s 10.99.10.5      eth1:10.99.10.1                      0     0     0
+10.255.255.6      1 Full/Backup     12.954s           32.032s 10.99.10.6      eth1:10.99.10.1                      0     0     0
+

@@ -1,6 +1,7 @@
 #include "components/policy/policy_receiver.hpp"
 
 #include <iostream>
+#include "components/policy/quarantine_handler.hpp"
 
 #include "components/device/device_type.hpp"
 #include "module/management_module/management_service.hpp"
@@ -15,7 +16,9 @@ bool ReceivePolicy(const ProberConfig& config,
     const auto policies_it = policy.find("policies");
     if (policies_it != policy.end() && policies_it->is_array())
     {
-        bool applied = true;
+        bool applied = !policy.contains("subnet_quarantine") ||
+            quarantine::ReconcileSubnets(config, management_service, policy.at("subnet_quarantine"));
+        if (!applied) return false;
         for (const auto& item : *policies_it)
         {
             const bool item_applied = ReceivePolicy(config, management_service, item);

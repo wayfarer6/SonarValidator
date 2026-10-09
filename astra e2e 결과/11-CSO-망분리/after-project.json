@@ -1,0 +1,1009 @@
+{
+  "project_id": "PRJ-D488B7A4",
+  "name": "D-AI-PBL-Poc-Project",
+  "category": "test",
+  "description": "테스트용 프로젝트 입니다.",
+  "status": "Planning",
+  "management_prefix": "172.16.255.0/24",
+  "management_server_ip": "172.16.255.245",
+  "management_server_port": 3000,
+  "created_at": "2026-10-08T02:32:55.254Z",
+  "updated_at": "2026-10-09T09:12:32.346Z",
+  "subnet_count": 29,
+  "rule_count": 73,
+  "subnets": [
+    {
+      "id": "Subnet-0001",
+      "cidr": "10.99.10.0/24",
+      "vlan_id": null,
+      "subnet_class": "Sensitive",
+      "name": "Core 운영 인프라 · VLAN10 · C4I-Network-Router",
+      "agent_id": "C4I-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0002",
+      "cidr": "10.99.143.0/24",
+      "vlan_id": null,
+      "subnet_class": "Confidential",
+      "name": "C4I 방화벽 전용 연결",
+      "agent_id": "C4I-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0003",
+      "cidr": "172.16.255.0/24",
+      "vlan_id": null,
+      "subnet_class": "Sensitive",
+      "name": "관리 제어평면 · 데이터 정책 대상 제외",
+      "agent_id": "C4I-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0004",
+      "cidr": "10.30.141.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "Public-Web-Server · VLAN141 · DMZ-Router",
+      "agent_id": "DMZ-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0005",
+      "cidr": "192.168.122.0/24",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "WAN NAT 전송망",
+      "agent_id": "Gateway-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0006",
+      "cidr": "10.40.121.0/24",
+      "vlan_id": null,
+      "subnet_class": "Sensitive",
+      "name": "VDI-1 · VLAN121 · VDI-Router",
+      "agent_id": "VDI-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0007",
+      "cidr": "10.40.122.0/24",
+      "vlan_id": null,
+      "subnet_class": "Sensitive",
+      "name": "VDI-2 · VLAN122 · VDI-Router",
+      "agent_id": "VDI-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0008",
+      "cidr": "10.20.111.0/24",
+      "vlan_id": null,
+      "subnet_class": "Sensitive",
+      "name": "TOD-Cam · VLAN111 · Survillance-Network-Router",
+      "agent_id": "Survillance-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0009",
+      "cidr": "10.20.112.0/24",
+      "vlan_id": null,
+      "subnet_class": "Sensitive",
+      "name": "UAV · VLAN112 · Survillance-Network-Router",
+      "agent_id": "Survillance-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0010",
+      "cidr": "172.17.0.0/16",
+      "vlan_id": null,
+      "subnet_class": "Sensitive",
+      "name": "Management-Console Docker 내부망",
+      "agent_id": "test-vm",
+      "manually_edited": true
+    },
+    {
+      "id": "Subnet-0011",
+      "cidr": "172.18.0.0/16",
+      "vlan_id": null,
+      "subnet_class": "Sensitive",
+      "name": "Management-Console Backend 내부망",
+      "agent_id": "test-vm",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "cidr": "10.10.131.0/24",
+      "vlan_id": 131,
+      "subnet_class": "Confidential",
+      "name": "ATICS · VLAN131 · Firewall",
+      "agent_id": "Firewall",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "cidr": "10.10.132.0/24",
+      "vlan_id": 132,
+      "subnet_class": "Confidential",
+      "name": "KNCCS · VLAN132 · Firewall",
+      "agent_id": "Firewall",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "cidr": "10.10.133.0/24",
+      "vlan_id": 133,
+      "subnet_class": "Confidential",
+      "name": "AFCCS · VLAN133 · Firewall",
+      "agent_id": "Firewall",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN141-b248eeed-ab16-3ecc-a2d3-c672b40b10ea",
+      "cidr": "10.30.141.0/24",
+      "vlan_id": 141,
+      "subnet_class": "Open",
+      "name": "Public-Web-Server · VLAN141 · Switch-4",
+      "agent_id": "Switch-4",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN131-cb2bdb24-3198-37da-8037-6a7a858c0813",
+      "cidr": "10.10.131.0/24",
+      "vlan_id": 131,
+      "subnet_class": "Confidential",
+      "name": "ATICS · VLAN131 · Switch-3",
+      "agent_id": "Switch-3",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN132-0dae7dbe-ea90-31ca-b970-610655de154f",
+      "cidr": "10.10.132.0/24",
+      "vlan_id": 132,
+      "subnet_class": "Confidential",
+      "name": "KNCCS · VLAN132 · Switch-3",
+      "agent_id": "Switch-3",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN133-cd3f6814-7f8a-3b1d-9565-9c38e8ae8b8a",
+      "cidr": "10.10.133.0/24",
+      "vlan_id": 133,
+      "subnet_class": "Confidential",
+      "name": "AFCCS · VLAN133 · Switch-3",
+      "agent_id": "Switch-3",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN121-14497e41-b979-34df-afde-6837fba1c20d",
+      "cidr": "10.40.121.0/24",
+      "vlan_id": 121,
+      "subnet_class": "Sensitive",
+      "name": "VDI-1 · VLAN121 · Switch-2",
+      "agent_id": "Switch-2",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN122-cf3dccaa-baf2-3bde-965c-2dabd8d8b8ff",
+      "cidr": "10.40.122.0/24",
+      "vlan_id": 122,
+      "subnet_class": "Sensitive",
+      "name": "VDI-2 · VLAN122 · Switch-2",
+      "agent_id": "Switch-2",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN111-a0639e15-cd89-3ec7-9348-07513bbec3fd",
+      "cidr": "10.20.111.0/24",
+      "vlan_id": 111,
+      "subnet_class": "Sensitive",
+      "name": "TOD-Cam · VLAN111 · Switch-1",
+      "agent_id": "Switch-1",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN112-05cc3dc3-7335-307b-b792-24b284668185",
+      "cidr": "10.20.112.0/24",
+      "vlan_id": 112,
+      "subnet_class": "Sensitive",
+      "name": "UAV · VLAN112 · Switch-1",
+      "agent_id": "Switch-1",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN10-122ec156-4804-3665-bafe-901848fb2611",
+      "cidr": "10.99.10.0/24",
+      "vlan_id": 10,
+      "subnet_class": "Sensitive",
+      "name": "Core 운영 인프라 · VLAN10 · Switch-0",
+      "agent_id": "Switch-0",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN121-7edbf3bd-8104-30c5-91ef-8a4dec878714",
+      "cidr": "10.40.121.0/24",
+      "vlan_id": 121,
+      "subnet_class": "Sensitive",
+      "name": "VDI-1 · VLAN121 · VDI-Router",
+      "agent_id": "VDI-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN122-0f0055a2-1852-3038-a938-4dce31e5c4e0",
+      "cidr": "10.40.122.0/24",
+      "vlan_id": 122,
+      "subnet_class": "Sensitive",
+      "name": "VDI-2 · VLAN122 · VDI-Router",
+      "agent_id": "VDI-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN111-4b8520c7-4197-36d2-a598-f51ebc8dd73f",
+      "cidr": "10.20.111.0/24",
+      "vlan_id": 111,
+      "subnet_class": "Sensitive",
+      "name": "TOD-Cam · VLAN111 · Survillance-Network-Router",
+      "agent_id": "Survillance-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN112-8f510515-d6d3-3b69-b1a9-a1534615e71d",
+      "cidr": "10.20.112.0/24",
+      "vlan_id": 112,
+      "subnet_class": "Sensitive",
+      "name": "UAV · VLAN112 · Survillance-Network-Router",
+      "agent_id": "Survillance-Network-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "VLAN141-3a3a3f30-f928-3cf9-b895-17cfe93c4350",
+      "cidr": "10.30.141.0/24",
+      "vlan_id": 141,
+      "subnet_class": "Open",
+      "name": "Public-Web-Server · VLAN141 · DMZ-Router",
+      "agent_id": "DMZ-Router",
+      "manually_edited": true
+    },
+    {
+      "id": "Internet-Probe-1",
+      "cidr": "1.1.1.1/32",
+      "vlan_id": null,
+      "subnet_class": "Open",
+      "name": "Internet 검증 대상 1.1.1.1 (전체 인터넷 대표 시험점)",
+      "agent_id": null,
+      "manually_edited": true
+    }
+  ],
+  "rules": [
+    {
+      "id": "E2E-observed-001",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: ATICS(10.10.131.10) → KNCCS(10.10.132.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-002",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: ATICS(10.10.131.10) → AFCCS(10.10.133.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-003",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "Subnet-0008",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: ATICS(10.10.131.10) → TOD-probe(10.20.111.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-004",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "Subnet-0009",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: ATICS(10.10.131.10) → UAV-probe(10.20.112.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-005",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "Subnet-0006",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: ATICS(10.10.131.10) → VDI1-probe(10.40.121.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-006",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "Subnet-0007",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: ATICS(10.10.131.10) → VDI2-probe(10.40.122.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-007",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "Subnet-0004",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: ATICS(10.10.131.10) → DMZ(10.30.141.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-008",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "Internet-Probe-1",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: ATICS(10.10.131.10) → Internet(1.1.1.1); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-009",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "Subnet-0004",
+      "port": 22,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: ATICS(10.10.131.10) → DMZ(10.30.141.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-010",
+      "src": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "dst": "Internet-Probe-1",
+      "port": 443,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: ATICS(10.10.131.10) → Internet(1.1.1.1); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-011",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: KNCCS(10.10.132.10) → ATICS(10.10.131.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-012",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: KNCCS(10.10.132.10) → AFCCS(10.10.133.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-013",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "Subnet-0008",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: KNCCS(10.10.132.10) → TOD-probe(10.20.111.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-014",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "Subnet-0009",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: KNCCS(10.10.132.10) → UAV-probe(10.20.112.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-015",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "Subnet-0006",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: KNCCS(10.10.132.10) → VDI1-probe(10.40.121.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-016",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "Subnet-0007",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: KNCCS(10.10.132.10) → VDI2-probe(10.40.122.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-017",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "Subnet-0004",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: KNCCS(10.10.132.10) → DMZ(10.30.141.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-018",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "Internet-Probe-1",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: KNCCS(10.10.132.10) → Internet(1.1.1.1); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-019",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "Subnet-0004",
+      "port": 22,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: KNCCS(10.10.132.10) → DMZ(10.30.141.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-020",
+      "src": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "dst": "Internet-Probe-1",
+      "port": 443,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: KNCCS(10.10.132.10) → Internet(1.1.1.1); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-021",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: AFCCS(10.10.133.10) → ATICS(10.10.131.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-022",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: AFCCS(10.10.133.10) → KNCCS(10.10.132.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-023",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "Subnet-0008",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: AFCCS(10.10.133.10) → TOD-probe(10.20.111.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-024",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "Subnet-0009",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: AFCCS(10.10.133.10) → UAV-probe(10.20.112.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-025",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "Subnet-0006",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: AFCCS(10.10.133.10) → VDI1-probe(10.40.121.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-026",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "Subnet-0007",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: AFCCS(10.10.133.10) → VDI2-probe(10.40.122.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-027",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "Subnet-0004",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: AFCCS(10.10.133.10) → DMZ(10.30.141.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-028",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "Internet-Probe-1",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: AFCCS(10.10.133.10) → Internet(1.1.1.1); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-029",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "Subnet-0004",
+      "port": 22,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: AFCCS(10.10.133.10) → DMZ(10.30.141.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-030",
+      "src": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "dst": "Internet-Probe-1",
+      "port": 443,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: AFCCS(10.10.133.10) → Internet(1.1.1.1); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-031",
+      "src": "Subnet-0008",
+      "dst": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: TOD-probe(10.20.111.250) → ATICS(10.10.131.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-032",
+      "src": "Subnet-0008",
+      "dst": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: TOD-probe(10.20.111.250) → KNCCS(10.10.132.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-033",
+      "src": "Subnet-0008",
+      "dst": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: TOD-probe(10.20.111.250) → AFCCS(10.10.133.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-034",
+      "src": "Subnet-0008",
+      "dst": "Subnet-0009",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: TOD-probe(10.20.111.250) → UAV-probe(10.20.112.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-035",
+      "src": "Subnet-0008",
+      "dst": "Subnet-0006",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: TOD-probe(10.20.111.250) → VDI1-probe(10.40.121.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-036",
+      "src": "Subnet-0008",
+      "dst": "Subnet-0007",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: TOD-probe(10.20.111.250) → VDI2-probe(10.40.122.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-037",
+      "src": "Subnet-0008",
+      "dst": "Subnet-0004",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: TOD-probe(10.20.111.250) → DMZ(10.30.141.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-038",
+      "src": "Subnet-0008",
+      "dst": "Internet-Probe-1",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: TOD-probe(10.20.111.250) → Internet(1.1.1.1); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-039",
+      "src": "Subnet-0009",
+      "dst": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: UAV-probe(10.20.112.250) → ATICS(10.10.131.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-040",
+      "src": "Subnet-0009",
+      "dst": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: UAV-probe(10.20.112.250) → KNCCS(10.10.132.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-041",
+      "src": "Subnet-0009",
+      "dst": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: UAV-probe(10.20.112.250) → AFCCS(10.10.133.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-042",
+      "src": "Subnet-0009",
+      "dst": "Subnet-0008",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: UAV-probe(10.20.112.250) → TOD-probe(10.20.111.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-043",
+      "src": "Subnet-0009",
+      "dst": "Subnet-0006",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: UAV-probe(10.20.112.250) → VDI1-probe(10.40.121.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-044",
+      "src": "Subnet-0009",
+      "dst": "Subnet-0007",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: UAV-probe(10.20.112.250) → VDI2-probe(10.40.122.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-045",
+      "src": "Subnet-0009",
+      "dst": "Subnet-0004",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: UAV-probe(10.20.112.250) → DMZ(10.30.141.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-046",
+      "src": "Subnet-0009",
+      "dst": "Internet-Probe-1",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: UAV-probe(10.20.112.250) → Internet(1.1.1.1); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-047",
+      "src": "Subnet-0006",
+      "dst": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI1-probe(10.40.121.250) → ATICS(10.10.131.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-048",
+      "src": "Subnet-0006",
+      "dst": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI1-probe(10.40.121.250) → KNCCS(10.10.132.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-049",
+      "src": "Subnet-0006",
+      "dst": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI1-probe(10.40.121.250) → AFCCS(10.10.133.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-050",
+      "src": "Subnet-0006",
+      "dst": "Subnet-0008",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI1-probe(10.40.121.250) → TOD-probe(10.20.111.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-051",
+      "src": "Subnet-0006",
+      "dst": "Subnet-0009",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI1-probe(10.40.121.250) → UAV-probe(10.20.112.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-052",
+      "src": "Subnet-0006",
+      "dst": "Subnet-0007",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI1-probe(10.40.121.250) → VDI2-probe(10.40.122.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-053",
+      "src": "Subnet-0006",
+      "dst": "Subnet-0004",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI1-probe(10.40.121.250) → DMZ(10.30.141.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-054",
+      "src": "Subnet-0006",
+      "dst": "Internet-Probe-1",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI1-probe(10.40.121.250) → Internet(1.1.1.1); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-055",
+      "src": "Subnet-0007",
+      "dst": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI2-probe(10.40.122.250) → ATICS(10.10.131.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-056",
+      "src": "Subnet-0007",
+      "dst": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI2-probe(10.40.122.250) → KNCCS(10.10.132.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-057",
+      "src": "Subnet-0007",
+      "dst": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI2-probe(10.40.122.250) → AFCCS(10.10.133.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-058",
+      "src": "Subnet-0007",
+      "dst": "Subnet-0008",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI2-probe(10.40.122.250) → TOD-probe(10.20.111.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-059",
+      "src": "Subnet-0007",
+      "dst": "Subnet-0009",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI2-probe(10.40.122.250) → UAV-probe(10.20.112.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-060",
+      "src": "Subnet-0007",
+      "dst": "Subnet-0006",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI2-probe(10.40.122.250) → VDI1-probe(10.40.121.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-061",
+      "src": "Subnet-0007",
+      "dst": "Subnet-0004",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI2-probe(10.40.122.250) → DMZ(10.30.141.10); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-062",
+      "src": "Subnet-0007",
+      "dst": "Internet-Probe-1",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: VDI2-probe(10.40.122.250) → Internet(1.1.1.1); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-063",
+      "src": "Subnet-0004",
+      "dst": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: DMZ(10.30.141.10) → ATICS(10.10.131.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-064",
+      "src": "Subnet-0004",
+      "dst": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: DMZ(10.30.141.10) → KNCCS(10.10.132.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-065",
+      "src": "Subnet-0004",
+      "dst": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: DMZ(10.30.141.10) → AFCCS(10.10.133.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-066",
+      "src": "Subnet-0004",
+      "dst": "Subnet-0008",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: DMZ(10.30.141.10) → TOD-probe(10.20.111.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-067",
+      "src": "Subnet-0004",
+      "dst": "Subnet-0009",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: DMZ(10.30.141.10) → UAV-probe(10.20.112.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-068",
+      "src": "Subnet-0004",
+      "dst": "Subnet-0006",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: DMZ(10.30.141.10) → VDI1-probe(10.40.121.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-069",
+      "src": "Subnet-0004",
+      "dst": "Subnet-0007",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: DMZ(10.30.141.10) → VDI2-probe(10.40.122.250); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-070",
+      "src": "Subnet-0004",
+      "dst": "Internet-Probe-1",
+      "port": null,
+      "protocol": "icmp",
+      "origin": "DISCOVERED",
+      "enabled": true,
+      "note": "after 실측: DMZ(10.30.141.10) → Internet(1.1.1.1); 통신 성공"
+    },
+    {
+      "id": "E2E-observed-071",
+      "src": "Subnet-0004",
+      "dst": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+      "port": 22,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: DMZ(10.30.141.10) → ATICS(10.10.131.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-072",
+      "src": "Subnet-0004",
+      "dst": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+      "port": 22,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: DMZ(10.30.141.10) → KNCCS(10.10.132.10); 실장비 ACL 차단 확인"
+    },
+    {
+      "id": "E2E-observed-073",
+      "src": "Subnet-0004",
+      "dst": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+      "port": 22,
+      "protocol": "tcp",
+      "origin": "DISCOVERED",
+      "enabled": false,
+      "note": "after 실측: DMZ(10.30.141.10) → AFCCS(10.10.133.10); 실장비 ACL 차단 확인"
+    }
+  ]
+}

@@ -217,16 +217,7 @@ ManagementService::ManagementService(std::string host, int port, std::string tar
 
 ManagementService::~ManagementService()
 {
-    if (connected_)
-    {
-        try
-        {
-            stream_.close(websocket::close_code::normal);
-        }
-        catch (...)
-        {
-        }
-    }
+    reader_.Reset(ioc_, stream_);
 }
 
 bool ManagementService::connect()
@@ -238,6 +229,8 @@ bool ManagementService::connect()
             return false;
         }
 
+        reader_.Reset(ioc_, stream_);
+        hello_sent_ = false;
         auto const results = resolver_.resolve(host_, std::to_string(port_));
 
         // 제한 시간이 있는 연결입니다. 자세한 이유는 ConnectWithTimeout 주석 참고
@@ -292,82 +285,10 @@ bool ManagementService::SendEnvelope(const nlohmann::json& message)
 
 bool ManagementService::TryReceive(std::string& message, std::chrono::milliseconds timeout)
 {
-    if (!connected_)
-    {
-        return false;
-    }
-
-    // 이전 호출에서 남은 완전한 프레임이 있으면 즉시 돌려줍니다.
-    if (read_buffer_.size() > 0) // 남은 버퍼를 서버로 보내 주는 듯함.
-    {
-        const std::string pending = beast::buffers_to_string(read_buffer_.data());
-        try
-        {
-            (void)nlohmann::json::parse(pending);
-            message = pending;
-            read_buffer_.consume(read_buffer_.size());
-            return true;
-        }
-        catch (const std::exception&)
-        {
-            // 아직 덜 온 프레임입니다. 아래에서 더 읽습니다.
-        }
-    }
-
+    if (!connected_) return false;
     boost::system::error_code ec;
-    auto& socket = beast::get_lowest_layer(stream_).socket();
-    socket.native_non_blocking(true, ec);
-    if (ec)
-    {
-        return false;
-    }
-
-    const auto deadline = std::chrono::steady_clock::now() + timeout;
-    bool received = false;
-
-    while (std::chrono::steady_clock::now() < deadline)
-    {
-        const std::size_t document_size = read_buffer_.size();
-        stream_.read_some(read_buffer_, 65536, ec);
-
-        if (ec == websocket::error::closed)
-        {
-            connected_ = false;
-            break;
-        }
-
-        if (!ec && read_buffer_.size() > document_size)
-        {
-            const std::string raw = beast::buffers_to_string(read_buffer_.data());
-            try
-            {
-                // 완전한 JSON 프레임이 도착했는지 검증합니다.
-                (void)nlohmann::json::parse(raw); // 파서 돌리면 직렬화 실패하면 바로 안된거니까... ok... 이런방법이 있네
-                message = raw;
-                read_buffer_.consume(read_buffer_.size());
-                received = true;
-                break;
-            }
-            catch (const std::exception&)
-            {
-                // 부분 프레임이면 계속 누적합니다.
-            }
-        }
-
-        if (ec == boost::asio::error::would_block || ec == boost::asio::error::try_again)
-        {
-            ec.clear();
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-            continue;
-        }
-
-        if (ec)
-        {
-            break;
-        }
-    }
-
-    socket.native_non_blocking(false, ec);
+    const bool received = reader_.ReadFor(ioc_, stream_, message, timeout, ec);
+    if (ec) connected_ = false;
     return received;
 }
 

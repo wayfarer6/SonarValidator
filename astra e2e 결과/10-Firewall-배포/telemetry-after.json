@@ -1,0 +1,2377 @@
+{
+  "project_id": "PRJ-D488B7A4",
+  "device_count": 12,
+  "devices": [
+    {
+      "agent_id": "C4I-Network-Router",
+      "hostname": "C4I-Network-Router",
+      "format": "FRRRouter",
+      "vendor": "FRR",
+      "product": "FRR",
+      "device_type": "ROUTER",
+      "last_seen": "2026-10-09T08:51:08.898313644Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "10.255.255.4/32",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "10.99.10.4/24",
+            "fe80::e97:fff:fe9f:0/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:97:0f:9f:00:00",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "10.99.143.1/24",
+            "fe80::e97:fff:fe9f:1/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:97:0f:9f:00:01",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth2",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:97:0f:9f:00:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:97:0f:9f:00:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:97:0f:9f:00:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:97:0f:9f:00:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:97:0f:9f:00:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [
+            "172.16.255.4/24",
+            "fe80::e97:fff:fe9f:7/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:97:0f:9f:00:07",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "pimreg",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": "NONE",
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": null,
+          "subnet_class": null
+        }
+      ],
+      "vlans": [],
+      "route_count": 14,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "Switch-0",
+      "hostname": "Switch-0",
+      "format": "OpenvSwitch",
+      "vendor": "Open vSwitch",
+      "product": "OpenVSwitch",
+      "device_type": "SWITCH",
+      "last_seen": "2026-10-09T08:51:08.911687361Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "ovs-system",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "46:71:a7:17:84:ec",
+          "subnet_class": null
+        },
+        {
+          "name": "br0",
+          "addresses": [
+            "fe80::b461:caff:fed5:f4f/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "b6:61:ca:d5:0f:4f",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1100/64"
+          ],
+          "access_vlan": 10,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1101/64"
+          ],
+          "access_vlan": 10,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:01",
+          "subnet_class": null
+        },
+        {
+          "name": "eth2",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1102/64"
+          ],
+          "access_vlan": 10,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1103/64"
+          ],
+          "access_vlan": 10,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1104/64"
+          ],
+          "access_vlan": 10,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1105/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1106/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1107/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:07",
+          "subnet_class": null
+        },
+        {
+          "name": "eth8",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1108/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:08",
+          "subnet_class": null
+        },
+        {
+          "name": "eth9",
+          "addresses": [
+            "fe80::42:81ff:fe2b:1109/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:09",
+          "subnet_class": null
+        },
+        {
+          "name": "eth10",
+          "addresses": [
+            "fe80::42:81ff:fe2b:110a/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:0a",
+          "subnet_class": null
+        },
+        {
+          "name": "eth11",
+          "addresses": [
+            "172.16.255.101/24",
+            "fe80::42:81ff:fe2b:110b/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:81:2b:11:0b",
+          "subnet_class": "Open"
+        }
+      ],
+      "vlans": [
+        {
+          "vlan_id": 10,
+          "name": "VLAN10",
+          "status": "active",
+          "members": [
+            "eth0",
+            "eth3",
+            "eth4",
+            "eth2",
+            "eth1"
+          ]
+        }
+      ],
+      "route_count": 0,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "Switch-1",
+      "hostname": "Switch-1",
+      "format": "OpenvSwitch",
+      "vendor": "Open vSwitch",
+      "product": "OpenVSwitch",
+      "device_type": "SWITCH",
+      "last_seen": "2026-10-09T08:51:08.652274239Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "ovs-system",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "ba:0c:07:d2:fb:cd",
+          "subnet_class": null
+        },
+        {
+          "name": "br0",
+          "addresses": [
+            "fe80::4897:47ff:fed8:e94b/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "4a:97:47:d8:e9:4b",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd00/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [
+            111,
+            112
+          ],
+          "mode": "trunk",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd01/64"
+          ],
+          "access_vlan": 111,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:01",
+          "subnet_class": null
+        },
+        {
+          "name": "eth2",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd02/64"
+          ],
+          "access_vlan": 112,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd03/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd04/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd05/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd06/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd07/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:07",
+          "subnet_class": null
+        },
+        {
+          "name": "eth8",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd08/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:08",
+          "subnet_class": null
+        },
+        {
+          "name": "eth9",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd09/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:09",
+          "subnet_class": null
+        },
+        {
+          "name": "eth10",
+          "addresses": [
+            "fe80::42:4fff:fe9d:dd0a/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:0a",
+          "subnet_class": null
+        },
+        {
+          "name": "eth11",
+          "addresses": [
+            "172.16.255.102/24",
+            "fe80::42:4fff:fe9d:dd0b/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:4f:9d:dd:0b",
+          "subnet_class": "Open"
+        }
+      ],
+      "vlans": [
+        {
+          "vlan_id": 111,
+          "name": "VLAN111",
+          "status": "active",
+          "members": [
+            "eth1"
+          ]
+        },
+        {
+          "vlan_id": 112,
+          "name": "VLAN112",
+          "status": "active",
+          "members": [
+            "eth2"
+          ]
+        }
+      ],
+      "route_count": 0,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "Switch-2",
+      "hostname": "Switch-2",
+      "format": "OpenvSwitch",
+      "vendor": "Open vSwitch",
+      "product": "OpenVSwitch",
+      "device_type": "SWITCH",
+      "last_seen": "2026-10-09T08:51:08.888812513Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "ovs-system",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "ea:08:f0:ae:4e:7b",
+          "subnet_class": null
+        },
+        {
+          "name": "br0",
+          "addresses": [
+            "fe80::a81e:4ff:feb8:d44f/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "aa:1e:04:b8:d4:4f",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a00/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [
+            121,
+            122
+          ],
+          "mode": "trunk",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a01/64"
+          ],
+          "access_vlan": 121,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:01",
+          "subnet_class": null
+        },
+        {
+          "name": "eth2",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a02/64"
+          ],
+          "access_vlan": 122,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a03/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a04/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a05/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a06/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a07/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:07",
+          "subnet_class": null
+        },
+        {
+          "name": "eth8",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a08/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:08",
+          "subnet_class": null
+        },
+        {
+          "name": "eth9",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a09/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:09",
+          "subnet_class": null
+        },
+        {
+          "name": "eth10",
+          "addresses": [
+            "fe80::42:58ff:fe96:6a0a/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:0a",
+          "subnet_class": null
+        },
+        {
+          "name": "eth11",
+          "addresses": [
+            "172.16.255.103/24",
+            "fe80::42:58ff:fe96:6a0b/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:58:96:6a:0b",
+          "subnet_class": "Open"
+        }
+      ],
+      "vlans": [
+        {
+          "vlan_id": 121,
+          "name": "VLAN121",
+          "status": "active",
+          "members": [
+            "eth1"
+          ]
+        },
+        {
+          "vlan_id": 122,
+          "name": "VLAN122",
+          "status": "active",
+          "members": [
+            "eth2"
+          ]
+        }
+      ],
+      "route_count": 0,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "Gateway-Router",
+      "hostname": "Gateway-Router",
+      "format": "FRRRouter",
+      "vendor": "FRR",
+      "product": "FRR",
+      "device_type": "ROUTER",
+      "last_seen": "2026-10-09T08:51:08.705125112Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "10.255.255.1/32",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "192.168.122.10/24",
+            "fe80::eca:e8ff:fea1:0/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:ca:e8:a1:00:00",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "10.99.10.1/24",
+            "fe80::eca:e8ff:fea1:1/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:ca:e8:a1:00:01",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth2",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ca:e8:a1:00:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ca:e8:a1:00:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ca:e8:a1:00:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ca:e8:a1:00:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ca:e8:a1:00:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [
+            "172.16.255.1/24",
+            "fe80::eca:e8ff:fea1:7/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:ca:e8:a1:00:07",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "pimreg",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": "NONE",
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": null,
+          "subnet_class": null
+        }
+      ],
+      "vlans": [],
+      "route_count": 15,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "Survillance-Network-Router",
+      "hostname": "Survillance-Network-Router",
+      "format": "FRRRouter",
+      "vendor": "FRR",
+      "product": "FRR",
+      "device_type": "ROUTER",
+      "last_seen": "2026-10-09T08:51:08.899967893Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "10.255.255.5/32",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "fe80::ee3:23ff:fed2:0/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:e3:23:d2:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "10.99.10.5/24",
+            "fe80::ee3:23ff:fed2:1/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:e3:23:d2:00:01",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth2",
+          "addresses": [
+            "172.16.255.5/24",
+            "fe80::ee3:23ff:fed2:2/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:e3:23:d2:00:02",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth3",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:e3:23:d2:00:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:e3:23:d2:00:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:e3:23:d2:00:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:e3:23:d2:00:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:e3:23:d2:00:07",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0.111",
+          "addresses": [
+            "10.20.111.1/24",
+            "fe80::ee3:23ff:fed2:0/64"
+          ],
+          "access_vlan": 111,
+          "trunk_vlans": [],
+          "mode": "routed",
+          "parent": "eth0",
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:e3:23:d2:00:00",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth0.112",
+          "addresses": [
+            "10.20.112.1/24",
+            "fe80::ee3:23ff:fed2:0/64"
+          ],
+          "access_vlan": 112,
+          "trunk_vlans": [],
+          "mode": "routed",
+          "parent": "eth0",
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:e3:23:d2:00:00",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "pimreg",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": "NONE",
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": null,
+          "subnet_class": null
+        }
+      ],
+      "vlans": [
+        {
+          "vlan_id": 111,
+          "name": null,
+          "status": null,
+          "members": [
+            "eth0.111"
+          ]
+        },
+        {
+          "vlan_id": 112,
+          "name": null,
+          "status": null,
+          "members": [
+            "eth0.112"
+          ]
+        }
+      ],
+      "route_count": 14,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "VDI-Router",
+      "hostname": "VDI-Router",
+      "format": "FRRRouter",
+      "vendor": "FRR",
+      "product": "FRR",
+      "device_type": "ROUTER",
+      "last_seen": "2026-10-09T08:51:08.656077238Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "10.255.255.6/32",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "10.99.10.6/24",
+            "fe80::eec:d3ff:fee9:0/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:ec:d3:e9:00:00",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "fe80::eec:d3ff:fee9:1/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:ec:d3:e9:00:01",
+          "subnet_class": null
+        },
+        {
+          "name": "eth2",
+          "addresses": [
+            "172.16.255.6/24",
+            "fe80::eec:d3ff:fee9:2/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:ec:d3:e9:00:02",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth3",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ec:d3:e9:00:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ec:d3:e9:00:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ec:d3:e9:00:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ec:d3:e9:00:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:ec:d3:e9:00:07",
+          "subnet_class": null
+        },
+        {
+          "name": "eth1.121",
+          "addresses": [
+            "10.40.121.1/24",
+            "fe80::eec:d3ff:fee9:1/64"
+          ],
+          "access_vlan": 121,
+          "trunk_vlans": [],
+          "mode": "routed",
+          "parent": "eth1",
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:ec:d3:e9:00:01",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth1.122",
+          "addresses": [
+            "10.40.122.1/24",
+            "fe80::eec:d3ff:fee9:1/64"
+          ],
+          "access_vlan": 122,
+          "trunk_vlans": [],
+          "mode": "routed",
+          "parent": "eth1",
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:ec:d3:e9:00:01",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "pimreg",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": "NONE",
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": null,
+          "subnet_class": null
+        }
+      ],
+      "vlans": [
+        {
+          "vlan_id": 121,
+          "name": null,
+          "status": null,
+          "members": [
+            "eth1.121"
+          ]
+        },
+        {
+          "vlan_id": 122,
+          "name": null,
+          "status": null,
+          "members": [
+            "eth1.122"
+          ]
+        }
+      ],
+      "route_count": 14,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "Switch-4",
+      "hostname": "Switch-4",
+      "format": "OpenvSwitch",
+      "vendor": "Open vSwitch",
+      "product": "OpenVSwitch",
+      "device_type": "SWITCH",
+      "last_seen": "2026-10-09T08:51:08.652028488Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "ovs-system",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "ca:fc:c4:9b:bf:79",
+          "subnet_class": null
+        },
+        {
+          "name": "br0",
+          "addresses": [
+            "fe80::64fe:daff:fe0b:e646/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "66:fe:da:0b:e6:46",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "fe80::42:c1ff:fead:1700/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [
+            141
+          ],
+          "mode": "trunk",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "fe80::42:c1ff:fead:1701/64"
+          ],
+          "access_vlan": 141,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:01",
+          "subnet_class": null
+        },
+        {
+          "name": "eth2",
+          "addresses": [
+            "fe80::42:c1ff:fead:1702/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [
+            "fe80::42:c1ff:fead:1703/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [
+            "fe80::42:c1ff:fead:1704/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [
+            "fe80::42:c1ff:fead:1705/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [
+            "fe80::42:c1ff:fead:1706/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [
+            "fe80::42:c1ff:fead:1707/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:07",
+          "subnet_class": null
+        },
+        {
+          "name": "eth8",
+          "addresses": [
+            "fe80::42:c1ff:fead:1708/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:08",
+          "subnet_class": null
+        },
+        {
+          "name": "eth9",
+          "addresses": [
+            "fe80::42:c1ff:fead:1709/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:09",
+          "subnet_class": null
+        },
+        {
+          "name": "eth10",
+          "addresses": [
+            "fe80::42:c1ff:fead:170a/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:0a",
+          "subnet_class": null
+        },
+        {
+          "name": "eth11",
+          "addresses": [
+            "172.16.255.105/24",
+            "fe80::42:c1ff:fead:170b/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c1:ad:17:0b",
+          "subnet_class": "Open"
+        }
+      ],
+      "vlans": [
+        {
+          "vlan_id": 141,
+          "name": "VLAN141",
+          "status": "active",
+          "members": [
+            "eth1"
+          ]
+        }
+      ],
+      "route_count": 0,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "Switch-3",
+      "hostname": "Switch-3",
+      "format": "OpenvSwitch",
+      "vendor": "Open vSwitch",
+      "product": "OpenVSwitch",
+      "device_type": "SWITCH",
+      "last_seen": "2026-10-09T08:51:08.883969291Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "ovs-system",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "42:5d:d6:4e:83:32",
+          "subnet_class": null
+        },
+        {
+          "name": "br0",
+          "addresses": [
+            "fe80::b89a:94ff:fe4e:2940/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "ba:9a:94:4e:29:40",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e00/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [
+            131,
+            132,
+            133
+          ],
+          "mode": "trunk",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e01/64"
+          ],
+          "access_vlan": 131,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:01",
+          "subnet_class": null
+        },
+        {
+          "name": "eth2",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e02/64"
+          ],
+          "access_vlan": 132,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e03/64"
+          ],
+          "access_vlan": 133,
+          "trunk_vlans": [],
+          "mode": "access",
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e04/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e05/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e06/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e07/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:07",
+          "subnet_class": null
+        },
+        {
+          "name": "eth8",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e08/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:08",
+          "subnet_class": null
+        },
+        {
+          "name": "eth9",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e09/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:09",
+          "subnet_class": null
+        },
+        {
+          "name": "eth10",
+          "addresses": [
+            "fe80::42:54ff:fed6:9e0a/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:0a",
+          "subnet_class": null
+        },
+        {
+          "name": "eth11",
+          "addresses": [
+            "172.16.255.104/24",
+            "fe80::42:54ff:fed6:9e0b/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:54:d6:9e:0b",
+          "subnet_class": "Open"
+        }
+      ],
+      "vlans": [
+        {
+          "vlan_id": 131,
+          "name": "VLAN131",
+          "status": "active",
+          "members": [
+            "eth1"
+          ]
+        },
+        {
+          "vlan_id": 132,
+          "name": "VLAN132",
+          "status": "active",
+          "members": [
+            "eth2"
+          ]
+        },
+        {
+          "vlan_id": 133,
+          "name": "VLAN133",
+          "status": "active",
+          "members": [
+            "eth3"
+          ]
+        }
+      ],
+      "route_count": 0,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "Firewall",
+      "hostname": "Firewall",
+      "format": "AlpineFirewall",
+      "vendor": "Alpine",
+      "product": "nftables",
+      "device_type": "FIREWALL",
+      "last_seen": "2026-10-09T08:51:10.204623259Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "10.99.143.2/24",
+            "fe80::42:c3ff:fea4:5100/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c3:a4:51:00",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "fe80::42:c3ff:fea4:5101/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c3:a4:51:01",
+          "subnet_class": null
+        },
+        {
+          "name": "eth2",
+          "addresses": [
+            "fe80::42:c3ff:fea4:5102/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c3:a4:51:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [
+            "fe80::42:c3ff:fea4:5103/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c3:a4:51:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [
+            "172.16.255.2/24",
+            "fe80::42:c3ff:fea4:5104/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c3:a4:51:04",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth5",
+          "addresses": [
+            "fe80::42:c3ff:fea4:5105/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c3:a4:51:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [
+            "fe80::42:c3ff:fea4:5106/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "02:42:c3:a4:51:06",
+          "subnet_class": null
+        }
+      ],
+      "vlans": [],
+      "route_count": 3,
+      "firewall_rule_count": 5,
+      "warnings": []
+    },
+    {
+      "agent_id": "test-vm",
+      "hostname": "test-vm",
+      "format": "LinuxVM",
+      "vendor": "Linux",
+      "product": "Ubuntu",
+      "device_type": "VM",
+      "last_seen": "2026-10-09T08:48:44.612564365Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "ens3",
+          "addresses": [
+            "172.16.255.245/24",
+            "fe80::e5a:c9ff:fe63:0/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:5a:c9:63:00:00",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "ens4",
+          "addresses": [
+            "192.168.122.58/24",
+            "fe80::fc9d:9480:a634:33b1/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:5a:c9:63:00:01",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "ens5",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:5a:c9:63:00:02",
+          "subnet_class": null
+        },
+        {
+          "name": "ens6",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:5a:c9:63:00:03",
+          "subnet_class": null
+        },
+        {
+          "name": "docker0",
+          "addresses": [
+            "172.17.0.1/16",
+            "fe80::d4b1:42ff:fed6:480c/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "d6:b1:42:d6:48:0c",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "br-806483bc5620",
+          "addresses": [
+            "172.18.0.1/16",
+            "fe80::bc5b:d3ff:fe64:c14e/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "be:5b:d3:64:c1:4e",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "veth3df6a99",
+          "addresses": [
+            "fe80::d87a:10ff:fe49:f753/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": "if2",
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "da:7a:10:49:f7:53",
+          "subnet_class": null
+        },
+        {
+          "name": "veth97c686e",
+          "addresses": [
+            "fe80::a880:d0ff:feb6:841a/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": "if2",
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "aa:80:d0:b6:84:1a",
+          "subnet_class": null
+        },
+        {
+          "name": "vethee605e8",
+          "addresses": [
+            "fe80::a481:fdff:fe2b:9df1/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": "if2",
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "a6:81:fd:2b:9d:f1",
+          "subnet_class": null
+        }
+      ],
+      "vlans": [],
+      "route_count": 5,
+      "firewall_rule_count": 0,
+      "warnings": []
+    },
+    {
+      "agent_id": "DMZ-Router",
+      "hostname": "DMZ-Router",
+      "format": "FRRRouter",
+      "vendor": "FRR",
+      "product": "FRR",
+      "device_type": "ROUTER",
+      "last_seen": "2026-10-09T08:51:08.653061422Z",
+      "discovered": true,
+      "interfaces": [
+        {
+          "name": "lo",
+          "addresses": [
+            "127.0.0.1/8",
+            "10.255.255.3/32",
+            "::1/128"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": "00:00:00:00:00:00",
+          "subnet_class": null
+        },
+        {
+          "name": "eth0",
+          "addresses": [
+            "10.99.10.3/24",
+            "fe80::e48:c8ff:fecb:0/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:48:c8:cb:00:00",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth1",
+          "addresses": [
+            "fe80::e48:c8ff:fecb:1/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:48:c8:cb:00:01",
+          "subnet_class": null
+        },
+        {
+          "name": "eth2",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:48:c8:cb:00:02",
+          "subnet_class": null
+        },
+        {
+          "name": "eth3",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:48:c8:cb:00:03",
+          "subnet_class": null
+        },
+        {
+          "name": "eth4",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:48:c8:cb:00:04",
+          "subnet_class": null
+        },
+        {
+          "name": "eth5",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:48:c8:cb:00:05",
+          "subnet_class": null
+        },
+        {
+          "name": "eth6",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "DOWN",
+          "mac_address": "0c:48:c8:cb:00:06",
+          "subnet_class": null
+        },
+        {
+          "name": "eth7",
+          "addresses": [
+            "172.16.255.3/24",
+            "fe80::e48:c8ff:fecb:7/64"
+          ],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": null,
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:48:c8:cb:00:07",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "eth1.141",
+          "addresses": [
+            "10.30.141.1/24",
+            "fe80::e48:c8ff:fecb:1/64"
+          ],
+          "access_vlan": 141,
+          "trunk_vlans": [],
+          "mode": "routed",
+          "parent": "eth1",
+          "admin_state": null,
+          "oper_state": "UP",
+          "mac_address": "0c:48:c8:cb:00:01",
+          "subnet_class": "Open"
+        },
+        {
+          "name": "pimreg",
+          "addresses": [],
+          "access_vlan": null,
+          "trunk_vlans": [],
+          "mode": null,
+          "parent": "NONE",
+          "admin_state": null,
+          "oper_state": "UNKNOWN",
+          "mac_address": null,
+          "subnet_class": null
+        }
+      ],
+      "vlans": [
+        {
+          "vlan_id": 141,
+          "name": null,
+          "status": null,
+          "members": [
+            "eth1.141"
+          ]
+        }
+      ],
+      "route_count": 14,
+      "firewall_rule_count": 0,
+      "warnings": []
+    }
+  ]
+}

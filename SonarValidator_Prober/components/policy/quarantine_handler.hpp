@@ -2,6 +2,7 @@
 #define SONAR_VALIDATOR_PROBER_QUARANTINE_HANDLER_HPP_
 
 #include <string>
+#include <functional>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -39,6 +40,14 @@ class ProberConfig;
 //  명령이 아니라 정책으로 다시 격리됩니다 — 두 겹의 안전장치입니다.
 namespace quarantine
 {
+using SubnetExecutor = std::function<bool(const std::string&)>;
+using SubnetReader = std::function<std::string(const std::string&)>;
+bool ApplySubnetTargets(const nlohmann::json& targets, const std::string& management,
+                        const std::string& server, const SubnetExecutor& execute,
+                        const SubnetReader& read, std::string& detail);
+bool ReconcileSubnets(const ProberConfig& config, ManagementService& mgmt,
+                      const nlohmann::json& targets);
+
 
 // 명령 payload 의 action 값입니다. envelope.hpp 의 kActionQuarantine/kActionRelease,
 // 서버 QuarantineService.ACTION_QUARANTINE/ACTION_RELEASE 와 정확히 같아야 합니다.

@@ -1,0 +1,68 @@
+[
+  {
+    "agent": "C4I-Network-Router",
+    "before": "2026-10-09T08:12:43.538038713Z",
+    "after": "2026-10-09T08:50:26.886094500Z",
+    "advanced": true
+  },
+  {
+    "agent": "Switch-0",
+    "before": "2026-10-09T08:12:44.250746664Z",
+    "after": "2026-10-09T08:50:26.360969472Z",
+    "advanced": true
+  },
+  {
+    "agent": "Switch-1",
+    "before": null,
+    "after": "2026-10-09T08:50:26.375699748Z",
+    "advanced": false
+  },
+  {
+    "agent": "Switch-2",
+    "before": null,
+    "after": "2026-10-09T08:50:26.362069003Z",
+    "advanced": false
+  },
+  {
+    "agent": "Gateway-Router",
+    "before": "2026-10-09T08:12:45.250036801Z",
+    "after": "2026-10-09T08:50:26.885684222Z",
+    "advanced": true
+  },
+  {
+    "agent": "Survillance-Network-Router",
+    "before": "2026-10-09T08:12:43.846999012Z",
+    "after": "2026-10-09T08:50:26.367401613Z",
+    "advanced": true
+  },
+  {
+    "agent": "VDI-Router",
+    "before": "2026-10-09T08:12:44.852017236Z",
+    "after": "2026-10-09T08:50:26.376004038Z",
+    "advanced": true
+  },
+  {
+    "agent": "Switch-4",
+    "before": null,
+    "after": "2026-10-09T08:50:29.803598484Z",
+    "advanced": false
+  },
+  {
+    "agent": "Switch-3",
+    "before": null,
+    "after": "2026-10-09T08:50:26.884902519Z",
+    "advanced": false
+  },
+  {
+    "agent": "Firewall",
+    "before": null,
+    "after": "2026-10-09T08:50:26.886269768Z",
+    "advanced": false
+  },
+  {
+    "agent": "DMZ-Router",
+    "before": "2026-10-09T08:12:42.938804293Z",
+    "after": "2026-10-09T08:50:28.574872718Z",
+    "advanced": true
+  }
+]

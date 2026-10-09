@@ -1,0 +1,55 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+13
+Default Administrator
+Subnet Advance Configuration
+Home
+Subnet Advance Configuration
+Subnet Advance Configuration
+Continue
+
+수집된 설정에서 만든 초안입니다
+
+수집된 설정에서 만든 초안입니다. 등급은 확인 전까지 Open 이며, 수집된 방화벽 규칙은 검토 전까지 비활성 상태입니다.
+
+Edit Subnet Manually
+Subnet-0001 172.16.255.0/24 (Open) · ens3 · 확인 필요
+Subnet-0002 192.168.122.0/24 (Open) · ens4 · 확인 필요
+Subnet-0003 172.17.0.0/16 (Open) · docker0 · 확인 필요
+Subnet-0004 172.18.0.0/16 (Open) · br-806483bc5620 · 확인 필요
+Subnet-0005 10.99.10.0/24 (Open) · eth1 · 확인 필요
+Set Subnet Class
+Confidential
+Sensitive
+Open
+Import Offline Prober Data
+새로고침
+
+관리 서버에 연결할 수 없는 장비는 Prober 가 설정을 JSON 파일로 남깁니다. 그 파일을 아래 영역에 끌어다 놓으면 장치 목록에 반영됩니다.
+
+📄
+Drop Here
+파일을 끌어다 놓거나 클릭해서 선택하세요 (.json, 최대 8.0 MB)
+파일로 반영된 장치
+0
+
+아직 파일로 반영된 장치가 없습니다.

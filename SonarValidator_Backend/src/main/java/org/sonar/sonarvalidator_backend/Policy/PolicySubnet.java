@@ -20,6 +20,11 @@ public class PolicySubnet {
     /** CIDR 대역 (예: {@code 10.10.131.0/24}). */
     private String cidr;
 
+    private Integer vlanId;
+
+    public Integer getVlanId() { return vlanId; }
+    public void setVlanId(Integer vlanId) { this.vlanId = vlanId; }
+
     /** 보안 등급. */
     private ZoneClass zoneClass;
 

@@ -1,0 +1,18 @@
+{
+  "time_kst": "2026-10-09T17:51:10.564933+09:00",
+  "ip": "172.16.255.2",
+  "agent": "Firewall",
+  "network_and_nft_unchanged": true,
+  "connected": true,
+  "telemetry_seen": true,
+  "sha256_match": true,
+  "supervisor_running": true,
+  "interfaces": 8,
+  "vlans": 0,
+  "routes": 3,
+  "firewall_rules": 5,
+  "missing_addresses": [],
+  "extra_addresses": [],
+  "warnings": [],
+  "all_11_agents_refresh": true
+}

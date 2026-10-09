@@ -1,0 +1,295 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+35
+Default Administrator
+Project Editor
+Home
+Project Editor
+Project Editor
+PRJ-D488B7A4
+목록
+저장 및 검증
+Project Name
+Category
+Description
+Status
+Planning
+In Progress
+Completed
+망분리 검증
+검증 실행
+저장
+서브넷 등급 설정
+11개
+Add Subnet
+Confidential — 기밀망. 외부(Open)와 직접 연결 금지
+Sensitive — 내부 업무망. 양쪽 등급과 연결 가능
+Open — 공개망. 기밀망과 직접 연결 금지
+Subnet ID	CIDR	Class	담당 Agent	Source	
+
+Subnet-0001
+C4I-Network-Router / eth0
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0002
+C4I-Network-Router / eth1
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0003
+C4I-Network-Router / eth7
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0004
+VLAN 141 · DMZ-Router / eth1.141
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0005
+Gateway-Router / eth0
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0006
+VLAN 121 · VDI-Router / eth1.121
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0007
+VLAN 122 · VDI-Router / eth1.122
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0008
+VLAN 111 · Survillance-Network-Router / eth0.111
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0009
+VLAN 112 · Survillance-Network-Router / eth0.112
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0010
+test-vm / docker0
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+
+
+Subnet-0011
+test-vm / br-806483bc5620
+		
+Confidential
+Sensitive
+Open
+	
+담당 Agent 미지정
+Switch-4
+Switch-3
+Switch-2
+Switch-1
+Switch-0
+VDI-Router
+test-vm
+Survillance-Network-Router
+C4I-Network-Router
+DMZ-Router
+Gateway-Router
+	확인됨	
+정책 설정 (Rule Configuration)
+0개
+Add Rule
+
+출발·도착 IP 대역(CIDR) 사이의 연결을 정의하고, TCP/UDP는 허용 포트(1–65535)를 지정합니다.
+
+규칙이 없습니다. Add Rule 로 추가하세요.

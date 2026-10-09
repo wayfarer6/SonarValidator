@@ -1,0 +1,577 @@
+{
+  "schema": "sonar.offline.snapshot",
+  "schema_version": 1,
+  "agent_id": "Firewall",
+  "agent_name": "Firewall",
+  "device_type": "FIREWALL",
+  "product": "nftables",
+  "vendor": "Alpine",
+  "kernel": "6.18.40.1-microsoft-standard-WSL2",
+  "collected_at": "2026-10-09T09:10:39.009250061Z",
+  "exported_at": "2026-10-09T09:10:40.739060818Z",
+  "reason": "server-export",
+  "summary": {
+    "interfaces": 11,
+    "firewall_rules": 5,
+    "routes": 6,
+    "vlans": 3,
+    "format": "AlpineFirewall"
+  },
+  "offline_origin": false,
+  "payload": {
+    "agent": "Firewall",
+    "arp_table": {
+      "entries": [
+        {
+          "address": "10.10.133.10",
+          "family": "inet",
+          "interface": "eth1.133",
+          "interfaces": [
+            "eth1.133"
+          ],
+          "mac": "0c:bc:8a:ba:00:00",
+          "state": "STALE"
+        },
+        {
+          "address": "172.16.255.245",
+          "family": "inet",
+          "interface": "eth4",
+          "interfaces": [
+            "eth4"
+          ],
+          "mac": "0c:5a:c9:63:00:00",
+          "state": "REACHABLE"
+        },
+        {
+          "address": "10.10.131.10",
+          "family": "inet",
+          "interface": "eth1.131",
+          "interfaces": [
+            "eth1.131"
+          ],
+          "mac": "0c:f3:02:45:00:00",
+          "state": "REACHABLE"
+        },
+        {
+          "address": "10.99.143.1",
+          "family": "inet",
+          "interface": "eth0",
+          "interfaces": [
+            "eth0"
+          ],
+          "mac": "0c:97:0f:9f:00:01",
+          "state": "STALE"
+        },
+        {
+          "address": "10.10.132.10",
+          "family": "inet",
+          "interface": "eth1.132",
+          "interfaces": [
+            "eth1.132"
+          ],
+          "mac": "0c:30:e2:79:00:00",
+          "state": "STALE"
+        }
+      ],
+      "entry_count": 5,
+      "parsed": true
+    },
+    "device_type": "FIREWALL",
+    "firewall_rules": {
+      "chain_count": 4,
+      "parse_error": "line 21:21 extraneous input '{' expecting {ATTRKEY, MATCHKEY, ACTION, NEWLINE, WS, 'table', 'chain', ';', '/', ':', ADDR, NUMBER, DASHED_IDENT, QUOTED, IDENT, RULEWORD}; line 24:13 extraneous input '{' expecting {ATTRKEY, MATCHKEY, ACTION, NEWLINE, WS, 'table', 'chain', ';', '/', ':', ADDR, NUMBER, DASHED_IDENT, QUOTED, IDENT, RULEWORD}; line 25:23 extraneous input '}' expecting {ATTRKEY, MATCHKEY, ACTION, NEWLINE, WS, 'table', 'chain', ';', '/', ':', ADDR, NUMBER, DASHED_IDENT, QUOTED, IDENT, RULEWORD}; line 28:18 extraneous input '{' expecting {ATTRKEY, MATCHKEY, ACTION, NEWLINE, WS, 'table', 'chain', ';', '/', ':', ADDR, NUMBER, DASHED_IDENT, QUOTED, IDENT, RULEWORD}; line 31:13 extraneous input '{' expecting {ATTRKEY, MATCHKEY, ACTION, NEWLINE, WS, 'table', 'chain', ';', '/', ':', ADDR, NUMBER, DASHED_IDENT, QUOTED, IDENT, RULEWORD}",
+      "parse_warnings": 14,
+      "parsed": false,
+      "rule_count": 1,
+      "table_count": 3,
+      "tables": [
+        {
+          "chains": [
+            {
+              "hook": "input",
+              "name": "input",
+              "policy": "accept",
+              "priority": "filter",
+              "rules": [],
+              "type": "filter"
+            },
+            {
+              "hook": "forward",
+              "name": "forward",
+              "policy": "accept",
+              "priority": "filter",
+              "rules": [],
+              "type": "filter"
+            },
+            {
+              "hook": "output",
+              "name": "output",
+              "policy": "accept",
+              "priority": "filter",
+              "rules": [],
+              "type": "filter"
+            }
+          ],
+          "family": "ip",
+          "name": "filter"
+        },
+        {
+          "chains": [
+            {
+              "hook": "postrouting",
+              "name": "postrouting",
+              "policy": "accept",
+              "priority": "srcnat",
+              "rules": [
+                {
+                  "action": "masquerade",
+                  "counter": false,
+                  "match": "oifname eth0",
+                  "match_pairs": {
+                    "oifname": "eth0"
+                  },
+                  "raw": "oifname \"eth0\" masquerade"
+                }
+              ],
+              "type": "nat"
+            }
+          ],
+          "family": "ip",
+          "name": "nat"
+        },
+        {
+          "chains": [],
+          "family": "inet",
+          "name": "astra_cso"
+        }
+      ]
+    },
+    "kernel": "6.18.40.1-microsoft-standard-WSL2",
+    "nic_status": {
+      "interfaces": [
+        {
+          "addresses": [
+            {
+              "address": "127.0.0.1",
+              "family": "inet",
+              "interface": "lo",
+              "preferred_lft": "forever",
+              "prefix_len": 8,
+              "scope": "host",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "::1",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 128,
+              "scope": "host",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "00:00:00:00:00:00",
+          "flags": [
+            "LOOPBACK",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 1,
+          "link_type": "loopback",
+          "mac": "00:00:00:00:00:00",
+          "mtu": "65536",
+          "name": "lo",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.10.131.1",
+              "family": "inet",
+              "interface": "eth1.131",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5101",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 2,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:01",
+          "mtu": "1500",
+          "name": "eth1.131",
+          "parent": "eth1",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.10.132.1",
+              "family": "inet",
+              "interface": "eth1.132",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5101",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 3,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:01",
+          "mtu": "1500",
+          "name": "eth1.132",
+          "parent": "eth1",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.10.133.1",
+              "family": "inet",
+              "interface": "eth1.133",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5101",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 4,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:01",
+          "mtu": "1500",
+          "name": "eth1.133",
+          "parent": "eth1",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.99.143.2",
+              "family": "inet",
+              "interface": "eth0",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5100",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 76,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:00",
+          "mtu": "1500",
+          "name": "eth0",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5101",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 77,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:01",
+          "mtu": "1500",
+          "name": "eth1",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5102",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 78,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:02",
+          "mtu": "1500",
+          "name": "eth2",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5103",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 79,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:03",
+          "mtu": "1500",
+          "name": "eth3",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "172.16.255.2",
+              "family": "inet",
+              "interface": "eth4",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5104",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 80,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:04",
+          "mtu": "1500",
+          "name": "eth4",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5105",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 81,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:05",
+          "mtu": "1500",
+          "name": "eth5",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5106",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 82,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:06",
+          "mtu": "1500",
+          "name": "eth6",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        }
+      ],
+      "parsed": true
+    },
+    "product": "nftables",
+    "route_status": {
+      "parsed": true,
+      "protocols": [
+        "kernel"
+      ],
+      "route_count": 6,
+      "routes": [
+        {
+          "destination": "0.0.0.0/0",
+          "interface_name": "eth0",
+          "is_default": true,
+          "via": "10.99.143.1"
+        },
+        {
+          "destination": "10.10.131.0/24",
+          "interface_name": "eth1.131",
+          "is_default": false,
+          "pref_src": "10.10.131.1",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.10.132.0/24",
+          "interface_name": "eth1.132",
+          "is_default": false,
+          "pref_src": "10.10.132.1",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.10.133.0/24",
+          "interface_name": "eth1.133",
+          "is_default": false,
+          "pref_src": "10.10.133.1",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.99.143.0/24",
+          "interface_name": "eth0",
+          "is_default": false,
+          "pref_src": "10.99.143.2",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "172.16.255.0/24",
+          "interface_name": "eth4",
+          "is_default": false,
+          "pref_src": "172.16.255.2",
+          "protocol": "kernel",
+          "scope": "link"
+        }
+      ]
+    },
+    "vendor": "nftables"
+  }
+}

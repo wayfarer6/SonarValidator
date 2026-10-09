@@ -1,0 +1,424 @@
+{
+  "arpEntries": [
+    {
+      "address": "172.16.255.245",
+      "interfaceName": "eth7",
+      "mac": "0c:5a:c9:63:00:00",
+      "state": "REACHABLE"
+    },
+    {
+      "address": "10.99.10.5",
+      "interfaceName": "eth0",
+      "mac": "0c:e3:23:d2:00:01",
+      "state": "STALE"
+    },
+    {
+      "address": "10.99.10.6",
+      "interfaceName": "eth0",
+      "mac": "0c:ec:d3:e9:00:00",
+      "state": "STALE"
+    },
+    {
+      "address": "10.99.10.1",
+      "interfaceName": "eth0",
+      "mac": "0c:ca:e8:a1:00:01",
+      "state": "STALE"
+    },
+    {
+      "address": "10.99.10.3",
+      "interfaceName": "eth0",
+      "mac": "0c:48:c8:cb:00:00",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::42:81ff:fe2b:1103",
+      "interfaceName": "eth0",
+      "mac": "02:42:81:2b:11:03",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::42:58ff:fe96:6a0b",
+      "interfaceName": "eth7",
+      "mac": "02:42:58:96:6a:0b",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::42:c3ff:fea4:5100",
+      "interfaceName": "eth1",
+      "mac": "02:42:c3:a4:51:00",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::42:c1ff:fead:170b",
+      "interfaceName": "eth7",
+      "mac": "02:42:c1:ad:17:0b",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::42:81ff:fe2b:110b",
+      "interfaceName": "eth7",
+      "mac": "02:42:81:2b:11:0b",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::42:4fff:fe9d:dd0b",
+      "interfaceName": "eth7",
+      "mac": "02:42:4f:9d:dd:0b",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::e5a:c9ff:fe63:0",
+      "interfaceName": "eth7",
+      "mac": "0c:5a:c9:63:00:00",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::42:54ff:fed6:9e0b",
+      "interfaceName": "eth7",
+      "mac": "02:42:54:d6:9e:0b",
+      "state": "STALE"
+    },
+    {
+      "address": "fe80::42:c3ff:fea4:5104",
+      "interfaceName": "eth7",
+      "mac": "02:42:c3:a4:51:04",
+      "state": "STALE"
+    }
+  ],
+  "bridges": [],
+  "deviceType": "ROUTER",
+  "empty": false,
+  "firewallRules": [],
+  "format": "FRRRouter",
+  "hostname": "C4I-Network-Router",
+  "interfaces": {
+    "lo": {
+      "accessVlan": null,
+      "addresses": [
+        "127.0.0.1/8",
+        "10.255.255.4/32",
+        "::1/128"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "LOOPBACK",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "00:00:00:00:00:00",
+      "mode": null,
+      "mtu": 65536,
+      "name": "lo",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth0": {
+      "accessVlan": null,
+      "addresses": [
+        "10.99.10.4/24",
+        "fe80::e97:fff:fe9f:0/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "0c:97:0f:9f:00:00",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth0",
+      "operState": "UP",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth1": {
+      "accessVlan": null,
+      "addresses": [
+        "10.99.143.1/24",
+        "fe80::e97:fff:fe9f:1/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "0c:97:0f:9f:00:01",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth1",
+      "operState": "UP",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth2": {
+      "accessVlan": null,
+      "addresses": [],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST"
+      ],
+      "macAddress": "0c:97:0f:9f:00:02",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth2",
+      "operState": "DOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth3": {
+      "accessVlan": null,
+      "addresses": [],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST"
+      ],
+      "macAddress": "0c:97:0f:9f:00:03",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth3",
+      "operState": "DOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth4": {
+      "accessVlan": null,
+      "addresses": [],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST"
+      ],
+      "macAddress": "0c:97:0f:9f:00:04",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth4",
+      "operState": "DOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth5": {
+      "accessVlan": null,
+      "addresses": [],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST"
+      ],
+      "macAddress": "0c:97:0f:9f:00:05",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth5",
+      "operState": "DOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth6": {
+      "accessVlan": null,
+      "addresses": [],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST"
+      ],
+      "macAddress": "0c:97:0f:9f:00:06",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth6",
+      "operState": "DOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth7": {
+      "accessVlan": null,
+      "addresses": [
+        "172.16.255.4/24",
+        "fe80::e97:fff:fe9f:7/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "0c:97:0f:9f:00:07",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth7",
+      "operState": "UP",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "pimreg": {
+      "accessVlan": null,
+      "addresses": [],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "NOARP",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": null,
+      "mode": null,
+      "mtu": 1472,
+      "name": "pimreg",
+      "operState": "UNKNOWN",
+      "parent": "NONE",
+      "trunkVlans": []
+    }
+  },
+  "kernel": "5.15.83-0-virt",
+  "metadata": {
+    "ospfRouteCount": "10",
+    "routeCount": "14"
+  },
+  "product": "FRR",
+  "routes": [
+    {
+      "defaultRoute": true,
+      "metric": 20,
+      "nextHop": "10.99.10.1",
+      "nextHopInterface": "eth0",
+      "prefix": "0.0.0.0/0",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.143.2",
+      "nextHopInterface": "eth1",
+      "prefix": "10.10.128.0/21",
+      "protocol": "196",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.5",
+      "nextHopInterface": "eth0",
+      "prefix": "10.20.111.0/24",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.5",
+      "nextHopInterface": "eth0",
+      "prefix": "10.20.112.0/24",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.3",
+      "nextHopInterface": "eth0",
+      "prefix": "10.30.141.0/24",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.6",
+      "nextHopInterface": "eth0",
+      "prefix": "10.40.121.0/24",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.6",
+      "nextHopInterface": "eth0",
+      "prefix": "10.40.122.0/24",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": null,
+      "nextHop": null,
+      "nextHopInterface": "eth0",
+      "prefix": "10.99.10.0/24",
+      "protocol": "kernel",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": null,
+      "nextHop": null,
+      "nextHopInterface": "eth1",
+      "prefix": "10.99.143.0/24",
+      "protocol": "kernel",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.1",
+      "nextHopInterface": "eth0",
+      "prefix": "10.255.255.1",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.3",
+      "nextHopInterface": "eth0",
+      "prefix": "10.255.255.3",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.5",
+      "nextHopInterface": "eth0",
+      "prefix": "10.255.255.5",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": 20,
+      "nextHop": "10.99.10.6",
+      "nextHopInterface": "eth0",
+      "prefix": "10.255.255.6",
+      "protocol": "ospf",
+      "selected": null
+    },
+    {
+      "defaultRoute": false,
+      "metric": null,
+      "nextHop": null,
+      "nextHopInterface": "eth7",
+      "prefix": "172.16.255.0/24",
+      "protocol": "kernel",
+      "selected": null
+    }
+  ],
+  "vendor": "FRR",
+  "vlans": {},
+  "warnings": []
+}

@@ -1,0 +1,20 @@
+{
+  "results": [
+    {
+      "switch": 105,
+      "source_vlan": 141,
+      "injected_tag": 0,
+      "receiver_vlan": 141,
+      "expected_delivery": true,
+      "received_frames": 3,
+      "passed": true
+    }
+  ],
+  "received": {
+    "141": [
+      "105-141-0",
+      "105-141-0",
+      "105-141-0"
+    ]
+  }
+}

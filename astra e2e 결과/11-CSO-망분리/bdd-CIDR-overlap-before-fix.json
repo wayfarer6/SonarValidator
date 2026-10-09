@@ -1,0 +1,63 @@
+{
+  "request": {
+    "subnets": [
+      {
+        "id": "C",
+        "cidr": "10.10.131.0/24",
+        "subnet_class": "Confidential"
+      },
+      {
+        "id": "S",
+        "cidr": "10.20.111.0/24",
+        "subnet_class": "Sensitive"
+      },
+      {
+        "id": "O",
+        "cidr": "10.30.141.0/24",
+        "subnet_class": "Open"
+      },
+      {
+        "id": "I",
+        "cidr": "1.1.1.1/32",
+        "subnet_class": "Open"
+      },
+      {
+        "id": "Broad",
+        "cidr": "10.10.0.0/16",
+        "subnet_class": "Sensitive"
+      }
+    ],
+    "rules": [
+      {
+        "id": "overlap",
+        "src": "Broad",
+        "dst": "O",
+        "protocol": "tcp",
+        "port": 443,
+        "enabled": true
+      }
+    ]
+  },
+  "response": {
+    "compliant": true,
+    "rule_count": 1,
+    "subnet_count": 5,
+    "violation_count": 0,
+    "messages": [
+      "망분리 정책을 준수합니다. (규칙 1건, 서브넷 5건)"
+    ],
+    "violated_rule_ids": [],
+    "metrics": {
+      "bdd_variables": 88,
+      "bdd_nodes_total": 2509,
+      "bdd_nodes_allowed": 66,
+      "bdd_nodes_forbidden": 139,
+      "bdd_nodes_violating": 74,
+      "allowed_combinations": 16777216,
+      "forbidden_combinations": 2207613190144,
+      "violating_combinations": 65536,
+      "address_space": 309485009821345068724781056
+    },
+    "violations": []
+  }
+}

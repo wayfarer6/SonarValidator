@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+Test project /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+    Start 19: command_collector_test
+1/1 Test #19: command_collector_test ...........   Passed    1.86 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   2.02 sec

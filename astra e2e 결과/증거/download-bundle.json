@@ -1,0 +1,15 @@
+{
+  "files": [
+    "Installer/default.conf",
+    "Installer/README.txt",
+    "Installer/sonar_validator_prober"
+  ],
+  "config": {
+    "SERVER_IP": "172.16.255.245",
+    "SERVER_PORT": "3000",
+    "NODE_TYPE": "Router",
+    "AGENT_NAME": "VDI-Router"
+  },
+  "binary_sha256": "500b2930033286bde36c81846c26848bde26cf4a9ae5a936849db807749d2a9e",
+  "binary_size": 8501552
+}

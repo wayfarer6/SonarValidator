@@ -1,0 +1,55 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+17
+Default Administrator
+View Detected Network Nodes
+Home
+View Detected Network Nodes
+View Detected Network Nodes
+연결 6
+수집 6
+새로고침
+Continue
+FRRRouter
+5
+▲
+127.0.0.1
+DMZ-Router
+인터페이스 11 · VLAN 1 · 경로 14
+127.0.0.1
+Gateway-Router
+인터페이스 10 · VLAN 0 · 경로 15
+127.0.0.1
+VDI-Router
+인터페이스 12 · VLAN 2 · 경로 14
+127.0.0.1
+Survillance-Network-Router
+인터페이스 12 · VLAN 2 · 경로 14
+127.0.0.1
+C4I-Network-Router
+인터페이스 10 · VLAN 0 · 경로 14
+LinuxVM
+1
+▲
+127.0.0.1
+test-vm
+인터페이스 10 · VLAN 0 · 경로 5

@@ -1,0 +1,42 @@
+[
+  {
+    "agent_id": "Switch-0",
+    "project_id": "PRJ-D488B7A4",
+    "device_type": "SWITCH",
+    "node_type": "Switch",
+    "status": "Deployed",
+    "registered": true
+  },
+  {
+    "agent_id": "Switch-1",
+    "project_id": "PRJ-D488B7A4",
+    "device_type": "SWITCH",
+    "node_type": "Switch",
+    "status": "Deployed",
+    "registered": true
+  },
+  {
+    "agent_id": "Switch-2",
+    "project_id": "PRJ-D488B7A4",
+    "device_type": "SWITCH",
+    "node_type": "Switch",
+    "status": "Deployed",
+    "registered": true
+  },
+  {
+    "agent_id": "Switch-3",
+    "project_id": "PRJ-D488B7A4",
+    "device_type": "SWITCH",
+    "node_type": "Switch",
+    "status": "Deployed",
+    "registered": true
+  },
+  {
+    "agent_id": "Switch-4",
+    "project_id": "PRJ-D488B7A4",
+    "device_type": "SWITCH",
+    "node_type": "Switch",
+    "status": "Deployed",
+    "registered": true
+  }
+]

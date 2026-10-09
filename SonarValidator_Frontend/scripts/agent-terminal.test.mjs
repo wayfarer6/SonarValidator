@@ -7,7 +7,7 @@ import { createRoot } from "react-dom/client";
 import { JSDOM } from "jsdom";
 import ts from "typescript";
 
-test("terminal sockets are cleaned up during StrictMode, reconnect and unmount", async () => {
+for (const apiBase of ["", "http://localhost:3000"]) test(`terminal lifecycle and URL with API base ${apiBase || "same-origin"}`, async () => {
   const dom = new JSDOM("<div id='root'></div>", { url: "http://localhost:5173" });
   const previousGlobals = new Map();
   for (const [name, value] of Object.entries({
@@ -25,8 +25,10 @@ test("terminal sockets are cleaned up during StrictMode, reconnect and unmount",
     static OPEN = 1;
     readyState = MockSocket.CONNECTING;
     sent = [];
-    constructor() {
+    constructor(url) {
       super();
+      assert.equal(new URL(url).origin, apiBase ? "ws://localhost:3000" : "ws://localhost:5173");
+      assert.equal(new URL(url).pathname, "/api/v1/terminal/browser");
       sockets.push(this);
     }
     close() { this.readyState = 3; }
@@ -58,7 +60,7 @@ test("terminal sockets are cleaned up during StrictMode, reconnect and unmount",
     "@xterm/addon-fit": { FitAddon: class { fit() {} } },
     "@xterm/xterm": { Terminal: MockTerminal },
     "@xterm/xterm/css/xterm.css": {},
-    "../../lib/api/client": { API_BASE_URL: "http://localhost:3000" },
+    "../../lib/api/client": { API_BASE_URL: apiBase },
   };
   const source = readFileSync(new URL("../src/components/project/AgentTerminal.tsx", import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, {
@@ -72,6 +74,7 @@ test("terminal sockets are cleaned up during StrictMode, reconnect and unmount",
       return modules[name];
     },
     React,
+    window: dom.window,
     URL,
     WebSocket: MockSocket,
     ResizeObserver: class { observe() {} disconnect() {} },

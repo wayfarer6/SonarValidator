@@ -1,0 +1,26 @@
+347e5cecd9821db24f2cac99baa908da52ce1195ddcfd387b3dbb867fc42deed  /root/Installer/sonar_validator_prober
+1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+45: eth11    inet 172.16.255.102/24 scope global eth11\       valid_lft forever preferred_lft forever
+PID   USER     TIME  COMMAND
+    1 root      0:00 /bin/sh
+  705 root      0:00 /gns3/bin/busybox sh -c while true; do TERM=vt100 /gns3/bin/busybox sh; done
+  711 root      0:00 /gns3/bin/busybox sh
+  720 root      0:00 [br0-wait-up.sh]
+  775 root      0:00 ovsdb-server --remote=punix:/var/run/openvswitch/db.sock --remote=db:Open_vSwitch,Open_vSwitch,manager_options --pidfile --detach
+  778 root      0:14 ovs-vswitchd --pidfile --detach
+  803 root      0:00 [sshd]
+  804 root      0:00 sshd: /usr/sbin/sshd [listener] 0 of 10-100 startups
+  844 root      0:00 /bin/sh /etc/sonar_validator_prober/supervise.sh
+  846 root      0:00 /root/Installer/sonar_validator_prober
+  899 root      0:00 sshd-session: root [priv]
+  902 root      0:00 sshd-session: root@notty
+  903 root      0:00 sh -c sha256sum /root/Installer/sonar_validator_prober; ip -4 -o addr show; ps -ef; tail -8 /root/sonar-data/prober.log
+  906 root      0:00 ps -ef
+Error: either "dev" is duplicate, or "1" is garbage.
+[INFO] Management worker received policy: {"device_id":"Switch-1","device_type":"SWITCH","policies":[{"command":["on"],"enable":["true"],"model":["Arista vEOS"],"port":["Ethernet 1"],"product":["Arista vEOS"],"vendor":["Arista"]}],"policy_id":"pol-switch-0001","summary":{"allowed":0,"denied":0,"peers":0,"source":"default"},"valid_until":"2026-10-10T08:13:52.511803441Z"}
+[COMMAND] execution failed with exit code 255
+[POLICY] Policy command failed for product OpenVSwitch
+Error: either "dev" is duplicate, or "1" is garbage.
+[INFO] Management worker received policy: {"device_id":"Switch-1","device_type":"SWITCH","policies":[{"command":["on"],"enable":["true"],"model":["Arista vEOS"],"port":["Ethernet 1"],"product":["Arista vEOS"],"vendor":["Arista"]}],"policy_id":"pol-switch-0001","summary":{"allowed":0,"denied":0,"peers":0,"source":"default"},"valid_until":"2026-10-10T08:13:56.533580169Z"}
+[COMMAND] execution failed with exit code 255
+[POLICY] Policy command failed for product OpenVSwitch

@@ -362,6 +362,13 @@ add_executable(telemetry_service_test
 sonar_configure_target(telemetry_service_test)
 add_test(NAME telemetry_service_test COMMAND telemetry_service_test)
 
+add_executable(websocket_receive_test
+    components/backend_communication/websocket_receive_test.cpp
+    module/telemetry_module/telemetry_service.cpp)
+sonar_configure_target(websocket_receive_test)
+add_test(NAME websocket_receive_test COMMAND websocket_receive_test)
+set_tests_properties(websocket_receive_test PROPERTIES TIMEOUT 10)
+
 # 오프라인 스냅샷 export (서버/장비 불필요)
 add_executable(offline_export_test
     module/offline_export_module/offline_export_test.cpp

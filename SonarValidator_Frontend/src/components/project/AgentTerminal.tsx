@@ -40,7 +40,7 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
     fit.fit();
     terminal.writeln(`Connecting to ${agentId}...`);
 
-    const socketUrl = new URL(`${API_BASE_URL}/api/v1/terminal/browser`);
+    const socketUrl = new URL(`${API_BASE_URL}/api/v1/terminal/browser`, window.location.origin);
     socketUrl.protocol = socketUrl.protocol === "https:" ? "wss:" : "ws:";
     socketUrl.searchParams.set("projectId", projectId);
     socketUrl.searchParams.set("agentId", agentId);

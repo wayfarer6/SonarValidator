@@ -11,6 +11,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include "components/backend_communication/envelope.hpp"
+#include "components/backend_communication/timed_websocket_reader.hpp"
 #include "components/policy/policy_command.hpp"
 #include "module/configuration_module/prober_config.hpp"
 #include "components/terminal/terminal_session.hpp"
@@ -127,7 +128,7 @@ private:
     net::io_context ioc_;                             // Boost.Asio I/O 컨텍스트
     tcp::resolver resolver_;                          // DNS 리졸버
     websocket::stream<beast::tcp_stream> stream_;     // WebSocket 스트림
-    beast::flat_buffer read_buffer_;                  // 수신 프레임 누적 버퍼
+    sonar::net::TimedWebSocketReader reader_;
     bool connected_;                                  // 연결 상태
     bool hello_sent_{false};                          // hello 봉투 전송 여부
     std::string agent_id_{};                          // 서버에 알릴 에이전트 ID

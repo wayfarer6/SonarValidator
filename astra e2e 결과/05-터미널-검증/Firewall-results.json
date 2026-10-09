@@ -1,0 +1,9 @@
+[
+  {
+    "name": "Firewall",
+    "ready": true,
+    "root": true,
+    "command_ok": true,
+    "router_routes": null
+  }
+]

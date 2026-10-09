@@ -1,0 +1,14 @@
+1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+75: eth11    inet 172.16.255.105/24 scope global eth11\       valid_lft forever preferred_lft forever
+172.16.255.0/24 dev eth11 proto kernel scope link src 172.16.255.105 
+name                : br0
+tag                 : []
+trunks              : []
+
+name                : eth1
+tag                 : 141
+trunks              : []
+
+name                : eth0
+tag                 : []
+trunks              : [141]

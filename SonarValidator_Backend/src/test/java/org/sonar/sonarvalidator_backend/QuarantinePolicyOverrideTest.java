@@ -159,18 +159,10 @@ class QuarantinePolicyOverrideTest {
         assertEquals("10.0.9.0/24",
                 policy.get("quarantine_target_cidr").asText(), "대상 대역 기록");
 
-        // ⚠️ 대상 대역 송수신 차단 규칙이 <b>앞에</b> 있어야 합니다.
-        //    뒤에 있으면 허용 규칙이 먼저 매칭되어 무력합니다.
-        final var policies = policy.get("policies");
-        assertTrue(policies.isArray() && policies.size() > 0, "규칙 존재");
-        final var destinationDrop = policies.get(0);
-        final var sourceDrop = policies.get(1);
-        assertEquals("10.0.9.0/24",
-            destinationDrop.get("match_criteria").get("ip_daddr").get(0).asText(), "목적지 대역 차단");
-        assertEquals("drop", destinationDrop.get("action").get(0).asText(), "목적지 차단");
-        assertEquals("10.0.9.0/24",
-            sourceDrop.get("match_criteria").get("ip_saddr").get(0).asText(), "출발지 대역 차단");
-        assertEquals("drop", sourceDrop.get("action").get(0).asText(), "출발지 차단");
+        final var targets = policy.get("subnet_quarantine");
+        assertEquals(1, targets.size());
+        assertEquals("10.0.9.0/24", targets.get(0).get("cidr").asText());
+        assertEquals(0, policy.get("policies").size(), "No nft command sent to an unrelated platform");
 
         // 문구가 "전부 차단" 이 아니어야 합니다 — 운영자가 오해하면 위험합니다.
         final String note = policy.get("quarantine_note").asText();
@@ -194,6 +186,23 @@ class QuarantinePolicyOverrideTest {
         // agent_id 가 없어도 노드 번호로 격리를 찾아야 합니다.
         final QuarantineState state = quarantineService.activeState(null, 42);
         assertNotNull(state, "노드로 격리 조회");
+    }
+
+    @Test
+    void independentTargetsSurvivePartialReleaseAndFinalReleaseIsExplicit() {
+        policyUnderTest.delegate.setAutomaticEnforcementEnabled(false);
+        seedQuarantine("switch", 7, QuarantineState.Scope.CONNECTION, "10.0.9.0/24");
+        seedQuarantine("switch", 7, QuarantineState.Scope.CONNECTION, "10.0.10.0/24");
+        assertEquals(2, policyUnderTest.forAgent(DeviceType.SWITCH, "switch").path("subnet_quarantine").size());
+        rows.get(0).setReleasedAt(new Date());
+        final var remaining = policyUnderTest.forAgent(DeviceType.SWITCH, "switch");
+        assertEquals(1, remaining.path("subnet_quarantine").size());
+        assertEquals("10.0.10.0/24", remaining.path("subnet_quarantine").get(0).path("cidr").asText());
+        assertEquals(0, remaining.path("policies").size());
+        rows.get(1).setReleasedAt(new Date());
+        final var released = policyUnderTest.forAgent(DeviceType.SWITCH, "switch");
+        assertTrue(released.path("subnet_quarantine").isArray());
+        assertEquals(0, released.path("subnet_quarantine").size());
     }
 
     /**

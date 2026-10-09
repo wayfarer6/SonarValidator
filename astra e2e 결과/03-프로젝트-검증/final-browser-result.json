@@ -1,0 +1,55 @@
+{
+  "project_id": "PRJ-4B6C7538",
+  "editor_subnet_inputs": [
+    "10.99.10.0/24",
+    "172.16.255.0/24",
+    "10.30.141.0/24",
+    "192.168.122.0/24",
+    "10.40.121.0/24",
+    "10.40.122.0/24",
+    "10.20.111.0/24",
+    "10.20.112.0/24",
+    "10.99.143.0/24",
+    "172.17.0.0/16",
+    "172.18.0.0/16"
+  ],
+  "validation": {
+    "compliant": true,
+    "rule_count": 0,
+    "subnet_count": 11,
+    "violation_count": 0,
+    "messages": [
+      "망분리 정책을 준수합니다. (규칙 0건, 서브넷 11건)"
+    ],
+    "violated_rule_ids": [],
+    "metrics": {
+      "bdd_variables": 88,
+      "bdd_nodes_total": 90,
+      "bdd_nodes_allowed": 1,
+      "bdd_nodes_forbidden": 1,
+      "bdd_nodes_violating": 1,
+      "allowed_combinations": 0,
+      "forbidden_combinations": 0,
+      "violating_combinations": 0,
+      "address_space": 3.094850098213451e+26
+    },
+    "violations": []
+  },
+  "errors": [
+    {
+      "type": "http",
+      "status": 500,
+      "url": "http://172.16.255.245/api/v1/logs?severity=warning&limit=200"
+    },
+    {
+      "type": "http",
+      "status": 500,
+      "url": "http://172.16.255.245/api/v1/logs?severity=warning&limit=200"
+    },
+    {
+      "type": "http",
+      "status": 500,
+      "url": "http://172.16.255.245/api/v1/logs?severity=warning&limit=200"
+    }
+  ]
+}

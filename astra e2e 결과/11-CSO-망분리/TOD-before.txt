@@ -1,0 +1,13 @@
+GNS3.Firewall.5a790fe8-a6eb-4251-b21e-010258ac0241 Up 2 hours
+GNS3.Switch-4.5a790fe8-a6eb-4251-b21e-010258ac0241 Up 2 hours
+GNS3.Switch-3.5a790fe8-a6eb-4251-b21e-010258ac0241 Up 2 hours
+GNS3.Switch-2.5a790fe8-a6eb-4251-b21e-010258ac0241 Up 2 hours
+GNS3.Switch-1.5a790fe8-a6eb-4251-b21e-010258ac0241 Up 2 hours
+GNS3.Switch-0.5a790fe8-a6eb-4251-b21e-010258ac0241 Up 2 hours
+GNS3.VDI-2.5a790fe8-a6eb-4251-b21e-010258ac0241 Exited (137) 2 hours ago
+GNS3.VDI-1.5a790fe8-a6eb-4251-b21e-010258ac0241 Exited (137) 2 hours ago
+GNS3.UAV.5a790fe8-a6eb-4251-b21e-010258ac0241 Exited (1) 2 hours ago
+GNS3.TOD-Cam.5a790fe8-a6eb-4251-b21e-010258ac0241 Exited (1) 2 hours ago
+mysql Up 4 hours
+webgoat Up 4 hours (unhealthy)
+facefusion-docker-facefusion-cuda-1 Exited (255) 2 days ago

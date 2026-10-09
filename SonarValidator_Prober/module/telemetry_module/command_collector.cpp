@@ -1002,19 +1002,33 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
     // -----------------------------------------------------------------------
     if (product == ProductKind::kFirewall)
     {
-        const std::string raw = output("nft list ruleset");
-        if (!empty(raw))
+        // nft's native JSON preserves named sets, interval elements, negation,
+        // comments and counters that the legacy text grammar cannot represent.
+        const Json native = Json::parse(output("nft -j list ruleset"), nullptr, false);
+        if (native.is_object() && native.contains("nftables") && native["nftables"].is_array())
         {
-            state.rules = cli_parser::ParseFirewallRules(raw);
-            // 파서는 tables 배열을 돌려준다(table → chains → rules 구조).
-            if (HasItems(state.rules, "tables"))
+            state.rules = native;
+            state.rules["parsed"] = true;
+            state.rules["format"] = "nftables-json";
+            snapshot["firewall_rules"] = state.rules;
+            state.any_success = true;
+        }
+        else
+        {
+            const std::string raw = output("nft list ruleset");
+            if (!empty(raw))
             {
-                snapshot["firewall_rules"] = state.rules;
-                state.any_success = true;
-            }
-            else
-            {
-                state.rules = Json{};
+                state.rules = cli_parser::ParseFirewallRules(raw);
+                // 파서는 tables 배열을 돌려준다(table → chains → rules 구조).
+                if (HasItems(state.rules, "tables"))
+                {
+                    snapshot["firewall_rules"] = state.rules;
+                    state.any_success = true;
+                }
+                else
+                {
+                    state.rules = Json{};
+                }
             }
         }
     }
@@ -1127,6 +1141,7 @@ CollectedState CollectState(const ProberConfig& config, ManagementService& manag
         run_shell("ip route show", management_service);
         run_shell("ip neigh show", management_service);
         run_shell("nft list ruleset", management_service);
+        run_shell("nft -j list ruleset", management_service);
         break;
 
     case ProductKind::kCisco:

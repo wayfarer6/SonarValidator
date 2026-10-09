@@ -1,0 +1,110 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+19
+Default Administrator
+Agent
+Home
+Agent
+연결된 Agent
+6
+WebSocket 세션 기준
+무응답
+0
+배포 예정 · 연결 없음
+격리된 서브넷
+0
+운영자가 VLAN 단위로 차단
+정책 요청
+7
+누적 처리 건수
+Agent
+6건
+문제 있는 항목만 (0)
+새로고침
+오래된 항목 정리
+프로젝트에서 Agent 추가
+Agent	상태	제품명	수집	마지막 수신	격리	설정 내보내기	프로젝트
+
+VDI-Router
+VDI-Router
+	
+온라인
+	FRR	인터페이스 12 · VLAN 2 · 경로 14	10/9/2026, 4:45:23 PM	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+test-vm
+test-vm
+	
+온라인
+	Ubuntu(LinuxVM)	인터페이스 10 · VLAN 0 · 경로 5	10/8/2026, 1:59:43 PM	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Survillance-Network-Router
+Survillance-Network-Router
+	
+온라인
+	FRR	인터페이스 12 · VLAN 2 · 경로 14	10/8/2026, 11:35:25 AM	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+C4I-Network-Router
+C4I-Network-Router
+	
+온라인
+	FRR	인터페이스 10 · VLAN 0 · 경로 14	10/8/2026, 11:35:13 AM	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+DMZ-Router
+DMZ-Router
+	
+온라인
+	FRR	인터페이스 11 · VLAN 1 · 경로 14	10/8/2026, 11:34:34 AM	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Gateway-Router
+Gateway-Router
+	
+온라인
+	FRR	인터페이스 10 · VLAN 0 · 경로 15	10/8/2026, 11:33:53 AM	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4

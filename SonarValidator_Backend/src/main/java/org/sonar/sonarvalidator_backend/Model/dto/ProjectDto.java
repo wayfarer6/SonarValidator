@@ -61,7 +61,13 @@ public final class ProjectDto {
             @JsonProperty("subnet_class") String subnetClass,
             String name,
             @JsonProperty("agent_id") String agentId,
-            @JsonProperty("manually_edited") Boolean manuallyEdited) {
+            @JsonProperty("manually_edited") Boolean manuallyEdited,
+            @JsonProperty("vlan_id") Integer vlanId) {
+
+        public SubnetPayload(String id, String cidr, String subnetClass, String name,
+                             String agentId, Boolean manuallyEdited) {
+            this(id, cidr, subnetClass, name, agentId, manuallyEdited, null);
+        }
 
         /**
          * 도메인 객체로 변환합니다.
@@ -71,7 +77,8 @@ public final class ProjectDto {
         public PolicySubnet toPolicySubnet() {
             final PolicySubnet subnet = new PolicySubnet();
             subnet.setId(id);
-            subnet.setCidr(cidr);
+            subnet.setCidr(cidr == null ? "" : cidr);
+            subnet.setVlanId(vlanId);
             subnet.setZoneClass(ZoneClass.fromString(subnetClass));
             subnet.setName(name);
             subnet.setAgentId(agentId);

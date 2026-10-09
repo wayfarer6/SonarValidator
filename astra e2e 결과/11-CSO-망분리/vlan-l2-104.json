@@ -1,0 +1,264 @@
+{
+  "results": [
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 0,
+      "receiver_vlan": 131,
+      "expected_delivery": true,
+      "received_frames": 3,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 0,
+      "receiver_vlan": 132,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 0,
+      "receiver_vlan": 133,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 132,
+      "receiver_vlan": 131,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 132,
+      "receiver_vlan": 132,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 132,
+      "receiver_vlan": 133,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 133,
+      "receiver_vlan": 131,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 133,
+      "receiver_vlan": 132,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 131,
+      "injected_tag": 133,
+      "receiver_vlan": 133,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 0,
+      "receiver_vlan": 131,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 0,
+      "receiver_vlan": 132,
+      "expected_delivery": true,
+      "received_frames": 3,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 0,
+      "receiver_vlan": 133,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 131,
+      "receiver_vlan": 131,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 131,
+      "receiver_vlan": 132,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 131,
+      "receiver_vlan": 133,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 133,
+      "receiver_vlan": 131,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 133,
+      "receiver_vlan": 132,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 132,
+      "injected_tag": 133,
+      "receiver_vlan": 133,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 0,
+      "receiver_vlan": 131,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 0,
+      "receiver_vlan": 132,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 0,
+      "receiver_vlan": 133,
+      "expected_delivery": true,
+      "received_frames": 3,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 131,
+      "receiver_vlan": 131,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 131,
+      "receiver_vlan": 132,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 131,
+      "receiver_vlan": 133,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 132,
+      "receiver_vlan": 131,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 132,
+      "receiver_vlan": 132,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    },
+    {
+      "switch": 104,
+      "source_vlan": 133,
+      "injected_tag": 132,
+      "receiver_vlan": 133,
+      "expected_delivery": false,
+      "received_frames": 0,
+      "passed": true
+    }
+  ],
+  "received": {
+    "131": [
+      "104-131-0",
+      "104-131-0",
+      "104-131-0"
+    ],
+    "132": [
+      "104-132-0",
+      "104-132-0",
+      "104-132-0"
+    ],
+    "133": [
+      "104-133-0",
+      "104-133-0",
+      "104-133-0"
+    ]
+  }
+}

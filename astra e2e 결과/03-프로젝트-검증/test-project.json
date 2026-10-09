@@ -1,0 +1,16 @@
+{
+  "project_id": "PRJ-4B6C7538",
+  "name": "Astra E2E Router 수집 검증 2026-10-09",
+  "category": "E2E",
+  "description": "라우터 5대 수집 및 Subnet 저장 UI 검증용. 실제 장비에 정책을 푸시하지 않은 테스트 프로젝트.",
+  "status": "Planning",
+  "management_prefix": null,
+  "management_server_ip": null,
+  "management_server_port": null,
+  "created_at": "2026-10-09T07:45:29.407Z",
+  "updated_at": "2026-10-09T07:45:29.407Z",
+  "subnet_count": 0,
+  "rule_count": 0,
+  "subnets": [],
+  "rules": []
+}

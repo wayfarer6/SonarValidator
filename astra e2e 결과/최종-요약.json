@@ -1,0 +1,17 @@
+{
+  "completed_at_kst": "2026-10-09T17:53:38.108261+09:00",
+  "deployed_agents": 11,
+  "config_audit_pass": true,
+  "all_11_telemetry_refresh": true,
+  "terminal_pass": 11,
+  "backend_tests": 358,
+  "backend_failures": 0,
+  "frontend_tests": 3,
+  "communication_tests": 3,
+  "screenshots": 65,
+  "firewall_network_unchanged": true,
+  "firewall_vlan_restoration": false,
+  "traffic_enforcement_tested": false,
+  "report": "README.md",
+  "gallery": "화면-전체.md"
+}

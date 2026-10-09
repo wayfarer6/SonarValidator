@@ -1,0 +1,352 @@
+{
+  "arpEntries": [],
+  "bridges": [
+    "br0"
+  ],
+  "deviceType": "SWITCH",
+  "empty": false,
+  "firewallRules": [],
+  "format": "OpenvSwitch",
+  "hostname": "Switch-1",
+  "interfaces": {
+    "lo": {
+      "accessVlan": null,
+      "addresses": [
+        "127.0.0.1/8",
+        "::1/128"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "LOOPBACK",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "00:00:00:00:00:00",
+      "mode": null,
+      "mtu": 65536,
+      "name": "lo",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "ovs-system": {
+      "accessVlan": null,
+      "addresses": [],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST"
+      ],
+      "macAddress": "ba:0c:07:d2:fb:cd",
+      "mode": null,
+      "mtu": 1500,
+      "name": "ovs-system",
+      "operState": "DOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "br0": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::4897:47ff:fed8:e94b/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "4a:97:47:d8:e9:4b",
+      "mode": null,
+      "mtu": 1500,
+      "name": "br0",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth0": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd00/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:00",
+      "mode": "trunk",
+      "mtu": 1500,
+      "name": "eth0",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": [
+        111,
+        112
+      ]
+    },
+    "eth1": {
+      "accessVlan": 111,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd01/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:01",
+      "mode": "access",
+      "mtu": 1500,
+      "name": "eth1",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth2": {
+      "accessVlan": 112,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd02/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:02",
+      "mode": "access",
+      "mtu": 1500,
+      "name": "eth2",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth3": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd03/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:03",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth3",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth4": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd04/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:04",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth4",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth5": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd05/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:05",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth5",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth6": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd06/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:06",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth6",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth7": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd07/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:07",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth7",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth8": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd08/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:08",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth8",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth9": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd09/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:09",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth9",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth10": {
+      "accessVlan": null,
+      "addresses": [
+        "fe80::42:4fff:fe9d:dd0a/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:0a",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth10",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    },
+    "eth11": {
+      "accessVlan": null,
+      "addresses": [
+        "172.16.255.102/24",
+        "fe80::42:4fff:fe9d:dd0b/64"
+      ],
+      "adminState": null,
+      "description": null,
+      "flags": [
+        "BROADCAST",
+        "MULTICAST",
+        "UP",
+        "LOWER_UP"
+      ],
+      "macAddress": "02:42:4f:9d:dd:0b",
+      "mode": null,
+      "mtu": 1500,
+      "name": "eth11",
+      "operState": "UNKNOWN",
+      "parent": null,
+      "trunkVlans": []
+    }
+  },
+  "kernel": "6.18.40.1-microsoft-standard-WSL2",
+  "metadata": {},
+  "product": "OpenVSwitch",
+  "routes": [],
+  "vendor": "Open vSwitch",
+  "vlans": {
+    "111": {
+      "members": [
+        "eth1"
+      ],
+      "name": "VLAN111",
+      "status": "active",
+      "vlanId": 111
+    },
+    "112": {
+      "members": [
+        "eth2"
+      ],
+      "name": "VLAN112",
+      "status": "active",
+      "vlanId": 112
+    }
+  },
+  "warnings": []
+}

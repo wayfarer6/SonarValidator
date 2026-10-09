@@ -216,6 +216,20 @@ public abstract class AbstractDeviceConfigParser implements DeviceConfigParser {
      */
     protected void applyFirewallRules(NeutralDeviceConfig config, JsonNode payload) {
         final JsonNode firewall = JsonReader.at(payload, "firewall_rules");
+        if (firewall != null && firewall.path("nftables").isArray()) {
+            for (final JsonNode item : firewall.path("nftables")) {
+                for (final String kind : java.util.List.of("set", "map", "chain", "rule")) {
+                    final JsonNode value = item.path(kind);
+                    if (!value.isObject()) continue;
+                    if ("chain".equals(kind) && !value.has("policy")) continue;
+                    config.getFirewallRules().add("nft " + kind + " " + value.toString());
+                }
+            }
+            return;
+        }
+        if (firewall != null && firewall.has("parsed") && !firewall.path("parsed").asBoolean()) {
+            config.getWarnings().add("Partial nftables text parse: " + firewall.path("parse_error").asText("unknown syntax"));
+        }
         for (final JsonNode table : JsonReader.objects(firewall, "tables")) {
             final String family = JsonReader.text(table, "family");
             final String tableName = JsonReader.text(table, "name");
@@ -228,7 +242,13 @@ public abstract class AbstractDeviceConfigParser implements DeviceConfigParser {
                     config.getFirewallRules().add(tableLabel + " chain " + chainName + " policy " + policy);
                 }
                 for (final JsonNode rule : JsonReader.objects(chain, "rules")) {
-                    final String expression = JsonReader.text(rule, "expression");
+                    final String raw = JsonReader.text(rule, "raw");
+                    if (raw != null) {
+                        config.getFirewallRules().add(tableLabel + " chain " + chainName + " " + raw);
+                        continue;
+                    }
+                    final String expression = JsonReader.text(rule, "expression") != null
+                            ? JsonReader.text(rule, "expression") : JsonReader.text(rule, "match");
                     final String action = JsonReader.text(rule, "action");
                     final StringBuilder line = new StringBuilder(tableLabel)
                             .append(" chain ").append(chainName).append(' ');

@@ -1,0 +1,9 @@
+{
+  "vlans": 14,
+  "distinct_vlans": 9,
+  "subnet_rows": 25,
+  "name_class_roundtrip": true,
+  "unclassified_roundtrip": true,
+  "incomplete_compliant": false,
+  "page_errors": []
+}

@@ -1,0 +1,75 @@
+{
+  "request": {
+    "subnets": [
+      {
+        "id": "C",
+        "cidr": "10.10.131.0/24",
+        "subnet_class": "Confidential"
+      },
+      {
+        "id": "S",
+        "cidr": "10.20.111.0/24",
+        "subnet_class": "Sensitive"
+      },
+      {
+        "id": "O",
+        "cidr": "10.30.141.0/24",
+        "subnet_class": "Open"
+      },
+      {
+        "id": "I",
+        "cidr": "1.1.1.1/32",
+        "subnet_class": "Open"
+      }
+    ],
+    "rules": [
+      {
+        "id": "Unbounded_TCP",
+        "src": "S",
+        "dst": "O",
+        "protocol": "tcp",
+        "port": null,
+        "enabled": true
+      }
+    ]
+  },
+  "response": {
+    "compliant": false,
+    "rule_count": 1,
+    "subnet_count": 4,
+    "violation_count": 1,
+    "messages": [
+      "경고: 포트 설정 확인 — 허용 포트가 없는 규칙 1건이 있습니다."
+    ],
+    "violated_rule_ids": [
+      "Unbounded_TCP"
+    ],
+    "metrics": {
+      "bdd_variables": 88,
+      "bdd_nodes_total": 2520,
+      "bdd_nodes_allowed": 58,
+      "bdd_nodes_forbidden": 139,
+      "bdd_nodes_violating": 1,
+      "allowed_combinations": 4294967296,
+      "forbidden_combinations": 2207613190144,
+      "violating_combinations": 0,
+      "address_space": 309485009821345068724781056
+    },
+    "violations": [
+      {
+        "rule_id": "Unbounded_TCP",
+        "src_subnet": "S",
+        "dst_subnet": "O",
+        "src_class": "Sensitive",
+        "dst_class": "Open",
+        "reason": "허용 포트가 지정되지 않았습니다. 모든 포트가 열린 것으로 해석됩니다.",
+        "severity": "MAJOR",
+        "sampled_protocol": "tcp",
+        "sampled_packet": "tcp - -> - (all ports)",
+        "sampled_src_ip": "-",
+        "sampled_dst_ip": "-",
+        "sampled_port": null
+      }
+    ]
+  }
+}

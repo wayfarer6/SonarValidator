@@ -1,0 +1,65 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+47
+Default Administrator
+Subnet Advance Configuration
+Home
+Subnet Advance Configuration
+Subnet Advance Configuration
+Continue
+수집된 VLAN · 0개 VLAN / 0개 장비 항목
+VLAN 새로고침
+
+스위치의 access/trunk 포트와 라우터의 VLAN 인터페이스 수집 결과입니다. IP 대역은 주소가 수집된 장비에 표시됩니다. VLAN 번호만으로 IP 대역이나 장비 간 연결을 추정하지 않습니다.
+
+등록된 장비에서 아직 VLAN 정보가 수집되지 않았습니다.
+
+VLAN / Subnet 편집
+Subnet-0001 10.99.10.0/24 (Open) · eth0 ·
+Subnet-0002 172.16.255.0/24 (Open) · eth7 ·
+Subnet-0003 10.30.141.0/24 (Open) · eth1.141 ·
+Subnet-0004 192.168.122.0/24 (Open) · eth0 ·
+Subnet-0005 10.40.121.0/24 (Open) · eth1.121 ·
+Subnet-0006 10.40.122.0/24 (Open) · eth1.122 ·
+Subnet-0007 10.20.111.0/24 (Sensitive) · eth0.111 ·
+Subnet-0008 10.20.112.0/24 (Open) · eth0.112 ·
+Subnet-0009 10.99.143.0/24 (Open) · eth1 ·
+Subnet-0010 172.17.0.0/16 (Open) · docker0 ·
+Subnet-0011 172.18.0.0/16 (Open) · br-806483bc5620 ·
+VLAN 131 IP 대역 미수집 (Sensitive) · Astra VLAN131 업무망 ·
+VLAN/서브넷 저장
+미분류 — 사용자 지정 필요
+Confidential
+Sensitive
+Open
+Import Offline Prober Data
+새로고침
+
+관리 서버에 연결할 수 없는 장비는 Prober 가 설정을 JSON 파일로 남깁니다. 그 파일을 아래 영역에 끌어다 놓으면 장치 목록에 반영됩니다.
+
+📄
+Drop Here
+파일을 끌어다 놓거나 클릭해서 선택하세요 (.json, 최대 8.0 MB)
+파일로 반영된 장치
+0
+
+아직 파일로 반영된 장치가 없습니다.

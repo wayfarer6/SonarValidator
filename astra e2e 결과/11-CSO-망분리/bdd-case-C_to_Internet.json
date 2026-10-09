@@ -1,0 +1,75 @@
+{
+  "request": {
+    "subnets": [
+      {
+        "id": "C",
+        "cidr": "10.10.131.0/24",
+        "subnet_class": "Confidential"
+      },
+      {
+        "id": "S",
+        "cidr": "10.20.111.0/24",
+        "subnet_class": "Sensitive"
+      },
+      {
+        "id": "O",
+        "cidr": "10.30.141.0/24",
+        "subnet_class": "Open"
+      },
+      {
+        "id": "I",
+        "cidr": "1.1.1.1/32",
+        "subnet_class": "Open"
+      }
+    ],
+    "rules": [
+      {
+        "id": "C_to_Internet",
+        "src": "C",
+        "dst": "I",
+        "protocol": "tcp",
+        "port": 443,
+        "enabled": true
+      }
+    ]
+  },
+  "response": {
+    "compliant": false,
+    "rule_count": 1,
+    "subnet_count": 4,
+    "violation_count": 1,
+    "messages": [
+      "오류: 네트워크 연결 제한 — 등급을 건너뛰는 직접 연결 1건이 있습니다."
+    ],
+    "violated_rule_ids": [
+      "C_to_Internet"
+    ],
+    "metrics": {
+      "bdd_variables": 88,
+      "bdd_nodes_total": 2501,
+      "bdd_nodes_allowed": 82,
+      "bdd_nodes_forbidden": 139,
+      "bdd_nodes_violating": 82,
+      "allowed_combinations": 256,
+      "forbidden_combinations": 2207613190144,
+      "violating_combinations": 256,
+      "address_space": 309485009821345068724781056
+    },
+    "violations": [
+      {
+        "rule_id": "C_to_Internet",
+        "src_subnet": "C",
+        "dst_subnet": "I",
+        "src_class": "Confidential",
+        "dst_class": "Open",
+        "reason": "C (10.10.131.0/24) -> I (1.1.1.1/32) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+        "severity": "CRITICAL",
+        "sampled_protocol": "tcp",
+        "sampled_packet": "tcp 10.10.131.0 -> 1.1.1.1:443",
+        "sampled_src_ip": "10.10.131.0",
+        "sampled_dst_ip": "1.1.1.1",
+        "sampled_port": 443
+      }
+    ]
+  }
+}

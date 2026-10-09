@@ -1,0 +1,20 @@
+1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+1: lo    inet 10.255.255.5/32 scope global lo\       valid_lft forever preferred_lft forever
+3: eth1    inet 10.99.10.5/24 scope global eth1\       valid_lft forever preferred_lft forever
+4: eth2    inet 172.16.255.5/24 scope global eth2\       valid_lft forever preferred_lft forever
+10: eth0.111    inet 10.20.111.1/24 scope global eth0.111\       valid_lft forever preferred_lft forever
+11: eth0.112    inet 10.20.112.1/24 scope global eth0.112\       valid_lft forever preferred_lft forever
+default nhid 38 via 10.99.10.1 dev eth1 proto ospf metric 20 
+10.10.128.0/21 nhid 37 via 10.99.10.4 dev eth1 proto ospf metric 20 
+10.20.111.0/24 dev eth0.111 proto kernel scope link src 10.20.111.1 
+10.20.112.0/24 dev eth0.112 proto kernel scope link src 10.20.112.1 
+10.30.141.0/24 nhid 35 via 10.99.10.3 dev eth1 proto ospf metric 20 
+10.40.121.0/24 nhid 36 via 10.99.10.6 dev eth1 proto ospf metric 20 
+10.40.122.0/24 nhid 36 via 10.99.10.6 dev eth1 proto ospf metric 20 
+10.99.10.0/24 dev eth1 proto kernel scope link src 10.99.10.5 
+10.99.143.0/24 nhid 37 via 10.99.10.4 dev eth1 proto ospf metric 20 
+10.255.255.1 nhid 38 via 10.99.10.1 dev eth1 proto ospf metric 20 
+10.255.255.3 nhid 35 via 10.99.10.3 dev eth1 proto ospf metric 20 
+10.255.255.4 nhid 37 via 10.99.10.4 dev eth1 proto ospf metric 20 
+10.255.255.6 nhid 36 via 10.99.10.6 dev eth1 proto ospf metric 20 
+172.16.255.0/24 dev eth2 proto kernel scope link src 172.16.255.5 

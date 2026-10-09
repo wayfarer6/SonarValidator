@@ -1,0 +1,136 @@
+{
+  "agent": "Switch-3",
+  "product": "OpenVSwitch",
+  "device_type": "SWITCH",
+  "vlan_status": {
+    "vlan_count": 3,
+    "vlans": [
+      {
+        "name": "VLAN131",
+        "ports": [
+          "eth1"
+        ],
+        "status": "active",
+        "vlan_id": 131
+      },
+      {
+        "name": "VLAN132",
+        "ports": [
+          "eth2"
+        ],
+        "status": "active",
+        "vlan_id": 132
+      },
+      {
+        "name": "VLAN133",
+        "ports": [
+          "eth3"
+        ],
+        "status": "active",
+        "vlan_id": 133
+      }
+    ]
+  },
+  "trunk_status": {
+    "port_count": 4,
+    "ports": [
+      {
+        "access_vlan": 131,
+        "admin_enabled": true,
+        "mode": "access",
+        "name": "eth1",
+        "trunk_vlans": []
+      },
+      {
+        "admin_enabled": true,
+        "mode": "trunk",
+        "name": "eth0",
+        "trunk_vlans": [
+          131,
+          132,
+          133
+        ]
+      },
+      {
+        "access_vlan": 132,
+        "admin_enabled": true,
+        "mode": "access",
+        "name": "eth2",
+        "trunk_vlans": []
+      },
+      {
+        "access_vlan": 133,
+        "admin_enabled": true,
+        "mode": "access",
+        "name": "eth3",
+        "trunk_vlans": []
+      }
+    ]
+  },
+  "ovs_topology": {
+    "bridge_count": 1,
+    "bridges": [
+      {
+        "name": "br0",
+        "ports": [
+          {
+            "interfaces": [
+              {
+                "name": "eth1"
+              }
+            ],
+            "name": "eth1",
+            "tag": 131,
+            "trunks": []
+          },
+          {
+            "interfaces": [
+              {
+                "name": "eth0"
+              }
+            ],
+            "name": "eth0",
+            "tag": [],
+            "trunks": [
+              131,
+              132,
+              133
+            ]
+          },
+          {
+            "interfaces": [
+              {
+                "name": "eth2"
+              }
+            ],
+            "name": "eth2",
+            "tag": 132,
+            "trunks": []
+          },
+          {
+            "interfaces": [
+              {
+                "name": "eth3"
+              }
+            ],
+            "name": "eth3",
+            "tag": 133,
+            "trunks": []
+          },
+          {
+            "interfaces": [
+              {
+                "name": "br0",
+                "type": "internal"
+              }
+            ],
+            "name": "br0",
+            "tag": [],
+            "trunks": []
+          }
+        ]
+      }
+    ],
+    "parsed": true
+  }
+}

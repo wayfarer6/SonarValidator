@@ -1,0 +1,279 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+19
+Default Administrator
+Notification
+Home
+Notification
+Notification
+안읽음 19
+19건 표시
+모두 읽음
+새로고침
+전체
+정책4
+Agent11
+프로젝트4
+보안
+시스템
+Severity
+전체
+Critical
+Warning
+Info
+Read
+전체
+안읽음만
+읽음만
+Project
+전체
+Astra E2E Router 수집 검증 2026-10-09
+D-AI-PBL-Poc-Project
+Search
+초기화
+조회
+
+표시 중
+
+19
+
+안읽음 (전체)
+
+19
+
+Critical
+
+0
+
+Warning
+
+1
+
+Info
+정책 수정: Astra E2E Router 수집 검증 2026-10-09
+정책
+
+서브넷 11건, 규칙 0건으로 갱신되었습니다.
+
+4분 전
+PRJ-4B6C7538
+system
+열기
+삭제
+Info
+프로젝트 생성: Astra E2E Router 수집 검증 2026-10-09
+프로젝트
+
+카테고리 E2E, 상태 Planning
+
+4분 전
+PRJ-4B6C7538
+system
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+10분 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+10분 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+10분 전
+C4I-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+11분 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12분 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: test-vm
+Agent
+
+프로버 test-vm 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+54분 전
+test-vm
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+55분 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+3시간 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: test-vm
+Agent
+
+프로버 test-vm 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+1일 전
+test-vm
+agent
+열기
+삭제
+Info
+정책 수정: D-AI-PBL-Poc-Project
+정책
+
+서브넷 0건, 규칙 0건으로 갱신되었습니다.
+
+1일 전
+PRJ-D488B7A4
+system
+열기
+삭제
+Info
+프로젝트 생성: D-AI-PBL-Poc-Project
+프로젝트
+
+카테고리 test, 상태 Planning
+
+1일 전
+PRJ-D488B7A4
+system
+열기
+삭제
+Warning
+프로젝트 삭제: test
+프로젝트
+
+프로젝트 PRJ-2425A9B9 가 삭제되었습니다.
+
+1일 전
+PRJ-2425A9B9
+system
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+1일 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+1일 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 0건, 규칙 0건으로 갱신되었습니다.
+
+2일 전
+PRJ-2425A9B9
+system
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 0건, 규칙 0건으로 갱신되었습니다.
+
+2일 전
+PRJ-2425A9B9
+system
+열기
+삭제
+Info
+프로젝트 생성: test
+프로젝트
+
+카테고리 , 상태 Planning
+
+2일 전
+PRJ-2425A9B9
+system
+열기
+삭제

@@ -1,0 +1,13 @@
+{
+  "agent_id": "Firewall",
+  "project_id": "PRJ-D488B7A4",
+  "device_type": "FIREWALL",
+  "node_type": "Firewall",
+  "expected_ip": "172.16.255.245",
+  "registered_at": "2026-10-09T08:40:41.159Z",
+  "connected": true,
+  "telemetry_seen": true,
+  "expected": true,
+  "state": "connected",
+  "api_managed": true
+}

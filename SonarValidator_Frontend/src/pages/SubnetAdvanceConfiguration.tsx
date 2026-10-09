@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
+import DiscoveredVlans from "../components/project/DiscoveredVlans";
 import OfflineImportCard from "../components/offline/OfflineImportCard";
 import { useProjectWizard, type SubnetClass } from "../context/ProjectWizardContext";
 
@@ -14,7 +15,8 @@ export default function SubnetAdvanceConfiguration() {
   // 서브넷 목록은 서버(수집 결과/저장된 정책)에서 옵니다.
   const {
     subnets,
-    setSubnetClass: applySubnetClass,
+    updateSubnet,
+    saveError,
     loading,
     error,
     offline,
@@ -26,7 +28,8 @@ export default function SubnetAdvanceConfiguration() {
 
   const [selectedSubnet, setSelectedSubnet] = useState("");
   const [ipRange, setIpRange] = useState("");
-  const [subnetClass, setSubnetClass] = useState<SubnetClass>("Open");
+  const [subnetName, setSubnetName] = useState("");
+  const [subnetClass, setSubnetClass] = useState<SubnetClass | null>(null);
 
   // 서브넷이 서버에서 늦게 도착하므로(비동기), 목록이 준비된 뒤 선택을 맞춥니다.
   // 렌더 중 초기값으로 잡으면 목록이 비어 있어 선택이 사라집니다.
@@ -41,7 +44,7 @@ export default function SubnetAdvanceConfiguration() {
   // 선택한 서브넷이 바뀌면 CSO 드롭다운을 그 서브넷의 현재 등급으로 맞춥니다.
   useEffect(() => {
     const current = subnets.find((subnet) => subnet.id === selectedSubnet);
-    if (current) setSubnetClass(current.subnetClass);
+    if (current) { setSubnetClass(current.subnetClass); setIpRange(current.cidr); setSubnetName(current.name ?? ""); }
   }, [selectedSubnet, subnets]);
   const handleContinue = () => {
     console.log("Proceeding to next step...");
@@ -49,7 +52,7 @@ export default function SubnetAdvanceConfiguration() {
   };
 
   const handleSetSubnetClass = () => {
-    applySubnetClass(selectedSubnet, subnetClass);
+    updateSubnet(selectedSubnet, {subnetClass, cidr: ipRange.trim(), name: subnetName.trim()});
     console.log(
       `Set Subnet Class - subnet: ${selectedSubnet}, range: ${ipRange || "(auto)"}, class: ${subnetClass}`,
     );
@@ -113,7 +116,7 @@ export default function SubnetAdvanceConfiguration() {
             </p>
             <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
               {draftNote ??
-                "등급은 확인 전까지 Open 입니다. 등급을 지정하고 Set Subnet Class 를 누르면 저장됩니다."}
+                "CSO는 미분류입니다. 이름·IP 대역·등급을 편집하고 저장하세요."}
             </p>
           </div>
         )}
@@ -130,45 +133,54 @@ export default function SubnetAdvanceConfiguration() {
           </div>
         )}
 
+        <DiscoveredVlans projectId={projectId} />
+
         {/* 와이어프레임 기반 좌우 2분할 레이아웃 */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-          {/* 좌측: Edit Subnet Manually 박스 */}
+          {/* 좌측: VLAN / Subnet 편집 박스 */}
           <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-transparent">
             <div className="mb-5 rounded-lg border border-gray-200 bg-white py-2.5 text-center font-medium text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white/90">
-              Edit Subnet Manually
+              VLAN / Subnet 편집
             </div>
 
             {/* 서브넷 선택 드롭다운 */}
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/50">
               <select
+                aria-label="VLAN/서브넷 선택"
                 value={selectedSubnet}
                 onChange={(e) => {
                   const nextId = e.target.value;
                   setSelectedSubnet(nextId);
                   // 선택한 서브넷의 현재 등급을 CSO 드롭다운에 동기화
                   const current = subnets.find((subnet) => subnet.id === nextId);
-                  if (current) setSubnetClass(current.subnetClass);
+                  if (current) { setSubnetClass(current.subnetClass); setIpRange(current.cidr); setSubnetName(current.name ?? ""); }
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
               >
                 {subnets.length === 0 && <option value="">서브넷 없음</option>}
                 {subnets.map((subnet) => (
                   <option key={subnet.id} value={subnet.id}>
-                    {subnet.id} {subnet.cidr} ({subnet.subnetClass})
-                    {subnet.name ? ` · ${subnet.name}` : ""}
+                    {subnet.vlanId ? `VLAN ${subnet.vlanId}` : subnet.id} {subnet.cidr || "IP 대역 미수집"} ({subnet.subnetClass ?? "미분류"})
+                    {subnet.name ? ` · ${subnet.name}` : ""} · {subnet.agentId}
                     {subnet.manuallyEdited ? "" : " · 확인 필요"}
                   </option>
                 ))}
               </select>
             </div>
 
+            {saveError && <p role="alert" className="mt-3 text-error-600">{saveError}</p>}
+
             {/* 세부 설정 박스 (IP Range / Set Subnet Class / CSO) */}
             <div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/50">
+              <input aria-label="VLAN/서브넷 이름" value={subnetName}
+                onChange={e => setSubnetName(e.target.value)} placeholder="VLAN 이름"
+                className="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm dark:text-white" />
               <input
+                aria-label="IP 대역 CIDR"
                 type="text"
                 value={ipRange}
                 onChange={(e) => setIpRange(e.target.value)}
-                placeholder="IP Range (e.g. 192.168.0.1 ~ .50)"
+                placeholder="IP 대역 미수집 — 확인한 CIDR 입력 (예: 10.20.111.0/24)"
                 className="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
               />
 
@@ -179,15 +191,17 @@ export default function SubnetAdvanceConfiguration() {
                   disabled={selectedSubnet === "" || saving}
                   className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white/90 dark:hover:bg-gray-700"
                 >
-                  {saving ? "저장 중..." : "Set Subnet Class"}
+                  {saving ? "저장 중..." : "VLAN/서브넷 저장"}
                 </button>
 
                 {/* CSO 클래스 드롭다운 */}
                 <select
-                  value={subnetClass}
-                  onChange={(e) => setSubnetClass(e.target.value as SubnetClass)}
+                  aria-label="CSO 등급"
+                  value={subnetClass ?? ""}
+                  onChange={(e) => setSubnetClass((e.target.value || null) as SubnetClass | null)}
                   className="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
                 >
+                  <option value="">미분류 — 사용자 지정 필요</option>
                   {SUBNET_CLASSES.map((cls) => (
                     <option key={cls} value={cls}>
                       {cls}

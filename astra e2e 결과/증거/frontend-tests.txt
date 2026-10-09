@@ -1,0 +1,15 @@
+
+> sonar-validator-fronted@2.3.0 test
+> node --test scripts/*.test.mjs
+
+✔ terminal lifecycle and URL with API base same-origin (286.657867ms)
+✔ terminal lifecycle and URL with API base http://localhost:3000 (47.39185ms)
+✔ L2 VLANs and trunks survive without fabricating CIDRs or copying another device address (55.538454ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2430.836434

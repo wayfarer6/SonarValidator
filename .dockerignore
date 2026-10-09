@@ -47,6 +47,9 @@ SonarValidator_Frontend/coverage
 SonarValidator_Prober/.idea
 SonarValidator_Prober/build
 SonarValidator_Prober/build_static
+SonarValidator_Prober/build-*
+SonarValidator_Prober/Installer/sonar_validator_prober
+astra e2e 결과
 SonarValidator_Prober/antlr4-build
 SonarValidator_Prober/antlr4-runtime-src
 

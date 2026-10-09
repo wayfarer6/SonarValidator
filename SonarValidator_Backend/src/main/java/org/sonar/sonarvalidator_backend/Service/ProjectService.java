@@ -458,9 +458,7 @@ public class ProjectService {
             if (subnet.getId() == null || subnet.getId().isBlank()) {
                 subnet.setId("Subnet-" + String.format("%04d", sequence));
             }
-            if (subnet.getZoneClass() == null) {
-                subnet.setZoneClass(ZoneClass.OPEN);
-            }
+            // A missing CSO class remains unclassified until the operator chooses it.
             result.add(subnet);
         }
         return result;

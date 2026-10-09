@@ -1,0 +1,1092 @@
+{
+  "schema": "sonar.offline.snapshot",
+  "schema_version": 1,
+  "agent_id": "Firewall",
+  "agent_name": "Firewall",
+  "device_type": "FIREWALL",
+  "product": "nftables",
+  "vendor": "Alpine",
+  "kernel": "6.18.40.1-microsoft-standard-WSL2",
+  "collected_at": "2026-10-09T09:18:29.277983128Z",
+  "exported_at": "2026-10-09T09:18:31.105117292Z",
+  "reason": "server-export",
+  "summary": {
+    "interfaces": 11,
+    "firewall_rules": 0,
+    "routes": 6,
+    "vlans": 3,
+    "format": "AlpineFirewall"
+  },
+  "offline_origin": false,
+  "payload": {
+    "agent": "Firewall",
+    "arp_table": {
+      "entries": [
+        {
+          "address": "172.16.255.245",
+          "family": "inet",
+          "interface": "eth4",
+          "interfaces": [
+            "eth4"
+          ],
+          "mac": "0c:5a:c9:63:00:00",
+          "state": "REACHABLE"
+        }
+      ],
+      "entry_count": 1,
+      "parsed": true
+    },
+    "device_type": "FIREWALL",
+    "firewall_rules": {
+      "format": "nftables-json",
+      "nftables": [
+        {
+          "metainfo": {
+            "json_schema_version": 1,
+            "release_name": "Commodore Bullmoose #7",
+            "version": "1.1.6"
+          }
+        },
+        {
+          "table": {
+            "family": "ip",
+            "handle": 1,
+            "name": "filter"
+          }
+        },
+        {
+          "chain": {
+            "family": "ip",
+            "handle": 1,
+            "hook": "input",
+            "name": "input",
+            "policy": "accept",
+            "prio": 0,
+            "table": "filter",
+            "type": "filter"
+          }
+        },
+        {
+          "chain": {
+            "family": "ip",
+            "handle": 2,
+            "hook": "forward",
+            "name": "forward",
+            "policy": "accept",
+            "prio": 0,
+            "table": "filter",
+            "type": "filter"
+          }
+        },
+        {
+          "chain": {
+            "family": "ip",
+            "handle": 3,
+            "hook": "output",
+            "name": "output",
+            "policy": "accept",
+            "prio": 0,
+            "table": "filter",
+            "type": "filter"
+          }
+        },
+        {
+          "table": {
+            "family": "ip",
+            "handle": 2,
+            "name": "nat"
+          }
+        },
+        {
+          "chain": {
+            "family": "ip",
+            "handle": 1,
+            "hook": "postrouting",
+            "name": "postrouting",
+            "policy": "accept",
+            "prio": 100,
+            "table": "nat",
+            "type": "nat"
+          }
+        },
+        {
+          "rule": {
+            "chain": "postrouting",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "meta": {
+                      "key": "oifname"
+                    }
+                  },
+                  "op": "==",
+                  "right": "eth0"
+                }
+              },
+              {
+                "masquerade": null
+              }
+            ],
+            "family": "ip",
+            "handle": 2,
+            "table": "nat"
+          }
+        },
+        {
+          "table": {
+            "family": "inet",
+            "handle": 6,
+            "name": "astra_cso"
+          }
+        },
+        {
+          "chain": {
+            "family": "inet",
+            "handle": 1,
+            "hook": "forward",
+            "name": "forward",
+            "policy": "accept",
+            "prio": -50,
+            "table": "astra_cso",
+            "type": "filter"
+          }
+        },
+        {
+          "set": {
+            "elem": [
+              {
+                "prefix": {
+                  "addr": "10.10.131.0",
+                  "len": 24
+                }
+              },
+              {
+                "prefix": {
+                  "addr": "10.10.132.0",
+                  "len": 24
+                }
+              },
+              {
+                "prefix": {
+                  "addr": "10.10.133.0",
+                  "len": 24
+                }
+              }
+            ],
+            "family": "inet",
+            "flags": [
+              "interval"
+            ],
+            "handle": 2,
+            "name": "confidential_v4",
+            "table": "astra_cso",
+            "type": "ipv4_addr"
+          }
+        },
+        {
+          "set": {
+            "elem": [
+              {
+                "prefix": {
+                  "addr": "10.20.111.0",
+                  "len": 24
+                }
+              },
+              {
+                "prefix": {
+                  "addr": "10.20.112.0",
+                  "len": 24
+                }
+              },
+              {
+                "prefix": {
+                  "addr": "10.40.121.0",
+                  "len": 24
+                }
+              },
+              {
+                "prefix": {
+                  "addr": "10.40.122.0",
+                  "len": 24
+                }
+              }
+            ],
+            "family": "inet",
+            "flags": [
+              "interval"
+            ],
+            "handle": 3,
+            "name": "sensitive_v4",
+            "table": "astra_cso",
+            "type": "ipv4_addr"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-no-IPv6-bypass-out",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "meta": {
+                      "key": "nfproto"
+                    }
+                  },
+                  "op": "==",
+                  "right": "ipv6"
+                }
+              },
+              {
+                "match": {
+                  "left": {
+                    "meta": {
+                      "key": "iifname"
+                    }
+                  },
+                  "op": "==",
+                  "right": {
+                    "set": [
+                      "eth1.131",
+                      "eth1.132",
+                      "eth1.133"
+                    ]
+                  }
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "drop": null
+              }
+            ],
+            "family": "inet",
+            "handle": 5,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-no-IPv6-bypass-in",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "meta": {
+                      "key": "nfproto"
+                    }
+                  },
+                  "op": "==",
+                  "right": "ipv6"
+                }
+              },
+              {
+                "match": {
+                  "left": {
+                    "meta": {
+                      "key": "oifname"
+                    }
+                  },
+                  "op": "==",
+                  "right": {
+                    "set": [
+                      "eth1.131",
+                      "eth1.132",
+                      "eth1.133"
+                    ]
+                  }
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "drop": null
+              }
+            ],
+            "family": "inet",
+            "handle": 7,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-anti-spoof-131",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "meta": {
+                      "key": "iifname"
+                    }
+                  },
+                  "op": "==",
+                  "right": "eth1.131"
+                }
+              },
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "saddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "!=",
+                  "right": {
+                    "prefix": {
+                      "addr": "10.10.131.0",
+                      "len": 24
+                    }
+                  }
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "drop": null
+              }
+            ],
+            "family": "inet",
+            "handle": 8,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-anti-spoof-132",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "meta": {
+                      "key": "iifname"
+                    }
+                  },
+                  "op": "==",
+                  "right": "eth1.132"
+                }
+              },
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "saddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "!=",
+                  "right": {
+                    "prefix": {
+                      "addr": "10.10.132.0",
+                      "len": 24
+                    }
+                  }
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "drop": null
+              }
+            ],
+            "family": "inet",
+            "handle": 9,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-anti-spoof-133",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "meta": {
+                      "key": "iifname"
+                    }
+                  },
+                  "op": "==",
+                  "right": "eth1.133"
+                }
+              },
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "saddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "!=",
+                  "right": {
+                    "prefix": {
+                      "addr": "10.10.133.0",
+                      "len": 24
+                    }
+                  }
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "drop": null
+              }
+            ],
+            "family": "inet",
+            "handle": 10,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-C-to-C",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "saddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "==",
+                  "right": "@confidential_v4"
+                }
+              },
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "daddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "==",
+                  "right": "@confidential_v4"
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "accept": null
+              }
+            ],
+            "family": "inet",
+            "handle": 11,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-C-to-S",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "saddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "==",
+                  "right": "@confidential_v4"
+                }
+              },
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "daddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "==",
+                  "right": "@sensitive_v4"
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "accept": null
+              }
+            ],
+            "family": "inet",
+            "handle": 12,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-S-to-C",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "saddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "==",
+                  "right": "@sensitive_v4"
+                }
+              },
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "daddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "==",
+                  "right": "@confidential_v4"
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "accept": null
+              }
+            ],
+            "family": "inet",
+            "handle": 13,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-C-to-Open-Internet-deny",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "saddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "==",
+                  "right": "@confidential_v4"
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "drop": null
+              }
+            ],
+            "family": "inet",
+            "handle": 14,
+            "table": "astra_cso"
+          }
+        },
+        {
+          "rule": {
+            "chain": "forward",
+            "comment": "CSO-Open-Internet-to-C-deny",
+            "expr": [
+              {
+                "match": {
+                  "left": {
+                    "payload": {
+                      "field": "daddr",
+                      "protocol": "ip"
+                    }
+                  },
+                  "op": "==",
+                  "right": "@confidential_v4"
+                }
+              },
+              {
+                "counter": {
+                  "bytes": 0,
+                  "packets": 0
+                }
+              },
+              {
+                "drop": null
+              }
+            ],
+            "family": "inet",
+            "handle": 15,
+            "table": "astra_cso"
+          }
+        }
+      ],
+      "parsed": true
+    },
+    "kernel": "6.18.40.1-microsoft-standard-WSL2",
+    "nic_status": {
+      "interfaces": [
+        {
+          "addresses": [
+            {
+              "address": "127.0.0.1",
+              "family": "inet",
+              "interface": "lo",
+              "preferred_lft": "forever",
+              "prefix_len": 8,
+              "scope": "host",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "::1",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 128,
+              "scope": "host",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "00:00:00:00:00:00",
+          "flags": [
+            "LOOPBACK",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 1,
+          "link_type": "loopback",
+          "mac": "00:00:00:00:00:00",
+          "mtu": "65536",
+          "name": "lo",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.10.131.1",
+              "family": "inet",
+              "interface": "eth1.131",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5101",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 2,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:01",
+          "mtu": "1500",
+          "name": "eth1.131",
+          "parent": "eth1",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.10.132.1",
+              "family": "inet",
+              "interface": "eth1.132",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5101",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 3,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:01",
+          "mtu": "1500",
+          "name": "eth1.132",
+          "parent": "eth1",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.10.133.1",
+              "family": "inet",
+              "interface": "eth1.133",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5101",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 4,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:01",
+          "mtu": "1500",
+          "name": "eth1.133",
+          "parent": "eth1",
+          "qdisc": "noqueue",
+          "qlen": "1000",
+          "state": "UP"
+        },
+        {
+          "addresses": [
+            {
+              "address": "10.99.143.2",
+              "family": "inet",
+              "interface": "eth0",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5100",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 84,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:00",
+          "mtu": "1500",
+          "name": "eth0",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5101",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 85,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:01",
+          "mtu": "1500",
+          "name": "eth1",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5102",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 86,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:02",
+          "mtu": "1500",
+          "name": "eth2",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5103",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 87,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:03",
+          "mtu": "1500",
+          "name": "eth3",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "172.16.255.2",
+              "family": "inet",
+              "interface": "eth4",
+              "preferred_lft": "forever",
+              "prefix_len": 24,
+              "scope": "global",
+              "valid_lft": "forever"
+            },
+            {
+              "address": "fe80::42:c3ff:fea4:5104",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 88,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:04",
+          "mtu": "1500",
+          "name": "eth4",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5105",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 89,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:05",
+          "mtu": "1500",
+          "name": "eth5",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        },
+        {
+          "addresses": [
+            {
+              "address": "fe80::42:c3ff:fea4:5106",
+              "family": "inet6",
+              "preferred_lft": "forever",
+              "prefix_len": 64,
+              "scope": "link",
+              "valid_lft": "forever"
+            }
+          ],
+          "broadcast": "ff:ff:ff:ff:ff:ff",
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "group": "default",
+          "index": 90,
+          "link_type": "ether",
+          "mac": "02:42:c3:a4:51:06",
+          "mtu": "1500",
+          "name": "eth6",
+          "qdisc": "fq_codel",
+          "qlen": "1000",
+          "state": "UNKNOWN"
+        }
+      ],
+      "parsed": true
+    },
+    "product": "nftables",
+    "route_status": {
+      "parsed": true,
+      "protocols": [
+        "kernel"
+      ],
+      "route_count": 6,
+      "routes": [
+        {
+          "destination": "0.0.0.0/0",
+          "interface_name": "eth0",
+          "is_default": true,
+          "via": "10.99.143.1"
+        },
+        {
+          "destination": "10.10.131.0/24",
+          "interface_name": "eth1.131",
+          "is_default": false,
+          "pref_src": "10.10.131.1",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.10.132.0/24",
+          "interface_name": "eth1.132",
+          "is_default": false,
+          "pref_src": "10.10.132.1",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.10.133.0/24",
+          "interface_name": "eth1.133",
+          "is_default": false,
+          "pref_src": "10.10.133.1",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "10.99.143.0/24",
+          "interface_name": "eth0",
+          "is_default": false,
+          "pref_src": "10.99.143.2",
+          "protocol": "kernel",
+          "scope": "link"
+        },
+        {
+          "destination": "172.16.255.0/24",
+          "interface_name": "eth4",
+          "is_default": false,
+          "pref_src": "172.16.255.2",
+          "protocol": "kernel",
+          "scope": "link"
+        }
+      ]
+    },
+    "vendor": "nftables"
+  }
+}

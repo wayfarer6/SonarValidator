@@ -1,0 +1,20 @@
+{
+  "agent_id": "Firewall",
+  "node_id": 12,
+  "scope": "CONNECTION",
+  "target_cidr": "10.10.131.0/24",
+  "project_id": "PRJ-D488B7A4",
+  "reason": "ASTRA VLAN isolation regression",
+  "requested_by": "operator",
+  "command_delivered": false,
+  "quarantined_at": "2026-10-09T09:32:38.427Z",
+  "released_at": "2026-10-09T09:34:44.482Z",
+  "released_by": "operator",
+  "active": false,
+  "delivered": false,
+  "retry": false,
+  "warning": "방화벽 연결 격리입니다. 규칙은 서버가 정책 푸시로 내려보내며, 장치가 연결되면 적용됩니다.",
+  "applied": null,
+  "connected": true,
+  "released": true
+}

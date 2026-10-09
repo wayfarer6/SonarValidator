@@ -1,0 +1,78 @@
+MENU
+Dashboard
+Project List
+Agent List
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+17
+Default Administrator
+Project
+Home
+Project
+Project
+1개
+Create Project
+test
+PRJ-D488B7A4
+D-AI-PBL-Poc-Project
+
+테스트용 프로젝트 입니다.
+
+서브넷 0건 · 규칙 0건
+
+Planning
+Add Agent
+Manage
+Delete
+Project Agents
+5
+
+test-vm
+
+VM · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Survillance-Network-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+C4I-Network-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+DMZ-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Gateway-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거

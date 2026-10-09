@@ -1,0 +1,35 @@
+{
+  "compliant": false,
+  "rule_count": 0,
+  "subnet_count": 12,
+  "violation_count": 1,
+  "messages": [],
+  "violated_rule_ids": [],
+  "metrics": {
+    "bdd_variables": 88,
+    "bdd_nodes_total": 90,
+    "bdd_nodes_allowed": 1,
+    "bdd_nodes_forbidden": 1,
+    "bdd_nodes_violating": 1,
+    "allowed_combinations": 0,
+    "forbidden_combinations": 0,
+    "violating_combinations": 0,
+    "address_space": 3.094850098213451e+26
+  },
+  "violations": [
+    {
+      "rule_id": "classification-required",
+      "src_subnet": "Astra-VLAN131-fixture",
+      "dst_subnet": null,
+      "src_class": null,
+      "dst_class": null,
+      "reason": "VLAN/서브넷의 IP 대역과 CSO 등급을 지정해야 검증할 수 있습니다.",
+      "severity": "MINOR",
+      "sampled_protocol": "tcp",
+      "sampled_packet": "tcp - -> - (all ports)",
+      "sampled_src_ip": "-",
+      "sampled_dst_ip": "-",
+      "sampled_port": null
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+[
+  {
+    "name": "Survilliance-Network-Router",
+    "id": "82e323d2-4633-4b56-9353-5a59dd0a8dbb",
+    "status": "started",
+    "console": 5013
+  },
+  {
+    "name": "Gateway-Router",
+    "id": "cbcae8a1-587f-468c-9ca2-97048a165eda",
+    "status": "started",
+    "console": 5015
+  },
+  {
+    "name": "VDI-Router",
+    "id": "29ecd3e9-8a40-4c5d-941e-1d640a5615fd",
+    "status": "started",
+    "console": 5017
+  },
+  {
+    "name": "C4I-Network-Router",
+    "id": "96970f9f-87ed-4c5f-8f67-c4ee5ca7ba11",
+    "status": "started",
+    "console": 5019
+  },
+  {
+    "name": "Internet",
+    "id": "e989c24c-c388-499c-a819-e315f8dfe168",
+    "status": "started",
+    "console": null
+  },
+  {
+    "name": "ATICS",
+    "id": "9bf30245-21af-4e4b-af98-dfab5c71a677",
+    "status": "started",
+    "console": 5022
+  },
+  {
+    "name": "KNCCS",
+    "id": "4730e279-eed0-4f04-a24a-de2a141f6b81",
+    "status": "started",
+    "console": 5024
+  },
+  {
+    "name": "AFCCS",
+    "id": "aebc8aba-3433-4d34-bf3c-a052583d27bf",
+    "status": "started",
+    "console": 5026
+  },
+  {
+    "name": "TOD-Cam",
+    "id": "65dcf33b-eecd-4dae-a0f9-ba3ec07ce813",
+    "status": "started",
+    "console": 5028
+  },
+  {
+    "name": "UAV",
+    "id": "c4101796-96e3-4b67-9022-1587742a28b8",
+    "status": "started",
+    "console": 5030
+  },
+  {
+    "name": "VDI-1",
+    "id": "d52f7ed6-bc3c-4153-9ce9-bb73e8e94dc4",
+    "status": "stopped",
+    "console": 5032
+  },
+  {
+    "name": "VDI-2",
+    "id": "ad8c7518-acbb-4da0-9267-8fca2f52cde7",
+    "status": "started",
+    "console": 5034
+  },
+  {
+    "name": "Management-Console",
+    "id": "785ac963-1414-424a-b9cd-e023661e3205",
+    "status": "started",
+    "console": 5901
+  },
+  {
+    "name": "Hub1",
+    "id": "e57e9429-219d-4ea5-a5d8-5ad017e75a88",
+    "status": "started",
+    "console": null
+  },
+  {
+    "name": "DMZ-Router",
+    "id": "db48c8cb-959c-417c-818a-79280ce57460",
+    "status": "started",
+    "console": 5040
+  },
+  {
+    "name": "Switch-0",
+    "id": "be812b11-e4df-4142-8c64-1599081055b7",
+    "status": "started",
+    "console": 5042
+  },
+  {
+    "name": "Switch-1",
+    "id": "984f9ddd-2492-47f4-9307-2a6bf55d8df8",
+    "status": "started",
+    "console": 5044
+  },
+  {
+    "name": "Switch-2",
+    "id": "9758966a-f85a-427e-848d-9bbe0ae62098",
+    "status": "started",
+    "console": 5046
+  },
+  {
+    "name": "Switch-3",
+    "id": "8f54d69e-8463-4d88-bd85-92e543e2f6ae",
+    "status": "started",
+    "console": 5048
+  },
+  {
+    "name": "Switch-4",
+    "id": "31c1ad17-80b7-45cc-81d6-1b25b8ccbd63",
+    "status": "started",
+    "console": 5050
+  },
+  {
+    "name": "Public-Web-Server",
+    "id": "1c4b5bb9-fa22-4efe-8ea5-542eeb03c5b1",
+    "status": "started",
+    "console": 5036
+  },
+  {
+    "name": "NAT1",
+    "id": "7a254f23-85bb-4ba5-a437-3353a63a805a",
+    "status": "started",
+    "console": null
+  },
+  {
+    "name": "Firewall",
+    "id": "e5c3a451-60c5-4d59-8343-6e48a8baae58",
+    "status": "started",
+    "console": 5041
+  }
+]
