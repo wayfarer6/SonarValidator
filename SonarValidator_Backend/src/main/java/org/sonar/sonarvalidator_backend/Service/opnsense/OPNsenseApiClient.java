@@ -78,12 +78,19 @@ public class OPNsenseApiClient {
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
 
     private final ObjectMapper objectMapper;
+    private final OPNsenseTransportPolicy transportPolicy;
 
     /**
      * @param objectMapper JSON 매퍼 (Spring 이 주입)
      */
     public OPNsenseApiClient(ObjectMapper objectMapper) {
+        this(objectMapper, new OPNsenseTransportPolicy(""));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OPNsenseApiClient(ObjectMapper objectMapper, OPNsenseTransportPolicy transportPolicy) {
         this.objectMapper = objectMapper;
+        this.transportPolicy = transportPolicy;
     }
 
     /**
@@ -126,7 +133,7 @@ public class OPNsenseApiClient {
      * @return 호출 결과
      */
     public Result checkConnection(OPNsenseConnection connection) {
-        return get(connection, "/api/core/firmware/status");
+        return getFirstAvailable(connection, "/api/core/firmware/status", "/api/core/firmware/info");
     }
 
     /**
@@ -202,21 +209,18 @@ public class OPNsenseApiClient {
      * {@code search_rule?type=nat} 도 <b>type 을 무시</b>해 필터 규칙을 돌려줍니다.
      *
      * <p>NAT 규칙은 필터 설정 전체를 주는 {@code /api/firewall/filter/get} 의
-     * {@code filter.snatrules} 에 들어 있습니다. 전용 경로를 먼저 시도하고
-     * 실패하면 그쪽에서 꺼냅니다.
+     * {@code filter.snatrules} 에 들어 있습니다. 이 경로를 우선 사용하며
+     * 404인 구버전에서만 search_nat 경로를 시도합니다.
      *
      * @param connection 접속 정보
      * @return 호출 결과
      */
     public Result fetchNatRules(OPNsenseConnection connection) {
-        final Result dedicated = get(connection, "/api/firewall/filter/search_nat?rowCount=-1");
-        if (dedicated.ok()) {
-            return dedicated;
-        }
         final Result all = get(connection, "/api/firewall/filter/get");
-        if (!all.ok() || all.body() == null) {
-            return all;
+        if (all.statusCode() == 404) {
+            return get(connection, "/api/firewall/filter/search_nat?rowCount=-1");
         }
+        if (!all.ok() || all.body() == null) return all;
         // filter 안의 NAT 계열 세 갈래를 모읍니다. (실측 구조)
         //   snatrules : { "rule": [ ... ] }  ← Source NAT
         //   npt       : { "rule": [ ... ] }  ← NPTv6
@@ -259,8 +263,7 @@ public class OPNsenseApiClient {
      * {@code /api/diagnostics/interface/get} 이 404). 한 경로만 박아 두면
      * 업그레이드 때 진단이 통째로 실패하므로, 여러 후보를 둡니다.
      *
-     * <p>마지막 실패 결과를 그대로 돌려줍니다 — 그래야 오류 메시지에
-     * 실제 상태 코드가 남습니다.
+     * <p>404만 다음 버전 경로로 폴백합니다. 인증/연결 오류는 그대로 반환합니다.
      *
      * @param connection 접속 정보
      * @param paths      시도할 경로들 (우선순위 순)
@@ -270,7 +273,7 @@ public class OPNsenseApiClient {
         Result last = null;
         for (final String path : paths) {
             last = get(connection, path);
-            if (last.ok()) {
+            if (last.ok() || last.statusCode() != 404) {
                 return last;
             }
         }
@@ -297,7 +300,14 @@ public class OPNsenseApiClient {
      * @return 호출 결과
      */
     public Result get(OPNsenseConnection connection, String path) {
-        if (connection == null || !connection.isUsable()) {
+        if (connection != null && !transportPolicy.allows(connection)) {
+            return Result.failure(0, null,
+                    "이 주소로는 요청을 보낼 수 없습니다. 평문 HTTP 가 금지되어 있거나"
+                    + "(sonar.opnsense.allow-http=false) 허용 목록에 없습니다"
+                    + "(sonar.opnsense.http-origins). HTTPS 를 쓰거나 서버 설정을 확인하세요.");
+        }
+        if (connection == null || connection.apiKey() == null || connection.apiKey().isBlank()
+                || connection.apiSecret() == null || connection.apiSecret().isBlank()) {
             return Result.failure(0, null,
                     "OPNsense 접속 정보가 불완전합니다. URL/API Key/Secret 을 모두 입력하세요.");
         }
@@ -320,7 +330,12 @@ public class OPNsenseApiClient {
             final String raw = response.body();
 
             if (status >= 200 && status < 300) {
-                return Result.success(status, parseJson(raw), raw);
+                final JsonNode body = parseJson(raw);
+                if (body == null || body.isNull() || !(body.isObject() || body.isArray())) {
+                    return Result.failure(status, raw, "OPNsense API가 JSON 객체/배열을 반환하지 않았습니다. "
+                            + "API 주소와 로그인 페이지 응답 여부를 확인하세요.");
+                }
+                return Result.success(status, body, raw);
             }
             // 실패 사유를 사람이 읽을 수 있게 바꿉니다.
             return Result.failure(status, raw, describeFailure(status, connection));
@@ -358,6 +373,8 @@ public class OPNsenseApiClient {
      */
     private String describeFailure(int status, OPNsenseConnection connection) {
         return switch (status) {
+            case 301, 302, 303, 307, 308 -> "리다이렉트 응답(" + status + "). "
+                    + "OPNsense API의 직접 주소와 API Key/Secret을 확인하세요. 로그인 페이지는 API 응답이 아닙니다.";
             case 401 -> "인증 실패(401). API Key 와 Secret 을 확인하세요. "
                     + "키는 사용자 이름 자리에 들어갑니다. "
                     + "OPNsense 의 System > Access > Users 에서 키를 발급했는지 확인하세요.";

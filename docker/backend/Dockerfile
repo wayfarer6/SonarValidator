@@ -64,9 +64,9 @@ RUN cmake -S . -B build_static \
       -DSONAR_STATIC_LINK=ON \
   -DCMAKE_EXE_LINKER_FLAGS=-static \
       -DANTLR4_RUNTIME_ROOT=/opt/antlr4-install && \
-    cmake --build build_static --target sonar_validator_prober --parallel $(nproc) && \
+    cmake --build build_static --target installer_bundle --parallel $(nproc) && \
     mkdir -p /tmp/sonar_stage && \
-    cp build_static/sonar_validator_prober /tmp/sonar_stage/ && \
+    cp -R Installer/Installer.sh Installer/default_template.sqlite Installer/sonar_validator_prober Installer/systemd Installer/rc-service /tmp/sonar_stage/ && \
     ls -la /tmp/sonar_stage/
 
 # Backend builder 스테이지

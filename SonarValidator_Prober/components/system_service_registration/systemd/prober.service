@@ -1,13 +1,14 @@
 [Unit]
 Description=Sonar Validator Prober
-After=systemd-networkd.service
-Requires=systemd-networkd.service
+After=network.target
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/sonar_validator_prober
-Restart=always
-StateDirectory=sonar_validator_prober
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+KillMode=control-group
 Environment=SONAR_CONFIG_PATH=/etc/sonar_validator_prober/default.conf
 Environment=SONAR_TEMPLATE_PATH=/etc/sonar_validator_prober/sqlite_template.sqlite
 Environment=SONAR_DATA_DIR=/var/lib/sonar_validator_prober

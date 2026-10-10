@@ -26,36 +26,46 @@ class ProjectDiscoveryTest {
             """));
     }
 
-    @Test void preservesL2VlansAndUnclassifiedStateWithoutInventingNetworks() {
+    /**
+     * 주소가 없는 L2 전용 VLAN 은 초안이 되지 않습니다.
+     *
+     * <p>대역을 알 수 없으므로 정책에 쓸 수 없고, 그대로 두면 편집 화면에
+     * 빈 CIDR 행만 쌓입니다. (실측 Arista: VLAN1=default, VLAN99=TRANSIT)
+     */
+    @Test void addresslessVlansProduceNoDrafts() {
         final var drafts = ProjectDiscoveryService.drafts("switch", collected());
-        assertEquals(2, drafts.size());
-        assertEquals(List.of(131,132), drafts.stream().map(s -> s.getVlanId()).toList());
-        assertTrue(drafts.stream().allMatch(s -> s.getCidr().isEmpty() && s.getZoneClass() == null));
-        assertEquals("VLAN131", drafts.getFirst().getName());
-        assertEquals("VLAN132", drafts.getLast().getName());
-        assertEquals(drafts.getFirst().getId(), ProjectDiscoveryService.drafts("switch",collected()).getFirst().getId());
+        assertTrue(drafts.isEmpty(),
+                "VLAN131(주소 없음)·VLAN132(trunk 전용)은 대역을 알 수 없어 초안이 되지 않습니다");
     }
 
     @Test void namesClassesAndVlanIdentityRoundTripAndSurviveNewTelemetry() {
-        final var draft = ProjectDiscoveryService.drafts("switch",collected()).getFirst();
-        final var payload = new ProjectDto.SubnetPayload(draft.getId(), "", "Sensitive", "업무망",
+        final var config = collected();
+        // VLAN131 에 라우팅 주소가 있어야 초안이 생깁니다.
+        config.getInterfaces().get("eth1").getAddresses().add("10.10.131.1/24");
+        final var draft = ProjectDiscoveryService.drafts("switch",config).getFirst();
+        final var payload = new ProjectDto.SubnetPayload(draft.getId(), draft.getCidr(), "Sensitive", "업무망",
                 "switch", true, 131);
         final var saved = ProjectSubnet.from(payload.toPolicySubnet());
         assertEquals(131, saved.getVlanId()); assertEquals(ZoneClass.SENSITIVE, saved.getZoneClass());
         final var project = new Project(); project.setProjectKey("test");
         project.getSubnets().add(saved);
-        final var view = ProjectDiscoveryService.editingView(project, Map.of("switch",collected()));
+        final var view = ProjectDiscoveryService.editingView(project, Map.of("switch",config));
         final var rows = (List<?>) view.get("subnets");
-        assertEquals(2, rows.size());
+        assertEquals(1, rows.size());
         final var row = (Map<?,?>) rows.getFirst();
         assertEquals("업무망",row.get("name")); assertEquals("Sensitive",row.get("subnet_class"));
-        assertEquals(131,row.get("vlan_id")); assertEquals("",row.get("cidr"));
+        assertEquals(131,row.get("vlan_id")); assertEquals("10.10.131.0/24",row.get("cidr"));
         assertEquals("업무망",ProjectMapper.toSubnetList(project).getFirst().get("name"));
     }
 
     @Test void incompleteVlanCannotBeReportedAsCompliant() {
-        final var draft = ProjectDiscoveryService.drafts("switch",collected());
-        final var report = new SegmentationBddEngine().validate(draft,List.of());
+        // 주소 없는 VLAN 은 초안이 되지 않으므로, 대역을 못 채운 서브넷을
+        // 직접 만들어 "미완성은 적합할 수 없다" 계약을 지킵니다.
+        final var incomplete = new org.sonar.sonarvalidator_backend.Policy.PolicySubnet();
+        incomplete.setId("VLAN132-incomplete");
+        incomplete.setVlanId(132);
+        incomplete.setCidr("");
+        final var report = new SegmentationBddEngine().validate(List.of(incomplete),List.of());
         assertFalse(report.isCompliant()); assertFalse(report.getViolations().isEmpty());
     }
 
@@ -64,8 +74,8 @@ class ProjectDiscoveryTest {
         final var iface = config.getInterfaces().get("eth1");
         iface.getAddresses().add("10.10.131.1/24");
         final var rows = ProjectDiscoveryService.drafts("router",config);
+        assertEquals(1, rows.size(), "주소 없는 VLAN132 는 초안이 되지 않습니다");
         assertEquals("10.10.131.0/24",rows.getFirst().getCidr());
-        assertEquals("",rows.getLast().getCidr());
         assertNull(rows.getFirst().getZoneClass());
     }
 }

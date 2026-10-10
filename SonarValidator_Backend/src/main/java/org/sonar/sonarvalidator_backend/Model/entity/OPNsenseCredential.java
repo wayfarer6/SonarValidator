@@ -115,6 +115,22 @@ public class OPNsenseCredential {
     @Column(name = "detected_version", length = 64)
     private String detectedVersion;
 
+    /**
+     * 이 장치가 속한 프로젝트 키입니다. (선택)
+     *
+     * <h2>⚠️ 왜 자격증명에 프로젝트를 두는가</h2>
+     * <p>OPNsense 는 프로버를 올릴 수 없어 {@code expected_agent} 에 등록되지
+     * 않습니다. 그래서 "이 방화벽이 어느 프로젝트 것인가" 를 알 근거가
+     * 어디에도 없었고, 화면에서는 프로젝트를 표시할 수 없었습니다.
+     * 노드({@code configuration})는 여러 프로젝트에 걸쳐 쓰일 수 있으므로
+     * 노드에 붙이지 않고 <b>접속 정보에</b> 붙입니다.
+     *
+     * <p>비어 있으면 "미지정" 입니다 — 기존 레코드를 깨뜨리지 않기 위해
+     * nullable 로 둡니다.
+     */
+    @Column(name = "project_key", length = 120)
+    private String projectKey;
+
     /** 생성 시각. */
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     @Column(name = "created_at")

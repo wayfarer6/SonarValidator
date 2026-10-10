@@ -67,6 +67,17 @@ public class OPNsenseController {
     private final AgentMessageRouterService router;
 
     /**
+     * 전송 계층 허용 정책입니다.
+     *
+     * <p>⚠️ {@code connection.isUsable()} 를 쓰면 안 됩니다. 그것은
+     * <b>HTTPS 만</b> 허용하므로, 서버가 {@code SONAR_OPNSENSE_HTTP_ORIGINS}
+     * 로 명시 허용한 HTTP 랩 장비(예: {@code http://10.20.0.2})를 거부합니다.
+     * 그러면 <b>저장/연결 테스트는 성공하는데 원문 조회만 400</b> 이라는
+     * 모순된 화면이 됩니다. 허용 판단은 API 클라이언트와 같은 정책을 씁니다.
+     */
+    private final org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseTransportPolicy transportPolicy;
+
+    /**
      * 진단 대상 선택기입니다.
      *
      * <p>이 컨트롤러가 API 클라이언트의 모든 메서드를 알 필요가 없게 합니다.
@@ -81,17 +92,20 @@ public class OPNsenseController {
      * @param registry          Agent 세션 레지스트리 (대상 Agent 목록)
      * @param router            Agent 설정 보관소 (OPNsense 장치 탐지)
      * @param probeStrategies   진단 대상 선택기
+     * @param transportPolicy   전송 계층 허용 정책
      */
     public OPNsenseController(OPNsenseCredentialService credentialService,
                               OPNsenseApiClient apiClient,
                               AgentSessionRegistry registry,
                               AgentMessageRouterService router,
-                              org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategies probeStrategies) {
+                              org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategies probeStrategies,
+                              org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseTransportPolicy transportPolicy) {
         this.credentialService = credentialService;
         this.apiClient = apiClient;
         this.registry = registry;
         this.router = router;
         this.probeStrategies = probeStrategies;
+        this.transportPolicy = transportPolicy;
     }
 
     /**
@@ -118,6 +132,7 @@ public class OPNsenseController {
      * @param apiSecret        API Secret (비우면 기존 유지)
      * @param allowInsecureTls 자체 서명 인증서 허용 여부
      * @param verifyNow        저장 직후 연결 확인 여부
+     * @param projectKey       이 장치가 속한 프로젝트 키 (선택). 비우면 기존 값 유지
      */
     public record CredentialRequest(
             @JsonProperty("display_name") String displayName,
@@ -125,7 +140,8 @@ public class OPNsenseController {
             @JsonProperty("api_key") String apiKey,
             @JsonProperty("api_secret") String apiSecret,
             @JsonProperty("allow_insecure_tls") Boolean allowInsecureTls,
-            @JsonProperty("verify_now") Boolean verifyNow) {
+            @JsonProperty("verify_now") Boolean verifyNow,
+            @JsonProperty("project_key") String projectKey) {
     }
 
     /**
@@ -174,7 +190,7 @@ public class OPNsenseController {
             return forbidden("OPNsense 자격증명은 운영자만 변경할 수 있습니다.");
         }
         final CredentialRequest request = body == null
-                ? new CredentialRequest(null, null, null, null, null, null)
+                ? new CredentialRequest(null, null, null, null, null, null, null)
                 : body;
         try {
             final Map<String, Object> saved = credentialService.save(
@@ -184,7 +200,8 @@ public class OPNsenseController {
                     request.apiKey(),
                     request.apiSecret(),
                     Boolean.TRUE.equals(request.allowInsecureTls()),
-                    request.verifyNow() == null || request.verifyNow());
+                    request.verifyNow() == null || request.verifyNow(),
+                    request.projectKey());
             return ResponseEntity.ok(saved);
         } catch (IllegalArgumentException ex) {
             // 입력 오류는 400 으로 돌려줘 화면이 그대로 보여줄 수 있게 합니다.
@@ -282,10 +299,25 @@ public class OPNsenseController {
                     .body(Map.of("message", "OPNsense 설정이 없습니다: " + agentId));
         }
         final OPNsenseConnection connection = credentialService.toConnection(credential);
-        if (connection == null || !connection.isUsable()) {
+        // ⚠️ 실패 사유를 하나로 뭉치지 않습니다. "불완전하거나 복호화 실패" 라고
+        //    쓰면 운영자는 Secret 을 다시 입력하는 헛수고를 합니다. 실제로는
+        //    HTTP 랩 장비가 정책에서 빠진 것뿐일 수 있습니다.
+        if (connection == null) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "message", "접속 정보가 불완전하거나 시크릿 복호화에 실패했습니다. "
+                    "message", "시크릿 복호화에 실패했습니다. (SONAR_SECRET_KEY 가 바뀌었을 수 있습니다) "
                             + "Secret 을 다시 입력해 저장하세요."));
+        }
+        if (connection.apiKey() == null || connection.apiKey().isBlank()
+                || connection.apiSecret() == null || connection.apiSecret().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message", "API Key 또는 Secret 이 비어 있습니다. 다시 입력해 저장하세요."));
+        }
+        if (!transportPolicy.allows(connection)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message", "이 주소로는 요청을 보낼 수 없습니다. 평문 HTTP 가 금지되어 있거나"
+                            + "(sonar.opnsense.allow-http=false) 허용 목록에 없습니다"
+                            + "(sonar.opnsense.http-origins). 대상 주소: "
+                            + connection.normalizedBaseUrl()));
         }
 
         // ⚠️ 대상 분기는 전략 선택기가 합니다.

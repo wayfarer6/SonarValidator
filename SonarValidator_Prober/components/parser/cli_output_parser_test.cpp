@@ -346,6 +346,62 @@ void TestCiscoRoute()
 }
 
 // ---------------------------------------------------------------------------
+//  show ip route  (Arista vEOS 샘플 — 2026-10-10 실장비 10.20.0.4 출력)
+//
+//  ⚠️ 이 수집이 빠져 있어 "이 스위치는 인터넷으로 나가지 않는다" 로 잘못
+//     판정했습니다. vEOS 는 기본 경로를 가질 수 있고(아래 S 0.0.0.0/0),
+//     그 사실이 수집되어야 기밀망 인터넷 노출을 검사할 수 있습니다.
+// ---------------------------------------------------------------------------
+const char* kAristaRouteSample =
+    "VRF: default\n"
+    "Codes: C - connected, S - static, K - kernel, \n"
+    "       O - OSPF, IA - OSPF inter area, E1 - OSPF external type 1,\n"
+    "       E2 - OSPF external type 2, N1 - OSPF NSSA external type 1,\n"
+    "       N2 - OSPF NSSA external type2, B - Other BGP Routes,\n"
+    "       B I - iBGP, B E - eBGP, R - RIP, I L1 - IS-IS level 1,\n"
+    "       I L2 - IS-IS level 2, O3 - OSPFv3, A B - BGP Aggregate,\n"
+    "       A O - OSPF Summary, NG - Nexthop Group Static Route,\n"
+    "       V - VXLAN Control Service, M - Martian,\n"
+    "       DH - DHCP client installed default route,\n"
+    "       DP - Dynamic Policy Route, L - VRF Leaked,\n"
+    "       G  - gRIBI, RC - Route Cache Route,\n"
+    "       CL - CBF Leaked Route\n"
+    "\n"
+    "Gateway of last resort:\n"
+    " S        0.0.0.0/0 [1/0] via 172.18.10.1, Ethernet1\n"
+    "\n"
+    " C        10.0.8.0/24 is directly connected, Vlan8\n"
+    " C        10.0.9.0/24 is directly connected, Vlan9\n"
+    " C        10.20.0.0/24 is directly connected, Management1\n"
+    " C        172.18.10.0/24 is directly connected, Ethernet1\n";
+
+void TestAristaRoute()
+{
+    std::cout << "\n--- show ip route (Arista vEOS) ---\n";
+    const auto json = cli_parser::ParseRouteStatus(kAristaRouteSample, Vendor::kArista);
+
+    Check(json.contains("routes"), "routes 배열 존재");
+    const auto& routes = json["routes"];
+    Check(routes.is_array() && routes.size() == 5,
+          "라우트 5개 (got=" + std::to_string(routes.size()) + ")");
+
+    CheckEq(routes[0]["protocol"].get<std::string>(), "static", "라우트0 static");
+    CheckEq(routes[0]["prefix"].get<std::string>(), "0.0.0.0/0",
+            "라우트0 기본 경로 — 인터넷 노출 판정의 근거");
+    CheckEq(routes[0]["next_hop"].get<std::string>(), "172.18.10.1", "라우트0 next_hop");
+    CheckEq(routes[0]["interface_name"].get<std::string>(), "Ethernet1",
+            "라우트0 인터페이스명");
+
+    // VLAN SVI 대역이 직접 연결로 수집되어야 대역 간 연결도 만들 수 있습니다.
+    CheckEq(routes[1]["protocol"].get<std::string>(), "connected", "라우트1 connected");
+    CheckEq(routes[1]["prefix"].get<std::string>(), "10.0.8.0/24", "라우트1 Vlan8 대역");
+    Check(routes[1]["connected"].get<bool>(), "라우트1 directly connected");
+    CheckEq(routes[1]["interface_name"].get<std::string>(), "Vlan8", "라우트1 Vlan8 인터페이스");
+
+    Check(json["parsed"].get<bool>(), "Arista 라우팅 문법 오류 없음");
+}
+
+// ---------------------------------------------------------------------------
 //  show ip interface brief  (Cisco 샘플)
 // ---------------------------------------------------------------------------
 const char* kCiscoIfaceBriefSample =
@@ -671,6 +727,7 @@ int main()
     TestNftRuleset();
     TestNftDropRule();
     TestAristaVlan();
+    TestAristaRoute();
     TestArpTables();
     TestRobustness();
     TestRouteNoiseIsRejected();

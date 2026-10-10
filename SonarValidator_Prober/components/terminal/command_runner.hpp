@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <string>
+#include <stop_token>
 
 namespace command_runner
 {
@@ -17,7 +18,8 @@ struct Result
 
 Result RunWithStatus(const std::string& command,
                      std::chrono::milliseconds timeout,
-                     std::size_t max_output_bytes = 4 * 1024 * 1024);
+                     std::size_t max_output_bytes = 4 * 1024 * 1024,
+                     std::stop_token stop_token = {});
 
 std::string Run(const std::string& command,
                 std::chrono::milliseconds timeout,

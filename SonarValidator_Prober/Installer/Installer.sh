@@ -8,17 +8,7 @@ if [ "$(id -u)" -ne 0 ]; then
 	exit 1
 fi
 
-# Create account for daemon
-if ! getent group sonar >/dev/null 2>&1; then
-	addgroup --system sonar 2>/dev/null || groupadd -r sonar
-fi
-if ! id -u sonar >/dev/null 2>&1; then
-	adduser --system --no-create-home --shell /usr/sbin/nologin --ingroup sonar sonar 2>/dev/null || useradd -r -s /bin/false -g sonar sonar
-fi
-
-
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 SOURCE_BINARY="$SCRIPT_DIR/sonar_validator_prober"
 TARGET_BINARY="/usr/local/bin/sonar_validator_prober"
 TARGET_CONFIG="/etc/sonar_validator_prober/default.conf"
@@ -41,17 +31,59 @@ else
 fi
 
 
+# Auto-detect Cisco guestshell; an explicit profile also works with sudo's PATH.
+PROFILE=${SONAR_INSTALL_PROFILE:-auto}
+if [ "$PROFILE" = auto ]; then
+    PROFILE=generic
+    if id guestshell >/dev/null 2>&1 && { command -v dohost >/dev/null 2>&1 || [ -x /usr/bin/dohost ]; }; then
+        PROFILE=cisco
+    fi
+fi
+case "$PROFILE" in
+    cisco)
+        id guestshell >/dev/null 2>&1 || { echo "Cisco profile requires guestshell user" >&2; exit 1; }
+        SERVICE_SOURCE="$SCRIPT_DIR/systemd/sonar_validator_prober-cisco.service"
+        SERVICE_USER=guestshell
+        ;;
+    generic)
+        SERVICE_SOURCE="$SCRIPT_DIR/systemd/sonar_validator_prober.service"
+        SERVICE_USER=root
+        ;;
+    *) echo "Unknown SONAR_INSTALL_PROFILE: $PROFILE (auto|generic|cisco)" >&2; exit 1 ;;
+esac
+SERVICE_GROUP=$(id -gn "$SERVICE_USER")
+for asset in "$SCRIPT_DIR/default.conf" "$SCRIPT_DIR/default_template.sqlite"; do
+    [ -f "$asset" ] || { echo "Missing bundle asset: $asset" >&2; exit 1; }
+done
+if [ "$INIT_SYSTEM" = systemd ]; then
+    [ -f "$SERVICE_SOURCE" ] || { echo "Missing service: $SERVICE_SOURCE" >&2; exit 1; }
+    if systemctl is-active --quiet sonar_validator_prober.service; then
+        systemctl stop sonar_validator_prober.service
+    fi
+elif [ "$INIT_SYSTEM" = openrc ]; then
+    [ -f "$SCRIPT_DIR/rc-service/sonar_validator_prober" ] || {
+        echo "Missing OpenRC service; stage a complete installer bundle" >&2; exit 1;
+    }
+    if rc-service sonar_validator_prober status >/dev/null 2>&1; then
+        rc-service sonar_validator_prober stop
+    fi
+fi
+
 install -o root -g root -Dm755 "$SOURCE_BINARY" "$TARGET_BINARY"
-install -o root -g root -Dm644 "$SCRIPT_DIR/default.conf" "$TARGET_CONFIG"
+install -o "$SERVICE_USER" -g "$SERVICE_GROUP" -d -m750 /etc/sonar_validator_prober
+install -o "$SERVICE_USER" -g "$SERVICE_GROUP" -Dm600 "$SCRIPT_DIR/default.conf" "$TARGET_CONFIG"
 install -o root -g root -Dm644 "$SCRIPT_DIR/default_template.sqlite" "$TARGET_TEMPLATE"
-install -o sonar -g sonar  -d -m750 "$TARGET_DATA_DIR"
+install -o "$SERVICE_USER" -g "$SERVICE_GROUP" -d -m750 "$TARGET_DATA_DIR"
+# Existing data was created by the previous service account (often root).
+chown -R "$SERVICE_USER:$SERVICE_GROUP" "$TARGET_DATA_DIR"
 
 if [ "$INIT_SYSTEM" = "systemd" ]; then
-	install -Dm644 "$SCRIPT_DIR/systemd/sonar_validator_prober.service" \
+	install -Dm644 "$SERVICE_SOURCE" \
 		/etc/systemd/system/sonar_validator_prober.service
 	systemctl daemon-reload
-	systemctl enable --now sonar_validator_prober.service
-	echo "Installed and started with systemd."
+	systemctl enable sonar_validator_prober.service
+	systemctl restart sonar_validator_prober.service
+	echo "Installed and started with systemd (profile=$PROFILE, user=$SERVICE_USER)."
 elif [ "$INIT_SYSTEM" = "openrc" ]; then
 	install -Dm755 "$SCRIPT_DIR/rc-service/sonar_validator_prober" \
 		/etc/init.d/sonar_validator_prober

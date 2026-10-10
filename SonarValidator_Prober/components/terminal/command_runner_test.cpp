@@ -3,6 +3,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <thread>
 
 namespace
 {
@@ -42,5 +43,15 @@ int main()
     Expect(command_runner::Run("printf '123456'", std::chrono::seconds(1), 4).empty(),
            "stops commands that exceed output limit", failures);
 
+    std::stop_source source;
+    std::jthread cancel([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        source.request_stop();
+    });
+    const auto cancel_start = std::chrono::steady_clock::now();
+    const auto cancelled = command_runner::RunWithStatus(
+        "trap '' TERM; exec sleep 30", std::chrono::seconds(20), 4096, source.get_token());
+    Expect(!cancelled.completed && std::chrono::steady_clock::now() - cancel_start < std::chrono::seconds(2),
+           "shutdown cancels an active command and its process group", failures);
     return failures == 0 ? 0 : 1;
 }

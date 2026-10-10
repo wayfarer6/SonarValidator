@@ -13,6 +13,7 @@ import { useApiAction } from "../hooks/useApiAction";
 import { createProject, deleteProject, listProjects } from "../lib/api/projects";
 import AgentDeployCard from "../components/project/AgentDeployCard";
 import ProjectAgentList from "../components/project/ProjectAgentList";
+import ApiConnectedNodesPanel from "../components/opnsense/ApiConnectedNodesPanel";
 
 /**
  * 프로젝트 목록 화면입니다.
@@ -268,6 +269,20 @@ export default function Project() {
             </div>
           ))}
         </div>
+
+        {/*
+          API 연결 장치 — 프로버 없이 REST API 로만 붙는 장비(OPNsense 등)입니다.
+
+          ⚠️ 프로젝트 카드마다 나누지 않고 공통 목록으로 한 번만 보여줍니다.
+             각 프로젝트 카드 아래에 같은 목록을 반복하면 "이 카드의 장치" 처럼
+             오해됩니다. 대신 각 행이 <b>소속 프로젝트</b> 를 직접 표시하므로,
+             어느 프로젝트 것인지는 목록에서 바로 알 수 있습니다. 소속 지정·해제는
+             각 행의 편집에서 합니다.
+        */}
+        <ApiConnectedNodesPanel
+          title="API 연결 장치"
+          description="프로버 없이 REST API 로 직접 연결되는 장비입니다(예: OPNsense). Agent 목록에는 나타나지 않으며, 각 행에 소속 프로젝트를 함께 표시합니다."
+        />
       </div>
 
       {/* Create Modal */}

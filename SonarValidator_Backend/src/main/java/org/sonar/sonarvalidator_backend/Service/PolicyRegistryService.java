@@ -15,6 +15,7 @@ import org.sonar.sonarvalidator_backend.Model.entity.ProjectRule;
 import org.sonar.sonarvalidator_backend.Model.entity.ProjectSubnet;
 import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
 import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
+import org.sonar.sonarvalidator_backend.Policy.strategy.BatchPolicyContext;
 import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicies;
 import org.sonar.sonarvalidator_backend.Policy.strategy.DevicePolicy;
 import org.sonar.sonarvalidator_backend.Policy.strategy.PolicyBuildContext;
@@ -84,6 +85,24 @@ public class PolicyRegistryService {
      * 이유가 없고, 서버 장애가 하루 미만이면 기존 정책으로 버틸 수 있습니다.
      */
     private static final long VALID_HOURS = 24;
+
+    /**
+     * 허용 목록이 인터넷을 막을 때 만들어지는 <b>합성 연결</b>의 규칙 식별자입니다.
+     *
+     * <h2>⚠️ 왜 규칙이 아니라 합성인가</h2>
+     * <p>인터넷은 프로젝트 서브넷이 아니므로 규칙의 출발지/도착지로 적을 수
+     * 없습니다. 그런데 "기밀망은 인터넷으로 나가면 안 된다" 는 요구사항을
+     * 실행하려면 <b>기본 경로 전체</b>를 막아야 합니다. 그래서 운영자가 허용
+     * 목록에 {@code internet} 을 넣지 않은 경우에만 이 연결을 만들어
+     * {@code deny ip <대역> <와일드> 0.0.0.0 255.255.255.255} 를 내려보냅니다.
+     *
+     * <p>고정 식별자를 쓰는 이유는 UI/로그에서 "규칙 때문" 과 "허용 목록 때문" 을
+     * 구분하기 위함입니다.
+     */
+    public static final String INTERNET_GUARD_RULE = "egress-internet-guard";
+
+    /** 인터넷 전체를 가리키는 대역입니다. (기본 경로) */
+    public static final String INTERNET_CIDR = "0.0.0.0/0";
 
     private boolean automaticEnforcementEnabled = true;
 
@@ -509,17 +528,36 @@ public class PolicyRegistryService {
         final ArrayNode policies = policy.putArray("policies");
         policies.add(strategy.declarationRule(
                 PolicyBuildContext.forDeclaration(subnet, vendor, product)));
+
+        // 연결 뷰를 한 번만 만들어 규칙 생성과 일괄 집행이 같은 입력을 보게 합니다.
+        final List<PolicyBuildContext.ConnectionView> views = new ArrayList<>(connections.size());
         for (final Connection connection : connections) {
+            views.add(connection.toView());
+        }
+        for (final PolicyBuildContext.ConnectionView view : views) {
             final ObjectNode rule = strategy.enforcementRule(
-                    PolicyBuildContext.forConnection(subnet, vendor, product, connection.toView()));
+                    PolicyBuildContext.forConnection(subnet, vendor, product, view));
             if (rule != null) {
                 policies.add(rule);
             }
         }
 
-        log.info("policy built: project={} subnet={} type={} allowed={} denied={} rules={}",
+        // 여러 연결을 한 번에 내려야 하는 유형(이름으로 다시 쓰는 ACL)은 별도
+        // 키로 싣습니다. Prober 는 policies[] 를 적용하기 **전에** 이 노드를
+        // 한 번 처리합니다.
+        //
+        // ⚠️ acl_apply 는 "지금 남아 있어야 하는 규칙 전체" 입니다. 여기서
+        //    빼면 장치에서도 빠져야 합니다(운영자가 금지 연결을 지운 경우).
+        final ObjectNode aclApply = strategy.batchEnforcementRule(
+                new BatchPolicyContext(subnet, vendor, product, views));
+        if (aclApply != null) {
+            policy.set("acl_apply", aclApply);
+        }
+
+        log.info("policy built: project={} subnet={} type={} allowed={} denied={} rules={} acl={}",
                 project.getProjectKey(), subnetId, type,
-                countAllowed(connections), countDenied(connections), policies.size());
+                countAllowed(connections), countDenied(connections), policies.size(),
+                aclApply == null ? "none" : "applied");
         return policy;
     }
 
@@ -596,8 +634,20 @@ public class PolicyRegistryService {
 
             final boolean outgoing = ownId != null && ownId.equals(source.getSubnetId());
             final boolean incoming = ownId != null && ownId.equals(destination.getSubnetId());
-            final boolean forbidden = ZoneClass.forbidsDirectConnection(
+
+            // 두 가지 이유로 금지될 수 있습니다.
+            //   1) 등급을 건너뛰는 직접 연결 (망분리 규칙)
+            //   2) 운영자가 적은 허용 목록 밖으로 나가는 연결
+            // 등급 위반을 먼저 판정합니다 — 사유 문구가 더 구체적이고, 두 사유가
+            // 겹쳐도 운영자가 먼저 고쳐야 할 것은 등급 문제입니다.
+            final boolean zoneViolation = ZoneClass.forbidsDirectConnection(
                     source.getZoneClass(), destination.getZoneClass());
+            // ⚠️ 상대의 <b>모든 표기</b>(식별자 + CIDR)를 넘깁니다. 화면은
+            //    식별자를 보내고 저장된 상대는 CIDR 일 수 있어서, 한쪽만
+            //    비교하면 운영자가 허용한 상대가 매칭되지 않습니다.
+            final boolean egressViolation = !zoneViolation && outgoing
+                    && !subnet.allowsAnyPeer(destination.getSubnetId(), destination.getCidr());
+            final boolean forbidden = zoneViolation || egressViolation;
 
             // 방화벽은 자기 서브넷에 닿지 않아도 금지 연결을 집행합니다.
             if (!outgoing && !incoming && !(firewall && forbidden)) {
@@ -620,12 +670,69 @@ public class PolicyRegistryService {
                     rule.getProtocol() == null ? "tcp" : rule.getProtocol(),
                     rule.getPort(),
                     forbidden,
-                    forbidden
-                            ? "등급 건너뜀: " + PolicyJson.label(source.getZoneClass()) + " -> "
-                                    + PolicyJson.label(destination.getZoneClass()) + " 직접 연결 금지"
-                            : "프로젝트 규칙 허용"));
+                    egressViolation
+                            ? "허용 목록 밖: " + PolicyJson.label(subnet.getZoneClass())
+                                    + " 는 [" + String.join(", ", subnet.allowedPeerList())
+                                    + "] 만 연결하도록 지정되었습니다."
+                            : forbidden
+                                    ? "등급 건너뜀: " + PolicyJson.label(source.getZoneClass())
+                                            + " -> " + PolicyJson.label(destination.getZoneClass())
+                                            + " 직접 연결 금지"
+                                    : "프로젝트 규칙 허용"));
+        }
+
+        // 허용 목록에 인터넷이 없으면 <b>기본 경로 전체</b>를 막습니다.
+        //
+        // ⚠️ 규칙에 인터넷이 적혀 있지 않아도 막아야 합니다. 운영자가 "기밀망은
+        //    인터넷으로 나가면 안 된다" 고 목록으로 표현했는데, 인터넷은 규칙으로
+        //    적기 어려운 대상(대역이 없음)이라 목록이 유일한 표현 수단입니다.
+        //    목록이 있는데 인터넷을 안 막으면 요구사항이 그대로 실행되지 않습니다.
+        if (subnet.isRestricted() && !subnet.allowsInternet()) {
+            addRestrictedInternet(result, subnet);
         }
         return result;
+    }
+
+    /**
+     * 허용 목록이 인터넷을 막는 경우, <b>기본 경로 전체</b>를 차단하는 연결을 추가합니다.
+     *
+     * <h2>⚠️ 왜 공개망(Open)에는 넣지 않는가</h2>
+     * <p>공개망은 인터넷과 연동되는 것이 정상입니다. 목록에 인터넷을 안 적었다는
+     * 이유로 공개망의 인터넷을 끊으면 <b>서비스가 통째로 멈춥니다</b>.
+     * 그래서 등급이 Open 이면 인터넷 차단을 만들지 않습니다.
+     *
+     * <p>나머지 등급은 차단 대상 {@code 0.0.0.0/0} 하나로 표현합니다. ACL 은
+     * {@code deny ip <대역> <와일드카드> 0.0.0.0 255.255.255.255} 가 되어
+     * 어떤 목적지로도 나갈 수 없습니다.
+     *
+     * @param result  연결 목록 (여기에 추가합니다)
+     * @param subnet  제한된 서브넷
+     */
+    private static void addRestrictedInternet(List<Connection> result, ProjectSubnet subnet) {
+        if (subnet.getZoneClass() == null || subnet.getZoneClass() == ZoneClass.OPEN) {
+            return;
+        }
+        if (subnet.getCidr() == null || subnet.getCidr().isBlank()) {
+            return;
+        }
+        // 중복 추가 방지 (같은 서브넷을 두 번 처리하지 않게)
+        for (final Connection existing : result) {
+            if (INTERNET_GUARD_RULE.equals(existing.ruleId())) {
+                return;
+            }
+        }
+        result.add(new Connection(
+                INTERNET_GUARD_RULE,
+                true,
+                "internet",
+                INTERNET_CIDR,
+                ZoneClass.OPEN,
+                subnet.getCidr(),
+                INTERNET_CIDR,
+                "ip",
+                null,
+                true,
+                "허용 목록 밖: 인터넷이 허용 대상에 없어 기본 경로(0.0.0.0/0)를 차단합니다."));
     }
 
     /**

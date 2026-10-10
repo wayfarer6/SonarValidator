@@ -183,6 +183,10 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    std::cerr << "[CONFIG] agent=" << config.GetAgentName()
+              << " server=" << config.GetServerIpv4() << ':' << config.GetServerPort()
+              << " product=" << config.GetProductName() << '\n';
+
     // ------------------------------------------- --export-once (한 번만) --
     // 서버가 없는 장비에서 설정만 뽑아 갈 때 쓰는 경로입니다.
     if (options.export_once)
@@ -222,11 +226,50 @@ int main(int argc, char **argv)
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    database_queue.Close();
     telemetry_thread.request_stop();
     management_thread.request_stop();
     terminal_thread.request_stop();
-    database_thread.request_stop();
+
+    // ----------------------------------------------------- 종료 예산(watchdog) --
+    // 각 워커는 stop_token 을 존중하지만, 하위 프로세스(dohost/FastCli)나
+    // 소켓이 비정상 상태면 join 이 오래 걸릴 수 있습니다. 그동안 main 은
+    // join 에서 멈춰 있어 systemd 는 "종료되지 않는" 것으로 보고
+    // TimeoutStopSec 후 SIGKILL 합니다. 그래서 예산을 두고, 넘기면 강제로
+    // 종료합니다. (_Exit 는 정적 소멸자를 건너뛰어 그쪽 블록도 피합니다.)
+    std::atomic<bool> shutdown_complete{false};
+    std::thread shutdown_watchdog([&shutdown_complete]() {
+        // 정지 요청 후 이 시간이 지나면 강제 종료합니다. 서비스 파일의
+        // TimeoutStopSec(15s)보다 짧아야 SIGKILL 을 피합니다.
+        static constexpr std::chrono::seconds kBudget{8};
+        const auto deadline = std::chrono::steady_clock::now() + kBudget;
+        while (std::chrono::steady_clock::now() < deadline)
+        {
+            if (shutdown_complete.load())
+            {
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        if (!shutdown_complete.load())
+        {
+            std::cerr << "[SHUTDOWN] worker did not stop within " << kBudget.count()
+                      << "s; forcing exit\n";
+            std::cerr.flush();
+            std::_Exit(0);
+        }
+    });
+
+    telemetry_thread.join();
+    management_thread.join();
+    terminal_thread.join();
+    database_queue.Close();
+    database_thread.join();
+
+    shutdown_complete.store(true);
+    if (shutdown_watchdog.joinable())
+    {
+        shutdown_watchdog.join();
+    }
 
     std::cout << "[INFO] Clean shutdown complete.\n";
     return 0;

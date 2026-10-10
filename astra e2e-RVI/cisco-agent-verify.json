@@ -1,0 +1,70 @@
+{
+  "target": "Cisco 8000v guestshell (10.20.0.1:2222)",
+  "verified_at_utc": "2026-10-10T00:56:20Z",
+  "binary": {
+    "path_on_device": "/usr/local/bin/sonar_validator_prober",
+    "size_bytes": 9411792,
+    "built": "Release, statically linked (build-rvi)",
+    "deployed_at": "2026-10-10 00:54"
+  },
+  "config_on_device": {
+    "path": "/etc/sonar_validator_prober/default.conf",
+    "SERVER_IP": "10.20.0.3",
+    "SERVER_PORT": 3000,
+    "NODE_TYPE": "Router",
+    "AGENT_NAME": "Cisco-Router",
+    "TERMINAL_SHARED_SECRET": "64 chars (값 비공개)",
+    "MANAGEMENT_PREFIX": "10.20.0.0/24,192.168.35.0/24,192.168.122.0/24"
+  },
+  "verified_fixes": {
+    "sigterm_clean_shutdown": {
+      "evidence": [
+        "systemd[1]: Stopping Sonar Validator Prober (Cisco guestshell)...",
+        "sonar_validator_prober[1551]: [INFO] Clean shutdown complete.",
+        "systemd[1]: sonar_validator_prober.service: Succeeded."
+      ],
+      "before": "구버전 바이너리는 같은 unit 에서 deactivating 상태로 90초(TimeoutStopSec) 동안 멈춰 있었음 (실측)",
+      "verdict": "수정 확인 — 즉시 정상 종료"
+    },
+    "terminal_key_and_handshake": {
+      "evidence": [
+        "[TERMINAL] shared secret loaded (length=64)",
+        "[TERMINAL] WebSocket handshake completed",
+        "[TERMINAL] WebSocket text mode enabled",
+        "[TERMINAL] terminal-hello sent"
+      ],
+      "note": "구버전은 [TERMINAL] disabled 였음(빈 키). 이제 실제 키로 핸드셰이크·등록까지 성공",
+      "verdict": "수정 확인"
+    },
+    "dohost_failure_detection": {
+      "evidence": [
+        "[IOS] guestshell↔IOS CLI 세션이 없습니다. dohost 실패: IOSP_SESSION/app-session-info 부재. IOS 에서 `guestshell disable` → `guestshell enable` 로 guestshell 앱을 재시작해야 합니다.",
+        "[COLLECT] empty output: show ip arp",
+        "[COLLECT] empty output: show ip interface brief",
+        "[COLLECT] empty output: show ip route",
+        "[COLLECT] no usable state collected (product=Cisco 8000v, commands=3, empty=3)"
+      ],
+      "before": "commands=3, empty=0 — 실패 텍스트(Unexpected Error)가 데이터로 집계됨",
+      "after": "empty=3 + 원인·복구 안내 로그",
+      "verdict": "수정 확인"
+    },
+    "management_channel": {
+      "evidence": [
+        "[CONFIG] agent=Cisco-Router server=10.20.0.3:3000 product=Cisco 8000v",
+        "[INFO] Management worker received policy: {...,\"policy_id\":\"pol-router-0001\",...}"
+      ],
+      "verdict": "정상 — 서버에서 정책 수신"
+    }
+  },
+  "remaining_blocker": {
+    "symptom": "show ip interface brief / show ip route / show ip arp 가 모두 빈 출력",
+    "cause": "guestshell↔IOS CLI 세션(IOSP) 부재 — /cisco/cisco_cli/app-session-info 없음, IOSP_SESSION 없음, /tmp/rp 없음",
+    "scope": "네트워크/설정/코드 문제 아님. IOS 측 세션 문제.",
+    "fix": [
+      "IOS CLI 에서 `guestshell` 진입(또는 guestshell disable/enable)으로 container-shell-session 생성",
+      "세션이 살아 있는 동안 python cli 폴백(app-session-info)이 동작해 dohost 가능",
+      "확인: dohost \"show version\" 이 IOS 출력을 반환"
+    ],
+    "why_not_done": "IOS CLI(22) SSH 가 이 호스트의 키를 거부하고 비밀번호 인증도 거부해 원격 실행 불가. 콘솔(enable) 필요."
+  }
+}

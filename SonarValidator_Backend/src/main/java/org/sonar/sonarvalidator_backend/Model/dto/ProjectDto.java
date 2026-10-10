@@ -54,6 +54,10 @@ public final class ProjectDto {
      * @param name           표시용 이름
      * @param agentId        자동 수집 출처 장치
      * @param manuallyEdited 수동 편집 여부 (생략하면 false)
+     * @param vlanId         VLAN 번호 (선택)
+     * @param allowedPeers   이 서브넷이 연결을 허용하는 상대 목록 (비어 있으면 제한 없음).
+     *                       상대 서브넷 식별자/CIDR 또는 특수 토큰 {@code internet}.
+     *                       자세한 의미는 {@link PolicySubnet#getAllowedPeers()} 참고.
      */
     public record SubnetPayload(
             String id,
@@ -62,11 +66,32 @@ public final class ProjectDto {
             String name,
             @JsonProperty("agent_id") String agentId,
             @JsonProperty("manually_edited") Boolean manuallyEdited,
-            @JsonProperty("vlan_id") Integer vlanId) {
+            @JsonProperty("vlan_id") Integer vlanId,
+            @JsonProperty("allowed_peers") List<String> allowedPeers) {
 
         public SubnetPayload(String id, String cidr, String subnetClass, String name,
                              String agentId, Boolean manuallyEdited) {
-            this(id, cidr, subnetClass, name, agentId, manuallyEdited, null);
+            this(id, cidr, subnetClass, name, agentId, manuallyEdited, null, null);
+        }
+
+        /**
+         * VLAN 까지 지정하는 편의 생성자입니다.
+         *
+         * <p>허용 목록은 마지막 인자라 <b>생략하면 제한 없음</b> 이 됩니다.
+         * 이 동작이 기본값으로 맞습니다 — 허용 목록을 안 보내는 호출부(수집
+         * 테스트 등)는 제한을 걸 의도가 없습니다.
+         *
+         * @param id             서브넷 식별자
+         * @param cidr           CIDR 대역
+         * @param subnetClass    등급
+         * @param name           표시용 이름
+         * @param agentId        담당 장치
+         * @param manuallyEdited 수동 편집 여부
+         * @param vlanId         VLAN 번호
+         */
+        public SubnetPayload(String id, String cidr, String subnetClass, String name,
+                             String agentId, Boolean manuallyEdited, Integer vlanId) {
+            this(id, cidr, subnetClass, name, agentId, manuallyEdited, vlanId, null);
         }
 
         /**
@@ -83,6 +108,10 @@ public final class ProjectDto {
             subnet.setName(name);
             subnet.setAgentId(agentId);
             subnet.setManuallyEdited(manuallyEdited != null && manuallyEdited);
+            // ⚠️ null 과 빈 목록은 다릅니다. null 은 "이 필드를 안 보냈다" 는 뜻이고,
+            //    빈 목록은 "제한을 해제한다" 는 뜻입니다. 둘 다 제한 없음으로
+            //    수렴하지만, 저장 경로가 기존 값을 유지할지 판단하려면 구분이 필요합니다.
+            subnet.setAllowedPeers(allowedPeers);
             return subnet;
         }
     }

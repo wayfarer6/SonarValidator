@@ -164,6 +164,12 @@ services:
       # ⚠️ 이 값을 바꾸면 기존에 저장된 Secret 을 복호화할 수 없다.
       #    운영에서는 반드시 고정된 값을 주입할 것.
       SONAR_SECRET_KEY: ${SONAR_SECRET_KEY:-}
+      # 평문 HTTP OPNsense 접속 허용 여부. 기본 true(랩) — 자세한 설명은
+      # SonarValidator_Backend/src/main/resources/application.properties 참고.
+      # 운영에서 평문 HTTP 를 막으려면 false 로 두고 허용 장비만
+      # SONAR_OPNSENSE_HTTP_ORIGINS 에 나열한다.
+      SONAR_OPNSENSE_ALLOW_HTTP: ${SONAR_OPNSENSE_ALLOW_HTTP:-true}
+      SONAR_OPNSENSE_HTTP_ORIGINS: ${SONAR_OPNSENSE_HTTP_ORIGINS:-}
 
       # 원격 Agent terminal WebSocket 인증용. env_file 변수는 동일 키의
       # 명시적 environment 항목에서 빈 기본값으로 덮이지 않도록 별도 전달합니다.

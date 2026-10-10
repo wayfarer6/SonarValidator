@@ -20,6 +20,7 @@
 #include <nlohmann/json.hpp>
 
 #include "components/backend_communication/connect_with_timeout.hpp"
+#include "components/backend_communication/timed_websocket_operation.hpp"
 #include "components/backend_communication/envelope.hpp"
 #include "components/terminal/terminal_session.hpp"
 
@@ -64,9 +65,14 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
     const std::string& configured_secret = config.GetTerminalSharedSecret();
     if (configured_secret.size() < 32)
     {
-        std::cerr << "[TERMINAL] disabled: SONAR_TERMINAL_SHARED_SECRET must contain at least 32 characters\n";
+        std::cerr << "[TERMINAL] disabled: TERMINAL_SHARED_SECRET (default.conf) or "
+                     "SONAR_TERMINAL_SHARED_SECRET (environment) must contain at least 32 "
+                     "characters; loaded length="
+                  << configured_secret.size()
+                  << " (default.conf 의 값은 값/주석 구분자(;, //) 앞까지만 읽습니다)\n";
         return;
     }
+    std::cerr << "[TERMINAL] shared secret loaded (length=" << configured_secret.size() << ")\n";
     const std::string& shared_secret = configured_secret;
     const std::string agent_id =
         config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
@@ -88,7 +94,8 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
                 throw boost::system::system_error(connect_error);
             }
 
-            stream.handshake(config.GetServerIpv4(), "/api/v1/terminal/agent");
+            sonar::net::HandshakeWithTimeout(ioc, stream, config.GetServerIpv4(),
+                                              "/api/v1/terminal/agent", std::chrono::seconds(5));
             std::cerr << "[TERMINAL] WebSocket handshake completed\n";
             stream.text(true);
             std::cerr << "[TERMINAL] WebSocket text mode enabled\n";
@@ -98,7 +105,7 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
                 {"secret", shared_secret},
                 {"device_type", envelope::DeviceTypeToString(config.GetDeviceType())}};
             const std::string hello_payload = hello.dump();
-            stream.write(net::buffer(hello_payload));
+            sonar::net::WriteWithTimeout(ioc, stream, hello_payload, std::chrono::seconds(5));
             std::cerr << "[TERMINAL] terminal-hello sent\n";
 
             beast::flat_buffer read_buffer;
@@ -211,6 +218,13 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
 
             while (!stop_token.stop_requested() && !disconnected)
             {
+                // io_context 는 stop() 된 뒤에는 restart() 없이는 run_for() 가
+                // 즉시 0 을 돌려줍니다. 핸드셰이크/쓰기 helper
+                // (RunWebSocketOperation)가 제한 시간 초과 시 context.stop() 을
+                // 호출하므로, 여기서 restart() 하지 않으면 이 루프가 busy-loop 이
+                // 되어 CPU 를 태우면서 터미널 메시지(terminal-open)를 영영 처리하지
+                // 못합니다. 다른 워커(timed_websocket_reader)와 동일한 패턴입니다.
+                ioc.restart();
                 ioc.run_for(std::chrono::milliseconds(20));
                 if (shell.IsOpen())
                 {

@@ -15,7 +15,7 @@ import { useApi } from "../hooks/useApi";
 import { useApiAction } from "../hooks/useApiAction";
 import {
   updateProject,
-  validateProject,
+  validateDraft,
   getForbiddenPairs,
 } from "../lib/api/projects";
 import { listAgentOverview } from "../lib/api";
@@ -43,11 +43,13 @@ import { ZONE_CLASSES } from "../lib/policy/zones";
  * - 규칙 표: {@code NetworkSegmentationRule.tsx} 의 정책 설정 표
  * - 검증 피드백: {@code NetworkSegmentationRule.tsx} 의 토스트 대신 상시 패널
  *
- * <h2>저장 순서가 중요한 이유</h2>
- * 검증은 <b>서버에 저장된 상태</b>를 기준으로 돌아갑니다. 그래서 흐름은
- * 항상 [편집 → 저장 → 검증] 입니다. 저장 전 검증을 원하면
- * {@code /api/v1/projects/draft/validation} 을 쓰지만, 여기서는 저장과 검증을
- * 한 버튼으로 묶어 "화면에 보이는 상태 = 검증된 상태" 를 보장합니다.
+ * <h2>⚠️ 검증은 저장된 상태가 아니라 "화면의 현재 초안" 을 보냅니다</h2>
+ * 서버에 저장된 상태만 검증하면, 등급을 <b>Confidential 로 바꾸고 검증을 눌러도</b>
+ * 저장 전이므로 이전 결과(위반 0건)가 그대로 나옵니다. 기밀망으로 분류했는데
+ * 장치에 인터넷 기본 경로가 있는데도 아무 경고가 없어, 가장 위험한 불일치를
+ * 놓칩니다. 그래서 {@code /api/v1/projects/draft/validation} 으로
+ * <b>편집 중인 초안</b>을 보내고 서버가 최종 판정합니다.
+ * (저장 버튼은 [저장 → 검증] 을 그대로 수행합니다)
  */
 export default function ProjectEditor() {
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
@@ -97,36 +99,46 @@ export default function ProjectEditor() {
   // ---------------------------------------------------------------------
   // 액션
   // ---------------------------------------------------------------------
+  /** 현재 화면 상태를 서버 요청 본문으로 만듭니다. (저장·검증 공통) */
+  const requestBody = useCallback(() => ({
+    subnets: subnets.map((subnet) => ({
+      id: subnet.id,
+      cidr: subnet.cidr,
+      vlan_id: subnet.vlan_id,
+      subnet_class: subnet.subnet_class,
+      name: subnet.name,
+      agent_id: subnet.agent_id,
+      // 사람이 등급을 지정했으므로 확인됨으로 표시합니다.
+      manually_edited: subnet.manually_edited,
+      // ⚠️ 허용 목록을 반드시 실어 보냅니다. 빠뜨리면 서버가 "제한 없음" 으로
+      //    저장해, 운영자가 지정한 차단이 저장 한 번에 사라집니다.
+      allowed_peers: subnet.allowed_peers ?? [],
+    })),
+    rules: rules.map((rule) => ({
+      id: rule.id,
+      src: rule.src,
+      dst: rule.dst,
+      port: rule.port,
+      protocol: rule.protocol,
+      origin: rule.origin,
+      enabled: rule.enabled,
+      note: rule.note,
+    })),
+  }), [subnets, rules]);
+
   const saveAction = useApiAction(() =>
     updateProject(projectId, {
       name,
       category,
       description,
       status,
-      subnets: subnets.map((subnet) => ({
-        id: subnet.id,
-        cidr: subnet.cidr,
-        vlan_id: subnet.vlan_id,
-        subnet_class: subnet.subnet_class,
-        name: subnet.name,
-        agent_id: subnet.agent_id,
-        // 사람이 등급을 지정했으므로 확인됨으로 표시합니다.
-        manually_edited: subnet.manually_edited,
-      })),
-      rules: rules.map((rule) => ({
-        id: rule.id,
-        src: rule.src,
-        dst: rule.dst,
-        port: rule.port,
-        protocol: rule.protocol,
-        origin: rule.origin,
-        enabled: rule.enabled,
-        note: rule.note,
-      })),
+      ...requestBody(),
     }),
   );
 
-  const validateAction = useApiAction(() => validateProject(projectId));
+  // ⚠️ 저장된 상태가 아니라 현재 초안을 검증합니다.
+  //    그래야 등급을 바꾸자마자 위반(예: 기밀망의 인터넷 노출)이 바로 뜹니다.
+  const validateAction = useApiAction(() => validateDraft(requestBody()));
   const pushAction = useApiAction(() => pushPolicy(projectId, false));
 
   /**
@@ -155,7 +167,7 @@ export default function ProjectEditor() {
     }
   }, [saveAction, validateAction, navigate]);
 
-  /** 검증만 실행합니다. 저장하지 않은 변경이 있으면 먼저 알립니다. */
+  /** 검증만 실행합니다. 저장하지 않은 초안 변경도 그대로 반영됩니다. */
   const handleValidate = useCallback(async () => {
     const validation = await validateAction.run();
     if (validation) setReport(validation);
@@ -206,6 +218,29 @@ export default function ProjectEditor() {
       prev.map((subnet) =>
         subnet.id === subnetId
           ? { ...subnet, agent_id: agentId, manually_edited: true }
+          : subnet,
+      ),
+    );
+    setDirty(true);
+  };
+
+  /**
+   * 서브넷의 연결 허용 목록을 교체합니다.
+   *
+   * <h2>⚠️ 빈 목록은 "제한 해제" 입니다</h2>
+   * <p>체크를 모두 해제하면 제한이 사라집니다(기존 동작으로 복귀). 그래서
+   * "아무것도 허용하지 않음" 을 표현할 수 없는데, 그 상태는 서브넷을
+   * 고립시키는 것과 같아 정상 운영에서 쓸 일이 없고, 실수로 만들면
+   * 원인을 찾기 어려운 장애가 됩니다. 필요하면 허용 목록 대신 규칙을
+   * 모두 끄는 편이 의도가 분명합니다.
+   *
+   * <p>인터넷을 체크하지 않으면 배포 시 기본 경로가 차단됩니다.
+   */
+  const updateSubnetAllowedPeers = (subnetId: string, peers: string[]) => {
+    setSubnets((prev) =>
+      prev.map((subnet) =>
+        subnet.id === subnetId
+          ? { ...subnet, allowed_peers: peers, manually_edited: true }
           : subnet,
       ),
     );
@@ -514,6 +549,7 @@ export default function ProjectEditor() {
                 onNameChange={(id, name) => { setSubnets(prev => prev.map(s => s.id === id ? {...s, name, manually_edited: true} : s)); setDirty(true); }}
               onCidrChange={updateSubnetCidr}
                 onAgentChange={updateSubnetAgent}
+                onAllowedPeersChange={updateSubnetAllowedPeers}
                 agents={(agentOverview.data?.agents ?? []).map((agent) => ({
                   agent_id: agent.agent_id,
                   label: agent.agent_id,

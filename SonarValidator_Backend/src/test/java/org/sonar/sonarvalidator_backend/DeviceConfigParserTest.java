@@ -388,4 +388,49 @@ class DeviceConfigParserTest {
         assertTrue(config.getWarnings().stream().anyMatch(w -> w.contains("VLAN")));
         assertEquals("CISCO_IOS", config.getFormat());
     }
+
+    @Test
+    @DisplayName("Arista: 라우팅 테이블을 반드시 파싱한다 (기본 경로 = 인터넷 노출 근거)")
+    void aristaParsesRoutingTable() {
+        final JsonNode payload = json("""
+                {
+                  "agent": "Arista-Switch",
+                  "nic_status": {"interfaces":[
+                    {"name":"Ethernet1","state":"up","addresses":["172.18.10.2/24"]},
+                    {"name":"Vlan8","state":"up","addresses":["10.0.8.1/24"]},
+                    {"name":"Vlan9","state":"up","addresses":["10.0.9.1/24"]}
+                  ]},
+                  "route_status": {"routes":[
+                    {"prefix":"0.0.0.0/0","next_hop":"172.18.10.1",
+                     "next_hop_interface":"Ethernet1","protocol":"static","default_route":true},
+                    {"prefix":"10.0.8.0/24","next_hop":"directly connected",
+                     "next_hop_interface":"Vlan8","protocol":"connected","connected":true},
+                    {"prefix":"10.0.9.0/24","next_hop":"directly connected",
+                     "next_hop_interface":"Vlan9","protocol":"connected","connected":true}
+                  ]},
+                  "vlan_status": {"vlans":[
+                    {"vlan_id":8,"name":"VLAN8","ports":["Cpu","Et2"]},
+                    {"vlan_id":9,"name":"VLAN9","ports":["Cpu","Et3"]}
+                  ]}
+                }
+                """);
+
+        final DeviceConfigParser parser = new AristaSwitchConfigParser();
+        final NeutralDeviceConfig config = parser.parse("Arista-Switch", "Arista vEOS", payload);
+
+        // ⚠️ 이 세 줄이 이번 회귀의 핵심입니다. 파서가 라우팅을 건너뛰면
+        //    vEOS 의 기본 경로가 사라져 "인터넷으로 나가지 않는다" 로 오판합니다.
+        assertEquals(3, config.getRoutes().size(), "수집한 라우트를 버리면 안 됩니다");
+        assertTrue(config.getRoutes().stream()
+                        .anyMatch(route -> "0.0.0.0/0".equals(route.getPrefix())),
+                "기본 경로가 남아야 인터넷 노출을 검사할 수 있습니다");
+        // VLAN SVI 대역이 직접 연결로 남아야 대역 간 연결도 만들 수 있습니다.
+        assertTrue(config.getRoutes().stream()
+                        .anyMatch(route -> "10.0.8.0/24".equals(route.getPrefix())),
+                "VLAN 직접 연결 경로가 필요합니다");
+
+        assertEquals("ARISTA_vEOS", config.getFormat());
+        assertTrue(parser.capabilities().contains("routes"),
+                "기능 목록에도 라우팅이 포함되어야 합니다");
+    }
 }

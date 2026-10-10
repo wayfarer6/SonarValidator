@@ -13,8 +13,10 @@ import org.slf4j.LoggerFactory;
 import org.sonar.sonarvalidator_backend.Model.Configuration;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.entity.OPNsenseCredential;
+import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Repository.ConfigurationRepository;
 import org.sonar.sonarvalidator_backend.Repository.OPNsenseCredentialRepository;
+import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
 import org.sonar.sonarvalidator_backend.Service.NodeRegistryService;
 import org.sonar.sonarvalidator_backend.Service.secret.SecretCipher;
 import org.springframework.stereotype.Service;
@@ -34,17 +36,44 @@ public class OPNsenseCredentialService {
     private final NodeRegistryService nodeRegistry;
     private final SecretCipher secretCipher;
     private final OPNsenseApiClient apiClient;
+    private final OPNsenseTransportPolicy transportPolicy;
+    /** 프로젝트 키를 사람이 읽는 이름으로 바꾸기 위해 씁니다. */
+    private final ProjectRepository projectRepository;
 
     public OPNsenseCredentialService(OPNsenseCredentialRepository repository,
                                      ConfigurationRepository configurationRepository,
                                      NodeRegistryService nodeRegistry,
                                      SecretCipher secretCipher,
                                      OPNsenseApiClient apiClient) {
+        this(repository, configurationRepository, nodeRegistry, secretCipher, apiClient,
+                new OPNsenseTransportPolicy(""), null);
+    }
+
+    public OPNsenseCredentialService(OPNsenseCredentialRepository repository,
+                                     ConfigurationRepository configurationRepository,
+                                     NodeRegistryService nodeRegistry,
+                                     SecretCipher secretCipher,
+                                     OPNsenseApiClient apiClient,
+                                     OPNsenseTransportPolicy transportPolicy) {
+        this(repository, configurationRepository, nodeRegistry, secretCipher, apiClient,
+                transportPolicy, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OPNsenseCredentialService(OPNsenseCredentialRepository repository,
+                                     ConfigurationRepository configurationRepository,
+                                     NodeRegistryService nodeRegistry,
+                                     SecretCipher secretCipher,
+                                     OPNsenseApiClient apiClient,
+                                     OPNsenseTransportPolicy transportPolicy,
+                                     ProjectRepository projectRepository) {
+        this.transportPolicy = transportPolicy;
         this.repository = repository;
         this.configurationRepository = configurationRepository;
         this.nodeRegistry = nodeRegistry;
         this.secretCipher = secretCipher;
         this.apiClient = apiClient;
+        this.projectRepository = projectRepository;
     }
 
     @Transactional(readOnly = true)
@@ -90,6 +119,25 @@ public class OPNsenseCredentialService {
                                     String apiSecret,
                                     boolean allowInsecureTls,
                                     boolean verifyNow) {
+        return save(nodeIdentifier, displayName, baseUrl, apiKey, apiSecret,
+                allowInsecureTls, verifyNow, null);
+    }
+
+    /**
+     * Saves credentials in the same transaction as node resolution.
+     *
+     * @param projectKey 이 장치가 속한 프로젝트 키. {@code null}/빈 값이면 미지정
+     *                   (기존 값을 지우지 않고 유지합니다)
+     */
+    @Transactional
+    public Map<String, Object> save(String nodeIdentifier,
+                                    String displayName,
+                                    String baseUrl,
+                                    String apiKey,
+                                    String apiSecret,
+                                    boolean allowInsecureTls,
+                                    boolean verifyNow,
+                                    String projectKey) {
         final String normalized = normalizeIdentifier(nodeIdentifier);
         if (normalized == null) {
             throw new IllegalArgumentException("node_id 는 필수입니다.");
@@ -97,10 +145,15 @@ public class OPNsenseCredentialService {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException("OPNsense 주소(base_url)는 필수입니다.");
         }
-        if (!new OPNsenseConnection(baseUrl.trim(), "key", "secret", allowInsecureTls)
-                .isSecureTransport()) {
-            throw new IllegalArgumentException("OPNsense 자격증명은 HTTPS 주소에서만 사용할 수 있습니다.");
+        if (!transportPolicy.allows(new OPNsenseConnection(baseUrl.trim(), "key", "secret", allowInsecureTls))) {
+            throw new IllegalArgumentException("이 주소로는 저장할 수 없습니다. 평문 HTTP 가 금지되어 있거나"
+                    + "(sonar.opnsense.allow-http=false) 허용 목록에 없습니다"
+                    + "(sonar.opnsense.http-origins). HTTPS 를 쓰거나 서버 설정을 확인하세요.");
         }
+        // ⚠️ 프로젝트 검증은 노드 생성(<resolveNodeForSave>)보다 <b>먼저</b>
+        //    해야 합니다. 뒤에 두면 잘못된 프로젝트 키로 저장을 시도했을 때
+        //    실패하기 전에 configuration 노드 행이 이미 만들어집니다.
+        final String validatedProjectKey = validateProjectKey(projectKey);
 
         final Configuration node = resolveNodeForSave(normalized);
         if (node == null || node.getNodeId() == null) {
@@ -119,6 +172,13 @@ public class OPNsenseCredentialService {
                 ? displayNameFor(node)
                 : displayName.trim());
         credential.setAllowInsecureTls(allowInsecureTls);
+        // 프로젝트 소속. 규칙을 명확히 둡니다(validateProjectKey 참고):
+        //   null (필드 생략) → 기존 값 유지
+        //   ""   (빈 문자열)  → 지정 해제
+        //   값               → 지정
+        if (validatedProjectKey != null) {
+            credential.setProjectKey(validatedProjectKey.isEmpty() ? null : validatedProjectKey);
+        }
         if (apiKey != null && !apiKey.isBlank()) {
             credential.setApiKey(apiKey.trim());
         }
@@ -162,6 +222,39 @@ public class OPNsenseCredentialService {
             result.add(toResponse(verifyAndRecord(credential)));
         }
         return result;
+    }
+
+    /**
+     * 프로젝트 키를 검증하고 정규화합니다.
+     *
+     * <p>반환값의 의미가 호출부의 저장 규칙을 결정합니다.
+     * <ul>
+     *   <li>{@code null} — 입력이 아예 없음(필드 생략). <b>기존 값 유지</b></li>
+     *   <li>{@code ""}   — 빈 값 입력. <b>지정 해제</b></li>
+     *   <li>그 외        — 존재하는 프로젝트. <b>지정</b></li>
+     * </ul>
+     * "생략"과 "해제"를 구분하지 않으면 프로젝트를 바꿀 수는 있어도 지울 수
+     * 없어, 잘못 지정한 값이 영원히 남습니다.
+     *
+     * <p>노드를 만들기 <b>전에</b> 호출해야 합니다 — 그래야 잘못된 키로
+     * 실패했을 때 쓸모없는 노드 행이 남지 않습니다.
+     *
+     * @param projectKey 요청 값 (null 허용)
+     * @return 위 의미에 따른 값
+     */
+    private String validateProjectKey(String projectKey) {
+        if (projectKey == null) {
+            return null;
+        }
+        final String key = projectKey.trim();
+        if (key.isEmpty()) {
+            return "";
+        }
+        if (projectRepository != null
+                && projectRepository.findByProjectKey(key).isEmpty()) {
+            throw new IllegalArgumentException("존재하지 않는 프로젝트입니다: " + key);
+        }
+        return key;
     }
 
     private Configuration resolveNodeForSave(String normalizedIdentifier) {
@@ -262,6 +355,10 @@ public class OPNsenseCredentialService {
         body.put("has_api_key", credential.getApiKey() != null && !credential.getApiKey().isBlank());
         body.put("has_secret", secretCipher.isPresent(credential.getSecret()));
         body.put("allow_insecure_tls", credential.isAllowInsecureTls());
+        // 프로젝트 소속 — REST 전용 장치는 expected_agent 에 없어 다른 곳에서
+        // 알 수 없으므로 자격증명이 직접 들고 있습니다.
+        body.put("project_id", credential.getProjectKey());
+        body.put("project_name", projectName(credential.getProjectKey()));
         body.put("status", credential.getStatus() == null ? null : credential.getStatus().name());
         body.put("last_checked_at", org.sonar.sonarvalidator_backend.Util.Timestamps.iso(
                 credential.getLastCheckedAt()));
@@ -271,6 +368,27 @@ public class OPNsenseCredentialService {
                 credential.getCreatedAt()));
         body.put("updated_at", credential.getUpdatedAt());
         return body;
+    }
+
+    /**
+     * 프로젝트 키를 사람이 읽는 이름으로 바꿉니다.
+     *
+     * <p>숫자/키만 보여 주면 운영자는 목록에서 어느 프로젝트인지 알 수 없습니다.
+     * 프로젝트가 지워졌거나 저장소가 없으면(단위 테스트) 키를 그대로 돌려줍니다.
+     *
+     * @param projectKey 프로젝트 키 (null 허용)
+     * @return 프로젝트 이름, 없으면 키, 둘 다 없으면 null
+     */
+    private String projectName(String projectKey) {
+        if (projectKey == null || projectKey.isBlank()) {
+            return null;
+        }
+        if (projectRepository == null) {
+            return projectKey;
+        }
+        return projectRepository.findByProjectKey(projectKey)
+                .map(Project::getName)
+                .orElse(projectKey);
     }
 
     @Transactional(readOnly = true)

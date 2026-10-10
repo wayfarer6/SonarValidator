@@ -32,17 +32,44 @@ public record OPNsenseConnection(
         boolean allowInsecureTls) {
 
     /**
-     * 필수 값이 모두 있는지 확인합니다.
+     * 호출에 필요한 값이 모두 있는지 확인합니다.
+     *
+     * <h2>⚠️ 전송 방식(HTTP/HTTPS)은 여기서 판단하지 않습니다</h2>
+     * <p>예전에는 이 메서드가 <b>HTTPS 만</b> 통과시켰습니다. 그런데 허용 판단은
+     * {@link OPNsenseTransportPolicy} 가 담당하도록 바뀌었습니다(HTTP 랩 장비를
+     * 서버 설정으로 열어 주기 위함). 두 곳이 서로 다른 기준을 들고 있으면
+     * <b>저장은 되는데 조회만 400</b> 같은 모순이 생깁니다.
+     * 그래서 이 메서드는 "값이 채워졌는가" 만 봅니다.
      *
      * @return 호출 가능하면 {@code true}
      */
     public boolean isUsable() {
-        return isSecureTransport()
+        return hasUsableBaseUrl()
                 && apiKey != null && !apiKey.isBlank()
                 && apiSecret != null && !apiSecret.isBlank();
     }
 
-    /** Basic credentials are never sent to an explicit or malformed non-HTTPS URL. */
+    /**
+     * 기준 URL 이 실제로 요청에 쓸 수 있는 형태인지 확인합니다.
+     *
+     * <p>스킴(HTTP/HTTPS)은 <b>가리지 않습니다.</b> 다만
+     * {@code http://user:pass@host} 처럼 user-info 가 붙은 주소는 거부합니다 —
+     * Basic 인증 헤더와 별개로 자격증명이 URL 에 실려 로그에 남기 때문입니다.
+     *
+     * @return 사용 가능한 주소면 {@code true}
+     */
+    public boolean hasUsableBaseUrl() {
+        try {
+            final URI uri = URI.create(normalizedBaseUrl());
+            return uri.getScheme() != null
+                    && uri.getHost() != null
+                    && uri.getUserInfo() == null;
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    /** HTTPS 주소인지 확인합니다. (전송 정책 판단용) */
     public boolean isSecureTransport() {
         try {
             final URI uri = URI.create(normalizedBaseUrl());

@@ -253,7 +253,6 @@ export default function AgentDeployCard({
 
   // OPNsense 자격증명 모달
   const [opnsenseOpen, setOpnsenseOpen] = useState(false);
-  const [opnsenseAgentId] = useState("");
   const [opnsenseSavedCount, setOpnsenseSavedCount] = useState(0);
 
   /**
@@ -759,11 +758,18 @@ export default function AgentDeployCard({
         </div>
       )}
 
-      {/* OPNsense 설정 모달 — 기존 Modal 컴포넌트를 재사용합니다. */}
+      {/*
+        OPNsense 설정 모달 — 기존 Modal 컴포넌트를 재사용합니다.
+
+        ⚠️ 예전에는 `agentId=""` 를 넘겼습니다. 그러면 요청 경로의 변수가
+           비어 `/credentials/` 가 되고, 서버가 "No static resource
+           api/v1/opnsense/credentials." 라는 404 를 돌려줬습니다.
+           장치 이름은 이제 모달에서 직접 입력합니다.
+      */}
       <OPNsenseConfigModal
         isOpen={opnsenseOpen}
         onClose={() => setOpnsenseOpen(false)}
-        agentId={opnsenseAgentId}
+        initialNodeId={agentName.trim() || undefined}
         deviceLabel={managementServerIPAddr || null}
         onSaved={() => {
           setOpnsenseSavedCount((count) => count + 1);

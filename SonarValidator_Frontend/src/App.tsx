@@ -24,6 +24,7 @@ import Project from "./pages/Project";
 import ProjectCreation from "./pages/ProjectCreation";
 import ProjectEditor from "./pages/ProjectEditor";
 import Agent from "./pages/Agent";
+import ApiConnectedNodes from "./pages/ApiConnectedNodes";
 import Compliance from "./pages/Compliance";
 import DetectedNetworkNodes from "./pages/DetectedNetworkNodes";
 import SubnetAdvanceConfiguration from "./pages/SubnetAdvanceConfiguration";
@@ -85,6 +86,9 @@ export default function App() {
             <Route path="/project/create/segmentation" element={<NetworkSegmentationRule/>}/>
             <Route path="/project/create/preview" element={<TopologyRulePreview/>}/>
             <Route path="/agent" element={<Agent/>}/>
+            {/* API 연결 노드: 프로버 없이 REST API 로만 연결되는 장비(OPNsense 등).
+                Agent 목록에는 나타나지 않으므로 별도 화면에서 관리합니다. */}
+            <Route path="/api-nodes" element={<ApiConnectedNodes/>}/>
             <Route path="/compliance" element={<Compliance/>}/>
             <Route path="/compliance/export" element={<ComplianceExporter/>}/>
             <Route path="/policy" element={<PolicyManagement/>}/>

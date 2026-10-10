@@ -47,16 +47,15 @@ using tcp = boost::asio::ip::tcp;
  * <p>소켓을 non-blocking 으로 열고 connect 를 걸면 즉시 EINPROGRESS 로
  * 돌아옵니다. 그 뒤 {@code poll()} 로 제한 시간만 기다리고,
  * {@code SO_ERROR} 로 실제 결과를 확인한 뒤 blocking 으로 되돌립니다.
- * 그리고 동기 read/write 에도 제한을 걸기 위해
- * {@code SO_RCVTIMEO}/{@code SO_SNDTIMEO} 를 설정합니다
- * (핸드셰이크가 응답 없이 매달리는 것을 막습니다).
+ * WebSocket handshake/write 는 별도의 비동기 deadline helper 로 제한합니다.
+ * SO_RCVTIMEO/SO_SNDTIMEO 는 Asio의 동기 재시도 루프를 제한하지 못합니다.
  *
  * <p>DNS 결과가 여러 개여도 <b>첫 번째만</b> 씁니다. 랩 장비는 단일
  * 주소라 round-robin 이 필요 없고, 실패하면 다음 정책 요청에서 재시도합니다.
  *
  * @param stream  대상 스트림 (소켓을 직접 열고 설정합니다)
  * @param results DNS 해석 결과
- * @param timeout connect 와 이후 동기 I/O 의 제한 시간
+ * @param timeout TCP connect 제한 시간
  * @return 성공하면 빈 error_code, 실패하면 사유
  */
 inline boost::system::error_code ConnectWithTimeout(
@@ -145,18 +144,8 @@ inline boost::system::error_code ConnectWithTimeout(
         }
     }
 
-    // 핸드셰이크를 위해 blocking 으로 되돌리고, 동기 I/O 에 제한 시간을 겁니다.
     socket.non_blocking(false, ec);
-    if (ec)
-    {
-        return ec;
-    }
-
-    ::timeval tv{};
-    tv.tv_sec = static_cast<decltype(tv.tv_sec)>(timeout.count());
-    tv.tv_usec = 0;
-    (void)::setsockopt(socket.native_handle(), SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    (void)::setsockopt(socket.native_handle(), SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    if (ec) return ec;
 
     close_on_failure.keep_open = true;
     return {};

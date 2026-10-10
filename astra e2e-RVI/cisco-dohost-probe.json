@@ -1,0 +1,85 @@
+{
+  "target": "Cisco Catalyst 8000v (10.20.0.1)",
+  "collected_at_utc": "2026-10-10T00:24:00Z",
+  "collected_via": "ssh -p 2222 guestshell@10.20.0.1 (키 인증)",
+  "summary": "guestshell -> IOS CLI 세션(IOSP)이 없어 dohost 가 전부 실패한다. 에이전트가 그 오류 텍스트를 텔레메트리로 오인했다.",
+  "dohost_probe": [
+    {
+      "command": "dohost \"show version\"",
+      "stdout": "Unexpected Error",
+      "exit_code": 0,
+      "verdict": "실패 (종료코드는 0이라 성공으로 오인됨)"
+    },
+    {
+      "command": "dohost \"show version\" \"show clock\"",
+      "stdout": "Unexpected Error",
+      "exit_code": 0,
+      "verdict": "여러 인자를 줘도 동일 실패"
+    },
+    {
+      "command": "dohost_sh \"show version\"",
+      "stdout": "dohost_sh: No SETUPINPROGRESS Var\ndohost_sh: ERROR: IOSP_SESSION environment variable not set",
+      "exit_code": 0,
+      "verdict": "IOSP_SESSION 부재를 직접 보고"
+    },
+    {
+      "command": "python3 -c 'from cli import clip; clip(\"show version\")'",
+      "stdout": "Unexpected Error",
+      "return_value": null,
+      "verdict": "clip() 도 실패"
+    },
+    {
+      "command": "python3 -c 'from cli import cli; cli(\"show version\")'",
+      "exception": "IOSPUnexpectedError: Unexpected Error",
+      "verdict": "IOSP 서버가 시스템 오류 반환"
+    }
+  ],
+  "root_cause": {
+    "finding": "guestshell 컨테이너에 IOS 가 만든 CLI 세션(container-shell-session)이 없다.",
+    "evidence": [
+      "/cisco/cisco_cli/ 디렉터리가 비어 있음 (app-session-info 없음)",
+      "IOSP_SESSION / IOSP_TOKEN / IOSP_SOCKET 환경변수가 비어 있음",
+      "find / -name app-session-info 결과 없음",
+      "cli 모듈의 check_and_set_iosp_env() 는 IOSP_SESSION 또는 /cisco/cisco_cli/app-session-info 를 요구",
+      "cisco-.iosp_socket.mount, cisco-cisco_cli.mount 는 active 이지만 세션 파일은 미생성",
+      "setup-cisco.service 는 inactive(dead), /cisco/lib/setup.sh 미존재",
+      "iosp_client 직접 호출 시 /tmp/rp/.iosp_client_dmi 파일 없음 오류"
+    ],
+    "explanation": "dohost_sh 주석(및 Cisco 매뉴얼)에 따르면 IOSP_* 환경변수는 IOS 가 shell_exec_*() API 로 container-shell-session 을 만들 때만 설정된다. 즉 IOS 에서 `guestshell run ...` 이나 guestshell 앱 시작으로 세션이 만들어져야 하며, 단순히 컨테이너에 ssh 로 들어가거나 systemd 로 서비스를 띄우면 세션이 없다."
+  },
+  "deployed_agent_state": {
+    "installed_config_equals_template": true,
+    "installed_config_path": "/etc/sonar_validator_prober/default.conf",
+    "installed_config_values": {
+      "SERVER_IP": "172.16.255.245",
+      "SERVER_PORT": "3000",
+      "NODE_TYPE": "VM",
+      "AGENT_NAME": "test-vm",
+      "TERMINAL_SHARED_SECRET": ""
+    },
+    "service_environment": "SONAR_CONFIG_PATH / SONAR_TEMPLATE_PATH / SONAR_DATA_DIR 만 있음 (IOSP_* 없음)",
+    "log": [
+      "[TERMINAL] disabled: SONAR_TERMINAL_SHARED_SECRET must contain at least 32 characters",
+      "[COLLECT] no usable state collected (product=Cisco 8000v, commands=3, empty=0)"
+    ],
+    "binary_timestamp": "2026-10-09 12:33 (수정 전 바이너리)"
+  },
+  "network": {
+    "10.20.0.1:22": "OPEN (IOS CLI, 공개키/비밀번호 인증 모두 거부)",
+    "10.20.0.1:2222": "OPEN (guestshell, 키 인증 성공)",
+    "192.168.122.1:22": "OPEN (GNS3 호스트, IOS 콘솔 5018 은 127.0.0.1 바인딩)"
+  },
+  "fix_required_on_ios": [
+    "guestshell disable  → guestshell enable",
+    "또는 app-hosting stop appid guestshell → app-hosting start appid guestshell",
+    "재기동 후 `guestshell run dohost \"show version\"` 로 세션 확인",
+    "확인 지점: /cisco/cisco_cli/app-session-info 존재, IOSP_SESSION 설정"
+  ],
+  "agent_code_fixes": [
+    "ios_cli: dohost 실패 문자열(Unexpected Error / IOSP_SESSION / invalid input) 판정",
+    "ExecuteIosCli: 설정 시퀀스를 dohost 한 번에 결합 + 실패 시 빈 출력",
+    "main: 종료 예산 watchdog (SIGTERM 후 8s)",
+    "timed_websocket_operation: run_one 무한 drain 제거",
+    "prober-cisco.service: network.target 제거, TimeoutStopSec=15"
+  ]
+}

@@ -1138,8 +1138,14 @@ public class QuarantineService {
     }
 
     private Map<String, Object> ackFor(QuarantineState state) {
-        if (state.getScope() != QuarantineState.Scope.CONNECTION) return lastAck.get(state.getAgentId());
-        final var ack = lastAck.get(state.getAgentId() + ":" + state.getTargetCidr());
+        // ⚠️ Agent 없는 장비(OPNsense 등 REST 전용)는 agent_id 가 null 입니다.
+        //    ConcurrentHashMap 은 null 키를 허용하지 않으므로 먼저 걸러야 합니다.
+        //    (걸러지지 않으면 응답을 만드는 toSummary 에서 NPE 가 나고,
+        //     "격리는 저장됐는데 조회가 실패" 하는 상태가 됩니다)
+        final String agentId = state.getAgentId();
+        if (agentId == null || agentId.isBlank()) return null;
+        if (state.getScope() != QuarantineState.Scope.CONNECTION) return lastAck.get(agentId);
+        final var ack = lastAck.get(agentId + ":" + state.getTargetCidr());
         return ack != null && java.util.Objects.equals(ack.get("state_id"), state.getId()) ? ack : null;
     }
 

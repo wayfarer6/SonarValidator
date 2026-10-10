@@ -21,6 +21,7 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
         config.GetServerIpv4(),
         static_cast<int>(config.GetServerPort()),
         "/api/v1/management");
+    management_service.SetStopToken(stop_token);
 
     // 에이전트 식별자: 설정의 AGENT_NAME을 우선 사용합니다.
     // (AGENT_ID 는 아직 설정에 없으므로 비어 있을 수 있습니다.)
@@ -28,15 +29,20 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
         config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
     management_service.SetAgentId(agent_id);
 
+    const auto retry_delay = [&] {
+        for (int i = 0; i < 30 && !stop_token.stop_requested(); ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    };
     while (!stop_token.stop_requested())
     {
         // 서버에 policy-request 봉투를 보내고 같은 correlation_id 의 응답을 기다립니다.
         const nlohmann::json policy =
             management_service.fetchPolicy(config.GetDeviceType(), agent_id, stop_token);
+        if (stop_token.stop_requested()) break;
 
         if (policy.is_null() || policy.is_boolean())
         {
-            std::this_thread::sleep_for(std::chrono::seconds(3));
+            retry_delay();
             continue;
         }
 
@@ -94,7 +100,7 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
             std::cout << "[MGMT] received server push: " << envelope::Type(message) << '\n';
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+        retry_delay();
     }
 }
 

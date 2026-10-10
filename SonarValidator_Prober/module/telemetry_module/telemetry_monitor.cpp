@@ -290,6 +290,7 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
             // 명령이 실패해도 예외를 던지지 않고 성공한 항목만 담아 돌려줍니다.
             const collector::CollectedState collected =
                 collector::CollectState(config, management_service);
+            if (stop_token.stop_requested()) break;
 
             // 서버 payload 조립은 오프라인 스냅샷과 공유합니다.
             // (두 경로가 같은 키 집합을 써야 서버 파서가 동일하게 동작한다.)

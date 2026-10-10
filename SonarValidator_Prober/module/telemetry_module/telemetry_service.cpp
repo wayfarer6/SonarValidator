@@ -7,6 +7,8 @@
 #include <nlohmann/json.hpp>
 
 #include "components/backend_communication/connect_with_timeout.hpp"
+#include "components/backend_communication/timed_websocket_operation.hpp"
+#include <iostream>
 
 TelemetryService::TelemetryService()
     : host_(""), port_(0), target_(""), ioc_(), resolver_(ioc_), stream_(ioc_), connected_(false)
@@ -47,16 +49,18 @@ bool TelemetryService::connect()
             sonar::net::ConnectWithTimeout(stream_, results, kConnectTimeout);
         if (ec)
         {
-            connected_ = false;
-            return false;
+            throw boost::system::system_error(ec);
         }
 
-        stream_.handshake(host_, target_);
+        sonar::net::HandshakeWithTimeout(ioc_, stream_, host_, target_, kHandshakeTimeout);
         connected_ = true;
         return true;
     }
-    catch (...)
+    catch (const std::exception& error)
     {
+        std::cerr << "[TELEMETRY] connection failed: " << host_ << ':' << port_
+                  << target_ << " (" << error.what() << ")\n";
+        reader_.Reset(ioc_, stream_);
         connected_ = false;
         return false;
     }
@@ -72,7 +76,7 @@ bool TelemetryService::sendText(const std::string &message)
 
     try
     {
-        stream_.write(net::buffer(message));
+        sonar::net::WriteWithTimeout(ioc_, stream_, message, kConnectTimeout);
         return true;
     }
     catch (...)

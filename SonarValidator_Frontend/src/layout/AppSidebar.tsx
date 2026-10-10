@@ -41,6 +41,10 @@ const navItems: NavItem[] = [
       //   마법사 경로(/project/create/*) 자체는 그대로 살아 있습니다 —
       //   진입점만 목록 화면으로 옮깁니다.
       { name: "Agent List", path: "/agent", pro: false },
+      // ⚠️ REST API 로만 연결되는 장비(OPNsense 등)는 Agent 목록에 나타나지 않습니다.
+      //    같은 목록에 섞으면 "연결됨" 의 의미(WebSocket 세션 vs API 자격증명)가
+      //    달라져 혼란스러우므로 별도 화면으로 둡니다.
+      { name: "API 연결 노드", path: "/api-nodes", pro: false },
     ],
   },
   {

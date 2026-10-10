@@ -16,6 +16,7 @@ import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
 import org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseApiClient;
 import org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseCredentialService;
 import org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategies;
+import org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseTransportPolicy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -28,7 +29,8 @@ class OPNsenseAuthorizationTest {
             mock(OPNsenseApiClient.class),
             mock(AgentSessionRegistry.class),
             mock(AgentMessageRouterService.class),
-            new OPNsenseProbeStrategies());
+            new OPNsenseProbeStrategies(),
+            new OPNsenseTransportPolicy(""));
 
     @Test
     @DisplayName("VIEWER cannot mutate OPNsense credentials")
@@ -49,12 +51,12 @@ class OPNsenseAuthorizationTest {
     @DisplayName("OPERATOR can manage credentials under existing edit-role convention")
     void operatorCanSaveCredentials() {
         final var operator = authentication("ROLE_OPERATOR");
-        when(credentials.save("42", "fw", "https://fw.example", "key", "secret", false, true))
+        when(credentials.save("42", "fw", "https://fw.example", "key", "secret", false, true, "PRJ-1"))
                 .thenReturn(java.util.Map.of("node_id", 42));
 
         assertEquals(HttpStatus.OK, controller.save(operator, "42",
                 new OPNsenseController.CredentialRequest(
-                        "fw", "https://fw.example", "key", "secret", false, true))
+                        "fw", "https://fw.example", "key", "secret", false, true, "PRJ-1"))
                 .getStatusCode());
     }
 

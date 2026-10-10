@@ -25,6 +25,7 @@ void TelemetryWorker(std::stop_token stop_token,
         config.GetServerIpv4(),
         static_cast<int>(config.GetServerPort()),
         "/api/v1/management");
+    management_service.SetStopToken(stop_token);
 
     TelemetryMonitor monitor;
 

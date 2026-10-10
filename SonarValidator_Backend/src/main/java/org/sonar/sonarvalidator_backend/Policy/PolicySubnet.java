@@ -37,6 +37,30 @@ public class PolicySubnet {
     /** 수동 편집 여부. 자동 수집된 서브넷과 구분해 UI 에서 표시합니다. */
     private boolean manuallyEdited;
 
+    /**
+     * 이 서브넷이 연결을 <b>허용하는</b> 상대 목록입니다.
+     *
+     * <h2>⚠️ 무엇을 뜻하는가</h2>
+     * <p>비어 있으면 제한 없음(현재 동작)입니다. 값이 있으면 이 서브넷은
+     * 목록에 있는 상대에게만 나갈 수 있고, 나머지는 정책 배포 시 차단됩니다.
+     *
+     * <p>원소는 상대 서브넷 식별자 또는 CIDR 이고, 특수 토큰 {@code internet}
+     * 은 "인터넷(기본 경로)으로 나가는 것을 <b>허용 목록이 막지 않는다</b>" 는 뜻입니다.
+     *
+     * <h2>⚠️ 목록은 조이기만 한다 (보안 불변식)</h2>
+     * <p>이 목록은 등급 규칙을 <b>완화할 수 없습니다</b>. 기밀망을
+     * {@code Open} 서브넷이나 인터넷에 넣어도 등급 건너뛰기 판정이 그대로
+     * 위반입니다. 목록에 넣는 것으로 망분리를 풀 수 있으면, 운영자의 실수
+     * 한 번이 보안 경계를 없앱니다.
+     *
+     * <p>즉 실제 차단 집합은 항상
+     * {@code (등급 위반) ∪ (허용 목록 밖)} 입니다.
+     */
+    private List<String> allowedPeers = new ArrayList<>();
+
+    /** 인터넷(기본 경로)을 가리키는 허용 목록 토큰입니다. */
+    public static final String INTERNET = "internet";
+
     /** 기본 생성자. */
     public PolicySubnet() {
     }
@@ -105,6 +129,107 @@ public class PolicySubnet {
     /** @return 소속 장치 식별자 */
     public String getAgentId() {
         return agentId;
+    }
+
+    /** @return 허용 상대 목록 (복사본) */
+    public List<String> getAllowedPeers() {
+        return new ArrayList<>(allowedPeers);
+    }
+
+    /**
+     * @param allowedPeers 허용 상대 목록 (null 이면 제한 없음)
+     */
+    public void setAllowedPeers(List<String> allowedPeers) {
+        this.allowedPeers = (allowedPeers == null) ? new ArrayList<>() : new ArrayList<>(allowedPeers);
+    }
+
+    /**
+     * 허용 목록이 설정되어 있는지 알려줍니다.
+     *
+     * @return 제한 중이면 true
+     */
+    public boolean isRestricted() {
+        return !allowedPeers.isEmpty();
+    }
+
+    /**
+     * 상대를 허용 목록에서 받아들이는지 봅니다.
+     *
+     * <p>제한이 없으면(빈 목록) 항상 true 입니다.
+     *
+     * @param reference 상대 서브넷 식별자 또는 CIDR (null 허용)
+     * @return 허용이면 true
+     */
+    public boolean allowsPeer(String reference) {
+        if (!isRestricted()) {
+            return true;
+        }
+        if (reference == null || reference.isBlank()) {
+            return false;
+        }
+        final String needle = reference.trim();
+        for (final String candidate : allowedPeers) {
+            if (candidate == null) {
+                continue;
+            }
+            final String allowed = candidate.trim();
+            if (allowed.isEmpty()) {
+                continue;
+            }
+            // 식별자로 적었든 CIDR 로 적었든 같은 서브넷을 가리킬 수 있습니다.
+            if (allowed.equalsIgnoreCase(needle)
+                    || normalizeCidr(allowed).equalsIgnoreCase(normalizeCidr(needle))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 인터넷(기본 경로)으로 나가는 것을 허용 목록이 막지 않는지 봅니다.
+     *
+     * @return 인터넷을 목록에 넣었거나 제한이 없으면 true
+     */
+    public boolean allowsInternet() {
+        if (!isRestricted()) {
+            return true;
+        }
+        for (final String candidate : allowedPeers) {
+            if (candidate != null && INTERNET.equalsIgnoreCase(candidate.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 여러 표기 중 <b>하나라도</b> 허용 목록에 있으면 허용으로 봅니다.
+     *
+     * <h2>⚠️ 왜 필요한가</h2>
+     * <p>같은 상대를 두 가지로 적을 수 있습니다 — 서브넷 <b>식별자</b>
+     * ({@code VLAN9-ca6e…}, 자동 수집이 만드는 형태)와 <b>CIDR</b>
+     * ({@code 10.0.9.0/24}, 사람이 읽기 쉬운 형태). 화면은 식별자를 보내고
+     * 저장된 상대는 CIDR 일 수 있으므로, 한쪽만 비교하면 <b>운영자가 체크한
+     * 항목이 매칭되지 않아</b> 허용했는데도 차단됩니다.
+     *
+     * <p>그래서 호출부는 상대의 <b>모든 표기</b>를 넘겨야 합니다.
+     *
+     * @param references 상대의 표기들 (식별자/CIDR, null 허용)
+     * @return 하나라도 허용이면 true (제한이 없으면 true)
+     */
+    public boolean allowsAnyPeer(String... references) {
+        if (!isRestricted()) {
+            return true;
+        }
+        if (references == null) {
+            return false;
+        }
+        for (final String reference : references) {
+            if (allowsPeer(reference)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

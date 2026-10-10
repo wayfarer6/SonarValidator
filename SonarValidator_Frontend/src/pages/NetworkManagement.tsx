@@ -10,6 +10,7 @@ import { listRouteTables, getTopology } from "../lib/api";
 import { listProjects } from "../lib/api/projects";
 import type { ApiTopology } from "../lib/api/types";
 import { topologyToMermaid } from "../lib/topology/mermaid";
+import CollectedSubnetsPanel from "../components/network/CollectedSubnetsPanel";
 
 /**
  * 네트워크 관리 화면입니다.
@@ -144,6 +145,27 @@ export default function NetworkManagement() {
                 <MermaidDiagram chart={chart} />
               </div>
 
+              {/*
+                서브넷이 0건이면 다이어그램이 빈 상자로 보입니다.
+                "장치를 안 붙였나" 와 "붙였는데 반영이 안 됐나" 는 다른
+                문제이고 대처도 다르므로, 아래 수집 패널과 함께 읽도록
+                이유와 다음 행동을 적습니다.
+              */}
+              {topology.data.nodes.length === 0 && (
+                <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2.5 text-xs text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
+                  이 프로젝트에 등록된 <b>서브넷이 없어</b> 그릴 것이 없습니다. 서브넷은 장치에서
+                  수집된 대역이 자동으로 반영되거나, 아래 편집 화면에서 직접 추가합니다.
+                  {activeProjectId && (
+                    <Link
+                      to={`/project/editor/${encodeURIComponent(activeProjectId)}`}
+                      className="ml-1 underline"
+                    >
+                      편집으로 이동
+                    </Link>
+                  )}
+                </p>
+              )}
+
               {topology.data.edges.some((edge) => edge.forbidden) && (
                 <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs text-error-700 dark:bg-error-500/15 dark:text-error-300">
                   빨간 굵은 화살표는 등급을 건너뛰는 직접 연결입니다. 프로젝트 편집
@@ -159,22 +181,54 @@ export default function NetworkManagement() {
                 </p>
               )}
 
+              {/* 간선 종류 범례 — 실선 규칙과 점선 관측 연결을 구분합니다. */}
+              <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                <span className="inline-flex items-center gap-1.5">
+                  <svg width="34" height="8" aria-hidden="true">
+                    <line x1="0" y1="4" x2="34" y2="4" stroke="#6b7280" strokeWidth="2" />
+                  </svg>
+                  정책 규칙
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <svg width="34" height="8" aria-hidden="true">
+                    <line x1="0" y1="4" x2="34" y2="4" stroke="#64748b" strokeWidth="2" strokeDasharray="5 4" />
+                  </svg>
+                  장치가 실제로 라우팅하는 연결 (수집된 라우팅 테이블)
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <svg width="34" height="8" aria-hidden="true">
+                    <line x1="0" y1="4" x2="34" y2="4" stroke="#2563eb" strokeWidth="2" strokeDasharray="5 4" />
+                  </svg>
+                  인터넷 연결 (원형 = Internet)
+                </span>
+              </p>
+
               {/* 노드/간선 요약 */}
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Stat label="서브넷" value={topology.data.nodes.length} />
-                <Stat label="연결 규칙" value={topology.data.edges.length} />
+                <Stat
+                  label="연결 규칙"
+                  value={topology.data.edges.filter((edge) => edge.observed !== true).length}
+                />
+                <Stat
+                  label="수집된 연결"
+                  value={topology.data.edges.filter((edge) => edge.observed === true).length}
+                />
                 <Stat
                   label="금지 연결"
                   value={topology.data.edges.filter((edge) => edge.forbidden).length}
-                />
-                <Stat
-                  label="포트 미지정"
-                  value={topology.data.edges.filter((edge) => edge.port === null).length}
                 />
               </div>
             </>
           )}
         </div>
+
+        {/* 수집된 IP 대역 — 토폴로지가 비었을 때 이유를 가리킵니다. */}
+        <CollectedSubnetsPanel
+          projectId={activeProjectId}
+          topology={topology.data}
+          onRefreshTopology={topology.reload}
+        />
 
         {/* 라우팅 테이블 */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">

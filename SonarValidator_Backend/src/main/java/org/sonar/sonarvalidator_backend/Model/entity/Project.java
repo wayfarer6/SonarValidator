@@ -2,7 +2,9 @@ package org.sonar.sonarvalidator_backend.Model.entity;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.sonar.sonarvalidator_backend.Policy.PolicyRule;
 import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
@@ -209,7 +211,15 @@ public class Project {
     public void replacePolicy(List<PolicySubnet> newSubnets, List<PolicyRule> newRules) {
         if (newSubnets != null) {
             subnets.clear();
+            // ⚠️ 같은 subnet_id 를 두 번 넣으면 자동 증가 PK 만 다른 중복 행이 생깁니다.
+            //    그러면 대역 드롭다운에 같은 CIDR 이 두 번 뜨고 검증도 이중으로 돕니다.
+            //    호출자가 중복 목록을 보내도 정책이 망가지지 않도록 여기서 막습니다.
+            //    (먼저 온 항목을 남깁니다)
+            final Set<String> seenSubnetIds = new LinkedHashSet<>();
             for (final PolicySubnet subnet : newSubnets) {
+                if (subnet.getId() != null && !seenSubnetIds.add(subnet.getId())) {
+                    continue;
+                }
                 final ProjectSubnet entity = ProjectSubnet.from(subnet);
                 entity.setProject(this);
                 subnets.add(entity);

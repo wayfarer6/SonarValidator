@@ -251,19 +251,27 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     {
         if (fs::exists(path) && LoadConfig(path, config))
         {
+            // Deployment configuration is authoritative; cached endpoints become stale
+            // when a device moves between management and guestshell NAT networks.
+            config.DetectServerIpv4();
+            config.DetectServerPort();
+            if (config.GetServerIpv4().empty() || config.GetServerPort() == 0 ||
+                !config.DetectDeviceType()) return false;
+            const auto configured_name = ProberConfig::DetectAgentName();
+            if (!configured_name.empty()) config.SetAgentName(configured_name);
             config.DetectProductName();  // 제품군은 매번 재탐지합니다.
             config.DetectTerminalSharedSecret();
             // 관리 대역도 설정에서 다시 읽습니다. 랩/프로젝트가 바뀌면
             // default.conf 만 고쳐도 격리 경고/제외가 따라가야 합니다.
             config.DetectManagementPrefixes();
-            return true;
+            return SaveConfig(path, config);
         }
     }
     catch (const std::exception &e)
     {
         std::cout << " Cant create config directories because of authority" << '\n';
         std::cout << "Error: " << e.what() << '\n';
-        return 1;
+        return false;
     }
 
     // 에이전트 이름은 한 번만 생성해 agent_id 와 agent_name 에 함께 넣습니다.

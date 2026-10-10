@@ -26,6 +26,11 @@ export interface SubnetInput {
   name?: string | null;
   agent_id?: string | null;
   manually_edited?: boolean;
+  /**
+   * 연결을 허용하는 상대 목록 (상대 식별자/CIDR 또는 {@code "internet"}).
+   * 생략과 빈 배열 모두 "제한 없음" 입니다.
+   */
+  allowed_peers?: string[];
 }
 
 /** 서버로 보낼 규칙 본문입니다. */
@@ -147,6 +152,7 @@ export function toSubnetInput(subnet: ApiSubnet): SubnetInput {
     name: subnet.name,
     agent_id: subnet.agent_id,
     manually_edited: subnet.manually_edited,
+    allowed_peers: subnet.allowed_peers ?? [],
   };
 }
 

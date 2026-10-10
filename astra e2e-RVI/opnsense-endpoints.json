@@ -1,0 +1,78 @@
+[
+  {
+    "path": "/api/core/firmware/info",
+    "error": "timed out"
+  },
+  {
+    "path": "/api/core/firmware/status",
+    "status": 200,
+    "json": true,
+    "keys": [
+      "product",
+      "status_msg",
+      "status"
+    ],
+    "bytes": 1737
+  },
+  {
+    "path": "/api/interfaces/overview/interfacesInfo",
+    "status": 200,
+    "json": true,
+    "keys": [
+      "total",
+      "rowCount",
+      "current",
+      "rows"
+    ],
+    "bytes": 5445
+  },
+  {
+    "path": "/api/firewall/filter/search_rule?rowCount=-1",
+    "status": 200,
+    "json": true,
+    "keys": [
+      "total",
+      "rowCount",
+      "current",
+      "rows"
+    ],
+    "bytes": 20441
+  },
+  {
+    "path": "/api/firewall/filter/search_nat?rowCount=-1",
+    "status": 404,
+    "json": true,
+    "keys": [
+      "errorMessage"
+    ],
+    "bytes": 37
+  },
+  {
+    "path": "/api/firewall/filter/get",
+    "status": 200,
+    "json": true,
+    "keys": [
+      "filter"
+    ],
+    "bytes": 406,
+    "filter_keys": [
+      "general",
+      "rules",
+      "snatrules",
+      "npt",
+      "onetoone"
+    ]
+  },
+  {
+    "path": "/api/firewall/alias/search_item?rowCount=-1",
+    "status": 200,
+    "json": true,
+    "keys": [
+      "rows",
+      "rowCount",
+      "total",
+      "current"
+    ],
+    "bytes": 4346
+  }
+]

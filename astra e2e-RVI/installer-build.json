@@ -1,0 +1,18 @@
+{
+  "binary_sha256": "dcdea43437d12b0d25cb777a114b9eb07e136d2836bc6c0827118378102b4a3b",
+  "binary": "SonarValidator_Prober/build-rvi/sonar_validator_prober",
+  "build": "Release, statically linked",
+  "built_at_utc": "2026-10-10T00:52:00Z",
+  "fixes": [
+    "ios_cli: dohost 명령 결합 + IOS 오류/세션 판정",
+    "main: SIGTERM 종료 예산 watchdog (8s)",
+    "timed_websocket_operation: 무한 drain 제거",
+    "command_runner: 그룹+PID 직접 시그널",
+    "prober-cisco.service: network.target 제거, TimeoutStopSec=15"
+  ],
+  "deployed_to": "Cisco 8000v guestshell (10.20.0.1), verified 2026-10-10T00:56:20Z",
+  "bundles": [
+    "artifacts/Arista/Installer",
+    "artifacts/Cisco/Installer"
+  ]
+}

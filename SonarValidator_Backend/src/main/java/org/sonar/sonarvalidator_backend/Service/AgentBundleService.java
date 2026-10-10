@@ -403,6 +403,9 @@ public class AgentBundleService {
                 putOptionalFile(tar, "Installer.sh");
                 putOptionalFile(tar, "restart.sh");
                 putOptionalFile(tar, "default_template.sqlite");
+                putOptionalFile(tar, "systemd/sonar_validator_prober.service");
+                putOptionalFile(tar, "systemd/sonar_validator_prober-cisco.service");
+                putOptionalFile(tar, "rc-service/sonar_validator_prober");
 
                 // ⚠️ finish() 는 필수입니다. tar 는 마지막에 1024바이트 0 블록을
                 //    쓰는데, 이것이 없으면 일부 tar 가 "Unexpected EOF" 로 거부합니다.
@@ -612,7 +615,8 @@ public class AgentBundleService {
      */
     private static void putBytes(TarArchiveOutputStream tar, String name, byte[] content)
             throws IOException {
-        final boolean executable = name.endsWith(".sh") || name.equals("sonar_validator_prober");
+        final boolean executable = name.endsWith(".sh") || name.equals("sonar_validator_prober")
+                || name.equals("rc-service/sonar_validator_prober");
         final TarArchiveEntry entry = new TarArchiveEntry(BUNDLE_ROOT + "/" + name);
         entry.setSize(content.length);
         entry.setMode(executable ? 0755 : 0644);
@@ -700,7 +704,9 @@ public class AgentBundleService {
     private Map<String, Boolean> stagedAssets() {
         final Map<String, Boolean> result = new LinkedHashMap<>();
         for (final String name : new String[] {
-                "sonar_validator_prober", "default_template.sqlite", "Installer.sh", "restart.sh"}) {
+                "sonar_validator_prober", "default_template.sqlite", "Installer.sh", "restart.sh",
+                "systemd/sonar_validator_prober.service", "systemd/sonar_validator_prober-cisco.service",
+                "rc-service/sonar_validator_prober"}) {
             result.put(name, Files.isRegularFile(Path.of(stageDirectory, name)));
         }
         return result;

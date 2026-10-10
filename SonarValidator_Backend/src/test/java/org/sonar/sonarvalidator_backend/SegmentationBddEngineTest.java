@@ -292,4 +292,85 @@ class SegmentationBddEngineTest {
 
         assertThat(allowed).isEqualTo(java.math.BigInteger.valueOf(256L * 256L));
     }
+
+    // ------------------------------------------------------------------
+    //  관측 기반 인터넷 노출 검사
+    //  규칙이 하나도 없어도, 장치에 기본 경로가 수집되어 있으면 위반입니다.
+    // ------------------------------------------------------------------
+
+    /** 등급을 지정한 서브넷 하나를 만듭니다. */
+    private static PolicySubnet subnetOf(String id, String cidr, ZoneClass zone, String agentId) {
+        final PolicySubnet subnet = PolicySubnet.of(id, cidr, zone);
+        subnet.setAgentId(agentId);
+        return subnet;
+    }
+
+    @Test
+    @DisplayName("규칙이 없어도 기밀망 장치에 인터넷 기본 경로가 있으면 CRITICAL 이다")
+    void confidentialSubnetWithCollectedDefaultRouteIsCritical() {
+        final List<PolicySubnet> subnets = List.of(
+                subnetOf("VLAN8", "10.0.8.0/24", ZoneClass.CONFIDENTIAL, "Arista-Switch"));
+
+        final SegmentationBddEngine.Report report =
+                engine.validate(subnets, List.of(), java.util.Set.of("Arista-Switch"));
+
+        assertThat(report.isCompliant()).isFalse();
+        assertThat(report.getViolations()).singleElement().satisfies(violation -> {
+            assertThat(violation.ruleId()).isEqualTo(SegmentationBddEngine.INTERNET_EXPOSURE_RULE);
+            assertThat(violation.severity()).isEqualTo(PolicyViolation.Severity.CRITICAL);
+            assertThat(violation.sourceZone()).isEqualTo(ZoneClass.CONFIDENTIAL);
+            assertThat(violation.targetZone()).isEqualTo(ZoneClass.OPEN);
+            assertThat(violation.sampledSourceIp()).isEqualTo("10.0.8.0");
+            assertThat(violation.sampledTargetIp()).isEqualTo(SegmentationBddEngine.INTERNET_PROBE_IP);
+        });
+        assertThat(report.getMessages()).anyMatch(message -> message.contains("인터넷 노출"));
+    }
+
+    @Test
+    @DisplayName("민감망의 인터넷 노출은 MAJOR 경고다")
+    void sensitiveSubnetWithInternetIsMajor() {
+        final List<PolicySubnet> subnets = List.of(
+                subnetOf("S", "10.0.9.0/24", ZoneClass.SENSITIVE, "Arista-Switch"));
+
+        final SegmentationBddEngine.Report report =
+                engine.validate(subnets, List.of(), java.util.Set.of("Arista-Switch"));
+
+        assertThat(report.getViolations()).singleElement()
+                .satisfies(violation -> assertThat(violation.severity())
+                        .isEqualTo(PolicyViolation.Severity.MAJOR));
+    }
+
+    @Test
+    @DisplayName("공개망은 인터넷과 붙어도 위반이 아니다")
+    void openSubnetWithInternetIsAllowed() {
+        final List<PolicySubnet> subnets = List.of(
+                subnetOf("O", "10.30.141.0/24", ZoneClass.OPEN, "Arista-Switch"));
+
+        final SegmentationBddEngine.Report report =
+                engine.validate(subnets, List.of(), java.util.Set.of("Arista-Switch"));
+
+        assertThat(report.isCompliant()).isTrue();
+    }
+
+    @Test
+    @DisplayName("기본 경로가 없는 장치의 기밀망은 인터넷 노출로 보지 않는다")
+    void subnetOnDeviceWithoutDefaultRouteIsNotFlagged() {
+        final List<PolicySubnet> subnets = List.of(
+                subnetOf("VLAN8", "10.0.8.0/24", ZoneClass.CONFIDENTIAL, "Arista-Switch"));
+
+        // 다른 장치가 인터넷에 노출되어 있어도 이 서브넷의 장치는 아닙니다.
+        final SegmentationBddEngine.Report report =
+                engine.validate(subnets, List.of(), java.util.Set.of("Cisco-Router"));
+
+        assertThat(report.isCompliant()).isTrue();
+    }
+
+    @Test
+    @DisplayName("관측 증거를 주지 않으면 기존 동작 그대로다")
+    void withoutObservedEvidenceBehaviourIsUnchanged() {
+        final List<PolicySubnet> subnets = List.of(
+                subnetOf("VLAN8", "10.0.8.0/24", ZoneClass.CONFIDENTIAL, "Arista-Switch"));
+
+        assertThat(engine.validate(subnets, List.of()).isCompliant()).isTrue();
+    }
 }

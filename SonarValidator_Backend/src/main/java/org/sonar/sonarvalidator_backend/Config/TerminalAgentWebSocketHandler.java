@@ -34,7 +34,10 @@ public class TerminalAgentWebSocketHandler extends TextWebSocketHandler {
         this.objectMapper = objectMapper;
         this.expectedAgents = expectedAgents;
         this.broker = broker;
-        this.sharedSecret = sharedSecret;
+        this.sharedSecret = sharedSecret == null ? "" : sharedSecret.trim();
+        if (this.sharedSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            log.warn("Terminal channel disabled: backend shared secret must contain at least 32 bytes");
+        }
     }
 
     @Override
@@ -44,7 +47,11 @@ public class TerminalAgentWebSocketHandler extends TextWebSocketHandler {
         if ("terminal-hello".equals(type)) {
             final String agentId = json.path("agent_id").asString("");
             final String suppliedSecret = json.path("secret").asString("");
-            if (sharedSecret.getBytes(StandardCharsets.UTF_8).length < 32 || !MessageDigest.isEqual(
+            if (sharedSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
+                session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Backend terminal secret is not configured"));
+                return;
+            }
+            if (!MessageDigest.isEqual(
                     sharedSecret.getBytes(StandardCharsets.UTF_8),
                     suppliedSecret.getBytes(StandardCharsets.UTF_8))) {
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Terminal channel is not authorized"));

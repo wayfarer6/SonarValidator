@@ -91,6 +91,108 @@ public class ProjectSubnet {
     private boolean manuallyEdited;
 
     /**
+     * 이 서브넷이 연결을 <b>허용하는</b> 상대 목록입니다. (쉼표 구분)
+     *
+     * <h2>⚠️ 왜 문자열 하나인가</h2>
+     * <p>원소가 "상대 서브넷 식별자 또는 CIDR" 이고 개수도 가변입니다.
+     * 별도 테이블로 분리하면 서브넷 한 건을 저장할 때마다 자식 행을
+     * 전부 지우고 다시 써야 하고(순서·중복 관리), 편집기 저장 경로가
+     * 여러 엔티티를 함께 다뤄야 합니다. 이 필드는 <b>선택적 태그 목록</b>에
+     * 가까우므로 한 칼럼에 둡니다.
+     *
+     * <p>빈 문자열/null = 제한 없음(기존 동작)입니다.
+     */
+    @Column(name = "allowed_peers", length = 1000)
+    private String allowedPeers;
+
+    /**
+     * 허용 상대를 목록으로 돌려줍니다.
+     *
+     * @return 허용 상대 목록 (비어 있으면 제한 없음)
+     */
+    public java.util.List<String> allowedPeerList() {
+        if (allowedPeers == null || allowedPeers.isBlank()) {
+            return new java.util.ArrayList<>();
+        }
+        final java.util.List<String> result = new java.util.ArrayList<>();
+        for (final String token : allowedPeers.split(",")) {
+            final String trimmed = token.trim();
+            if (!trimmed.isEmpty() && !result.contains(trimmed)) {
+                result.add(trimmed);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 허용 상대 목록을 저장합니다.
+     *
+     * @param peers 허용 상대 (null/빈 목록이면 제한 해제)
+     */
+    public void setAllowedPeerList(java.util.List<String> peers) {
+        if (peers == null || peers.isEmpty()) {
+            this.allowedPeers = null;
+            return;
+        }
+        final java.util.List<String> cleaned = new java.util.ArrayList<>();
+        for (final String peer : peers) {
+            if (peer == null) {
+                continue;
+            }
+            final String trimmed = peer.trim();
+            if (!trimmed.isEmpty() && !cleaned.contains(trimmed)) {
+                cleaned.add(trimmed);
+            }
+        }
+        this.allowedPeers = cleaned.isEmpty() ? null : String.join(",", cleaned);
+    }
+
+    /**
+     * 허용 목록이 설정되어 있는지 알려줍니다.
+     *
+     * @return 제한 중이면 true
+     */
+    public boolean isRestricted() {
+        return !allowedPeerList().isEmpty();
+    }
+
+    /**
+     * 상대를 허용 목록에서 받아들이는지 봅니다.
+     *
+     * <p>판정은 도메인 객체({@link PolicySubnet})가 합니다. 검증 엔진과 정책
+     * 생성이 <b>같은 함수</b>를 써야 "검증은 통과했는데 장치에서는 막히는"
+     * 불일치가 생기지 않습니다.
+     *
+     * @param reference 상대 서브넷 식별자 또는 CIDR
+     * @return 허용이면 true
+     */
+    public boolean allowsPeer(String reference) {
+        return toPolicySubnet().allowsPeer(reference);
+    }
+
+    /**
+     * 인터넷(기본 경로)이 허용 목록에 있는지 봅니다.
+     *
+     * @return 인터넷을 넣었거나 제한이 없으면 true
+     */
+    public boolean allowsInternet() {
+        return toPolicySubnet().allowsInternet();
+    }
+
+    /**
+     * 상대의 여러 표기 중 하나라도 허용 목록에 있는지 봅니다.
+     *
+     * <p>판정은 도메인 객체가 합니다 — 검증 엔진과 정책 생성이 <b>같은 함수</b>를
+     * 써야 "검증은 통과했는데 장치에서 막히는" 불일치가 생기지 않습니다.
+     *
+     * @param references 상대의 표기들 (식별자/CIDR)
+     * @return 하나라도 허용이면 true
+     */
+    public boolean allowsAnyPeer(String... references) {
+        return toPolicySubnet().allowsAnyPeer(references);
+    }
+
+    /**
      * 도메인 객체로 변환합니다.
      *
      * @return 검증 엔진 입력용 서브넷
@@ -104,6 +206,7 @@ public class ProjectSubnet {
         subnet.setName(name);
         subnet.setAgentId(agentId);
         subnet.setManuallyEdited(manuallyEdited);
+        subnet.setAllowedPeers(allowedPeerList());
         return subnet;
     }
 
@@ -122,6 +225,7 @@ public class ProjectSubnet {
         entity.setName(subnet.getName());
         entity.setAgentId(subnet.getAgentId());
         entity.setManuallyEdited(subnet.isManuallyEdited());
+        entity.setAllowedPeerList(subnet.getAllowedPeers());
         return entity;
     }
 }

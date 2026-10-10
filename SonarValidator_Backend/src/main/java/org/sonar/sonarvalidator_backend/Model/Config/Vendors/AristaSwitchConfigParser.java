@@ -13,14 +13,19 @@ import tools.jackson.databind.JsonNode;
  *
  * <h2>수집 경로</h2>
  * <p>Agent 는 FastCli 영속 세션으로 {@code show vlan brief},
- * {@code show ip interface brief}, {@code show interfaces switchport},
- * {@code show arp} 를 실행합니다.
+ * {@code show ip interface brief}, {@code show ip route},
+ * {@code show interfaces switchport}, {@code show arp} 를 실행합니다.
  *
  * <h2>다른 스위치(OVS)와의 차이</h2>
  * <p>Arista 는 <b>L3 를 가질 수 있는</b> 스위치입니다. {@code show ip interface brief}
  * 가 나오므로 인터페이스에 IP 가 붙고, 관리 인터페이스({@code Management1})나
- * {@code Vlan8} 같은 SVI 로 접근합니다. 그래서 라우팅 수집은 없지만
- * NIC 는 채워집니다.
+ * {@code Vlan8} 같은 SVI 로 접근합니다.
+ *
+ * <p>⚠️ <b>라우팅 테이블도 수집합니다.</b> vEOS 는 기본 경로를 가질 수 있고
+ * (실측: {@code S 0.0.0.0/0 via 172.18.10.1, Ethernet1}),
+ * 그 사실이 빠지면 "이 스위치는 인터넷으로 나가지 않는다" 로 <b>잘못 판정</b>합니다.
+ * 기밀망 인터넷 노출 검사와 VLAN 간 연결(대역 간 라우팅)이 모두 이 수집에
+ * 기대고 있습니다.
  *
  * <p>VLAN 은 두 곳에서 옵니다.
  * <ul>
@@ -49,6 +54,9 @@ public class AristaSwitchConfigParser extends AbstractDeviceConfigParser {
         }
 
         applyNicStatus(config, payload);
+        // ⚠️ 라우팅 테이블을 빼면 안 됩니다. vEOS 의 기본 경로/직접 연결 경로가
+        //    유일한 인터넷 노출·대역 간 연결 근거입니다.
+        applyRouteStatus(config, payload);
         applyVlanStatus(config, payload);
         applyTrunkStatus(config, payload);
         applyArpTable(config, payload);
@@ -89,6 +97,6 @@ public class AristaSwitchConfigParser extends AbstractDeviceConfigParser {
 
     @Override
     public List<String> capabilities() {
-        return List.of("interfaces", "vlans", "trunks", "arp");
+        return List.of("interfaces", "routes", "vlans", "trunks", "arp");
     }
 }

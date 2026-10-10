@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
+import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
 import org.sonar.sonarvalidator_backend.Model.dto.ProjectDto;
 import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Policy.PacketVariables;
@@ -19,6 +20,7 @@ import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,8 +50,30 @@ public class ProjectService {
     /** 검증에서 제외할 규칙을 표시하는 값. */
     private static final int DEFAULT_PORT = PacketVariables.ANY_PORT;
 
+    /** 인터넷 기본 경로를 뜻하는 접두사. */
+    private static final String DEFAULT_ROUTE_PREFIX = "0.0.0.0/0";
+
     private final ProjectRepository repository;
     private final SegmentationBddEngine engine = new SegmentationBddEngine();
+
+    /**
+     * 수집된 장치 설정을 읽는 통로입니다. (인터넷 노출 검사용)
+     *
+     * <p>검증만 하는 단위 테스트에서 라우터를 매번 만들지 않도록
+     * {@code @Autowired(required = false)} 로 두고, 없으면 관측 검사를 생략합니다.
+     * (규칙 기반 검사는 그대로 동작합니다)
+     */
+    private AgentMessageRouterService router;
+
+    /**
+     * 수집된 설정을 읽는 라우터를 주입합니다.
+     *
+     * @param router 에이전트 메시지 라우터 (없으면 관측 기반 검사 생략)
+     */
+    @Autowired(required = false)
+    public void setAgentRouter(AgentMessageRouterService router) {
+        this.router = router;
+    }
 
     /**
      * 변경 이력 기록기입니다.
@@ -390,7 +414,26 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public SegmentationBddEngine.Report validateStored(String projectKey) {
         final Project project = getByKey(projectKey);
-        return engine.validate(project.toPolicySubnets(), project.toPolicyRules());
+        return engine.validate(project.toPolicySubnets(), project.toPolicyRules(),
+                internetExposedAgents());
+    }
+
+    /**
+     * 인터넷 기본 경로({@code 0.0.0.0/0})가 수집된 장치 식별자를 모읍니다.
+     *
+     * <p>운영자가 규칙으로 적어 두지 않아도, 장치가 실제로 기본 경로를 갖고 있으면
+     * 그 장치의 기밀망/민감망 대역은 인터넷으로 나갈 수 있습니다.
+     * 그 "관측된 사실" 을 검증에 넣기 위한 입력입니다.
+     *
+     * @return 기본 경로가 있는 장치 식별자 (라우터 미설정 시 빈 집합)
+     */
+    private Set<String> internetExposedAgents() {
+        if (router == null) {
+            return Set.of();
+        }
+        // 판정 규칙은 ObservedConnectivity 한 곳에 둡니다 — 토폴로지가 같은
+        // 함수로 인터넷 간선을 그리므로 화면과 검증이 어긋나지 않습니다.
+        return ObservedConnectivity.internetExposedAgents(router.allConfigs());
     }
 
     /**
@@ -400,7 +443,8 @@ public class ProjectService {
      * @return 검증 보고서
      */
     public SegmentationBddEngine.Report validate(ProjectDto.ValidateRequest request) {
-        return engine.validate(mapSubnets(request.subnets()), mapRules(request.rules()));
+        return engine.validate(mapSubnets(request.subnets()), mapRules(request.rules()),
+                internetExposedAgents());
     }
 
     /**

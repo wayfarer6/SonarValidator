@@ -2,8 +2,10 @@ package org.sonar.sonarvalidator_backend.Model.dto;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Model.entity.ProjectRule;
@@ -89,7 +91,13 @@ public final class ProjectMapper {
      */
     public static List<Map<String, Object>> toSubnetList(Project project) {
         final List<Map<String, Object>> result = new ArrayList<>();
+        // ⚠️ 과거에 같은 subnet_id 로 저장된 행이 남아 있어도 응답에는 한 번만 넣습니다.
+        //    (자동 증가 PK 만 다른 중복 행이 화면·Rule 드롭다운에 두 번 뜨는 것을 막습니다)
+        final Set<String> seenIds = new LinkedHashSet<>();
         for (final ProjectSubnet subnet : project.getSubnets()) {
+            if (subnet.getSubnetId() != null && !seenIds.add(subnet.getSubnetId())) {
+                continue;
+            }
             final Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("id", subnet.getSubnetId());
             entry.put("cidr", subnet.getCidr());
@@ -98,6 +106,8 @@ public final class ProjectMapper {
             entry.put("name", subnet.getName());
             entry.put("agent_id", subnet.getAgentId());
             entry.put("manually_edited", subnet.isManuallyEdited());
+            // 허용 목록은 화면에서 그대로 편집됩니다. 순서를 유지해 돌려줍니다.
+            entry.put("allowed_peers", subnet.allowedPeerList());
             result.add(entry);
         }
         return result;

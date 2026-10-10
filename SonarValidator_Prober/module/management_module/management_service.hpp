@@ -29,12 +29,14 @@ using tcp = boost::asio::ip::tcp;
 //
 // 벤더별 정책 적용(Apply*), 공통 명령 실행(RunCommand), 영속 CLI 세션(CliCommand)을 제공합니다.
 class ManagementService {
+    std::stop_token stop_token_;
 public:
     ManagementService();
     ManagementService(std::string host, int port, std::string target);
     ~ManagementService();
 
     bool connect();
+    void SetStopToken(std::stop_token token) { stop_token_ = token; }
 
     // 서버에 알릴 에이전트 ID 를 설정합니다. (미설정이면 device_id 로 대체)
     void SetAgentId(std::string agent_id);
@@ -78,6 +80,11 @@ public:
     std::string RunCommandOutput(const std::string& command);
 
     // IOS-XE guestshell의 dohost 명령으로 IOS CLI를 실행합니다. (인증 불필요)
+    //
+    // 여러 명령은 하나의 dohost 호출에 세미콜론으로 이어 붙여 실행합니다.
+    // (설정 컨텍스트 유지 — components/terminal/ios_cli.hpp 참고)
+    // IOS 가 명령을 거부하면(`%` 오류 줄) 빈 문자열을 돌려주므로,
+    // 호출자는 `!output.empty()` 로 성공을 판정하면 됩니다.
     std::string ExecuteIosCli(const std::vector<std::string>& cli_commands);
 
     // Arista vEOS CLI(FastCli) 명령을 실행하고 출력을 돌려줍니다.
@@ -96,6 +103,16 @@ public:
     bool ApplyPolicyCommand(const PolicyCommand& command);
 
 private:
+    // 라우터/스위치의 차단 ACL 을 <b>선언적으로</b> 맞춥니다.
+    //
+    // 왜 연결 하나짜리 규칙(enforcementRule)으로는 안 되는가
+    //   IOS 확장 ACL 은 규칙 하나만 지우는 문법이 없어 이름으로 통째로 다시
+    //   써야 합니다. 그래서 서버는 "지금 남아 있어야 하는 규칙 전체" 를
+    //   acl_apply 노드로 보내고, 여기서 이전 것을 지우고 새로 씁니다.
+    //   연결 하나만 보고 만든 규칙을 차례로 보내면 <b>운영자가 지운 규칙이
+    //   장치에 그대로 남습니다</b> — 차단이 안 풀린 채 남는 가장 위험한 실패입니다.
+    bool ApplyCiscoRouterAcl(const nlohmann::json& policy);
+
     // VM 의 netplan 스키마(network_config)를 /etc/netplan 에 써서 적용합니다.
     // ApplyVmPolicy 에서 분기하며, 실패 시 기존 설정을 건드리지 않습니다.
     bool ApplyNetplanPolicy(const nlohmann::json& policy, const std::string& command);
@@ -108,6 +125,14 @@ private:
 
     // 프로그램이 PATH 에 있는지 확인합니다.
     bool HasCommand(const std::string& program);
+
+    // FRR 라우터용입니다. 문법은 표준 access-list 이며,
+    // <b>실장비 검증은 하지 못했습니다</b>(랩에 FRR 라우터가 없음).
+    bool ApplyFrrRouterAcl(const nlohmann::json& policy);
+
+    // Open vSwitch 차단 플로우용입니다. 우리가 넣은 흐름에만 쿠키를 찍고
+    // 쿠키로만 지웁니다 — 다른 도구가 넣은 흐름을 건드리지 않기 위함입니다.
+    bool ApplyOpenVSwitchAcl(const nlohmann::json& policy);
 
     // 장치의 기본(주소를 가진) 인터페이스 이름을 찾습니다.
     // netplan 자리표시자(__primary__)를 이 값으로 치환합니다.

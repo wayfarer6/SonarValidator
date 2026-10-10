@@ -13,6 +13,7 @@ const char* PolicyCommand::ActionName(PolicyAction action)
     case PolicyAction::kCreate: return "create";
     case PolicyAction::kRemove: return "remove";
     case PolicyAction::kGet: return "get";
+    case PolicyAction::kApply: return "apply";
     }
     return "";
 }
@@ -64,6 +65,10 @@ std::optional<PolicyCommand> PolicyCommand::Parse(DeviceType device_type,
     else if (name == "get")
     {
         action = PolicyAction::kGet;
+    }
+    else if (name == "apply")
+    {
+        action = PolicyAction::kApply;
     }
     else
     {

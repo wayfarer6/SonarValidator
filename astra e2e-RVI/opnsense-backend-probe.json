@@ -1,0 +1,46 @@
+[ {
+  "target" : "firmware",
+  "ok" : true,
+  "status" : 200,
+  "summary" : {
+    "type" : "object",
+    "keys" : 3,
+    "key_names" : "product status_msg status"
+  }
+}, {
+  "target" : "interfaces",
+  "ok" : true,
+  "status" : 200,
+  "summary" : {
+    "type" : "object",
+    "keys" : 4,
+    "key_names" : "total rowCount current rows"
+  }
+}, {
+  "target" : "rules",
+  "ok" : true,
+  "status" : 200,
+  "summary" : {
+    "type" : "object",
+    "keys" : 4,
+    "key_names" : "total rowCount current rows"
+  }
+}, {
+  "target" : "nat",
+  "ok" : true,
+  "status" : 200,
+  "summary" : {
+    "type" : "object",
+    "keys" : 3,
+    "key_names" : "rows rowCount total"
+  }
+}, {
+  "target" : "aliases",
+  "ok" : true,
+  "status" : 200,
+  "summary" : {
+    "type" : "object",
+    "keys" : 4,
+    "key_names" : "rows rowCount total current"
+  }
+} ]

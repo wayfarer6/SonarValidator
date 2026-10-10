@@ -56,29 +56,32 @@ using DConfFile = std::unique_ptr<FILE, DConfHandler>;
 
 std::string ReadDefaultValue(const char* key)
 {
-    DConfFile default_config(std::fopen(ResolveConfigPath(), "r"));
-    if (!default_config)
+    std::ifstream input(ResolveConfigPath());
+    auto trim = [](std::string value) {
+        const auto first = value.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos) return std::string{};
+        return value.substr(first, value.find_last_not_of(" \t\r\n") - first + 1);
+    };
+    std::string line;
+    while (std::getline(input, line))
     {
-        return {};
-    }
-
-    char buffer[256];
-    while (std::fgets(buffer, sizeof(buffer), default_config.get()) != nullptr)
-    {
-        std::string line(buffer);
-        const std::string prefix = std::string(key) + "=";
-        if (line.rfind(prefix, 0) != 0)
+        line = trim(line);
+        if (line.empty() || line.starts_with("#") || line.starts_with("//")) continue;
+        const auto separator = line.find('=');
+        if (separator == std::string::npos || trim(line.substr(0, separator)) != key) continue;
+        std::string value = trim(line.substr(separator + 1));
+        char quote = 0;
+        for (std::size_t i = 0; i < value.size(); ++i)
         {
-            continue;
+            const char ch = value[i];
+            if (quote) { if (ch == quote) quote = 0; }
+            else if (ch == '"' || ch == '\'') quote = ch;
+            else if (ch == ';' || ch == '#' || value.compare(i, 2, "//") == 0)
+            { value.resize(i); break; }
         }
-
-        std::string value = line.substr(prefix.size());
-        while (!value.empty() &&
-               (value.back() == '\n' || value.back() == '\r' || value.back() == ';' ||
-                value.back() == ' ' || value.back() == '\t'))
-        { // 읽을때 tab, 줄바꿈 공백 문자의 경우에는 무시 하는 기능
-            value.pop_back();
-        }
+        value = trim(value);
+        if (value.size() >= 2 && (value.front() == '"' || value.front() == '\'') &&
+            value.back() == value.front()) value = value.substr(1, value.size() - 2);
         return value;
     }
     return {};
@@ -199,11 +202,13 @@ void ProberConfig::DetectServerIpv4()
 // 기본 설정에서 서버 포트를 읽고 1~65535 범위인지 검증합니다.
 void ProberConfig::DetectServerPort()
 {
+    server_port_ = 0;
     const std::string port = ReadDefaultValue("SERVER_PORT");
     try
     {
-        const unsigned long value = std::stoul(port);
-        if (value > 0 && value <= 65535)
+        std::size_t consumed = 0;
+        const unsigned long value = std::stoul(port, &consumed);
+        if (consumed == port.size() && value > 0 && value <= 65535)
         {
             server_port_ = static_cast<std::uint16_t>(value);
         }
@@ -226,7 +231,12 @@ void ProberConfig::SetTerminalSharedSecret(std::string terminal_shared_secret)
 
 void ProberConfig::DetectTerminalSharedSecret()
 {
-    terminal_shared_secret_ = ReadDefaultValue("TERMINAL_SHARED_SECRET");
+    const char* secret = std::getenv("SONAR_TERMINAL_SHARED_SECRET");
+    terminal_shared_secret_ = secret && *secret ? secret : ReadDefaultValue("TERMINAL_SHARED_SECRET");
+    const auto first = terminal_shared_secret_.find_first_not_of(" \t\r\n");
+    terminal_shared_secret_ = first == std::string::npos ? std::string{} :
+        terminal_shared_secret_.substr(first,
+            terminal_shared_secret_.find_last_not_of(" \t\r\n") - first + 1);
 }
 
 // 기본 설정의 AGENT_NAME 을 읽어옵니다.

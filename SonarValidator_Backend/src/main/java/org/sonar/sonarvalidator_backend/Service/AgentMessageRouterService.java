@@ -146,6 +146,19 @@ public class AgentMessageRouterService {
     private QuarantineService quarantineService;
 
     /**
+     * 수집된 VLAN/SVI 를 프로젝트 서브넷으로 자동 반영합니다. (선택 의존)
+     *
+     * <h2>⚠️ 왜 라우터가 호출하는가</h2>
+     * <p>"장치가 붙었는데 토폴로지가 비어 있다" 는 상태를 만들지 않으려면
+     * <b>수집 시점</b>에 반영해야 합니다. 텔레메트리 수신 지점이 여기뿐이고,
+     * 별도 스케줄러를 두면 "언제 반영되는가" 가 화면에서 예측되지 않습니다.
+     *
+     * <p>라우터 단위 테스트가 저장소 없이 돌아야 하므로 {@code null} 을
+     * 허용합니다. (nodeRegistry 와 같은 규칙)
+     */
+    private ProjectSubnetAutoSyncService subnetAutoSync;
+
+    /**
      * 노드 정본 등록 통로입니다. (선택 의존)
      *
      * <p>텔레메트리로 확보한 설정을 {@code configuration} 테이블에 남겨
@@ -220,6 +233,16 @@ public class AgentMessageRouterService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setNodeRegistry(NodeRegistryService nodeRegistry) {
         this.nodeRegistry = nodeRegistry;
+    }
+
+    /**
+     * 서브넷 자동 반영 통로를 주입합니다.
+     *
+     * @param subnetAutoSync 서브넷 자동 동기화 서비스 (테스트에서는 생략 가능)
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSubnetAutoSync(ProjectSubnetAutoSyncService subnetAutoSync) {
+        this.subnetAutoSync = subnetAutoSync;
     }
 
     /**
@@ -370,6 +393,13 @@ public class AgentMessageRouterService {
             //   실패해도 텔레메트리 수신을 막지 않습니다.
             if (nodeRegistry != null) {
                 nodeRegistry.resolveOrCreate(agentId, config);
+            }
+
+            // ⚠️ 수집된 대역을 프로젝트 서브넷으로 반영합니다.
+            //    실패해도 수신을 막지 않습니다 — 여기서 예외가 새면 장치가
+            //    통째로 "무응답" 으로 보입니다.
+            if (subnetAutoSync != null) {
+                subnetAutoSync.syncForAgent(agentId, config);
             }
 
             log.info("telemetry from agent={} keys={} format={} ifaces={} routes={} vlans={}",
@@ -559,6 +589,12 @@ public class AgentMessageRouterService {
         // ⚠️ 연결 상태는 채우지 않습니다 — 채우면 UI 가 "연결됨" 으로 잘못 봅니다.
         telemetryStore.putTelemetry(agentId, payload);
         telemetryStore.putOfflineConfig(agentId, config);
+
+        // 오프라인 스냅샷도 같은 규칙으로 서브넷에 반영합니다.
+        // (온라인 경로와 다르게 처리하면 같은 파일을 올렸을 때 결과가 달라집니다)
+        if (subnetAutoSync != null) {
+            subnetAutoSync.syncForAgent(agentId, config);
+        }
 
         log.info("offline telemetry accepted: agent={} product={} format={} keys={}",
                 agentId, resolvedProduct, config.getFormat(), payload == null ? 0 : payload.size());

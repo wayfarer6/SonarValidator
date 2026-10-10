@@ -54,9 +54,11 @@ ctest --test-dir build --output-on-failure
 
 프로젝트 화면에서 연결된 Agent의 **터미널 열기**를 누르면 브라우저의 xterm.js가
 Agent의 `/bin/bash --login` PTY와 연결됩니다. 터미널은 기본적으로 비활성화되어
-있으며, 백엔드와 Agent 서비스 환경에 동일한 32자 이상의
-`SONAR_TERMINAL_SHARED_SECRET`을 설정해야 연결됩니다. 비밀값은 저장소나 설정 파일에
-커밋하지 마세요.
+있으며, 백엔드의 `SONAR_TERMINAL_SHARED_SECRET`과 Agent의 `default.conf`에 있는
+`TERMINAL_SHARED_SECRET`에 동일한 32자 이상의 값을 설정해야 연결됩니다.
+Agent에도 `SONAR_TERMINAL_SHARED_SECRET` 환경변수가 있으면 파일보다 우선합니다.
+앞뒤 공백은 제거하며 설정 파일의 `; // 주석`은 키 값에 포함하지 않습니다.
+비밀값은 저장소에 커밋하지 마세요.
 
 브라우저 터미널은 로그인된 `ADMIN`/`OPERATOR` 사용자만 열 수 있고, Agent가 선택한
 프로젝트에 등록되어 있는지 서버가 확인합니다. `VIEWER` 권한은 거부됩니다.

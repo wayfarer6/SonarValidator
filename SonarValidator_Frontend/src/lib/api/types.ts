@@ -37,6 +37,17 @@ export interface ApiSubnet {
   name: string | null;
   agent_id: string | null;
   manually_edited: boolean;
+  /**
+   * 이 서브넷이 연결을 <b>허용하는</b> 상대 목록.
+   *
+   * <p>상대 서브넷 식별자/CIDR 또는 특수 토큰 {@code "internet"} 입니다.
+   * 비어 있으면 제한 없음(기존 동작)이고, 값이 있으면 배포 시 목록 밖 연결이
+   * 차단됩니다.
+   *
+   * <p>⚠️ 이 목록은 등급 규칙을 <b>완화할 수 없습니다.</b> 기밀망의 목록에
+   * 공개망을 넣어도 등급 건너뛰기 위반은 그대로입니다. 목록은 조이기만 합니다.
+   */
+  allowed_peers?: string[];
 }
 
 /** 편집기에서 다루는 연결 규칙 한 건. */
@@ -61,6 +72,11 @@ export interface ApiProjectSummary {
   status: string;
   management_server_ip: string | null;
   management_server_port: number | null;
+  /**
+   * 제어평면(관리망) 대역입니다. 비어 있으면 서버가 관리 서버 주소에서
+   * 유도합니다. 이 대역은 자동 수집 대상에서 제외됩니다.
+   */
+  management_prefix?: string | null;
   created_at: string | null;
   updated_at: string | null;
   subnet_count: number;
@@ -163,6 +179,14 @@ export interface ApiTopologyNode {
   quarantined?: boolean;
   /** Agent 의 WebSocket 세션이 살아 있는지. */
   connected?: boolean;
+  /**
+   * 노드 종류.
+   *
+   * <p>{@code internet} 은 외부(인터넷) 노드로, 서브넷과 달리 대역이 없고
+   * 화면에서 **원형(지구본)** 으로 그립니다. 라벨 문자열로 판단하지 않는 이유는
+   * 표시 이름을 바꾸는 순간 도형이 깨지기 때문입니다.
+   */
+  kind?: "subnet" | "internet";
 }
 
 /** 토폴로지 간선 (연결 규칙). */
@@ -182,10 +206,30 @@ export interface ApiTopologyEdge {
   source_cidr?: string | null;
   /** 도착 서브넷 CIDR (표시용). */
   target_cidr?: string | null;
+  /**
+   * 이 간선이 어디서 왔는가.
+   *
+   * <p>{@code MANUAL} = 운영자가 적은 규칙, {@code DISCOVERED} = 장치의 라우팅
+   * 테이블에서 읽은 <b>실제</b> 연결입니다. 후자는 정책이 아니라 관측 사실이므로
+   * 토폴로지에서 점선으로 구분해 그립니다.
+   */
+  origin?: "MANUAL" | "DISCOVERED";
+  /** 관측(라우팅) 기반 간선인가. {@code origin === "DISCOVERED"} 의 별칭입니다. */
+  observed?: boolean;
+  /**
+   * 인터넷으로 나가는 간선인가.
+   *
+   * <p>대역 간 라우팅과 달리 <b>방향</b>이 있으므로(안 → 밖) 점선 화살표로
+   * 그리고, 라벨도 "인터넷" 으로 씁니다.
+   */
+  internet?: boolean;
+  /** 관측 간선을 만들어 내는 장치 식별자 (정책 규칙에는 없습니다). */
+  agent_id?: string | null;
   port: number | null;
   protocol: string | null;
   forbidden: boolean;
-  severity: "CRITICAL" | "MAJOR" | "OK";
+  /** {@code OBSERVED} 는 관측된 연결이며, 등급을 건너뛰면 {@code CRITICAL} 로 승격됩니다. */
+  severity: "CRITICAL" | "MAJOR" | "OK" | "OBSERVED";
 }
 
 export interface ApiTopology {
@@ -194,6 +238,8 @@ export interface ApiTopology {
   nodes: ApiTopologyNode[];
   edges: ApiTopologyEdge[];
   legend: { label: string; level: number; color: string }[];
+  /** 간선 종류 범례 (정책 규칙 / 수집된 실제 연결). */
+  edge_legend?: { kind: string; label: string; dashed: boolean }[];
 }
 
 /** 수집된 장치 인터페이스. */

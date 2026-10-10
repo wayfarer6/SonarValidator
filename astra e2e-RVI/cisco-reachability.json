@@ -1,0 +1,45 @@
+{
+  "target": "Cisco 8000v Gi4 (10.20.0.1) <-> backend host",
+  "collected_at_utc": "2026-10-10T00:52:00Z",
+  "question": "guestshell 에서 10.20.0.3:3000 이 막힌다는 과거 기록을 검증",
+  "verdict": "10.20.0.3 은 정상 도달. 과거 'closed' 기록은 일시적 현상이었다.",
+  "backend_host": {
+    "interfaces_on_backend_host": {
+      "ens3": "10.20.0.3/24 (Cisco Gi4 와 같은 관리망)",
+      "ens4": "192.168.122.32/24 (GNS3/NAT 쪽)",
+      "docker0": "172.17.0.1/16 (DOWN)"
+    },
+    "listener": "java *:3000 (모든 인터페이스, SonarValidator_Backend)",
+    "routes": [
+      "default via 192.168.122.1 dev ens4 metric 101",
+      "default via 10.20.0.1 dev ens3 metric 20100",
+      "10.20.0.0/24 dev ens3 scope link src 10.20.0.3",
+      "192.168.122.0/24 dev ens4 scope link src 192.168.122.32"
+    ],
+    "firewall": {
+      "ufw": "ENABLED=no",
+      "nftables": "table inet filter 의 input/forward/output 체인이 모두 빈 상태 (규칙 없음)",
+      "ip_forward": 1,
+      "rp_filter": "ens3=2 (loose)"
+    }
+  },
+  "guesthell_measurements": {
+    "via": "ssh -p 2222 guestshell@10.20.0.1",
+    "icmp_10.20.0.3": "0% loss (ttl=63, ~2ms)",
+    "tcp_10.20.0.3_3000": "OK 6/6회 반복",
+    "tcp_192.168.122.32_3000": "OK",
+    "http_10.20.0.3_3000": 400,
+    "websocket_upgrade_10.20.0.3_3000": {
+      "/api/v1/terminal/agent": 101,
+      "/api/v1/management": 101,
+      "/api/v1/telemetry": 101
+    }
+  },
+  "note_single_failure": "최초 1회(guestshell 부팅 직후) TCP 가 closed 로 보였으나, 재시도에서 6/6 OK. 방화벽 규칙이 없으므로 정책 문제가 아니라 일시적 현상으로 판단.",
+  "conclusion": [
+    "SERVER_IP=10.20.0.3 을 사용한다 (관리망 주소, 다른 Agent 와 동일).",
+    "192.168.122.32 는 폴백으로 문서화만 남긴다.",
+    "NAT/방화벽 변경은 필요 없다."
+  ],
+  "remaining_blocker": "dohost 실패는 네트워크가 아니라 guestshell↔IOS IOSP 세션 부재 때문. IOS 콘솔에서 guestshell 재기동 필요."
+}

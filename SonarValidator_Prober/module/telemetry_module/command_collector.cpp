@@ -1155,6 +1155,10 @@ CollectedState CollectState(const ProberConfig& config, ManagementService& manag
         // docs/Agent_Command.md "Arista" — FastCli 영속 세션
         run_arista("show vlan brief", management_service);
         run_arista("show ip interface brief", management_service);
+        // ⚠️ 라우팅 테이블을 빼면 "이 스위치는 인터넷으로 나가지 않는다" 로 잘못 판정합니다.
+        //    vEOS 는 기본 경로를 가질 수 있고(실측: `S 0.0.0.0/0 via 172.18.10.1, Ethernet1`),
+        //    그 사실이 수집되지 않으면 기밀망 인터넷 노출을 놓칩니다.
+        run_arista("show ip route", management_service);
         run_arista("show interfaces switchport", management_service);
         run_arista("show arp", management_service);
         break;

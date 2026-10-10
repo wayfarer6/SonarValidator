@@ -13,6 +13,7 @@ import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
 import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
+import org.sonar.sonarvalidator_backend.Service.ObservedConnectivity;
 import org.sonar.sonarvalidator_backend.Service.ProjectService;
 import org.sonar.sonarvalidator_backend.Service.QuarantineService;
 import org.slf4j.Logger;
@@ -136,6 +137,7 @@ public class NetworkTopologyController {
             node.put("level", subnet.getZoneClass() == null ? null : subnet.getZoneClass().level());
             node.put("agent_id", agentId);
             node.put("manually_edited", subnet.isManuallyEdited());
+            node.put("kind", ObservedConnectivity.KIND_SUBNET);
             // 격리 여부와 연결 여부를 함께 실어 보냅니다. 프론트는
             // quarantined 를 최우선으로 빨간색 처리합니다.
             node.put("quarantined", quarantined);
@@ -174,7 +176,91 @@ public class NetworkTopologyController {
             final boolean forbidden = ZoneClass.forbidsDirectConnection(sourceZone, targetZone);
             edge.put("forbidden", forbidden);
             edge.put("severity", forbidden ? "CRITICAL" : (rule.hasPort() ? "OK" : "MAJOR"));
+            edge.put("origin", "MANUAL");
+            edge.put("observed", false);
             edges.add(edge);
+        }
+
+        /*
+         * --- 2) 라우팅 테이블에서 읽은 실제 연결 -------------------------
+         *
+         * 규칙만 그리면 "설정된 정책" 만 보이고, 장치가 실제로 VLAN 사이를
+         * 라우팅하고 있어도 화면에는 선이 없습니다. 그래서 수집된 라우팅
+         * 정보(L3 존재)로 만든 간선을 함께 실어 보냅니다.
+         *
+         * 저장하지 않습니다 — 라우팅 테이블은 살아 있는 텔레메트리이고, 장치가
+         * 바뀌면 화면에서도 함께 사라져야 합니다.
+         */
+        for (final ObservedConnectivity.Link link
+                : ObservedConnectivity.betweenSubnetsOfEachDevice(project, router.allConfigs())) {
+            final Map<String, Object> edge = new LinkedHashMap<>();
+            edge.put("rule_id", null);
+            edge.put("source", link.sourceId());
+            edge.put("target", link.targetId());
+            edge.put("source_cidr", link.sourceCidr());
+            edge.put("target_cidr", link.targetCidr());
+            edge.put("port", null);
+            edge.put("protocol", null);
+            edge.put("agent_id", link.agentId());
+            edge.put("forbidden", link.forbidden());
+            // OBSERVED: 규칙 위반이 아니라 관측된 연결(존을 건너뛰면 CRITICAL 로 승격)
+            edge.put("severity", link.forbidden() ? "CRITICAL" : "OBSERVED");
+            edge.put("origin", "DISCOVERED");
+            edge.put("observed", true);
+            edges.add(edge);
+        }
+
+        /*
+         * --- 3) 인터넷 노드와 연결 ---------------------------------------
+         *
+         * 기본 경로가 수집된 장치의 대역은 인터넷으로 나갈 수 있습니다.
+         * 그 사실을 화면에서 **원형(지구본) 노드**로 보여 주기 위해,
+         * 인터넷을 노드 하나로 만들고 노출된 대역에서 간선을 붙입니다.
+         *
+         * 노출이 0건이면 노드를 만들지 않습니다 — "인터넷" 이 떠 있는데
+         * 연결된 것이 없으면 오히려 잘못된 안심을 줍니다.
+         */
+        final Set<String> exposedAgents = ObservedConnectivity.internetExposedAgents(router.allConfigs());
+        if (!exposedAgents.isEmpty()) {
+            final Map<String, Object> internetNode = new LinkedHashMap<>();
+            internetNode.put("id", ObservedConnectivity.INTERNET_NODE_ID);
+            internetNode.put("label", ObservedConnectivity.INTERNET_NODE_LABEL);
+            internetNode.put("cidr", null);
+            // 인터넷은 공개망 성질이므로 Open 색을 씁니다.
+            internetNode.put("subnet_class", ZoneClass.OPEN.label());
+            internetNode.put("level", ZoneClass.OPEN.level());
+            internetNode.put("agent_id", null);
+            internetNode.put("manually_edited", false);
+            internetNode.put("quarantined", false);
+            internetNode.put("connected", true);
+            internetNode.put("kind", ObservedConnectivity.KIND_INTERNET);
+            nodes.add(internetNode);
+
+            for (final ProjectSubnet subnet : project.getSubnets()) {
+                final String agentId = subnet.getAgentId();
+                if (agentId == null || !exposedAgents.contains(agentId)) {
+                    continue;
+                }
+                final ZoneClass zone = subnet.getZoneClass();
+                final boolean confidential = zone == ZoneClass.CONFIDENTIAL;
+                final Map<String, Object> edge = new LinkedHashMap<>();
+                edge.put("rule_id", null);
+                edge.put("source", subnet.getSubnetId());
+                edge.put("target", ObservedConnectivity.INTERNET_NODE_ID);
+                edge.put("source_cidr", subnet.getCidr());
+                edge.put("target_cidr", null);
+                edge.put("port", null);
+                edge.put("protocol", null);
+                edge.put("agent_id", agentId);
+                // 기밀망이 인터넷으로 나가면 등급을 건너뛰는 직접 연결입니다.
+                edge.put("forbidden", confidential);
+                edge.put("severity", confidential ? "CRITICAL"
+                        : (zone == ZoneClass.SENSITIVE ? "MAJOR" : "OBSERVED"));
+                edge.put("origin", "DISCOVERED");
+                edge.put("observed", true);
+                edge.put("internet", true);
+                edges.add(edge);
+            }
         }
 
         final Map<String, Object> body = new LinkedHashMap<>();
@@ -186,6 +272,11 @@ public class NetworkTopologyController {
                 Map.of("label", "Open", "level", 1, "color", "#16a34a"),
                 Map.of("label", "Sensitive", "level", 2, "color", "#9333ea"),
                 Map.of("label", "Confidential", "level", 3, "color", "#dc2626")));
+        // 화면이 "실선=정책 규칙 / 점선=장치가 실제로 라우팅하는 연결" 을
+        // 구분해 그릴 수 있도록 범례도 함께 싣습니다.
+        body.put("edge_legend", List.of(
+                Map.of("kind", "policy", "label", "정책 규칙", "dashed", false),
+                Map.of("kind", "observed", "label", "수집된 실제 연결(라우팅)", "dashed", true)));
         return body;
     }
 

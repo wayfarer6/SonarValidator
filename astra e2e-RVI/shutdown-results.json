@@ -1,0 +1,20 @@
+[
+  {
+    "scenario": "refused",
+    "exit_code": 0,
+    "shutdown_seconds": 1.843,
+    "passed": true
+  },
+  {
+    "scenario": "silent-handshake",
+    "exit_code": 0,
+    "shutdown_seconds": 4.855,
+    "passed": true
+  },
+  {
+    "scenario": "idle-websocket",
+    "exit_code": 0,
+    "shutdown_seconds": 0.207,
+    "passed": true
+  }
+]

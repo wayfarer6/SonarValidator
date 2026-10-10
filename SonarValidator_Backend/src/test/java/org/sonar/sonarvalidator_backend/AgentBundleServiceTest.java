@@ -202,6 +202,11 @@ class AgentBundleServiceTest {
     void stagedAssetsAreIncludedWithExecutableMode(@TempDir Path stage) throws IOException {
         // 배포 가이드가 /tmp/sonar_stage 에 두는 자산을 흉내냅니다.
         Files.write(stage.resolve("sonar_validator_prober"), new byte[] {0x7f, 'E', 'L', 'F'});
+        Files.createDirectories(stage.resolve("systemd"));
+        Files.createDirectories(stage.resolve("rc-service"));
+        Files.writeString(stage.resolve("systemd/sonar_validator_prober.service"), "[Unit]\n");
+        Files.writeString(stage.resolve("systemd/sonar_validator_prober-cisco.service"), "[Service]\nUser=guestshell\n");
+        Files.writeString(stage.resolve("rc-service/sonar_validator_prober"), "#!/sbin/openrc-run\n");
         Files.writeString(stage.resolve("Installer.sh"), "#!/bin/sh\necho install\n");
         Files.writeString(stage.resolve("restart.sh"), "#!/bin/sh\necho restart\n");
         Files.write(stage.resolve("default_template.sqlite"), new byte[] {0x53, 0x51, 0x4c});
@@ -213,6 +218,9 @@ class AgentBundleServiceTest {
         assertTrue(files.containsKey("Installer/sonar_validator_prober"), files.keySet().toString());
         assertTrue(files.containsKey("Installer/Installer.sh"), files.keySet().toString());
         assertTrue(files.containsKey("Installer/restart.sh"), files.keySet().toString());
+        assertTrue(files.containsKey("Installer/systemd/sonar_validator_prober.service"));
+        assertTrue(files.containsKey("Installer/systemd/sonar_validator_prober-cisco.service"));
+        assertTrue(files.containsKey("Installer/rc-service/sonar_validator_prober"));
         assertTrue(files.containsKey("Installer/default_template.sqlite"),
                 files.keySet().toString());
 

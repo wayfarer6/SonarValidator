@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -18,6 +18,7 @@ import {
 import { API_BASE_URL } from "../lib/api/client";
 import { downloadSnapshot } from "../lib/api/offline";
 import { listProjects } from "../lib/api/projects";
+import { listCredentials } from "../lib/api/opnsense";
 import type { ApiDiscoveredDevice, ApiQuarantineState, ApiTopologyNode } from "../lib/api/types";
 
 /**
@@ -64,6 +65,14 @@ export default function Agent() {
   const discovered = useApi(() => getAllDiscoveredDevices(), []);
   const quarantine = useApi(() => listQuarantined(), []);
   const projects = useApi(() => listProjects(), []);
+  /**
+   * REST API 로만 연결되는 장치 수입니다.
+   *
+   * <p>이 화면에는 나타나지 않는 장치들이므로, 왜 안 보이는지와 어디로 가야
+   * 하는지를 숫자와 함께 알려줍니다. 이 안내가 없으면 운영자는 방화벽을
+   * 등록해 놓고도 "배포가 실패했다" 고 판단합니다.
+   */
+  const apiNodes = useApi(() => listCredentials(), []);
 
   const [onlyIssues, setOnlyIssues] = useState(false);
 
@@ -485,6 +494,29 @@ export default function Agent() {
       <PageBreadcrumb pageTitle="Agent" />
 
       <div className="space-y-6">
+        {/*
+          API 연결 장치 안내 — 프로버가 없어 이 목록에 나타나지 않는 장비가
+          있다는 사실을 먼저 알려줍니다. "방화벽을 등록했는데 안 보인다" 는
+          혼란이 여기서 끝납니다.
+        */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-white/[0.03]">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            프로버 없이 REST API 로 직접 연결되는 장비(예: OPNsense)는 이 목록에 나타나지
+            않습니다.{" "}
+            {!apiNodes.loading && (
+              <span className="font-medium">
+                현재 {apiNodes.data?.total ?? 0}건이 API 연결 노드로 등록되어 있습니다.
+              </span>
+            )}
+          </p>
+          <Link
+            to="/api-nodes"
+            className="rounded-lg border border-brand-500 bg-brand-50 px-3.5 py-2 text-sm font-medium text-brand-600 hover:bg-brand-100 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
+          >
+            API 연결 노드 보기
+          </Link>
+        </div>
+
         {/* 요약 카드 */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <SummaryCard

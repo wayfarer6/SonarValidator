@@ -227,6 +227,9 @@ add_custom_target(installer_bundle
         "${CMAKE_CURRENT_SOURCE_DIR}/components/system_service_registration/systemd/prober.service"
         "${CMAKE_CURRENT_SOURCE_DIR}/Installer/systemd/sonar_validator_prober.service"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/components/system_service_registration/systemd/prober-cisco.service"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/systemd/sonar_validator_prober-cisco.service"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/components/system_service_registration/rc-service/sonar_validator_prober"
         "${CMAKE_CURRENT_SOURCE_DIR}/Installer/rc-service/sonar_validator_prober"
     DEPENDS sonar_validator_prober
@@ -297,6 +300,20 @@ add_executable(command_runner_test
     components/terminal/command_runner.cpp)
 sonar_configure_target(command_runner_test)
 add_test(NAME command_runner_test COMMAND command_runner_test)
+
+# IOS-XE guestshell dohost: 명령 시퀀스 결합과 IOS 오류 판정 회귀 테스트.
+add_executable(ios_cli_test
+    components/terminal/ios_cli_test.cpp)
+sonar_configure_target(ios_cli_test)
+add_test(NAME ios_cli_test COMMAND ios_cli_test)
+
+# 차단 ACL 변환: 서버 노드 -> IOS/FRR 명령.
+# ⚠️ 마지막 `permit ip any any` 가 빠지면 인터페이스가 통째로 죽으므로
+#    (암묵적 deny any) 장치 없이 이 성질을 고정합니다.
+add_executable(acl_commands_test
+    components/policy/acl_commands_test.cpp)
+sonar_configure_target(acl_commands_test)
+add_test(NAME acl_commands_test COMMAND acl_commands_test)
 
 add_executable(terminal_session_test
     components/terminal/terminal_session_test.cpp
@@ -425,3 +442,19 @@ add_executable(command_collector_test
 sonar_configure_target(command_collector_test)
 target_link_libraries(command_collector_test PRIVATE SQLite::SQLite3)
 add_test(NAME command_collector_test COMMAND command_collector_test)
+
+add_executable(websocket_timeout_test
+    components/backend_communication/websocket_timeout_test.cpp)
+sonar_configure_target(websocket_timeout_test)
+add_test(NAME websocket_timeout_test COMMAND websocket_timeout_test)
+set_tests_properties(websocket_timeout_test PROPERTIES TIMEOUT 10)
+
+add_executable(config_reload_test
+    module/initializing_module/config_reload_test.cpp
+    module/initializing_module/init.cpp
+    module/configuration_module/prober_config.cpp
+    database/database_service.cpp
+    database/schema.cpp)
+sonar_configure_target(config_reload_test)
+target_link_libraries(config_reload_test PRIVATE SQLite::SQLite3)
+add_test(NAME config_reload_test COMMAND config_reload_test)

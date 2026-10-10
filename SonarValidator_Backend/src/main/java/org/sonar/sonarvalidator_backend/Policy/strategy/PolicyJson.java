@@ -73,6 +73,33 @@ public final class PolicyJson {
     }
 
     /**
+     * 접두사 길이를 Cisco/FRR 표기의 <b>와일드카드 마스크</b>(역마스크)로 바꿉니다.
+     *
+     * <h2>⚠️ 왜 넷마스크와 따로 필요한가</h2>
+     * <p>Cisco IOS ACL 과 FRR access-list 는 마스크를 <b>뒤집어</b> 씁니다.
+     * {@code 10.0.8.0/24} 는 {@code 10.0.8.0 0.0.0.255} 입니다. 넷마스크
+     * ({@code 255.255.255.0})를 그대로 넣으면 ACL 이 <b>엉뚱한 대역</b>을 막습니다.
+     * 잘못 차단되면 망분리가 깨지므로 표기를 섞으면 안 됩니다.
+     *
+     * @param prefix 접두사 길이 문자열
+     * @return 와일드카드 마스크 (예: {@code 0.0.0.255}), 알 수 없으면 null
+     */
+    public static String wildcardOf(String prefix) {
+        final String mask = maskOf(prefix);
+        if (mask == null) {
+            return null;
+        }
+        final StringBuilder result = new StringBuilder();
+        for (final String octet : mask.split("\\.")) {
+            if (result.length() > 0) {
+                result.append('.');
+            }
+            result.append(255 - Integer.parseInt(octet));
+        }
+        return result.toString();
+    }
+
+    /**
      * 서브넷 대역에서 장치가 쓸 <b>호스트 주소</b>를 만듭니다.
      *
      * <h2>⚠️ 왜 네트워크 주소를 그대로 쓰면 안 되는가</h2>

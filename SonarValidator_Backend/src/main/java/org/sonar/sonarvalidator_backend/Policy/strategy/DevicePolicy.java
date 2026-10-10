@@ -87,4 +87,27 @@ public interface DevicePolicy {
      * @return 규칙 노드 (지원하지 않으면 null)
      */
     tools.jackson.databind.node.ObjectNode enforcementRule(PolicyBuildContext context);
+
+    /**
+     * 여러 연결을 <b>한 번에</b> 내려야 하는 유형의 집행 규칙을 만듭니다.
+     *
+     * <p>기본값은 {@code null} 입니다 — 대부분의 장치는 연결 하나씩
+     * ({@link #enforcementRule}) 추가/삭제할 수 있으므로 묶어 보낼 필요가
+     * 없습니다.
+     *
+     * <h2>⚠️ 언제 필요한가</h2>
+     * <p><b>이름으로 다시 쓰는</b> 종류의 ACL 을 쓰는 장치입니다 (예: IOS
+     * 확장 ACL). 규칙 하나만 지우는 문법이 없어서, "지금 남아 있어야 하는
+     * 규칙 전체" 를 알아야 합니다. 연결 하나만 보고 만든 규칙을 차례로 보내면
+     * <b>운영자가 지운 규칙이 장치에 그대로 남습니다</b>.
+     *
+     * <p>돌려준 노드는 정책의 최상위 {@code acl_apply} 키로 실려 나가고,
+     * Prober 가 {@code policies[]} 를 적용하기 <b>전에</b> 한 번 처리합니다.
+     *
+     * @param context 서브넷·벤더·이 서브넷의 모든 연결
+     * @return 일괄 집행 노드 (지원하지 않으면 null)
+     */
+    default tools.jackson.databind.node.ObjectNode batchEnforcementRule(BatchPolicyContext context) {
+        return null;
+    }
 }
