@@ -1,0 +1,4 @@
+FROM sonar-validator/backend:latest
+USER root
+COPY SonarValidator_Prober/components/system_service_registration/rc-service/sonar_validator_prober /tmp/sonar_stage/rc-service/sonar_validator_prober
+USER appuser

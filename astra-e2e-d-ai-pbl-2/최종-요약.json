@@ -1,0 +1,46 @@
+{
+  "project": "D-AI-PBL-POC",
+  "gns3_project_id": "5a790fe8-a6eb-4251-b21e-010258ac0241",
+  "management_console": "172.16.255.245",
+  "completed_at_kst": "2026-10-10T20:22:03+09:00",
+  "agent_binary_sha256": "1bfd3fa78e5080537c8d9b9c34d8900dba73475b53f83edb01e8863bc1321373",
+  "deployed_infrastructure_nodes": 11,
+  "deployed_vm_nodes": 6,
+  "vm_nodes": [
+    "TOD-Cam",
+    "UAV",
+    "VDI-1",
+    "VDI-2",
+    "ATICS",
+    "Management-Console"
+  ],
+  "vm_registered_only": [
+    "KNCCS",
+    "AFCCS",
+    "Public-Web-Server"
+  ],
+  "config_audit_pass": "15/15",
+  "agents_connected": 17,
+  "agents_total": 21,
+  "telemetry_refreshed": "17/17",
+  "terminal_pass": "14/14",
+  "ui_scenarios_pass": "8/8",
+  "frontend_unit_tests": {
+    "pass": 3,
+    "fail": 0
+  },
+  "frontend_build": "pass",
+  "frontend_lint": {
+    "errors": 0,
+    "warnings": 7
+  },
+  "page_errors": 0,
+  "http_errors_expected": 1,
+  "firewall_network_unchanged": true,
+  "traffic_enforcement_tested": false,
+  "screenshots": 25,
+  "report": "README.md",
+  "gallery": "화면-전체.md",
+  "cold_boot_tested": false,
+  "reverified_at_kst": "2026-10-10T20:22:03+09:00"
+}

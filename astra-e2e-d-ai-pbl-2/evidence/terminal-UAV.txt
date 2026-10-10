@@ -1,0 +1,13 @@
+bash: /usr/lib/systemd/profile.d/70-systemd-shell-extra.sh: Permission denied
+bash: /usr/lib/systemd/profile.d/80-systemd-osc-context.sh: Permission denied
+root@UAV:~# echo $((1234567+7654321))
+8888888
+root@UAV:~# id; hostname; ip -br -4 addr; ip route; printf 'E2E_%s_OK\n' 'UAV'
+uid=0(root) gid=0(root) groups=0(root)
+UAV
+[1;36mlo               [0mUNKNOWN        [1;35m127.0.0.1[0m/8 
+[1;36meth0             [0mUNKNOWN        [1;35m10.20.112.10[0m/24 
+default via [1;35m10.20.112.1 [0mdev [1;36meth0 [0m
+[1;35m10.20.112.0/24 [0mdev [1;36meth0 [0mproto kernel scope link src [1;35m10.20.112.10 [0m
+E2E_UAV_OK
+root@UAV:~# 

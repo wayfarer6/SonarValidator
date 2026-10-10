@@ -1,0 +1,4 @@
+services:
+  backend:
+    build:
+      dockerfile: astra-e2e-d-ai-pbl-2/scripts/Dockerfile.backend.serial

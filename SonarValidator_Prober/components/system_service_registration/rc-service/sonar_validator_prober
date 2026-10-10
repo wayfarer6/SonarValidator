@@ -3,7 +3,7 @@
 name="sonar_validator_prober"
 command="/usr/local/bin/sonar_validator_prober"
 supervisor="supervise-daemon"
-supervise_daemon_args="--respawn"
+supervise_daemon_args="--respawn-delay 5"
 command_env="SONAR_CONFIG_PATH=/etc/sonar_validator_prober/default.conf SONAR_TEMPLATE_PATH=/etc/sonar_validator_prober/sqlite_template.sqlite SONAR_DATA_DIR=/var/lib/sonar_validator_prober"
 
 depend() {

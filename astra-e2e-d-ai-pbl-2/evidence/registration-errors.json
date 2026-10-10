@@ -1,0 +1,7 @@
+[
+  {
+    "type": "http",
+    "status": 401,
+    "url": "http://172.16.255.245/api/v1/auth/me"
+  }
+]

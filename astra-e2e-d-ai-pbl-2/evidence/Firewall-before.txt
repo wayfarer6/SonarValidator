@@ -1,0 +1,65 @@
+== nft ==
+table ip filter {
+	chain input {
+		type filter hook input priority filter; policy accept;
+	}
+
+	chain forward {
+		type filter hook forward priority filter; policy accept;
+	}
+
+	chain output {
+		type filter hook output priority filter; policy accept;
+	}
+}
+table ip nat {
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		oifname "eth0" masquerade
+	}
+}
+table inet astra_cso {
+	set confidential_v4 {
+		type ipv4_addr
+		flags interval
+		elements = { 10.10.131.0/24, 10.10.132.0/24,
+			     10.10.133.0/24 }
+	}
+
+	set sensitive_v4 {
+		type ipv4_addr
+		flags interval
+		elements = { 10.20.111.0/24, 10.20.112.0/24,
+			     10.40.121.0/24, 10.40.122.0/24 }
+	}
+
+	chain forward {
+		type filter hook forward priority -50; policy accept;
+		meta nfproto ipv6 iifname { "eth1.131", "eth1.132", "eth1.133" } counter packets 0 bytes 0 drop comment "CSO-no-IPv6-bypass-out"
+		meta nfproto ipv6 oifname { "eth1.131", "eth1.132", "eth1.133" } counter packets 0 bytes 0 drop comment "CSO-no-IPv6-bypass-in"
+		iifname "eth1.131" ip saddr != 10.10.131.0/24 counter packets 0 bytes 0 drop comment "CSO-anti-spoof-131"
+		iifname "eth1.132" ip saddr != 10.10.132.0/24 counter packets 0 bytes 0 drop comment "CSO-anti-spoof-132"
+		iifname "eth1.133" ip saddr != 10.10.133.0/24 counter packets 0 bytes 0 drop comment "CSO-anti-spoof-133"
+		ip saddr @confidential_v4 ip daddr 172.16.255.245 tcp dport { 3000, 8099 } counter packets 4297 bytes 487476 accept comment "Sonar-management-out"
+		ip saddr 172.16.255.245 ip daddr @confidential_v4 tcp sport { 3000, 8099 } ct state established counter packets 6565 bytes 7698518 accept comment "Sonar-management-return"
+		ip saddr @confidential_v4 ip daddr @confidential_v4 counter packets 0 bytes 0 accept comment "CSO-C-to-C"
+		ip saddr @confidential_v4 ip daddr @sensitive_v4 counter packets 0 bytes 0 accept comment "CSO-C-to-S"
+		ip saddr @sensitive_v4 ip daddr @confidential_v4 counter packets 0 bytes 0 accept comment "CSO-S-to-C"
+		ip saddr @confidential_v4 counter packets 0 bytes 0 drop comment "CSO-C-to-Open-Internet-deny"
+		ip daddr @confidential_v4 counter packets 0 bytes 0 drop comment "CSO-Open-Internet-to-C-deny"
+	}
+}
+== addr ==
+lo               UNKNOWN        127.0.0.1/8 
+eth1.131@eth1    UP             10.10.131.1/24 
+eth1.132@eth1    UP             10.10.132.1/24 
+eth1.133@eth1    UP             10.10.133.1/24 
+eth0             UNKNOWN        10.99.143.2/24 
+eth4             UNKNOWN        172.16.255.2/24 
+== route ==
+default via 10.99.143.1 dev eth0 
+10.10.131.0/24 dev eth1.131 proto kernel scope link src 10.10.131.1 
+10.10.132.0/24 dev eth1.132 proto kernel scope link src 10.10.132.1 
+10.10.133.0/24 dev eth1.133 proto kernel scope link src 10.10.133.1 
+10.99.143.0/24 dev eth0 proto kernel scope link src 10.99.143.2 
+172.16.255.0/24 dev eth4 proto kernel scope link src 172.16.255.2 

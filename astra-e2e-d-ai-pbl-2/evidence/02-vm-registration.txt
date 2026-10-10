@@ -1,0 +1,264 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Project
+Home
+Project
+Project
+2개
+Create Project
+E2E
+PRJ-4B6C7538
+Astra E2E Router 수집 검증 2026-10-09
+
+라우터 5대 수집 및 Subnet 저장 UI 검증용. 실제 장비에 정책을 푸시하지 않은 테스트 프로젝트.
+
+서브넷 12건 · 규칙 0건
+
+Planning
+Add Agent
+Manage
+Delete
+Project Agents
+0
+
+이 프로젝트에 등록된 Agent가 없습니다. Add Agent에서 Agent를 등록하고 다운로드하세요.
+
+test
+PRJ-D488B7A4
+D-AI-PBL-Poc-Project
+
+테스트용 프로젝트 입니다.
+
+서브넷 39건 · 규칙 73건
+
+Planning
+Close
+Manage
+Delete
+Project Agents
+21
+
+Management-Console
+
+VM · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Public-Web-Server
+
+VM · 오프라인
+
+터미널 열기
+프로젝트에서 제거
+
+AFCCS
+
+VM · 오프라인
+
+터미널 열기
+프로젝트에서 제거
+
+KNCCS
+
+VM · 오프라인
+
+터미널 열기
+프로젝트에서 제거
+
+ATICS
+
+VM · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+VDI-2
+
+VM · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+VDI-1
+
+VM · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+UAV
+
+VM · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+TOD-Cam
+
+VM · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Firewall
+
+FIREWALL · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Switch-4
+
+SWITCH · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Switch-3
+
+SWITCH · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Switch-2
+
+SWITCH · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Switch-1
+
+SWITCH · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Switch-0
+
+SWITCH · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+VDI-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+test-vm
+
+VM · 오프라인
+
+터미널 열기
+프로젝트에서 제거
+
+Survillance-Network-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+C4I-Network-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+DMZ-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Gateway-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+Agent 다운로드
+PRJ-D488B7A4
+닫기 ✕
+
+네트워크 장비 유형을 선택하세요
+
+Management Server
+
+172.16.255.245:3000
+
+저장된 프로젝트 주소가 Agent 설정과 다운로드에 자동 반영됩니다.
+
+Cisco Router
+Arista Switch
+OPNsense Firewall
+API 설정 필요
+Linux VM
+Open vSwitch(for poc)
+Alpine Based Firewall (for poc)
+FRRouting (for poc)
+Linux VM 설정
+NODE_TYPE=VM
+Agent 이름 (서버 등록 + default.conf 에 함께 들어갑니다)
+다시 등록
+
+✓ Management-Console 을(를) 배포 예정으로 등록했습니다. Agent 목록 화면에서 무응답 상태로 보이며, 프로버가 접속하면 자동으로 연결됨 으로 바뀝니다.
+
+이번 세션에서 등록: TOD-Cam, UAV, VDI-1, VDI-2, ATICS, KNCCS, AFCCS, Public-Web-Server, Management-Console
+
+설정값 보기
+Agent 다운로드 (tar.gz)
+서버가 이 장치에 맞는 값을 채워 넣습니다. 손으로 옮기면 AGENT_NAME 이 어긋나 같은 장치가 두 줄로 보일 수 있습니다.
+OR
+서버 연결 가능 여부로 갈립니다
+서버에 연결 가능
+온라인
+
+프로버를 실행하면 30초 주기로 텔레메트리를 자동 전송합니다. 잠시 뒤 프로젝트 편집 화면에서 서브넷이 자동 수집됩니다.
+
+또는 연결이 불가능한 경우
+오프라인
+
+프로버가 설정을 JSON 파일로 남깁니다. 그 파일을 서브넷 단계의 Import Offline Prober Data 카드에 끌어다 놓으면 서버가 같은 파서로 변환합니다.
+
+./sonar_validator_prober --export-once
+오프라인 데이터 가져오기 화면으로 이동
+API 연결 장치
+0건
+
+프로버 없이 REST API 로 직접 연결되는 장비입니다(예: OPNsense). Agent 목록에는 나타나지 않으며, 각 행에 소속 프로젝트를 함께 표시합니다.
+
+새로고침
+새 연결 추가
+
+등록된 API 연결 장치가 없습니다.
+OPNsense 처럼 프로버를 올릴 수 없는 장비는 “새 연결 추가”로 주소와 API Key 를 등록하세요.

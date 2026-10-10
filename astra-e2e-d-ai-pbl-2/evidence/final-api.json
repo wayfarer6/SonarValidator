@@ -1,0 +1,1697 @@
+{
+  "projects": {
+    "status": 200,
+    "body": {
+      "total": 2,
+      "projects": [
+        {
+          "project_id": "PRJ-4B6C7538",
+          "name": "Astra E2E Router 수집 검증 2026-10-09",
+          "category": "E2E",
+          "description": "라우터 5대 수집 및 Subnet 저장 UI 검증용. 실제 장비에 정책을 푸시하지 않은 테스트 프로젝트.",
+          "status": "Planning",
+          "management_prefix": null,
+          "management_server_ip": null,
+          "management_server_port": null,
+          "created_at": "2026-10-09T07:45:29.407Z",
+          "updated_at": "2026-10-10T11:14:48.765Z",
+          "subnet_count": 12,
+          "rule_count": 0
+        },
+        {
+          "project_id": "PRJ-D488B7A4",
+          "name": "D-AI-PBL-Poc-Project",
+          "category": "test",
+          "description": "테스트용 프로젝트 입니다.",
+          "status": "Planning",
+          "management_prefix": "172.16.255.0/24",
+          "management_server_ip": "172.16.255.245",
+          "management_server_port": 3000,
+          "created_at": "2026-10-08T02:32:55.254Z",
+          "updated_at": "2026-10-10T10:46:41.585Z",
+          "subnet_count": 39,
+          "rule_count": 73
+        }
+      ]
+    }
+  },
+  "agents/overview?project_id=PRJ-D488B7A4": {
+    "status": 200,
+    "body": {
+      "connected": 17,
+      "total_policy_requests": 7424,
+      "server_time": "2026-10-10T11:15:36.715814717Z",
+      "agents": [
+        {
+          "agent_id": "Management-Console",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:48.638Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Public-Web-Server",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:48.560Z",
+          "connected": false,
+          "telemetry_seen": false,
+          "expected": true,
+          "state": "silent",
+          "api_managed": false
+        },
+        {
+          "agent_id": "AFCCS",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:48.470Z",
+          "connected": false,
+          "telemetry_seen": false,
+          "expected": true,
+          "state": "silent",
+          "api_managed": false
+        },
+        {
+          "agent_id": "KNCCS",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:48.384Z",
+          "connected": false,
+          "telemetry_seen": false,
+          "expected": true,
+          "state": "silent",
+          "api_managed": false
+        },
+        {
+          "agent_id": "ATICS",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:48.310Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "VDI-2",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:48.194Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "VDI-1",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:48.110Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "UAV",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:48.016Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "TOD-Cam",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-10T10:39:47.909Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Firewall",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "FIREWALL",
+          "node_type": "Firewall",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T08:40:41.159Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": true
+        },
+        {
+          "agent_id": "Switch-4",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "SWITCH",
+          "node_type": "Switch",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T08:04:07.668Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Switch-3",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "SWITCH",
+          "node_type": "Switch",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T08:04:06.906Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Switch-2",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "SWITCH",
+          "node_type": "Switch",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T08:04:06.434Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Switch-1",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "SWITCH",
+          "node_type": "Switch",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T08:04:06.087Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Switch-0",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "SWITCH",
+          "node_type": "Switch",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T08:04:05.460Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "VDI-Router",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "ROUTER",
+          "node_type": "Router",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T07:45:23.809Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "test-vm",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-08T04:59:43.651Z",
+          "connected": false,
+          "telemetry_seen": false,
+          "expected": true,
+          "state": "silent",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Survillance-Network-Router",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "ROUTER",
+          "node_type": "Router",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-08T02:35:25.547Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "C4I-Network-Router",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "ROUTER",
+          "node_type": "Router",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-08T02:35:13.161Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "DMZ-Router",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "ROUTER",
+          "node_type": "Router",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-08T02:34:34.325Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Gateway-Router",
+          "project_id": "PRJ-D488B7A4",
+          "device_type": "ROUTER",
+          "node_type": "Router",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-08T02:33:53.520Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        }
+      ],
+      "quarantined_count": 0,
+      "quarantined": [],
+      "total": 21,
+      "expected_total": 21,
+      "silent": 4
+    }
+  },
+  "agents?project_id=PRJ-D488B7A4": {
+    "status": 200,
+    "body": {
+      "connected": 17,
+      "total_policy_requests": 7424,
+      "server_time": "2026-10-10T11:15:36.739708485Z",
+      "quarantined_count": 0,
+      "quarantined": [],
+      "agents": [
+        {
+          "agent_id": "Management-Console",
+          "last_seen": "2026-10-10T11:15:34.387172872Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "VDI-1",
+          "last_seen": "2026-10-10T11:15:33.555487985Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "Survillance-Network-Router",
+          "last_seen": "2026-10-10T11:15:35.141895932Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "TOD-Cam",
+          "last_seen": "2026-10-10T11:15:36.263408699Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "Gateway-Router",
+          "last_seen": "2026-10-10T11:15:36.086915401Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "C4I-Network-Router",
+          "last_seen": "2026-10-10T11:15:35.281305377Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "UAV",
+          "last_seen": "2026-10-10T11:15:33.555508307Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "Firewall",
+          "last_seen": "2026-10-10T11:15:34.838023573Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "Switch-0",
+          "last_seen": "2026-10-10T11:15:35.449690853Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "VDI-Router",
+          "last_seen": "2026-10-10T11:15:35.282790641Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "VDI-2",
+          "last_seen": "2026-10-10T11:15:34.915118380Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "Switch-2",
+          "last_seen": "2026-10-10T11:15:33.086440965Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "ATICS",
+          "last_seen": "2026-10-10T11:15:35.044981130Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "Switch-1",
+          "last_seen": "2026-10-10T11:15:34.416802484Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "Switch-4",
+          "last_seen": "2026-10-10T11:15:34.424997282Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "DMZ-Router",
+          "last_seen": "2026-10-10T11:15:36.118206449Z",
+          "has_telemetry": true,
+          "quarantined": false
+        },
+        {
+          "agent_id": "Switch-3",
+          "last_seen": "2026-10-10T11:15:35.831057968Z",
+          "has_telemetry": true,
+          "quarantined": false
+        }
+      ]
+    }
+  },
+  "agents/configs?project_id=PRJ-D488B7A4": {
+    "status": 200,
+    "body": {
+      "supported_formats": [
+        "AlpineFirewall",
+        "ARISTA_vEOS",
+        "CISCO_IOS",
+        "FRRRouter",
+        "LinuxVM",
+        "OpenvSwitch"
+      ],
+      "parsed_devices": 17,
+      "devices": [
+        {
+          "agent_id": "Switch-2",
+          "format": "OpenvSwitch",
+          "vendor": "Open vSwitch",
+          "product": "OpenVSwitch",
+          "interfaces": 17,
+          "routes": 0,
+          "vlans": 2,
+          "arp_entries": 0,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "ATICS",
+          "format": "LinuxVM",
+          "vendor": "Linux",
+          "product": "Ubuntu",
+          "interfaces": 2,
+          "routes": 2,
+          "vlans": 0,
+          "arp_entries": 1,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "Switch-4",
+          "format": "OpenvSwitch",
+          "vendor": "Open vSwitch",
+          "product": "OpenVSwitch",
+          "interfaces": 15,
+          "routes": 0,
+          "vlans": 1,
+          "arp_entries": 0,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "Switch-3",
+          "format": "OpenvSwitch",
+          "vendor": "Open vSwitch",
+          "product": "OpenVSwitch",
+          "interfaces": 15,
+          "routes": 0,
+          "vlans": 3,
+          "arp_entries": 0,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "DMZ-Router",
+          "format": "FRRRouter",
+          "vendor": "FRR",
+          "product": "FRR",
+          "interfaces": 11,
+          "routes": 14,
+          "vlans": 1,
+          "arp_entries": 15,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "UAV",
+          "format": "LinuxVM",
+          "vendor": "Linux",
+          "product": "Ubuntu",
+          "interfaces": 2,
+          "routes": 2,
+          "vlans": 0,
+          "arp_entries": 1,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "Management-Console",
+          "format": "LinuxVM",
+          "vendor": "Linux",
+          "product": "Ubuntu",
+          "interfaces": 10,
+          "routes": 6,
+          "vlans": 0,
+          "arp_entries": 27,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "C4I-Network-Router",
+          "format": "FRRRouter",
+          "vendor": "FRR",
+          "product": "FRR",
+          "interfaces": 10,
+          "routes": 14,
+          "vlans": 0,
+          "arp_entries": 14,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "Gateway-Router",
+          "format": "FRRRouter",
+          "vendor": "FRR",
+          "product": "FRR",
+          "interfaces": 10,
+          "routes": 15,
+          "vlans": 0,
+          "arp_entries": 16,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "Survillance-Network-Router",
+          "format": "FRRRouter",
+          "vendor": "FRR",
+          "product": "FRR",
+          "interfaces": 12,
+          "routes": 14,
+          "vlans": 2,
+          "arp_entries": 18,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "TOD-Cam",
+          "format": "LinuxVM",
+          "vendor": "Linux",
+          "product": "Ubuntu",
+          "interfaces": 2,
+          "routes": 2,
+          "vlans": 0,
+          "arp_entries": 1,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "VDI-1",
+          "format": "LinuxVM",
+          "vendor": "Linux",
+          "product": "Ubuntu",
+          "interfaces": 2,
+          "routes": 2,
+          "vlans": 0,
+          "arp_entries": 1,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "VDI-2",
+          "format": "LinuxVM",
+          "vendor": "Linux",
+          "product": "Ubuntu",
+          "interfaces": 2,
+          "routes": 2,
+          "vlans": 0,
+          "arp_entries": 1,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "VDI-Router",
+          "format": "FRRRouter",
+          "vendor": "FRR",
+          "product": "FRR",
+          "interfaces": 12,
+          "routes": 14,
+          "vlans": 2,
+          "arp_entries": 18,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "Firewall",
+          "format": "AlpineFirewall",
+          "vendor": "Alpine",
+          "product": "nftables",
+          "interfaces": 11,
+          "routes": 6,
+          "vlans": 3,
+          "arp_entries": 2,
+          "firewall_rules": 20,
+          "warnings": []
+        },
+        {
+          "agent_id": "Switch-0",
+          "format": "OpenvSwitch",
+          "vendor": "Open vSwitch",
+          "product": "OpenVSwitch",
+          "interfaces": 15,
+          "routes": 0,
+          "vlans": 1,
+          "arp_entries": 0,
+          "firewall_rules": 0,
+          "warnings": []
+        },
+        {
+          "agent_id": "Switch-1",
+          "format": "OpenvSwitch",
+          "vendor": "Open vSwitch",
+          "product": "OpenVSwitch",
+          "interfaces": 17,
+          "routes": 0,
+          "vlans": 2,
+          "arp_entries": 0,
+          "firewall_rules": 0,
+          "warnings": []
+        }
+      ]
+    }
+  },
+  "agents/Firewall/config?project_id=PRJ-D488B7A4": {
+    "status": 200,
+    "body": {
+      "arpEntries": [
+        {
+          "address": "10.10.131.10",
+          "interfaceName": "eth1.131",
+          "mac": "0c:f3:02:45:00:00",
+          "state": "DELAY"
+        },
+        {
+          "address": "172.16.255.245",
+          "interfaceName": "eth4",
+          "mac": "0c:5a:c9:63:00:00",
+          "state": "REACHABLE"
+        }
+      ],
+      "bridges": [],
+      "deviceType": "FIREWALL",
+      "empty": false,
+      "firewallRules": [
+        "nft chain {\"family\":\"ip\",\"handle\":1,\"hook\":\"input\",\"name\":\"input\",\"policy\":\"accept\",\"prio\":0,\"table\":\"filter\",\"type\":\"filter\"}",
+        "nft chain {\"family\":\"ip\",\"handle\":2,\"hook\":\"forward\",\"name\":\"forward\",\"policy\":\"accept\",\"prio\":0,\"table\":\"filter\",\"type\":\"filter\"}",
+        "nft chain {\"family\":\"ip\",\"handle\":3,\"hook\":\"output\",\"name\":\"output\",\"policy\":\"accept\",\"prio\":0,\"table\":\"filter\",\"type\":\"filter\"}",
+        "nft chain {\"family\":\"ip\",\"handle\":1,\"hook\":\"postrouting\",\"name\":\"postrouting\",\"policy\":\"accept\",\"prio\":100,\"table\":\"nat\",\"type\":\"nat\"}",
+        "nft rule {\"chain\":\"postrouting\",\"expr\":[{\"match\":{\"left\":{\"meta\":{\"key\":\"oifname\"}},\"op\":\"==\",\"right\":\"eth0\"}},{\"masquerade\":null}],\"family\":\"ip\",\"handle\":2,\"table\":\"nat\"}",
+        "nft chain {\"family\":\"inet\",\"handle\":1,\"hook\":\"forward\",\"name\":\"forward\",\"policy\":\"accept\",\"prio\":-50,\"table\":\"astra_cso\",\"type\":\"filter\"}",
+        "nft set {\"elem\":[{\"prefix\":{\"addr\":\"10.10.131.0\",\"len\":24}},{\"prefix\":{\"addr\":\"10.10.132.0\",\"len\":24}},{\"prefix\":{\"addr\":\"10.10.133.0\",\"len\":24}}],\"family\":\"inet\",\"flags\":[\"interval\"],\"handle\":2,\"name\":\"confidential_v4\",\"table\":\"astra_cso\",\"type\":\"ipv4_addr\"}",
+        "nft set {\"elem\":[{\"prefix\":{\"addr\":\"10.20.111.0\",\"len\":24}},{\"prefix\":{\"addr\":\"10.20.112.0\",\"len\":24}},{\"prefix\":{\"addr\":\"10.40.121.0\",\"len\":24}},{\"prefix\":{\"addr\":\"10.40.122.0\",\"len\":24}}],\"family\":\"inet\",\"flags\":[\"interval\"],\"handle\":3,\"name\":\"sensitive_v4\",\"table\":\"astra_cso\",\"type\":\"ipv4_addr\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-no-IPv6-bypass-out\",\"expr\":[{\"match\":{\"left\":{\"meta\":{\"key\":\"nfproto\"}},\"op\":\"==\",\"right\":\"ipv6\"}},{\"match\":{\"left\":{\"meta\":{\"key\":\"iifname\"}},\"op\":\"==\",\"right\":{\"set\":[\"eth1.131\",\"eth1.132\",\"eth1.133\"]}}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"drop\":null}],\"family\":\"inet\",\"handle\":5,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-no-IPv6-bypass-in\",\"expr\":[{\"match\":{\"left\":{\"meta\":{\"key\":\"nfproto\"}},\"op\":\"==\",\"right\":\"ipv6\"}},{\"match\":{\"left\":{\"meta\":{\"key\":\"oifname\"}},\"op\":\"==\",\"right\":{\"set\":[\"eth1.131\",\"eth1.132\",\"eth1.133\"]}}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"drop\":null}],\"family\":\"inet\",\"handle\":7,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-anti-spoof-131\",\"expr\":[{\"match\":{\"left\":{\"meta\":{\"key\":\"iifname\"}},\"op\":\"==\",\"right\":\"eth1.131\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"!=\",\"right\":{\"prefix\":{\"addr\":\"10.10.131.0\",\"len\":24}}}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"drop\":null}],\"family\":\"inet\",\"handle\":8,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-anti-spoof-132\",\"expr\":[{\"match\":{\"left\":{\"meta\":{\"key\":\"iifname\"}},\"op\":\"==\",\"right\":\"eth1.132\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"!=\",\"right\":{\"prefix\":{\"addr\":\"10.10.132.0\",\"len\":24}}}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"drop\":null}],\"family\":\"inet\",\"handle\":9,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-anti-spoof-133\",\"expr\":[{\"match\":{\"left\":{\"meta\":{\"key\":\"iifname\"}},\"op\":\"==\",\"right\":\"eth1.133\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"!=\",\"right\":{\"prefix\":{\"addr\":\"10.10.133.0\",\"len\":24}}}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"drop\":null}],\"family\":\"inet\",\"handle\":10,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"Sonar-management-out\",\"expr\":[{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@confidential_v4\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"daddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"172.16.255.245\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"dport\",\"protocol\":\"tcp\"}},\"op\":\"==\",\"right\":{\"set\":[3000,8099]}}},{\"counter\":{\"bytes\":540476,\"packets\":4493}},{\"accept\":null}],\"family\":\"inet\",\"handle\":12,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"Sonar-management-return\",\"expr\":[{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"172.16.255.245\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"daddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@confidential_v4\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"sport\",\"protocol\":\"tcp\"}},\"op\":\"==\",\"right\":{\"set\":[3000,8099]}}},{\"match\":{\"left\":{\"ct\":{\"key\":\"state\"}},\"op\":\"in\",\"right\":\"established\"}},{\"counter\":{\"bytes\":7731955,\"packets\":6817}},{\"accept\":null}],\"family\":\"inet\",\"handle\":14,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-C-to-C\",\"expr\":[{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@confidential_v4\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"daddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@confidential_v4\"}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"accept\":null}],\"family\":\"inet\",\"handle\":15,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-C-to-S\",\"expr\":[{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@confidential_v4\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"daddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@sensitive_v4\"}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"accept\":null}],\"family\":\"inet\",\"handle\":16,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-S-to-C\",\"expr\":[{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@sensitive_v4\"}},{\"match\":{\"left\":{\"payload\":{\"field\":\"daddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@confidential_v4\"}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"accept\":null}],\"family\":\"inet\",\"handle\":17,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-C-to-Open-Internet-deny\",\"expr\":[{\"match\":{\"left\":{\"payload\":{\"field\":\"saddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@confidential_v4\"}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"drop\":null}],\"family\":\"inet\",\"handle\":18,\"table\":\"astra_cso\"}",
+        "nft rule {\"chain\":\"forward\",\"comment\":\"CSO-Open-Internet-to-C-deny\",\"expr\":[{\"match\":{\"left\":{\"payload\":{\"field\":\"daddr\",\"protocol\":\"ip\"}},\"op\":\"==\",\"right\":\"@confidential_v4\"}},{\"counter\":{\"bytes\":0,\"packets\":0}},{\"drop\":null}],\"family\":\"inet\",\"handle\":19,\"table\":\"astra_cso\"}"
+      ],
+      "format": "AlpineFirewall",
+      "hostname": "Firewall",
+      "interfaces": {
+        "lo": {
+          "accessVlan": null,
+          "addresses": [
+            "127.0.0.1/8",
+            "::1/128"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "LOOPBACK",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "00:00:00:00:00:00",
+          "mode": null,
+          "mtu": 65536,
+          "name": "lo",
+          "operState": "UNKNOWN",
+          "parent": null,
+          "trunkVlans": []
+        },
+        "eth1.131": {
+          "accessVlan": 131,
+          "addresses": [
+            "10.10.131.1/24",
+            "fe80::42:c3ff:fea4:5101/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:01",
+          "mode": "routed",
+          "mtu": 1500,
+          "name": "eth1.131",
+          "operState": "UP",
+          "parent": "eth1",
+          "trunkVlans": []
+        },
+        "eth1.132": {
+          "accessVlan": 132,
+          "addresses": [
+            "10.10.132.1/24",
+            "fe80::42:c3ff:fea4:5101/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:01",
+          "mode": "routed",
+          "mtu": 1500,
+          "name": "eth1.132",
+          "operState": "UP",
+          "parent": "eth1",
+          "trunkVlans": []
+        },
+        "eth1.133": {
+          "accessVlan": 133,
+          "addresses": [
+            "10.10.133.1/24",
+            "fe80::42:c3ff:fea4:5101/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:01",
+          "mode": "routed",
+          "mtu": 1500,
+          "name": "eth1.133",
+          "operState": "UP",
+          "parent": "eth1",
+          "trunkVlans": []
+        },
+        "eth0": {
+          "accessVlan": null,
+          "addresses": [
+            "10.99.143.2/24",
+            "fe80::42:c3ff:fea4:5100/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:00",
+          "mode": null,
+          "mtu": 1500,
+          "name": "eth0",
+          "operState": "UNKNOWN",
+          "parent": null,
+          "trunkVlans": []
+        },
+        "eth1": {
+          "accessVlan": null,
+          "addresses": [
+            "fe80::42:c3ff:fea4:5101/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:01",
+          "mode": null,
+          "mtu": 1500,
+          "name": "eth1",
+          "operState": "UNKNOWN",
+          "parent": null,
+          "trunkVlans": []
+        },
+        "eth2": {
+          "accessVlan": null,
+          "addresses": [
+            "fe80::42:c3ff:fea4:5102/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:02",
+          "mode": null,
+          "mtu": 1500,
+          "name": "eth2",
+          "operState": "UNKNOWN",
+          "parent": null,
+          "trunkVlans": []
+        },
+        "eth3": {
+          "accessVlan": null,
+          "addresses": [
+            "fe80::42:c3ff:fea4:5103/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:03",
+          "mode": null,
+          "mtu": 1500,
+          "name": "eth3",
+          "operState": "UNKNOWN",
+          "parent": null,
+          "trunkVlans": []
+        },
+        "eth4": {
+          "accessVlan": null,
+          "addresses": [
+            "172.16.255.2/24",
+            "fe80::42:c3ff:fea4:5104/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:04",
+          "mode": null,
+          "mtu": 1500,
+          "name": "eth4",
+          "operState": "UNKNOWN",
+          "parent": null,
+          "trunkVlans": []
+        },
+        "eth5": {
+          "accessVlan": null,
+          "addresses": [
+            "fe80::42:c3ff:fea4:5105/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:05",
+          "mode": null,
+          "mtu": 1500,
+          "name": "eth5",
+          "operState": "UNKNOWN",
+          "parent": null,
+          "trunkVlans": []
+        },
+        "eth6": {
+          "accessVlan": null,
+          "addresses": [
+            "fe80::42:c3ff:fea4:5106/64"
+          ],
+          "adminState": null,
+          "description": null,
+          "flags": [
+            "BROADCAST",
+            "MULTICAST",
+            "UP",
+            "LOWER_UP"
+          ],
+          "macAddress": "02:42:c3:a4:51:06",
+          "mode": null,
+          "mtu": 1500,
+          "name": "eth6",
+          "operState": "UNKNOWN",
+          "parent": null,
+          "trunkVlans": []
+        }
+      },
+      "kernel": "6.18.40.1-microsoft-standard-WSL2",
+      "metadata": {},
+      "product": "nftables",
+      "routes": [
+        {
+          "defaultRoute": true,
+          "metric": null,
+          "nextHop": "10.99.143.1",
+          "nextHopInterface": "eth0",
+          "prefix": "0.0.0.0/0",
+          "protocol": null,
+          "selected": null
+        },
+        {
+          "defaultRoute": false,
+          "metric": null,
+          "nextHop": null,
+          "nextHopInterface": "eth1.131",
+          "prefix": "10.10.131.0/24",
+          "protocol": "kernel",
+          "selected": null
+        },
+        {
+          "defaultRoute": false,
+          "metric": null,
+          "nextHop": null,
+          "nextHopInterface": "eth1.132",
+          "prefix": "10.10.132.0/24",
+          "protocol": "kernel",
+          "selected": null
+        },
+        {
+          "defaultRoute": false,
+          "metric": null,
+          "nextHop": null,
+          "nextHopInterface": "eth1.133",
+          "prefix": "10.10.133.0/24",
+          "protocol": "kernel",
+          "selected": null
+        },
+        {
+          "defaultRoute": false,
+          "metric": null,
+          "nextHop": null,
+          "nextHopInterface": "eth0",
+          "prefix": "10.99.143.0/24",
+          "protocol": "kernel",
+          "selected": null
+        },
+        {
+          "defaultRoute": false,
+          "metric": null,
+          "nextHop": null,
+          "nextHopInterface": "eth4",
+          "prefix": "172.16.255.0/24",
+          "protocol": "kernel",
+          "selected": null
+        }
+      ],
+      "vendor": "Alpine",
+      "vlans": {
+        "131": {
+          "members": [
+            "eth1.131"
+          ],
+          "name": null,
+          "status": null,
+          "vlanId": 131
+        },
+        "132": {
+          "members": [
+            "eth1.132"
+          ],
+          "name": null,
+          "status": null,
+          "vlanId": 132
+        },
+        "133": {
+          "members": [
+            "eth1.133"
+          ],
+          "name": null,
+          "status": null,
+          "vlanId": 133
+        }
+      },
+      "warnings": []
+    }
+  },
+  "logs": {
+    "status": 200,
+    "body": {
+      "total": 0,
+      "returned": 0,
+      "truncated": false,
+      "limit": 100,
+      "filters": {
+        "agent_id": null,
+        "project_id": null,
+        "from": null,
+        "to": null,
+        "severity": null,
+        "max_severity_num": null,
+        "search": null,
+        "highlighted_only": false
+      },
+      "logs": []
+    }
+  },
+  "projects/PRJ-D488B7A4/validation": {
+    "status": 200,
+    "body": {
+      "compliant": false,
+      "rule_count": 55,
+      "subnet_count": 39,
+      "violation_count": 42,
+      "messages": [
+        "오류: 인터넷 노출 — 기밀망/민감망 14건이 수집된 기본 경로로 인터넷에 나갈 수 있습니다.",
+        "오류: 네트워크 연결 제한 — 등급을 건너뛰는 직접 연결 28건이 있습니다.",
+        "경고: 포트 설정 확인 — 허용 포트가 없는 규칙 10건이 있습니다."
+      ],
+      "violated_rule_ids": [
+        "E2E-observed-001",
+        "E2E-observed-002",
+        "E2E-observed-003",
+        "E2E-observed-004",
+        "E2E-observed-005",
+        "E2E-observed-006",
+        "E2E-observed-011",
+        "E2E-observed-013",
+        "E2E-observed-014",
+        "E2E-observed-015",
+        "E2E-observed-016",
+        "E2E-observed-021",
+        "E2E-observed-023",
+        "E2E-observed-024",
+        "E2E-observed-025",
+        "E2E-observed-026",
+        "E2E-observed-031",
+        "E2E-observed-032",
+        "E2E-observed-033",
+        "E2E-observed-039",
+        "E2E-observed-040",
+        "E2E-observed-041",
+        "E2E-observed-047",
+        "E2E-observed-048",
+        "E2E-observed-049",
+        "E2E-observed-055",
+        "E2E-observed-056",
+        "E2E-observed-057",
+        "internet-exposure"
+      ],
+      "metrics": {
+        "bdd_variables": 88,
+        "bdd_nodes_total": 12625,
+        "bdd_nodes_allowed": 318,
+        "bdd_nodes_forbidden": 323,
+        "bdd_nodes_violating": 158,
+        "allowed_combinations": 214832250880,
+        "forbidden_combinations": 4578400777797632,
+        "violating_combinations": 120259084288,
+        "address_space": 309485009821345068724781056
+      },
+      "violations": [
+        {
+          "rule_id": "E2E-observed-001",
+          "src_subnet": "Subnet-c054fc85-da32-34c5-b07c-02b13573bdab",
+          "dst_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "ATICS / ens3 (10.10.131.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.131.0 -> 10.10.132.0",
+          "sampled_src_ip": "10.10.131.0",
+          "sampled_dst_ip": "10.10.132.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-002",
+          "src_subnet": "Subnet-c054fc85-da32-34c5-b07c-02b13573bdab",
+          "dst_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "ATICS / ens3 (10.10.131.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.131.0 -> 10.10.133.0",
+          "sampled_src_ip": "10.10.131.0",
+          "sampled_dst_ip": "10.10.133.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-003",
+          "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "dst_subnet": "Subnet-2b3df9d8-aca0-3239-a4bb-20d19a60909e",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> TOD-Cam / eth0 (10.20.111.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.131.0 -> 10.20.111.0",
+          "sampled_src_ip": "10.10.131.0",
+          "sampled_dst_ip": "10.20.111.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-004",
+          "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "dst_subnet": "Subnet-67474682-2c08-3904-a863-43435f83408e",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> UAV / eth0 (10.20.112.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.131.0 -> 10.20.112.0",
+          "sampled_src_ip": "10.10.131.0",
+          "sampled_dst_ip": "10.20.112.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-005",
+          "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "dst_subnet": "Subnet-907f375a-8343-376a-8bde-b9807ab89cb4",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> VDI-1 / eth0 (10.40.121.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.131.0 -> 10.40.121.0",
+          "sampled_src_ip": "10.10.131.0",
+          "sampled_dst_ip": "10.40.121.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-006",
+          "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "dst_subnet": "Subnet-15ce2b27-0e45-3cdf-ab3f-6f53b3d9d673",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "ATICS · VLAN131 · Firewall (10.10.131.0/24) -> VDI-2 / eth0 (10.40.122.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.131.0 -> 10.40.122.0",
+          "sampled_src_ip": "10.10.131.0",
+          "sampled_dst_ip": "10.40.122.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-011",
+          "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "dst_subnet": "Subnet-c054fc85-da32-34c5-b07c-02b13573bdab",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> ATICS / ens3 (10.10.131.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.132.0 -> 10.10.131.0",
+          "sampled_src_ip": "10.10.132.0",
+          "sampled_dst_ip": "10.10.131.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-013",
+          "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "dst_subnet": "Subnet-2b3df9d8-aca0-3239-a4bb-20d19a60909e",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> TOD-Cam / eth0 (10.20.111.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.132.0 -> 10.20.111.0",
+          "sampled_src_ip": "10.10.132.0",
+          "sampled_dst_ip": "10.20.111.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-014",
+          "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "dst_subnet": "Subnet-67474682-2c08-3904-a863-43435f83408e",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> UAV / eth0 (10.20.112.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.132.0 -> 10.20.112.0",
+          "sampled_src_ip": "10.10.132.0",
+          "sampled_dst_ip": "10.20.112.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-015",
+          "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "dst_subnet": "Subnet-907f375a-8343-376a-8bde-b9807ab89cb4",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> VDI-1 / eth0 (10.40.121.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.132.0 -> 10.40.121.0",
+          "sampled_src_ip": "10.10.132.0",
+          "sampled_dst_ip": "10.40.121.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-016",
+          "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "dst_subnet": "Subnet-15ce2b27-0e45-3cdf-ab3f-6f53b3d9d673",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "KNCCS · VLAN132 · Firewall (10.10.132.0/24) -> VDI-2 / eth0 (10.40.122.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.132.0 -> 10.40.122.0",
+          "sampled_src_ip": "10.10.132.0",
+          "sampled_dst_ip": "10.40.122.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-021",
+          "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "dst_subnet": "Subnet-c054fc85-da32-34c5-b07c-02b13573bdab",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> ATICS / ens3 (10.10.131.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.133.0 -> 10.10.131.0",
+          "sampled_src_ip": "10.10.133.0",
+          "sampled_dst_ip": "10.10.131.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-023",
+          "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "dst_subnet": "Subnet-2b3df9d8-aca0-3239-a4bb-20d19a60909e",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> TOD-Cam / eth0 (10.20.111.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.133.0 -> 10.20.111.0",
+          "sampled_src_ip": "10.10.133.0",
+          "sampled_dst_ip": "10.20.111.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-024",
+          "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "dst_subnet": "Subnet-67474682-2c08-3904-a863-43435f83408e",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> UAV / eth0 (10.20.112.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.133.0 -> 10.20.112.0",
+          "sampled_src_ip": "10.10.133.0",
+          "sampled_dst_ip": "10.20.112.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-025",
+          "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "dst_subnet": "Subnet-907f375a-8343-376a-8bde-b9807ab89cb4",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> VDI-1 / eth0 (10.40.121.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.133.0 -> 10.40.121.0",
+          "sampled_src_ip": "10.10.133.0",
+          "sampled_dst_ip": "10.40.121.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-026",
+          "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "dst_subnet": "Subnet-15ce2b27-0e45-3cdf-ab3f-6f53b3d9d673",
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "AFCCS · VLAN133 · Firewall (10.10.133.0/24) -> VDI-2 / eth0 (10.40.122.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.10.133.0 -> 10.40.122.0",
+          "sampled_src_ip": "10.10.133.0",
+          "sampled_dst_ip": "10.40.122.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-031",
+          "src_subnet": "Subnet-2b3df9d8-aca0-3239-a4bb-20d19a60909e",
+          "dst_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "TOD-Cam / eth0 (10.20.111.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.20.111.0 -> 10.10.131.0",
+          "sampled_src_ip": "10.20.111.0",
+          "sampled_dst_ip": "10.10.131.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-032",
+          "src_subnet": "Subnet-2b3df9d8-aca0-3239-a4bb-20d19a60909e",
+          "dst_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "TOD-Cam / eth0 (10.20.111.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.20.111.0 -> 10.10.132.0",
+          "sampled_src_ip": "10.20.111.0",
+          "sampled_dst_ip": "10.10.132.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-033",
+          "src_subnet": "Subnet-2b3df9d8-aca0-3239-a4bb-20d19a60909e",
+          "dst_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "TOD-Cam / eth0 (10.20.111.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.20.111.0 -> 10.10.133.0",
+          "sampled_src_ip": "10.20.111.0",
+          "sampled_dst_ip": "10.10.133.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-039",
+          "src_subnet": "Subnet-67474682-2c08-3904-a863-43435f83408e",
+          "dst_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "UAV / eth0 (10.20.112.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.20.112.0 -> 10.10.131.0",
+          "sampled_src_ip": "10.20.112.0",
+          "sampled_dst_ip": "10.10.131.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-040",
+          "src_subnet": "Subnet-67474682-2c08-3904-a863-43435f83408e",
+          "dst_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "UAV / eth0 (10.20.112.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.20.112.0 -> 10.10.132.0",
+          "sampled_src_ip": "10.20.112.0",
+          "sampled_dst_ip": "10.10.132.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-041",
+          "src_subnet": "Subnet-67474682-2c08-3904-a863-43435f83408e",
+          "dst_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "UAV / eth0 (10.20.112.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.20.112.0 -> 10.10.133.0",
+          "sampled_src_ip": "10.20.112.0",
+          "sampled_dst_ip": "10.10.133.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-047",
+          "src_subnet": "Subnet-907f375a-8343-376a-8bde-b9807ab89cb4",
+          "dst_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "VDI-1 / eth0 (10.40.121.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.40.121.0 -> 10.10.131.0",
+          "sampled_src_ip": "10.40.121.0",
+          "sampled_dst_ip": "10.10.131.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-048",
+          "src_subnet": "Subnet-907f375a-8343-376a-8bde-b9807ab89cb4",
+          "dst_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "VDI-1 / eth0 (10.40.121.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.40.121.0 -> 10.10.132.0",
+          "sampled_src_ip": "10.40.121.0",
+          "sampled_dst_ip": "10.10.132.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-049",
+          "src_subnet": "Subnet-907f375a-8343-376a-8bde-b9807ab89cb4",
+          "dst_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "VDI-1 / eth0 (10.40.121.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.40.121.0 -> 10.10.133.0",
+          "sampled_src_ip": "10.40.121.0",
+          "sampled_dst_ip": "10.10.133.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-055",
+          "src_subnet": "Subnet-15ce2b27-0e45-3cdf-ab3f-6f53b3d9d673",
+          "dst_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "VDI-2 / eth0 (10.40.122.0/24) -> ATICS · VLAN131 · Firewall (10.10.131.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.40.122.0 -> 10.10.131.0",
+          "sampled_src_ip": "10.40.122.0",
+          "sampled_dst_ip": "10.10.131.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-056",
+          "src_subnet": "Subnet-15ce2b27-0e45-3cdf-ab3f-6f53b3d9d673",
+          "dst_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "VDI-2 / eth0 (10.40.122.0/24) -> KNCCS · VLAN132 · Firewall (10.10.132.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.40.122.0 -> 10.10.132.0",
+          "sampled_src_ip": "10.40.122.0",
+          "sampled_dst_ip": "10.10.132.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "E2E-observed-057",
+          "src_subnet": "Subnet-15ce2b27-0e45-3cdf-ab3f-6f53b3d9d673",
+          "dst_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "src_class": "Open",
+          "dst_class": "Confidential",
+          "reason": "VDI-2 / eth0 (10.40.122.0/24) -> AFCCS · VLAN133 · Firewall (10.10.133.0/24) 연결은 허용되지 않습니다. (Open ↔ Confidential — 등급 2단계 차이)",
+          "severity": "CRITICAL",
+          "sampled_protocol": "icmp",
+          "sampled_packet": "icmp 10.40.122.0 -> 10.10.133.0",
+          "sampled_src_ip": "10.40.122.0",
+          "sampled_dst_ip": "10.10.133.0",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "Subnet-0001",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.99.10.0/24 을 가진 장치 C4I-Network-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.99.10.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.99.10.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "Subnet-0002",
+          "dst_subnet": null,
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "기밀망(Confidential) 10.99.143.0/24 을 가진 장치 C4I-Network-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 기밀망이 인터넷으로 나갈 수 있으므로 망분리 위반입니다.",
+          "severity": "CRITICAL",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.99.143.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.99.143.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "Subnet-0003",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 172.16.255.0/24 을 가진 장치 C4I-Network-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 172.16.255.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "172.16.255.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "Subnet-0006",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.40.121.0/24 을 가진 장치 VDI-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.40.121.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.40.121.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "Subnet-0007",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.40.122.0/24 을 가진 장치 VDI-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.40.122.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.40.122.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "Subnet-0008",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.20.111.0/24 을 가진 장치 Survillance-Network-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.20.111.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.20.111.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "Subnet-0009",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.20.112.0/24 을 가진 장치 Survillance-Network-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.20.112.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.20.112.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "dst_subnet": null,
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "기밀망(Confidential) 10.10.131.0/24 을 가진 장치 Firewall 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 기밀망이 인터넷으로 나갈 수 있으므로 망분리 위반입니다.",
+          "severity": "CRITICAL",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.10.131.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.10.131.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "dst_subnet": null,
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "기밀망(Confidential) 10.10.132.0/24 을 가진 장치 Firewall 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 기밀망이 인터넷으로 나갈 수 있으므로 망분리 위반입니다.",
+          "severity": "CRITICAL",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.10.132.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.10.132.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "dst_subnet": null,
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "기밀망(Confidential) 10.10.133.0/24 을 가진 장치 Firewall 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 기밀망이 인터넷으로 나갈 수 있으므로 망분리 위반입니다.",
+          "severity": "CRITICAL",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.10.133.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.10.133.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN121-7edbf3bd-8104-30c5-91ef-8a4dec878714",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.40.121.0/24 을 가진 장치 VDI-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.40.121.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.40.121.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN122-0f0055a2-1852-3038-a938-4dce31e5c4e0",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.40.122.0/24 을 가진 장치 VDI-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.40.122.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.40.122.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN111-4b8520c7-4197-36d2-a598-f51ebc8dd73f",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.20.111.0/24 을 가진 장치 Survillance-Network-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.20.111.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.20.111.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN112-8f510515-d6d3-3b69-b1a9-a1534615e71d",
+          "dst_subnet": null,
+          "src_class": "Sensitive",
+          "dst_class": "Open",
+          "reason": "민감망(Sensitive) 10.20.112.0/24 을 가진 장치 Survillance-Network-Router 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다.",
+          "severity": "MAJOR",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.20.112.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.20.112.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        }
+      ]
+    }
+  }
+}

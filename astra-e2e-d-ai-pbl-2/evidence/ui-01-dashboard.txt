@@ -1,0 +1,165 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Projects
+2
+Connected Agents
+17
+Projects
+View All
+
+Astra E2E Router 수집 검증 2026-10-09
+
+E2E · 라우터 5대 수집 및 Subnet 저장 UI 검증용. 실제 장비에 정책을 푸시하지 않은 테스트 프로젝트.
+
+Planning
+
+D-AI-PBL-Poc-Project
+
+test · 테스트용 프로젝트 입니다.
+
+Planning
+Latest Project Topology
+
+Astra E2E Router 수집 검증 2026-10-09 · 2026. 10. 9.
+
+Confidential
+Sensitive
+Open
+−
+100%
++
+
+미지정
+
+Open Zone
+
+Sensitive Zone
+
+eth0.111
+
+eth0
+
+eth7
+
+eth1.141
+
+eth0
+
+eth1.121
+
+eth1.122
+
+eth0.112
+
+eth1
+
+docker0
+
+br-806483bc5620
+
+VLAN131
+
+Internet
+
+Log Status
+ERROR 0
+WARN 0
+INFO 0
+
+로그가 없습니다.
+
+Agents
+
+온라인 17 / 오프라인 4
+
+All
+Router
+Switch
+Firewall
+VM
+View All
+Agent ID	Name	IP	Device	Telemetry	Status
+Management-Console	Management-Console	127.0.0.1/8	VM	수집됨	
+온라인
+
+Public-Web-Server	Public-Web-Server	172.16.255.245	VM	대기	
+오프라인
+
+AFCCS	AFCCS	172.16.255.245	VM	대기	
+오프라인
+
+KNCCS	KNCCS	172.16.255.245	VM	대기	
+오프라인
+
+ATICS	ATICS	127.0.0.1/8	VM	수집됨	
+온라인
+
+VDI-2	VDI-2	127.0.0.1/8	VM	수집됨	
+온라인
+
+VDI-1	VDI-1	127.0.0.1/8	VM	수집됨	
+온라인
+
+UAV	UAV	127.0.0.1/8	VM	수집됨	
+온라인
+
+TOD-Cam	TOD-Cam	127.0.0.1/8	VM	수집됨	
+온라인
+
+Firewall	Firewall	127.0.0.1/8	Firewall	수집됨	
+온라인
+
+Switch-4	Switch-4	127.0.0.1/8	Switch	수집됨	
+온라인
+
+Switch-3	Switch-3	127.0.0.1/8	Switch	수집됨	
+온라인
+
+Switch-2	Switch-2	127.0.0.1/8	Switch	수집됨	
+온라인
+
+Switch-1	Switch-1	127.0.0.1/8	Switch	수집됨	
+온라인
+
+Switch-0	Switch-0	127.0.0.1/8	Switch	수집됨	
+온라인
+
+VDI-Router	VDI-Router	127.0.0.1/8	Router	수집됨	
+온라인
+
+test-vm	test-vm	172.16.255.245	VM	대기	
+오프라인
+
+Survillance-Network-Router	Survillance-Network-Router	127.0.0.1/8	Router	수집됨	
+온라인
+
+C4I-Network-Router	C4I-Network-Router	127.0.0.1/8	Router	수집됨	
+온라인
+
+DMZ-Router	DMZ-Router	127.0.0.1/8	Router	수집됨	
+온라인
+
+Gateway-Router	Gateway-Router	127.0.0.1/8	Router	수집됨	
+온라인

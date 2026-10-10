@@ -44,9 +44,8 @@ export interface ObservedVlan {
 /**
  * 장비에서 수집한 VLAN 목록입니다.
  *
- * <p>⚠️ <b>IP 대역이 수집된 VLAN 만</b> 돌려줍니다. 주소가 없는 L2 전용 VLAN 은
- * 라우팅 대역이 아니어서 정책·토폴로지 어디에도 쓰이지 않으므로, 수집 결과에서
- * 제외합니다. (실측 Arista: VLAN1=default, VLAN99=미사용 이 여기서 빠집니다.)
+ * 주소가 없는 L2 VLAN도 access/trunk 수집 결과로 표시합니다.
+ * CIDR은 해당 장비에서 관측한 주소만 사용하며 다른 장비에서 복사하지 않습니다.
  */
 export function observedVlans(devices: ApiDiscoveredDevice[]): ObservedVlan[] {
   return devices.flatMap(device => {
@@ -64,5 +63,5 @@ export function observedVlans(devices: ApiDiscoveredDevice[]): ObservedVlan[] {
         cidrs: [...new Set(members.flatMap(i => i.addresses.map(networkCidr).filter((x): x is string => x !== null)))],
       };
     });
-  }).filter(row => row.cidrs.length > 0);
+  });
 }

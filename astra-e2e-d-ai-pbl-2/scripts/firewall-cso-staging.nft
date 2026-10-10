@@ -1,0 +1,32 @@
+# Dedicated table only. Existing input/output/filter/NAT tables stay intact.
+# Confidential <-> Confidential/Sensitive allowed; all other routed C4I traffic denied.
+table inet astra_cso {
+  set confidential_v4 {
+    type ipv4_addr
+    flags interval
+    elements = { 10.10.131.0/24, 10.10.132.0/24, 10.10.133.0/24 }
+  }
+  set sensitive_v4 {
+    type ipv4_addr
+    flags interval
+    elements = { 10.20.111.0/24, 10.20.112.0/24, 10.40.121.0/24, 10.40.122.0/24 }
+  }
+  chain forward {
+    type filter hook forward priority -50; policy accept;
+    # No routed IPv6 in this IPv4-only PoC; prevent a VLAN IPv6 bypass.
+    meta nfproto ipv6 iifname { "eth1.131", "eth1.132", "eth1.133" } counter drop comment "CSO-no-IPv6-bypass-out"
+    meta nfproto ipv6 oifname { "eth1.131", "eth1.132", "eth1.133" } counter drop comment "CSO-no-IPv6-bypass-in"
+    # Bind source prefixes to the actual C4I ingress VLANs.
+    iifname "eth1.131" ip saddr != 10.10.131.0/24 counter drop comment "CSO-anti-spoof-131"
+    iifname "eth1.132" ip saddr != 10.10.132.0/24 counter drop comment "CSO-anti-spoof-132"
+    iifname "eth1.133" ip saddr != 10.10.133.0/24 counter drop comment "CSO-anti-spoof-133"
+    # Sonar control plane only; staging port 8099 removed after deployment.
+    ip saddr @confidential_v4 ip daddr 172.16.255.245 tcp dport { 3000, 8099 } counter accept comment "Sonar-management-out"
+    ip saddr 172.16.255.245 ip daddr @confidential_v4 tcp sport { 3000, 8099 } ct state established counter accept comment "Sonar-management-return"
+    ip saddr @confidential_v4 ip daddr @confidential_v4 counter accept comment "CSO-C-to-C"
+    ip saddr @confidential_v4 ip daddr @sensitive_v4 counter accept comment "CSO-C-to-S"
+    ip saddr @sensitive_v4 ip daddr @confidential_v4 counter accept comment "CSO-S-to-C"
+    ip saddr @confidential_v4 counter drop comment "CSO-C-to-Open-Internet-deny"
+    ip daddr @confidential_v4 counter drop comment "CSO-Open-Internet-to-C-deny"
+  }
+}

@@ -1,0 +1,114 @@
+[
+  {
+    "name": "Management-Console",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "UAV",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "TOD-Cam",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Firewall",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Switch-4",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Switch-3",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Switch-2",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Switch-1",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Switch-0",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "VDI-Router",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Survillance-Network-Router",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "C4I-Network-Router",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "DMZ-Router",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  },
+  {
+    "name": "Gateway-Router",
+    "connected": true,
+    "shell": true,
+    "root": true,
+    "marker": true,
+    "pass": true
+  }
+]

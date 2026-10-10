@@ -1,0 +1,10 @@
+Switch-2:~# echo $((1234567+7654321))
+8888888
+Switch-2:~# id; hostname; ip -br -4 addr; ip route; printf 'E2E_%s_OK\n' 'Switch-2'
+uid=0(root) gid=0(root) groups=0(root),0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)
+Switch-2
+lo               UNKNOWN        127.0.0.1/8 
+eth11            UNKNOWN        172.16.255.103/24 
+172.16.255.0/24 dev eth11 proto kernel scope link src 172.16.255.103 
+E2E_Switch-2_OK
+Switch-2:~# 

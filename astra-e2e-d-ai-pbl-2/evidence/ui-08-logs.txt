@@ -1,0 +1,83 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Log Management
+Home
+Log Management
+
+AI 공급자가 등록되어 있지 않습니다
+
+로그 분석을 사용하려면 OpenAI 호환 API 공급자를 먼저 등록하세요. 로컬 Ollama 라면 주소만 넣고 API Key 는 비워 두면 됩니다.
+
+AI 공급자 설정 열기
+로그 조회
+전체 0건
+표시 0건
+로그 직접 입력
+프로젝트
+전체
+Astra E2E Router 수집 검증 2026-10-09 (PRJ-4B6C7538)
+D-AI-PBL-Poc-Project (PRJ-D488B7A4)
+Agent (장비)
+전체
+심각도 (최소 등급)
+전체
+critical 이상
+error 이상
+warning 이상
+notice 이상
+info 이상
+debug 이상
+기간 시작
+기간 끝
+본문 검색
+표시해 둔 로그만
+초기화
+조회
+로그 목록
+새로고침
+
+조건에 맞는 로그가 없습니다
+
+심각도를 낮추거나 기간을 넓혀 보세요. 프로버가 텔레메트리에 로그를 실어 보내면 여기에 쌓입니다.
+
+AI 로그 분석
+0줄 대상
+공급자 설정
+AI 공급자
+등록된 공급자 없음
+추가 지시 (선택)
+
+예: BGP 세션 끊김의 원인에 집중해 주세요
+
+선택한 0건 분석
+필터 결과 전체 분석
+
+선택 분석은 고른 로그만, 전체 분석은 위 필터 조건에 맞는 로그를 오래된 순서로 보냅니다. (인과관계 파악을 위해 시간순으로 전달)
+
+분석 이력
+0건
+새로고침
+
+아직 분석 이력이 없습니다.

@@ -1,0 +1,89 @@
+{
+  "steps": [
+    {
+      "name": "dashboard",
+      "ok": true
+    },
+    {
+      "name": "project-list",
+      "ok": true,
+      "data": [
+        "PRJ-4B6C7538",
+        "PRJ-D488B7A4"
+      ]
+    },
+    {
+      "name": "agent-screen",
+      "ok": true,
+      "data": {
+        "connected": 17
+      }
+    },
+    {
+      "name": "project-editor",
+      "ok": true
+    },
+    {
+      "name": "subnet-advance-real",
+      "ok": true,
+      "data": {
+        "subnets": 39,
+        "vlanRows": 23,
+        "first": [
+          "Subnet-0001 10.99.10.0/24 (Sensitive) · Core 운영 인프라 · VLAN10 · C4I-Network-Router · C4I-Network-Router",
+          "Subnet-0004 10.30.141.0/24 (Open) · Public-Web-Server · VLAN141 · DMZ-Router · DMZ-Router",
+          "Subnet-0006 10.40.121.0/24 (Sensitive) · VDI-1 · VLAN121 · VDI-Router · VDI-Router"
+        ]
+      }
+    },
+    {
+      "name": "subnet-edit-persist",
+      "ok": true,
+      "data": {
+        "subnet": "Subnet-0001",
+        "savedName": "Astra E2E 업무망",
+        "savedClass": "Sensitive",
+        "persisted": true
+      }
+    },
+    {
+      "name": "log-page",
+      "ok": true,
+      "data": {
+        "status": 200
+      }
+    },
+    {
+      "name": "compliance-policy",
+      "ok": true
+    }
+  ],
+  "assertions": {
+    "projects": [
+      "PRJ-4B6C7538",
+      "PRJ-D488B7A4"
+    ],
+    "connectedAgents": 17,
+    "totalAgents": 21,
+    "realSubnetOptions": 39,
+    "realVlanOptions": 23,
+    "discoveredVlanTable": true,
+    "editPersist": {
+      "subnet": "Subnet-0001",
+      "savedName": "Astra E2E 업무망",
+      "savedClass": "Sensitive",
+      "persisted": true
+    },
+    "editRestored": true,
+    "logsStatus": 200,
+    "pageErrorCount": 0,
+    "httpErrorCount": 1
+  },
+  "errors": [
+    {
+      "type": "http",
+      "status": 401,
+      "url": "http://172.16.255.245/api/v1/auth/me"
+    }
+  ]
+}

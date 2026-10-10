@@ -1,0 +1,125 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Compliance
+Home
+Compliance
+Project Name
+Astra E2E Router 수집 검증 2026-10-09
+12 subnet
+D-AI-PBL-Poc-Project
+39 subnet
+Astra E2E Router 수집 검증 2026-10-09 변경 내역
+
+Project Astra E2E Router 수집 검증 2026-10-09 · 변경 11건
+
+프로젝트 단위
+Agent List
+Switch-2
+Switch-2 · 127.0.0.1/8
+Switch
+ATICS
+ATICS · 127.0.0.1/8
+VM
+Switch-4
+Switch-4 · 127.0.0.1/8
+Switch
+Switch-3
+Switch-3 · 127.0.0.1/8
+Switch
+DMZ-Router
+DMZ-Router · 127.0.0.1/8
+Router
+UAV
+UAV · 127.0.0.1/8
+VM
+Management-Console
+Management-Console · 127.0.0.1/8
+VM
+C4I-Network-Router
+C4I-Network-Router · 127.0.0.1/8
+Router
+Gateway-Router
+Gateway-Router · 127.0.0.1/8
+Router
+Survillance-Network-Router
+Survillance-Network-Router · 127.0.0.1/8
+Router
+TOD-Cam
+TOD-Cam · 127.0.0.1/8
+VM
+VDI-1
+VDI-1 · 127.0.0.1/8
+VM
+VDI-2
+VDI-2 · 127.0.0.1/8
+VM
+VDI-Router
+VDI-Router · 127.0.0.1/8
+Router
+Firewall
+Firewall · 127.0.0.1/8
+Firewall
+Switch-0
+Switch-0 · 127.0.0.1/8
+Switch
+Switch-1
+Switch-1 · 127.0.0.1/8
+Switch
+ID	구분	유형	변경 요약	요청자	일시	상태
+CHG-94BCD52D	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-10 20:21	Applied
+CHG-19664001	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-10 20:21	Applied
+CHG-A2B15CB0	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-10 20:14	Applied
+CHG-F73F35B0	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-10 20:14	Applied
+CHG-80FD4516	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-10 20:10	Applied
+CHG-D176D2C2	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-10 20:10	Applied
+CHG-B50BE795	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-09 17:39	Applied
+CHG-06D385E7	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-09 17:39	Applied
+CHG-76CCAEA9	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 12건, 규칙 0건)
+	system	2026-10-09 17:39	Applied
+CHG-C43DECC6	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 11건, 규칙 0건)
+	system	2026-10-09 17:05	Applied
+CHG-FBA11F8C	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 11건, 규칙 0건)
+	system	2026-10-09 16:45	Applied
+이전
+PDF 내보내기

@@ -1,0 +1,284 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Agent
+Home
+Agent
+
+프로버 없이 REST API 로 직접 연결되는 장비(예: OPNsense)는 이 목록에 나타나지 않습니다. 현재 0건이 API 연결 노드로 등록되어 있습니다.
+
+API 연결 노드 보기
+연결된 Agent
+17
+WebSocket 세션 기준
+무응답
+4
+배포 예정 · 연결 없음
+격리된 서브넷
+0
+운영자가 VLAN 단위로 차단
+정책 요청
+8702
+누적 처리 건수
+Agent
+21건
+문제 있는 항목만 (4)
+새로고침
+오래된 항목 정리
+프로젝트에서 Agent 추가
+Agent	상태	제품명	수집	마지막 수신	격리	설정 내보내기	프로젝트
+
+Management-Console
+Management-Console
+	
+온라인
+	Ubuntu(LinuxVM)	인터페이스 10 · VLAN 0 · 경로 6	2026. 10. 10. 오후 8:20:40	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Public-Web-Server
+Public-Web-Server
+	
+오프라인
+텔레메트리 없음
+	—	인터페이스 0 · VLAN 0 · 경로 0	—	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+AFCCS
+AFCCS
+	
+오프라인
+텔레메트리 없음
+	—	인터페이스 0 · VLAN 0 · 경로 0	—	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+KNCCS
+KNCCS
+	
+오프라인
+텔레메트리 없음
+	—	인터페이스 0 · VLAN 0 · 경로 0	—	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+ATICS
+ATICS
+	
+온라인
+	Ubuntu(LinuxVM)	인터페이스 2 · VLAN 0 · 경로 2	2026. 10. 10. 오후 8:20:37	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+VDI-2
+VDI-2
+	
+온라인
+	Ubuntu(LinuxVM)	인터페이스 2 · VLAN 0 · 경로 2	2026. 10. 10. 오후 8:20:40	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+VDI-1
+VDI-1
+	
+온라인
+	Ubuntu(LinuxVM)	인터페이스 2 · VLAN 0 · 경로 2	2026. 10. 10. 오후 8:20:40	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+UAV
+UAV
+	
+온라인
+	Ubuntu(LinuxVM)	인터페이스 2 · VLAN 0 · 경로 2	2026. 10. 10. 오후 8:20:40	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+TOD-Cam
+TOD-Cam
+	
+온라인
+	Ubuntu(LinuxVM)	인터페이스 2 · VLAN 0 · 경로 2	2026. 10. 10. 오후 8:20:40	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Firewall
+Firewall
+	
+온라인
+	nftables(AlpineFirewall)	인터페이스 11 · VLAN 3 · 경로 6	2026. 10. 10. 오후 8:20:40	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Switch-4
+Switch-4
+	
+온라인
+	OpenVSwitch	인터페이스 15 · VLAN 1 · 경로 0	2026. 10. 10. 오후 8:20:39	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Switch-3
+Switch-3
+	
+온라인
+	OpenVSwitch	인터페이스 15 · VLAN 3 · 경로 0	2026. 10. 10. 오후 8:20:37	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Switch-2
+Switch-2
+	
+온라인
+	OpenVSwitch	인터페이스 17 · VLAN 2 · 경로 0	2026. 10. 10. 오후 8:20:38	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Switch-1
+Switch-1
+	
+온라인
+	OpenVSwitch	인터페이스 17 · VLAN 2 · 경로 0	2026. 10. 10. 오후 8:20:39	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Switch-0
+Switch-0
+	
+온라인
+	OpenVSwitch	인터페이스 15 · VLAN 1 · 경로 0	2026. 10. 10. 오후 8:20:37	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+VDI-Router
+VDI-Router
+	
+온라인
+	FRR	인터페이스 12 · VLAN 2 · 경로 14	2026. 10. 10. 오후 8:20:39	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+test-vm
+test-vm
+	
+오프라인
+텔레메트리 없음
+	—	인터페이스 0 · VLAN 0 · 경로 0	—	
+VLAN 격리 미지원 (VM)
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Survillance-Network-Router
+Survillance-Network-Router
+	
+온라인
+	FRR	인터페이스 12 · VLAN 2 · 경로 14	2026. 10. 10. 오후 8:20:38	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+C4I-Network-Router
+C4I-Network-Router
+	
+온라인
+	FRR	인터페이스 10 · VLAN 0 · 경로 14	2026. 10. 10. 오후 8:20:39	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+DMZ-Router
+DMZ-Router
+	
+온라인
+	FRR	인터페이스 11 · VLAN 1 · 경로 14	2026. 10. 10. 오후 8:20:39	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4
+
+
+Gateway-Router
+Gateway-Router
+	
+온라인
+	FRR	인터페이스 10 · VLAN 0 · 경로 15	2026. 10. 10. 오후 8:20:39	
+서브넷 격리
+	JSON	
+D-AI-PBL-Poc-Project
+PRJ-D488B7A4

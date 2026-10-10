@@ -1,0 +1,18 @@
+root@osboxes:/# echo $((1234567+7654321))
+8888888
+root@osboxes:/# id; hostname; ip -br -4 addr; ip route; printf 'E2E_%s_OK\n' 'Management-Console'
+uid=0(root) gid=0(root) groups=0(root)
+osboxes
+lo               UNKNOWN        127.0.0.1/8 
+ens3             UP             172.16.255.245/24 
+ens4             UP             192.168.122.58/24 
+docker0          DOWN           172.17.0.1/16 
+br-806483bc5620  UP             172.18.0.1/16 
+default via 192.168.122.1 dev ens4 proto dhcp src 192.168.122.58 metric 101 
+10.10.128.0/21 via 172.16.255.2 dev ens3 
+172.16.255.0/24 dev ens3 proto kernel scope link src 172.16.255.245 metric 100 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.18.0.0/16 dev br-806483bc5620 proto kernel scope link src 172.18.0.1 
+192.168.122.0/24 dev ens4 proto kernel scope link src 192.168.122.58 metric 101 
+E2E_Management-Console_OK
+root@osboxes:/# 

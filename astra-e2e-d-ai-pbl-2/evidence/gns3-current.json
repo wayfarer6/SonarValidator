@@ -1,0 +1,186 @@
+[
+  {
+    "name": "Survilliance-Network-Router",
+    "node_id": "82e323d2-4633-4b56-9353-5a59dd0a8dbb",
+    "node_type": "qemu",
+    "console": 5013,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "Gateway-Router",
+    "node_id": "cbcae8a1-587f-468c-9ca2-97048a165eda",
+    "node_type": "qemu",
+    "console": 5015,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "VDI-Router",
+    "node_id": "29ecd3e9-8a40-4c5d-941e-1d640a5615fd",
+    "node_type": "qemu",
+    "console": 5017,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "C4I-Network-Router",
+    "node_id": "96970f9f-87ed-4c5f-8f67-c4ee5ca7ba11",
+    "node_type": "qemu",
+    "console": 5019,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "Internet",
+    "node_id": "e989c24c-c388-499c-a819-e315f8dfe168",
+    "node_type": "nat",
+    "console": null,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "ATICS",
+    "node_id": "9bf30245-21af-4e4b-af98-dfab5c71a677",
+    "node_type": "qemu",
+    "console": 5022,
+    "status": "stopped",
+    "container_id": null
+  },
+  {
+    "name": "KNCCS",
+    "node_id": "4730e279-eed0-4f04-a24a-de2a141f6b81",
+    "node_type": "qemu",
+    "console": 5024,
+    "status": "stopped",
+    "container_id": null
+  },
+  {
+    "name": "AFCCS",
+    "node_id": "aebc8aba-3433-4d34-bf3c-a052583d27bf",
+    "node_type": "qemu",
+    "console": 5026,
+    "status": "stopped",
+    "container_id": null
+  },
+  {
+    "name": "TOD-Cam",
+    "node_id": "65dcf33b-eecd-4dae-a0f9-ba3ec07ce813",
+    "node_type": "docker",
+    "console": 5028,
+    "status": "stopped",
+    "container_id": "473df8ae6d16f4ad0c500cb78a1c04a3985d04d76927f0cde933cab541b1c53a"
+  },
+  {
+    "name": "UAV",
+    "node_id": "c4101796-96e3-4b67-9022-1587742a28b8",
+    "node_type": "docker",
+    "console": 5030,
+    "status": "stopped",
+    "container_id": "557fb64d5c5d683c7dd5c8c2a65ed11769bff0e8348e0187093890c5db8df28c"
+  },
+  {
+    "name": "VDI-1",
+    "node_id": "d52f7ed6-bc3c-4153-9ce9-bb73e8e94dc4",
+    "node_type": "docker",
+    "console": 5032,
+    "status": "stopped",
+    "container_id": "1a8cf63921673529d5b749ed977365666e2d7947c63896b9c362c2b8dda5d8f5"
+  },
+  {
+    "name": "VDI-2",
+    "node_id": "ad8c7518-acbb-4da0-9267-8fca2f52cde7",
+    "node_type": "docker",
+    "console": 5034,
+    "status": "stopped",
+    "container_id": "2223c3c6c5a7727f1efd0d16702226e028e7cd584d681e04645826021b34f143"
+  },
+  {
+    "name": "Management-Console",
+    "node_id": "785ac963-1414-424a-b9cd-e023661e3205",
+    "node_type": "qemu",
+    "console": 5901,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "Hub1",
+    "node_id": "e57e9429-219d-4ea5-a5d8-5ad017e75a88",
+    "node_type": "ethernet_hub",
+    "console": null,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "DMZ-Router",
+    "node_id": "db48c8cb-959c-417c-818a-79280ce57460",
+    "node_type": "qemu",
+    "console": 5040,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "Switch-0",
+    "node_id": "be812b11-e4df-4142-8c64-1599081055b7",
+    "node_type": "docker",
+    "console": 5042,
+    "status": "started",
+    "container_id": "887ba7b5687f3a2d591ddbdaa0f40a9daa93dca6b2afdfd0ca29495a0b8f5219"
+  },
+  {
+    "name": "Switch-1",
+    "node_id": "984f9ddd-2492-47f4-9307-2a6bf55d8df8",
+    "node_type": "docker",
+    "console": 5044,
+    "status": "started",
+    "container_id": "6120b0be5ff8f3990f82a6b7a0c8387429483a989a83de495abd7420b1708988"
+  },
+  {
+    "name": "Switch-2",
+    "node_id": "9758966a-f85a-427e-848d-9bbe0ae62098",
+    "node_type": "docker",
+    "console": 5046,
+    "status": "stopped",
+    "container_id": "fd2354dd179812521849412935c4acbea0ba46da397de58fefd80f5fb317cfda"
+  },
+  {
+    "name": "Switch-3",
+    "node_id": "8f54d69e-8463-4d88-bd85-92e543e2f6ae",
+    "node_type": "docker",
+    "console": 5048,
+    "status": "started",
+    "container_id": "17a8aa9c6720ec7997ddddbabc6d3f238056740ce5f0c122f02c7354fec4bbc0"
+  },
+  {
+    "name": "Switch-4",
+    "node_id": "31c1ad17-80b7-45cc-81d6-1b25b8ccbd63",
+    "node_type": "docker",
+    "console": 5050,
+    "status": "started",
+    "container_id": "ae748cfca9218c842924afe5a04d38fdc2ba0774b4a1f926b347d29fd08e21ce"
+  },
+  {
+    "name": "Public-Web-Server",
+    "node_id": "1c4b5bb9-fa22-4efe-8ea5-542eeb03c5b1",
+    "node_type": "qemu",
+    "console": 5036,
+    "status": "stopped",
+    "container_id": null
+  },
+  {
+    "name": "NAT1",
+    "node_id": "7a254f23-85bb-4ba5-a437-3353a63a805a",
+    "node_type": "nat",
+    "console": null,
+    "status": "started",
+    "container_id": null
+  },
+  {
+    "name": "Firewall",
+    "node_id": "e5c3a451-60c5-4d59-8343-6e48a8baae58",
+    "node_type": "docker",
+    "console": 5041,
+    "status": "started",
+    "container_id": "da1e613bb7d89d2595f92cb06a2ac38a0163d40b590a5687968459a543c5848f"
+  }
+]

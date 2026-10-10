@@ -1,0 +1,110 @@
+[
+  {
+    "name": "TOD-Cam",
+    "status": 200,
+    "body": {
+      "agent_id": "TOD-Cam",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  },
+  {
+    "name": "UAV",
+    "status": 200,
+    "body": {
+      "agent_id": "UAV",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  },
+  {
+    "name": "VDI-1",
+    "status": 200,
+    "body": {
+      "agent_id": "VDI-1",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  },
+  {
+    "name": "VDI-2",
+    "status": 200,
+    "body": {
+      "agent_id": "VDI-2",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  },
+  {
+    "name": "ATICS",
+    "status": 200,
+    "body": {
+      "agent_id": "ATICS",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  },
+  {
+    "name": "KNCCS",
+    "status": 200,
+    "body": {
+      "agent_id": "KNCCS",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  },
+  {
+    "name": "AFCCS",
+    "status": 200,
+    "body": {
+      "agent_id": "AFCCS",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  },
+  {
+    "name": "Public-Web-Server",
+    "status": 200,
+    "body": {
+      "agent_id": "Public-Web-Server",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  },
+  {
+    "name": "Management-Console",
+    "status": 200,
+    "body": {
+      "agent_id": "Management-Console",
+      "project_id": "PRJ-D488B7A4",
+      "device_type": "VM",
+      "node_type": "VM",
+      "status": "Deployed",
+      "registered": true
+    }
+  }
+]
