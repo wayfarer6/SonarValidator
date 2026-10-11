@@ -1,16 +1,37 @@
-import mermaid from "mermaid";
+/**
+ * mermaid 는 무겁습니다(수백 KB). 대부분의 화면은 이 모듈을 로드하지 않으므로,
+ * 최상위 정적 import 대신 <b>처음 렌더할 때</b> 동적 import 하고 초기화 결과를
+ * 캐시합니다. 그래야 초기 번들에서 mermaid 가 빠집니다.
+ */
+type MermaidApi = typeof import("mermaid")["default"];
 
-// 앱 전체에서 한 번만 초기화합니다. (startOnLoad: false — 명시적 render만 사용)
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "default",
-  securityLevel: "loose",
-  flowchart: {
-    useMaxWidth: true,
-    htmlLabels: true,
-    curve: "basis",
-  },
-});
+let mermaidPromise: Promise<MermaidApi> | null = null;
+
+/**
+ * mermaid 를 (최초 1회) 로드하고 초기화합니다.
+ *
+ * @returns 초기화된 mermaid 인스턴스
+ */
+async function getMermaid(): Promise<MermaidApi> {
+  if (!mermaidPromise) {
+    mermaidPromise = import("mermaid").then((module) => {
+      const mermaid = module.default;
+      // 앱 전체에서 한 번만 초기화합니다. (startOnLoad: false — 명시적 render만 사용)
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "default",
+        securityLevel: "loose",
+        flowchart: {
+          useMaxWidth: true,
+          htmlLabels: true,
+          curve: "basis",
+        },
+      });
+      return mermaid;
+    });
+  }
+  return mermaidPromise;
+}
 
 let renderSeq = 0;
 
@@ -58,6 +79,7 @@ export async function renderMermaid(chart: string): Promise<string> {
   renderSeq += 1;
   const id = `mermaid-render-${renderSeq}`;
   try {
+    const mermaid = await getMermaid();
     const { svg } = await mermaid.render(id, chart);
     return svg;
   } catch (error) {
@@ -81,5 +103,3 @@ export async function exportMermaidSvg(chart: string, filename: string): Promise
   anchor.remove();
   URL.revokeObjectURL(url);
 }
-
-export default mermaid;

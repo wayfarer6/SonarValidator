@@ -80,6 +80,24 @@ public class ProjectRule {
     private String note;
 
     /**
+     * 프로젝트 안에서의 표시 순서입니다.
+     *
+     * <h2>⚠️ {@code @OrderColumn} 대신 명시 필드를 쓰는 이유</h2>
+     * <p>예전에는 부모의 {@code @OneToMany(mappedBy)} 에 {@code @OrderColumn} 을
+     * 붙였습니다. 그런데 {@code @OrderColumn} 은 <b>자식 테이블을 소유한
+     * 쪽(부모가 FK 를 들고 있는 단방향 관계)</b> 을 전제로 합니다.
+     * {@code mappedBy}(양방향, 자식이 FK 소유)에서는 Hibernate 가 순서 값을
+     * 관리할 주체를 찾지 못해 기동 시 경고를 내고, 순서가 저장되지 않을 수
+     * 있습니다. 그래서 순서를 <b>자식의 실제 컬럼</b>으로 두고 부모에서
+     * {@code @OrderBy("ordinal ASC")} 로 읽습니다.
+     *
+     * <p>컬럼 이름은 기존 {@code ordinal} 을 유지합니다 — 스키마가 그대로라
+     * 마이그레이션이 필요 없습니다.
+     */
+    @Column(name = "ordinal")
+    private Integer ordinal;
+
+    /**
      * 도메인 객체로 변환합니다.
      *
      * @return 검증 엔진 입력용 규칙

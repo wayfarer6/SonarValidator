@@ -4,7 +4,7 @@
 // 임의로 만들 수 있었으므로 신뢰할 수 없었습니다. 이제 서버 세션이 진실의
 // 출처이고, AuthContext 가 그 값을 들고 있습니다.
 import { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 /** 표시 이름을 찾지 못했을 때의 폴백. */
 export const DEFAULT_DISPLAY_NAME = "User";

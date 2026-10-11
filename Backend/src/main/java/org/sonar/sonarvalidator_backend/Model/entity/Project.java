@@ -21,7 +21,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OrderColumn;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -157,13 +157,13 @@ public class Project {
      */
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true,
             fetch = FetchType.EAGER)
-    @OrderColumn(name = "ordinal")
+    @OrderBy("ordinal ASC")
     private List<ProjectSubnet> subnets = new ArrayList<>();
 
     /** 연결 규칙. ({@link #subnets} 와 같은 구조) */
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true,
             fetch = FetchType.EAGER)
-    @OrderColumn(name = "ordinal")
+    @OrderBy("ordinal ASC")
     private List<ProjectRule> rules = new ArrayList<>();
 
     // ------------------------------------------------------------------
@@ -216,20 +216,25 @@ public class Project {
             //    호출자가 중복 목록을 보내도 정책이 망가지지 않도록 여기서 막습니다.
             //    (먼저 온 항목을 남깁니다)
             final Set<String> seenSubnetIds = new LinkedHashSet<>();
+            int subnetOrdinal = 0;
             for (final PolicySubnet subnet : newSubnets) {
                 if (subnet.getId() != null && !seenSubnetIds.add(subnet.getId())) {
                     continue;
                 }
                 final ProjectSubnet entity = ProjectSubnet.from(subnet);
                 entity.setProject(this);
+                // 순서를 명시적으로 부여합니다. (@OrderBy("ordinal ASC") 가 이 값으로 정렬)
+                entity.setOrdinal(subnetOrdinal++);
                 subnets.add(entity);
             }
         }
         if (newRules != null) {
             rules.clear();
+            int ruleOrdinal = 0;
             for (final PolicyRule rule : newRules) {
                 final ProjectRule entity = ProjectRule.from(rule);
                 entity.setProject(this);
+                entity.setOrdinal(ruleOrdinal++);
                 rules.add(entity);
             }
         }

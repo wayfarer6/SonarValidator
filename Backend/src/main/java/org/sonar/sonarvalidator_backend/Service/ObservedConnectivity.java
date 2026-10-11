@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
+import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Model.entity.ProjectSubnet;
 import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
@@ -151,6 +152,18 @@ public final class ObservedConnectivity {
             if (config == null) {
                 continue;
             }
+            // ⚠️ 방화벽(존 경계를 강제하는 장비)은 VLAN 간 연결 추론에서 제외합니다.
+            //
+            //    방화벽이 여러 존에 SVI(L3 주소)를 가지는 것은 "두 존이 연결된다"
+            //    가 아니라 "<b>여기서 존을 분리/통제한다</b>" 는 뜻입니다. 방화벽에
+            //    주소가 있다는 사실만으로 Confidential ↔ Sensitive/Open 간선을
+            //    그리면, 실제로 허용되지 않은 연결이 화면에 존재하는 것처럼 보입니다.
+            //    존 간 허용은 규칙(policy rule)으로 표현되고, 방화벽 규칙 수집이
+            //    그 근거입니다. 라우터·스위치는 실제로 VLAN 간 포워딩을 하므로
+            //    기존 추론(SVI/connected 경로)을 유지합니다.
+            if (isEnforcementDevice(agentId, config)) {
+                continue;
+            }
             final Set<String> routed = routedNetworks(config);
             if (routed.isEmpty()) {
                 continue;
@@ -218,6 +231,29 @@ public final class ObservedConnectivity {
             }
         }
         return null;
+    }
+
+    /**
+     * 장치가 존 경계를 강제하는 방화벽인지 확인합니다.
+     *
+     * <p>방화벽은 여러 존에 L3 주소를 가지는 것이 정상이며, 그 자체는
+     * "존 간 연결" 이 아니라 "존을 분리·통제한다" 는 증거입니다. 그래서
+     * 인터페이스/SVI 기반의 VLAN 간 연결 추론에서 제외합니다.
+     *
+     * <p>유형은 장치가 보고한 {@code device_type} 을 우선하고, 없으면 식별자
+     * 관례로 추론합니다({@code Firewall}, {@code GNS3.Firewall} 등).
+     *
+     * @param agentId 장치 식별자
+     * @param config  수집 설정
+     * @return 방화벽이면 {@code true}
+     */
+    private static boolean isEnforcementDevice(String agentId, NeutralDeviceConfig config) {
+        final DeviceType reported = DeviceType.fromString(
+                config == null ? null : config.getDeviceType());
+        final DeviceType resolved = reported != null
+                ? reported
+                : DeviceType.inferFromDeviceId(agentId);
+        return resolved == DeviceType.FIREWALL;
     }
 
     /**

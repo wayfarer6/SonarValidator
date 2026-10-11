@@ -80,17 +80,24 @@ nameToken : DASHED_IDENT | IDENT | NUMBER
  *                                                                        */
 ruleLine : rulePiece+ NEWLINE ;
 rulePiece : PREFIX | SUBKEY | IFACEKEY | RULEKEY | MODIFIER | METRICKEY | ACTION
+          | ATTRKEY
           | HASH | QUOTED | ADDR | NUMBER | DASHED_IDENT | IDENT | RULEWORD ;
 
 /* 두 토큰이 하나의 키를 이루는 접두어. (`ip saddr`, `tcp dport`, `ct state`) */
 PREFIX    : 'ip' | 'ip6' | 'tcp' | 'udp' | 'ct' | 'meta' | 'icmp' | 'icmpv6' ;
-/* 접두어 뒤에 붙는 하위 키. */
+/* 접두어 뒤에 붙는 하위 키.
+ * ⚠️ 'type' 은 여기 두지 않습니다 — ATTRKEY 가 먼저 선언되어 'type' 을
+ *    가져가므로, SUBKEY 에 남겨 두면 도달 불가 토큰 경고가 나고
+ *    `icmp type ...` 이 파싱되지 않습니다. 대신 rulePiece 에 ATTRKEY 를
+ *    허용하고 visitor 가 ATTRKEY 'type' 을 하위 키로 해석합니다. */
 SUBKEY    : 'saddr' | 'daddr' | 'state' | 'dport' | 'sport' | 'protocol'
-          | 'type' | 'code' | 'l4proto' | 'mark' ;
+          | 'code' | 'l4proto' | 'mark' ;
 /* 단독으로 키가 되는 인터페이스 매칭. */
 IFACEKEY  : 'iif' | 'oif' | 'iifname' | 'oifname' ;
-/* 단독으로 키가 되는 나머지. (`handle 5`, `comment "x"`, `log prefix "x"`) */
-RULEKEY   : 'handle' | 'comment' | 'prefix' ;
+/* 단독으로 키가 되는 나머지. (`handle 5`, `log prefix "x"`)
+ * ⚠️ 'comment' 는 ATTRKEY(체인 속성/규칙 주석 공통)가 가져가므로 여기 두지
+ *    않습니다. visitor 가 ATTRKEY 'comment' 를 단독 키로 해석합니다. */
+RULEKEY   : 'handle' | 'prefix' ;
 /* 규칙 수식어. */
 MODIFIER  : 'counter' | 'log' ;
 /* 수식어 뒤에 숫자가 따라오는 카운터 값. (`counter packets 5 bytes 300`) */

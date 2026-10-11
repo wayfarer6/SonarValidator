@@ -1,28 +1,12 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { SidebarContext } from "./useSidebar";
 
-type SidebarContextType = {
-  isExpanded: boolean;
-  isMobileOpen: boolean;
-  isHovered: boolean;
-  activeItem: string | null;
-  openSubmenu: string | null;
-  toggleSidebar: () => void;
-  toggleMobileSidebar: () => void;
-  setIsHovered: (isHovered: boolean) => void;
-  setActiveItem: (item: string | null) => void;
-  toggleSubmenu: (item: string) => void;
-};
-
-const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
-
-export const useSidebar = () => {
-  const context = useContext(SidebarContext);
-  if (!context) {
-    throw new Error("useSidebar must be used within a SidebarProvider");
-  }
-  return context;
-};
-
+/**
+ * 사이드바 Provider 입니다.
+ *
+ * <p>컨텍스트 객체와 {@code useSidebar} 훅은 Fast Refresh 를 위해
+ * {@code useSidebar.ts} 로 분리했습니다. 이 파일은 컴포넌트만 export 합니다.
+ */
 export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {

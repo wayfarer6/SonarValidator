@@ -4,7 +4,7 @@ import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router";
 import { useDisplayName, useUserEmail, useUserRole } from "../../lib/userInfo";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../context/useAuth";
 
 /** 역할 코드를 화면 문구로 바꿉니다. */
 function roleLabel(role: string | null): string {

@@ -260,8 +260,11 @@ NUD    : 'REACHABLE' | 'STALE' | 'DELAY' | 'FAILED' | 'INCOMPLETE'
        | 'NOARP' | 'PERMANENT' | 'NONE' ;
 /* 주소 앞에 오는 패밀리 단어 (Cisco/FRR 표기) */
 INETWORD : 'Internet' | 'I' | 'ip' | 'ipv6' | 'IPv6' | 'Incomplete' ;
-/* 하드웨어 주소 종류 컬럼 (`ARPA`/`Dynamic` 등). visitor 가 바로 분류한다. */
-ARPTYPE  : 'ARPA' | 'SNAP' | 'PROBE' | 'STATIC' | 'Dynamic' | 'dynamic' ;
+/* 하드웨어 주소 종류 컬럼 (`ARPA`/`Dynamic` 등). visitor 가 바로 분류한다.
+ * ⚠️ 소문자 'dynamic' 은 ADDRFLAG 가 먼저 선언되어 그쪽 토큰이 되므로 여기
+ *    두지 않는다(도달 불가 토큰). visitor 가 ADDRFLAG 의 'dynamic' 을
+ *    ARP 종류로도 받아들인다. */
+ARPTYPE  : 'ARPA' | 'SNAP' | 'PROBE' | 'STATIC' | 'Dynamic' ;
 
 IFNAME : [a-zA-Z_] [a-zA-Z0-9_.@-]* ;
 

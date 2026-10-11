@@ -197,7 +197,7 @@ public class SegmentationBddEngine {
                         "VLAN/서브넷의 IP 대역과 CSO 등급을 지정해야 검증할 수 있습니다.",
                         PolicyViolation.Severity.MINOR));
             }
-            if (subnet.getCidr() != null && !subnet.getCidr().isBlank()) {
+            if (PolicySubnet.isValidCidr(subnet.getCidr())) {
                 byCidr.putIfAbsent(PolicySubnet.normalizeCidr(subnet.getCidr()), subnet);
             }
         }

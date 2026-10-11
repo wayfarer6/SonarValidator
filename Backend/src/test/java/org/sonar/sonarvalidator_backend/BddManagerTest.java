@@ -182,6 +182,9 @@ class BddManagerTest {
     void invalidInputThrows() {
         assertThatThrownBy(() -> PacketVariables.parseCidr("10.0.0.0/33"))
                 .isInstanceOf(IllegalArgumentException.class);
+        // 슬래시가 여러 개면 parts[1] 만 보고 조용히 통과했었다.
+        assertThatThrownBy(() -> PacketVariables.parseCidr("10.0.0.1/24/extra"))
+                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> PacketVariables.parseIp("999.1.1.1"))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> PacketVariables.parseIp("not-an-ip"))

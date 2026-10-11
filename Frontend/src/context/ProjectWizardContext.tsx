@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -12,7 +10,14 @@ import { useApi } from "../hooks/useApi";
 import { useApiAction } from "../hooks/useApiAction";
 import { updateProject, type SubnetInput } from "../lib/api/projects";
 import { getProjectForEditing } from "../lib/api/discovery";
-import type { ApiRule, ApiSubnet } from "../lib/api/types";
+import type { ApiSubnet } from "../lib/api/types";
+import {
+  ProjectWizardContext,
+  type ProjectWizardContextValue,
+  type SubnetClass,
+  type WizardRule,
+  type WizardSubnet,
+} from "./useProjectWizard";
 
 /**
  * 프로젝트 생성 마법사(위저드)가 공유하는 서브넷/규칙 상태입니다.
@@ -47,51 +52,12 @@ import type { ApiRule, ApiSubnet } from "../lib/api/types";
  * 만듭니다). 수집 초안의 등급은 {@code null}(미분류) 이고
  * {@code manually_edited=false} 입니다. 그 값을 그대로 화면에 옮기고, 등급
  * 결정은 사람이 하도록 남겨 둡니다.
+ *
+ * <h2>⚠️ 컨텍스트/훅 분리</h2>
+ * 컨텍스트 객체와 {@code useProjectWizard} 훅, 공용 타입({@code SubnetClass}
+ * 등)은 Fast Refresh 를 위해 {@code useProjectWizard.ts} 에 두었습니다.
+ * 이 파일은 Provider 컴포넌트만 export 합니다.
  */
-export type SubnetClass = "Confidential" | "Sensitive" | "Open";
-
-/** 위저드가 다루는 서브넷 한 건. (서버는 snake_case, 화면은 camelCase) */
-export interface WizardSubnet {
-  id: string;
-  cidr: string;
-  subnetClass: SubnetClass | null;
-  vlanId?: number | null;
-  /** 장치 인터페이스 이름 등 사람이 읽을 이름. */
-  name: string | null;
-  /** 이 서브넷을 보고한 Agent 식별자. */
-  agentId: string | null;
-  /** 서버 수집값이면 false → 화면에서 "확인 필요" 로 노출합니다. */
-  manuallyEdited: boolean;
-}
-
-/** 위저드가 다루는 규칙 한 건. 서버 계약을 그대로 유지합니다. */
-export type WizardRule = ApiRule;
-
-/** 화면이 한 번에 읽는 묶음. fetcher 반환형입니다. */
-interface WizardSnapshot {
-  subnets: WizardSubnet[];
-  rules: WizardRule[];
-  draft: boolean;
-  draftNote: string | null;
-}
-
-interface ProjectWizardContextValue {
-  subnets: WizardSubnet[];
-  rules: WizardRule[];
-  /** 서버 수집 결과로 만든 초안인지 여부. */
-  draft: boolean;
-  draftNote: string | null;
-  loading: boolean;
-  error: string | null;
-  /** 백엔드 자체에 닿지 못한 경우(서버 미기동). */
-  offline: boolean;
-  reload: () => void;
-  /** 등급 저장 진행 중 여부. (project_id 가 있을 때만 저장합니다) */
-  saving: boolean;
-  saveError: string | null;
-  setSubnetClass: (subnetId: string, subnetClass: SubnetClass | null) => void;
-  updateSubnet: (subnetId: string, patch: Partial<WizardSubnet>) => void;
-}
 
 // ---------------------------------------------------------------------------
 // 아래는 서버 연동 이전에 쓰던 더미 데이터입니다.
@@ -107,7 +73,13 @@ interface ProjectWizardContextValue {
 //   { id: "Subnet-0005", cidr: "172.16.0.x/24", subnetClass: "Open" },
 // ];
 
-const ProjectWizardContext = createContext<ProjectWizardContextValue | null>(null);
+/** 화면이 한 번에 읽는 묶음. fetcher 반환형입니다. */
+interface WizardSnapshot {
+  subnets: WizardSubnet[];
+  rules: WizardRule[];
+  draft: boolean;
+  draftNote: string | null;
+}
 
 /** 서버 서브넷을 화면 표기로 바꿉니다. snake_case → camelCase 경계입니다. */
 function toWizardSubnet(subnet: ApiSubnet): WizardSubnet {
@@ -239,12 +211,4 @@ export function ProjectWizardProvider({ children }: { children: ReactNode }) {
   return (
     <ProjectWizardContext.Provider value={value}>{children}</ProjectWizardContext.Provider>
   );
-}
-
-export function useProjectWizard() {
-  const ctx = useContext(ProjectWizardContext);
-  if (!ctx) {
-    throw new Error("useProjectWizard must be used within ProjectWizardProvider");
-  }
-  return ctx;
 }

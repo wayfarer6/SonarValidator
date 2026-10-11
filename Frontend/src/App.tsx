@@ -1,41 +1,62 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
-import SignIn from "./pages/AuthPages/SignIn";
-import SignUp from "./pages/AuthPages/SignUp";
-import NotFound from "./pages/OtherPage/NotFound";
-import UserProfiles from "./pages/UserProfiles";
-import Videos from "./pages/UiElements/Videos";
-import Images from "./pages/UiElements/Images";
-import Alerts from "./pages/UiElements/Alerts";
-import Badges from "./pages/UiElements/Badges";
-import Avatars from "./pages/UiElements/Avatars";
-import Buttons from "./pages/UiElements/Buttons";
-import LineChart from "./pages/Charts/LineChart";
-import BarChart from "./pages/Charts/BarChart";
-import Calendar from "./pages/Calendar";
-import BasicTables from "./pages/Tables/BasicTables";
-import FormElements from "./pages/Forms/FormElements";
-import Blank from "./pages/Blank";
+import { lazy, Suspense } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
-import Home from "./pages/Dashboard/Home";
-import { Navigate } from 'react-router-dom';
-import { useAuth } from "./context/AuthContext";
-import Project from "./pages/Project";
-import ProjectCreation from "./pages/ProjectCreation";
-import ProjectEditor from "./pages/ProjectEditor";
-import Agent from "./pages/Agent";
-import ApiConnectedNodes from "./pages/ApiConnectedNodes";
-import Compliance from "./pages/Compliance";
-import DetectedNetworkNodes from "./pages/DetectedNetworkNodes";
-import SubnetAdvanceConfiguration from "./pages/SubnetAdvanceConfiguration";
-import NetworkSegmentationRule from "./pages/NetworkSegmentationRule";
-import TopologyRulePreview from "./pages/TopologyRulePreview";
-import ComplianceExporter from "./pages/ComplianceExporter";
-import PolicyManagement from "./pages/ PolicyManagement";
-import PolicyExporter from "./pages/PolicyExporter";
-import NetworkManagement from "./pages/NetworkManagement";
-import LogManagement from "./pages/LogManagement";
-import Notification from "./pages/Notification";
+import { useAuth } from "./context/useAuth";
+
+/*
+ * 페이지는 라우트 단위로 <b>지연 로드</b>합니다.
+ *
+ * 정적 import 로 모두 묶으면 사용자가 보지 않는 화면(차트·캘린더·Mermaid 등)까지
+ * 초기 번들에 포함되어 첫 로딩이 느려집니다. lazy 로 나누면 방문한 화면의 코드만
+ * 내려받습니다. AppLayout/ScrollToTop 은 모든 화면에 필요하므로 즉시 로드합니다.
+ */
+const SignIn = lazy(() => import("./pages/AuthPages/SignIn"));
+const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
+const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
+const UserProfiles = lazy(() => import("./pages/UserProfiles"));
+const Videos = lazy(() => import("./pages/UiElements/Videos"));
+const Images = lazy(() => import("./pages/UiElements/Images"));
+const Alerts = lazy(() => import("./pages/UiElements/Alerts"));
+const Badges = lazy(() => import("./pages/UiElements/Badges"));
+const Avatars = lazy(() => import("./pages/UiElements/Avatars"));
+const Buttons = lazy(() => import("./pages/UiElements/Buttons"));
+const LineChart = lazy(() => import("./pages/Charts/LineChart"));
+const BarChart = lazy(() => import("./pages/Charts/BarChart"));
+const Calendar = lazy(() => import("./pages/Calendar"));
+const BasicTables = lazy(() => import("./pages/Tables/BasicTables"));
+const FormElements = lazy(() => import("./pages/Forms/FormElements"));
+const Blank = lazy(() => import("./pages/Blank"));
+const Home = lazy(() => import("./pages/Dashboard/Home"));
+const Project = lazy(() => import("./pages/Project"));
+const ProjectCreation = lazy(() => import("./pages/ProjectCreation"));
+const ProjectEditor = lazy(() => import("./pages/ProjectEditor"));
+const Agent = lazy(() => import("./pages/Agent"));
+const ApiConnectedNodes = lazy(() => import("./pages/ApiConnectedNodes"));
+const Compliance = lazy(() => import("./pages/Compliance"));
+const DetectedNetworkNodes = lazy(() => import("./pages/DetectedNetworkNodes"));
+const SubnetAdvanceConfiguration = lazy(() => import("./pages/SubnetAdvanceConfiguration"));
+const NetworkSegmentationRule = lazy(() => import("./pages/NetworkSegmentationRule"));
+const TopologyRulePreview = lazy(() => import("./pages/TopologyRulePreview"));
+const ComplianceExporter = lazy(() => import("./pages/ComplianceExporter"));
+// ⚠️ 파일명 앞에 공백이 있습니다(" PolicyManagement.tsx"). 경로를 그대로 유지합니다.
+const PolicyManagement = lazy(() => import("./pages/ PolicyManagement"));
+const PolicyExporter = lazy(() => import("./pages/PolicyExporter"));
+const NetworkManagement = lazy(() => import("./pages/NetworkManagement"));
+const LogManagement = lazy(() => import("./pages/LogManagement"));
+const Notification = lazy(() => import("./pages/Notification"));
+
+/** 지연 로드되는 페이지가 준비될 때까지 보여주는 자리표시자입니다. */
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+        <span className="text-sm text-gray-500 dark:text-gray-400">불러오는 중...</span>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   // 인증 상태는 서버 세션을 따릅니다. (기존 쿠키 방식은 검증 없이 통과했습니다)
@@ -57,8 +78,9 @@ export default function App() {
   }
 
   return (
-    <Router> 
+    <Router>
       <ScrollToTop />
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         {/* 1. 로그인/회원가입 페이지는 항상 열어두되, 이미 로그인된 사람이 접근하면 메인으로 보냄 */}
         <Route 
@@ -128,6 +150,7 @@ export default function App() {
         {/* 4. 로그인된 상태에서 이상한 주소로 가면 404(NotFound) 처리 */}
         {signedIn && <Route path="*" element={<NotFound />} />}
       </Routes>
+      </Suspense>
     </Router>
   );
 }

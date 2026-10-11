@@ -7,7 +7,7 @@ import {
   useProjectWizard,
   type SubnetClass,
   type WizardSubnet,
-} from "../context/ProjectWizardContext";
+} from "../context/useProjectWizard";
 
 interface RuleRow {
   id: string;

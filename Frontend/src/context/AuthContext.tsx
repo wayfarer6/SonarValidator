@@ -1,12 +1,11 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useState,
   type ReactNode,
 } from "react";
 import { fetchCurrentUser, login as loginApi, logout as logoutApi, type AuthUser } from "../lib/api/auth";
+import { AuthContext } from "./useAuth";
 
 /**
  * 인증 상태를 앱 전체에 공급합니다.
@@ -29,26 +28,11 @@ import { fetchCurrentUser, login as loginApi, logout as logoutApi, type AuthUser
  * `loading` 을 두지 않으면, 확인이 끝나기 전에 `user === null` 이므로
  * 잠깐 로그인 화면이 보였다가 대시보드로 바뀝니다. (깜빡임)
  * 그래서 `initializing` 동안은 라우팅을 미룹니다.
+ *
+ * <h2>⚠️ 컨텍스트/훅 분리</h2>
+ * 컨텍스트 객체와 {@code useAuth} 훅, 값 타입은 Fast Refresh 를 위해
+ * {@code useAuth.ts} 에 두었습니다. 이 파일은 컴포넌트만 export 합니다.
  */
-
-interface AuthContextValue {
-  /** 현재 사용자 (미로그인 시 null). */
-  user: AuthUser | null;
-  /** 세션 확인이 끝났는지 여부. false 인 동안은 라우팅을 미룹니다. */
-  initializing: boolean;
-  /** 로그인 진행 중 여부. */
-  submitting: boolean;
-  /** 마지막 인증 오류 메시지. */
-  error: string | null;
-  /** 로그인합니다. 성공하면 true. */
-  login: (username: string, password: string) => Promise<boolean>;
-  /** 로그아웃합니다. */
-  logout: () => Promise<void>;
-  /** 오류 메시지를 지웁니다. */
-  clearError: () => void;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -114,18 +98,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-/**
- * 인증 컨텍스트를 사용합니다.
- *
- * @returns 인증 상태와 동작
- * @throws AuthProvider 밖에서 호출한 경우
- */
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return context;
 }

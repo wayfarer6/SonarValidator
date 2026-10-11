@@ -221,4 +221,37 @@ class ObservedConnectivityTest {
         assertThat(ObservedConnectivity.internetExposedAgents(null)).isEmpty();
         assertThat(ObservedConnectivity.hasDefaultRoute(null)).isFalse();
     }
+
+    // ------------------------------------------------------------------
+    //  방화벽(강제 장비) 제외 — SVI 보유는 "연결" 이 아니라 "존 분리" 의 증거
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("방화벽은 여러 존에 SVI 를 가져도 VLAN 간 연결로 보지 않는다")
+    void firewallDoesNotCreateInterVlanLinks() {
+        final NeutralDeviceConfig firewall =
+                config("eth1.131=10.10.131.1/24", "eth1.132=10.10.132.1/24");
+        firewall.setDeviceType("FIREWALL");
+        final Project project = project(
+                subnet("VLAN131", "10.10.131.0/24", ZoneClass.CONFIDENTIAL, "Firewall"),
+                subnet("VLAN132", "10.10.132.0/24", ZoneClass.SENSITIVE, "Firewall"));
+
+        final List<ObservedConnectivity.Link> links = ObservedConnectivity
+                .betweenSubnetsOfEachDevice(project, Map.of("Firewall", firewall));
+
+        assertThat(links).isEmpty();
+    }
+
+    @Test
+    @DisplayName("식별자에 Firewall 이 들어가면 보고 유형이 없어도 제외한다")
+    void firewallIsExcludedByDeviceIdInference() {
+        final NeutralDeviceConfig firewall =
+                config("eth1.131=10.10.131.1/24", "eth1.132=10.10.132.1/24");
+        final Project project = project(
+                subnet("VLAN131", "10.10.131.0/24", ZoneClass.CONFIDENTIAL, "GNS3.Firewall"),
+                subnet("VLAN132", "10.10.132.0/24", ZoneClass.SENSITIVE, "GNS3.Firewall"));
+
+        assertThat(ObservedConnectivity.betweenSubnetsOfEachDevice(
+                project, Map.of("GNS3.Firewall", firewall))).isEmpty();
+    }
 }

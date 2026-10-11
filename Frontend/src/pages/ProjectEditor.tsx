@@ -27,6 +27,7 @@ import type {
   SubnetClass,
 } from "../lib/api/types";
 import { ZONE_CLASSES } from "../lib/policy/zones";
+import { collectCidrErrors } from "../lib/policy/cidr";
 
 /**
  * 프로젝트 편집 페이지입니다.
@@ -96,6 +97,11 @@ export default function ProjectEditor() {
     setReport(null);
   }, [data]);
 
+  // CIDR 형식 오류: 잘못된 행을 즉시 표시하고 저장/검증을 막습니다.
+  // 서버도 400 으로 거부하지만, 화면에서 먼저 알려야 어느 행을 고칠지 알 수 있습니다.
+  const cidrErrors = useMemo(() => collectCidrErrors(subnets), [subnets]);
+  const hasCidrErrors = Object.keys(cidrErrors).length > 0;
+
   // ---------------------------------------------------------------------
   // 액션
   // ---------------------------------------------------------------------
@@ -154,6 +160,8 @@ export default function ProjectEditor() {
    * 되고 검증이 안 된 상태는 "통과" 가 아니기 때문입니다.
    */
   const handleSave = useCallback(async () => {
+    // CIDR 형식 오류가 있으면 서버가 400 으로 거부합니다. 먼저 화면에서 막습니다.
+    if (hasCidrErrors) return;
     const saved = await saveAction.run();
     if (!saved) return;
     setDirty(false);
@@ -165,13 +173,14 @@ export default function ProjectEditor() {
     if (validation.compliant) {
       navigate("/project");
     }
-  }, [saveAction, validateAction, navigate]);
+  }, [saveAction, validateAction, navigate, hasCidrErrors]);
 
   /** 검증만 실행합니다. 저장하지 않은 초안 변경도 그대로 반영됩니다. */
   const handleValidate = useCallback(async () => {
+    if (hasCidrErrors) return;
     const validation = await validateAction.run();
     if (validation) setReport(validation);
-  }, [validateAction]);
+  }, [validateAction, hasCidrErrors]);
 
   /** 정책을 장치로 푸시합니다. */
   const handlePush = useCallback(async () => {
@@ -509,6 +518,8 @@ export default function ProjectEditor() {
               saving={saveAction.submitting}
               onPush={handlePush}
               pushing={pushAction.submitting}
+              disabled={hasCidrErrors}
+              disabledReason="잘못된 IP 대역(CIDR)이 있어 저장/검증할 수 없습니다."
             />
 
             {/* 액션 오류 안내 */}
@@ -541,6 +552,14 @@ export default function ProjectEditor() {
               </div>
             )}
 
+            {/* CIDR 형식 오류 안내 */}
+            {hasCidrErrors && (
+              <div className="rounded-xl border border-error-200 bg-error-50 p-3 text-xs text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-300">
+                잘못된 IP 대역(CIDR) {Object.keys(cidrErrors).length}건이 있습니다. 표의
+                붉은 입력란을 수정하면 저장·검증할 수 있습니다.
+              </div>
+            )}
+
             {/* 편집 표: 서브넷 + 규칙 */}
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
               <SubnetEditor
@@ -557,6 +576,7 @@ export default function ProjectEditor() {
                 onRemove={removeSubnet}
                 onAdd={addSubnet}
                 violatingSubnetIds={violatingSubnetIds}
+                cidrErrors={cidrErrors}
               />
               <RuleEditor
                 rules={rules}

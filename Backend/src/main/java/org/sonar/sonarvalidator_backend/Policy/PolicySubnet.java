@@ -331,6 +331,46 @@ public class PolicySubnet {
     }
 
     /**
+     * CIDR 형식이 유효한 IPv4 대역인지 엄격하게 검사합니다.
+     *
+     * <p>{@link #normalizeCidr(String)} 는 수집 경로의 관대한 정규화를 위해
+     * 형식이 틀려도 원문을 그대로 돌려줍니다. 그래서 잘못된 값이 저장·검증으로
+     * 흘러가 위반 판정에 다시 쓰이는 문제가 있었습니다. 저장/검증 경계에서는
+     * 이 메서드로 형식을 먼저 확인하고 실패 시 요청을 거부해야 합니다.
+     *
+     * <p>허용: 숫자 옥텟 4개 + prefix 0~32 ({@code 10.10.131.7/24}).
+     * 거부: 옥텟 범위 초과({@code 10.10.131.999/24}), prefix 범위 초과
+     * ({@code 10.10.131.0/33}), 옥텟 누락({@code 10.10.131/24}), 비수치 주소
+     * ({@code not-an-ip/24}), 슬래시 중복({@code 10.0.0.1/24/extra}),
+     * 템플릿 표기({@code 192.168.0.x/24}).
+     *
+     * @param cidr 검사할 문자열
+     * @return 유효하면 {@code true}
+     */
+    public static boolean isValidCidr(String cidr) {
+        if (cidr == null || cidr.isBlank()) {
+            return false;
+        }
+        final String[] parts = cidr.trim().split("/");
+        if (parts.length != 2) {
+            return false;
+        }
+        final String prefixText = parts[1].trim();
+        if (prefixText.isEmpty()) {
+            return false;
+        }
+        try {
+            // parseIp 는 숫자 옥텟 4개와 0~255 범위를 검사한다.
+            // (템플릿의 'x' 같은 비수치 표기도 여기서 거부된다.)
+            PacketVariables.parseIp(parts[0]);
+            final int prefix = Integer.parseInt(prefixText);
+            return prefix >= 0 && prefix <= PacketVariables.IP_BITS;
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    /**
      * 편의 생성 헬퍼.
      *
      * @param id        식별자

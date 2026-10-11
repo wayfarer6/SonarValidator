@@ -227,6 +227,10 @@ public class ProjectService {
             project.setManagementServerPort(port);
         }
 
+        // ⚠️ 저장 경계에서 CIDR 형식을 엄격히 검사한다. 잘못된 대역이 DB 에
+        //    들어가면 이후 모든 검증이 가짜 위반/가짜 반례로 오염된다.
+        requireValidSubnetCidrs(request.subnets());
+
         final List<PolicySubnet> subnets = request.subnets() == null
                 ? null
                 : mapSubnets(request.subnets());
@@ -443,8 +447,39 @@ public class ProjectService {
      * @return 검증 보고서
      */
     public SegmentationBddEngine.Report validate(ProjectDto.ValidateRequest request) {
-        return engine.validate(mapSubnets(request.subnets()), mapRules(request.rules()),
+        final ProjectDto.ValidateRequest safe = request == null
+                ? new ProjectDto.ValidateRequest(List.of(), List.of())
+                : request;
+        // 초안 검증도 저장과 같은 경계다. 잘못된 CIDR 로 판정을 계속하면
+        // 존재하지 않는 대역이 반례 패킷에 섞여 나온다.
+        requireValidSubnetCidrs(safe.subnets());
+        return engine.validate(mapSubnets(safe.subnets()), mapRules(safe.rules()),
                 internetExposedAgents());
+    }
+
+    /**
+     * 서브넷 CIDR 형식을 저장/검증 경계에서 엄격하게 검사합니다.
+     *
+     * <p>대역이 비어 있는 행(수집 전 서브넷)은 그대로 허용합니다. 검증 엔진이
+     * {@code classification-required} 위반으로 안내하기 때문입니다. 반면 값이
+     * 있는데 형식이 틀린 경우에는 판정을 진행하지 않고 즉시 400 으로 거부합니다.
+     *
+     * @param payloads 요청 서브넷 목록 (null 허용)
+     * @throws ResponseStatusException 형식이 잘못된 CIDR 이 있을 때 (400)
+     */
+    private void requireValidSubnetCidrs(List<ProjectDto.SubnetPayload> payloads) {
+        if (payloads == null) {
+            return;
+        }
+        for (final ProjectDto.SubnetPayload payload : payloads) {
+            if (payload == null || payload.cidr() == null || payload.cidr().isBlank()) {
+                continue;
+            }
+            if (!PolicySubnet.isValidCidr(payload.cidr())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "invalid-cidr: " + payload.cidr().trim());
+            }
+        }
     }
 
     /**

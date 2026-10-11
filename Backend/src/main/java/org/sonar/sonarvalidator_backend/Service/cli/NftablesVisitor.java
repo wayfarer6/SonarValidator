@@ -275,8 +275,13 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
             }
 
             // ---- `ip saddr <값>` : 접두어 + 하위키 ----
+            // ⚠️ 하위 키 'type'(예: `icmp type echo-request`)은 ATTRKEY 로
+            //    토큰화된다. ATTRKEY 는 체인 속성 키와 공유하는 토큰이라
+            //    문법에서 SUBKEY 로 중복 선언할 수 없어(도달 불가 토큰),
+            //    visitor 가 텍스트로 하위 키 여부를 판단한다.
             if (type == NftablesRuleLexer.PREFIX
-                    && cursor.type(1) == NftablesRuleLexer.SUBKEY
+                    && (cursor.type(1) == NftablesRuleLexer.SUBKEY
+                        || isTypeSubKey(cursor))
                     && cursor.type(2) != org.antlr.v4.runtime.Token.EOF) {
                 String key = text + " " + cursor.text(1);
                 String value = CliText.unquote(CliText.trimPunct(cursor.text(2)));
@@ -286,9 +291,11 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
             }
 
             // ---- 단독 키 (`iifname "eth0"`, `handle 5`, `comment "..."`) ----
+            // ⚠️ 'comment' 도 ATTRKEY 로 토큰화되므로 텍스트로 판단한다.
             if ((type == NftablesRuleLexer.IFACEKEY
                     || type == NftablesRuleLexer.SUBKEY
-                    || type == NftablesRuleLexer.RULEKEY)
+                    || type == NftablesRuleLexer.RULEKEY
+                    || isCommentKey(type, text))
                     && cursor.type(1) != org.antlr.v4.runtime.Token.EOF) {
                 String key = CliText.trimPunct(text);
                 String value = CliText.unquote(CliText.trimPunct(cursor.text(1)));
@@ -321,6 +328,30 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
             text.append(' ');
         }
         text.append(key).append(' ').append(value);
+    }
+
+    /**
+     * 커서의 다음 조각이 하위 키 {@code type} 인지 봅니다.
+     *
+     * <p>{@code type} 은 chain 속성 키와 공유하는 {@code ATTRKEY} 토큰이라
+     * {@code SUBKEY} 로 선언하면 도달 불가 토큰이 됩니다. 그래서 텍스트로 판단합니다.
+     *
+     * @param cursor 규칙 조각 커서
+     * @return 다음 조각이 {@code ATTRKEY} 이고 텍스트가 {@code type} 이면 true
+     */
+    private static boolean isTypeSubKey(TokenCursor<NftablesRuleParser.RulePieceContext> cursor) {
+        return cursor.type(1) == NftablesRuleLexer.ATTRKEY && "type".equals(cursor.text(1));
+    }
+
+    /**
+     * 현재 조각이 단독 키 {@code comment} 인지 봅니다.
+     *
+     * @param type 토큰 타입
+     * @param text 토큰 텍스트
+     * @return {@code ATTRKEY} 이고 텍스트가 {@code comment} 이면 true
+     */
+    private static boolean isCommentKey(int type, String text) {
+        return type == NftablesRuleLexer.ATTRKEY && "comment".equals(text);
     }
 
     /* ==================== 도우미 ==================== */

@@ -17,6 +17,15 @@ interface ViolationSummaryProps {
   onPush?: () => void;
   /** 푸시 진행 중 여부. */
   pushing?: boolean;
+  /**
+   * 입력 오류(예: 잘못된 CIDR)가 있어 모든 액션을 막을 때 {@code true}.
+   *
+   * <p>서버가 400 으로 거부하기 전에 화면에서 먼저 막습니다. 눌리는데 반응이
+   * 없는 버튼은 "고장" 처럼 보이므로, 비활성화하고 사유를 툴팁으로 답니다.
+   */
+  disabled?: boolean;
+  /** 비활성 사유 (버튼 툴팁). */
+  disabledReason?: string;
 }
 
 const SEVERITY_BADGE: Record<ViolationSeverity, { color: "error" | "warning" | "info"; label: string }> = {
@@ -52,6 +61,8 @@ export default function ViolationSummary({
   saving = false,
   onPush,
   pushing = false,
+  disabled = false,
+  disabledReason,
 }: ViolationSummaryProps) {
   // 아직 검증하지 않은 상태
   if (!report) {
@@ -69,7 +80,8 @@ export default function ViolationSummary({
               <button
                 type="button"
                 onClick={onValidate}
-                disabled={validating}
+                disabled={validating || disabled}
+                title={disabled ? disabledReason : undefined}
                 className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50"
               >
                 {validating ? "검증 중..." : "검증 실행"}
@@ -79,7 +91,8 @@ export default function ViolationSummary({
               <button
                 type="button"
                 onClick={onSave}
-                disabled={saving}
+                disabled={saving || disabled}
+                title={disabled ? disabledReason : undefined}
                 className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
               >
                 {saving ? "저장 중..." : "저장"}
@@ -123,7 +136,8 @@ export default function ViolationSummary({
             <button
               type="button"
               onClick={onValidate}
-              disabled={validating}
+              disabled={validating || disabled}
+              title={disabled ? disabledReason : undefined}
               className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
             >
               {validating ? "검증 중..." : "다시 검증"}
@@ -133,7 +147,8 @@ export default function ViolationSummary({
             <button
               type="button"
               onClick={onSave}
-              disabled={saving}
+              disabled={saving || disabled}
+              title={disabled ? disabledReason : undefined}
               className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-50"
             >
               {saving ? "저장 중..." : "저장"}

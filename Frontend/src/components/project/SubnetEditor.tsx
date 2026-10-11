@@ -34,6 +34,8 @@ interface SubnetEditorProps {
   onAdd: () => void;
   /** 위반이 있는 서브넷 식별자 집합 (행 강조용). */
   violatingSubnetIds?: Set<string>;
+  /** CIDR 형식 오류 맵 (subnetId → 오류 문구). 없으면 검사하지 않습니다. */
+  cidrErrors?: Record<string, string>;
   /** 읽기 전용 여부. */
   readOnly?: boolean;
 }
@@ -63,6 +65,7 @@ export default function SubnetEditor({
   onRemove,
   onAdd,
   violatingSubnetIds,
+  cidrErrors,
   readOnly = false,
 }: SubnetEditorProps) {
   const selectClass =
@@ -153,6 +156,7 @@ export default function SubnetEditor({
               {subnets.map((subnet) => {
                 const info = zoneInfo(subnet.subnet_class);
                 const violating = violatingSubnetIds?.has(subnet.id) ?? false;
+                const cidrError = cidrErrors?.[subnet.id];
                 return (
                   <tr
                     key={subnet.id}
@@ -174,13 +178,24 @@ export default function SubnetEditor({
                         value={subnet.cidr}
                         disabled={readOnly}
                         placeholder="IP 대역 미수집 (CIDR 입력)"
+                        aria-invalid={cidrError ? true : undefined}
+                        aria-label={`${subnet.id} CIDR`}
                         onChange={(e) =>
                           onCidrChange
                             ? onCidrChange(subnet.id, e.target.value)
                             : undefined
                         }
-                        className={inputClass}
+                        className={
+                          cidrError
+                            ? `${inputClass} border-error-500 focus:border-error-500 focus:ring-error-500`
+                            : inputClass
+                        }
                       />
+                      {cidrError && (
+                        <p className="mt-1 text-[11px] font-medium text-error-500">
+                          {cidrError}
+                        </p>
+                      )}
                     </td>
                     <td className="p-2">
                       <select

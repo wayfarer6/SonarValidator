@@ -1,17 +1,15 @@
 "use client";
 
 import type React from "react";
-import { createContext, useState, useContext, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { ThemeContext, type Theme } from "./useTheme";
 
-type Theme = "light" | "dark";
-
-type ThemeContextType = {
-  theme: Theme;
-  toggleTheme: () => void;
-};
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
+/**
+ * 테마 Provider 입니다.
+ *
+ * <p>컨텍스트 객체와 {@code useTheme} 훅은 Fast Refresh 를 위해
+ * {@code useTheme.ts} 로 분리했습니다. 이 파일은 컴포넌트만 export 합니다.
+ */
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -47,12 +45,4 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
       {children}
     </ThemeContext.Provider>
   );
-};
-
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return context;
 };

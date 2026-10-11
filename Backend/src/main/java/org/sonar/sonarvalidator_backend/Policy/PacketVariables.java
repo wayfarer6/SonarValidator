@@ -261,6 +261,12 @@ public final class PacketVariables {
             throw new IllegalArgumentException("cidr is blank");
         }
         final String[] parts = cidr.trim().split("/");
+        // ⚠️ `10.0.0.1/24/extra` 처럼 슬래시가 여러 개면 parts[1] 만 보고
+        //    조용히 통과해 버린다. 형식이 깨진 값이 그대로 저장/검증으로
+        //    흘러가지 않도록 명시적으로 거부한다.
+        if (parts.length > 2) {
+            throw new IllegalArgumentException("invalid cidr (too many '/'): " + cidr);
+        }
         final String addressText = parts[0].trim();
 
         // 허용 관용 표기: "192.168.0.x/24" 처럼 마지막 옥텟이 문자인 경우 x 를 0 으로 봅니다.

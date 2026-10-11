@@ -538,6 +538,12 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
                 age = cursor.take();
             } else if (tokenType == IpAddrLexer.ARPTYPE) {
                 type = cursor.take();
+            } else if (tokenType == IpAddrLexer.ADDRFLAG
+                    && "dynamic".equalsIgnoreCase(cursor.text())) {
+                // ⚠️ 소문자 'dynamic' 은 ADDRFLAG 토큰이다(ARPTYPE 의 'Dynamic' 과
+                //    달리 도달 불가 중복을 피하려 ARPTYPE 에서 뺐다). ARP 표에서
+                //    종류 컬럼으로 오면 그대로 받아들인다.
+                type = cursor.take();
             } else if (tokenType == IpAddrLexer.IFNAME) {
                 // Arista/Cisco 는 인터페이스명만 덩그러니 온다(쉼표로 여러 개).
                 ifaces.add(cursor.take());

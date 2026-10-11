@@ -4,7 +4,7 @@ import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import DiscoveredVlans from "../components/project/DiscoveredVlans";
 import OfflineImportCard from "../components/offline/OfflineImportCard";
-import { useProjectWizard, type SubnetClass } from "../context/ProjectWizardContext";
+import { useProjectWizard, type SubnetClass } from "../context/useProjectWizard";
 
 const SUBNET_CLASSES: SubnetClass[] = ["Confidential", "Sensitive", "Open"];
 
