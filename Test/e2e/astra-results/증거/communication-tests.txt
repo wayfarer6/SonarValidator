@@ -1,7 +1,7 @@
-Internal ctest changing into directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
-UpdateCTestConfiguration  from :/home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/DartConfiguration.tcl
-UpdateCTestConfiguration  from :/home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/DartConfiguration.tcl
-Test project /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+Internal ctest changing into directory: /home/osboxes/SonarValidator/Prober/build-debug
+UpdateCTestConfiguration  from :/home/osboxes/SonarValidator/Prober/build-debug/DartConfiguration.tcl
+UpdateCTestConfiguration  from :/home/osboxes/SonarValidator/Prober/build-debug/DartConfiguration.tcl
+Test project /home/osboxes/SonarValidator/Prober/build-debug
 Constructing a list of tests
 Done constructing a list of tests
 Updating test list for fixtures
@@ -11,8 +11,8 @@ Checking test dependency graph end
 test 14
     Start 14: telemetry_service_test
 
-14: Test command: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/telemetry_service_test
-14: Working Directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+14: Test command: /home/osboxes/SonarValidator/Prober/build-debug/telemetry_service_test
+14: Working Directory: /home/osboxes/SonarValidator/Prober/build-debug
 14: Test timeout computed to be: 10000000
 14: telemetry_service_test host=127.0.0.1 port=3307
 14:   [ok]   hello -> ack
@@ -21,8 +21,8 @@ test 14
 test 15
     Start 15: websocket_receive_test
 
-15: Test command: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/websocket_receive_test
-15: Working Directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+15: Test command: /home/osboxes/SonarValidator/Prober/build-debug/websocket_receive_test
+15: Working Directory: /home/osboxes/SonarValidator/Prober/build-debug
 15: Test timeout computed to be: 10
 15: [ok] local WebSocket handshake
 15: [ok] initial telemetry send
@@ -47,8 +47,8 @@ test 15
 test 17
     Start 17: management_service_integration_test
 
-17: Test command: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug/management_service_integration_test
-17: Working Directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+17: Test command: /home/osboxes/SonarValidator/Prober/build-debug/management_service_integration_test
+17: Working Directory: /home/osboxes/SonarValidator/Prober/build-debug
 17: Test timeout computed to be: 10000000
 17: management_service_integration_test host=127.0.0.1 port=3307
 17:   [ok]   policy-response payload is an object

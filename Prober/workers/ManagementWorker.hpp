@@ -97,6 +97,22 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
                 continue;
             }
 
+            // 정책 푸시(화면의 "정책 푸시") — 정책 형태면 에이전트가 스스로
+            // 받아 가는 것과 <b>같은 경로</b>로 적용합니다.
+            //
+            // ⚠️ 예전에는 이 push 를 로그만 남기고 버렸습니다. 그래서 화면에서
+            //    푸시해도 장치에 차단(acl_apply)이 들어가지 않았고, 3초 뒤
+            //    policy-request 가 돌아야만 반영됐습니다.
+            const nlohmann::json& pushed = envelope::Payload(message);
+            if (pushed.is_object() &&
+                (pushed.contains("policies") || pushed.contains("acl_apply")))
+            {
+                const bool applied = ReceivePolicy(config, management_service, pushed);
+                std::cout << "[MGMT] applied pushed policy: "
+                          << (applied ? "ok" : "failed") << '\n';
+                continue;
+            }
+
             std::cout << "[MGMT] received server push: " << envelope::Type(message) << '\n';
         }
 

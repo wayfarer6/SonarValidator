@@ -61,7 +61,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
      * <p>Spring 의 완화 바인딩은 {@code sonar.cors.allowed-origins} 를
      * {@code SONAR_CORS_ALLOWED-ORIGINS} 로 바꿉니다(점만 밑줄로 치환).
      * 대시는 그대로 남아 셸 환경변수로 쓸 수 없습니다. 반면
-     * {@code docker-compose.yml} 과 {@code .env.example} 은
+     * {@code docker/compose/compose.yaml} 과 {@code .env.example} 은
      * {@code SONAR_CORS_ALLOWED_ORIGINS} 를 씁니다. 그래서 그 이름을
      * 중첩 기본값으로 <b>명시적으로</b> 받습니다. 이렇게 하지 않으면
      * 컨테이너에서 출처를 추가해도 <b>조용히 무시</b>됩니다.

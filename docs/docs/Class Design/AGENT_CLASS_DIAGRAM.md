@@ -1,9 +1,9 @@
-# Agent (SonarValidator_Prober) 클래스 다이어그램
+# Agent (Prober) 클래스 다이어그램
 
-`SonarValidator_Prober` (C++23 프로버 에이전트)의 **전체 클래스 구조**를 PlantUML로 정리한 문서입니다.
+`Prober` (C++23 프로버 에이전트)의 **전체 클래스 구조**를 PlantUML로 정리한 문서입니다.
 모든 내용은 실제 소스 코드를 기준으로 작성했습니다.
 
-- **대상**: `SonarValidator_Prober/` (에이전트 본체)
+- **대상**: `Prober/` (에이전트 본체)
 - **범위**: Linux VM(Ubuntu), Cisco 8000v(IOS-XE), Arista vEOS, Open vSwitch, nftables/Alpine 방화벽, FRR
 - **작성 기준**: 현재 워킹 트리 소스
 - **렌더링**: PlantUML 코드블록을 지원하는 뷰어(예: VS Code PlantUML 확장, plantuml.com)에서 확인

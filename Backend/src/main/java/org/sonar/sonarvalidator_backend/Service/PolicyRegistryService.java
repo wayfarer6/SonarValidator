@@ -247,13 +247,16 @@ public class PolicyRegistryService {
         }
 
         if (this.repository == null) {
-            return quarantineOverride(agentId, forDevice(type, id));
+            return quarantineOverride(agentId, forDevice(type, id, vendor, product));
         }
 
         final ProjectMatch match = findSubnetForAgent(this.repository, agentId);
         if (match == null) {
-            log.debug("no subnet assigned to agent={}; falling back to default declaration", agentId);
-            return quarantineOverride(agentId, forDevice(type, id));
+            // ⚠️ 배정이 없으면 예제 규칙 대신 <b>해제 노드</b>를 보냅니다.
+            //    노드를 아예 보내지 않으면 이전에 넣은 차단이 장치에 남습니다.
+            log.debug("no subnet assigned to agent={}; sending default declaration with release",
+                    agentId);
+            return quarantineOverride(agentId, forDevice(type, id, vendor, product));
         }
 
         try {
@@ -263,7 +266,55 @@ public class PolicyRegistryService {
             // (에이전트는 응답이 없으면 재시도만 반복하며 텔레메트리도 멈춥니다)
             log.warn("project policy build failed for agent={}: {}; using default declaration",
                     agentId, ex.getMessage());
-            return quarantineOverride(agentId, forDevice(type, id));
+            return quarantineOverride(agentId, forDevice(type, id, vendor, product));
+        }
+    }
+
+    /**
+     * 배정된 서브넷 하나에 대해 장치가 받아야 할 <b>정책 전체</b>를 만듭니다.
+     *
+     * <h2>⚠️ 왜 forAgent 와 따로 필요한가</h2>
+     * <p>평소에는 에이전트가 3초마다 {@code policy-request} 를 보내 정책을
+     * 받아 갑니다. 그런데 운영자가 화면에서 <b>정책 푸시</b> 를 누르면 서버가
+     * 먼저 밀어 줍니다. 이때도 <b>똑같은 정책</b>이 가야 합니다.
+     *
+     * <p>푸시 경로가 규칙 목록({@code rules[]})만 보내면 차단 노드
+     * ({@code acl_apply})가 빠집니다. 그러면 화면에서는 "푸시 완료" 로 보이는데
+     * 장치에는 <b>아무 차단도 들어가지 않습니다.</b> (실측: OVS 는 NORMAL 흐름만,
+     * 라우터는 access-list 없음)
+     *
+     * <p>그래서 푸시 경로는 이 메서드로 정책을 만들고 그대로 실어 보냅니다.
+     * 자동 집행이 꺼져 있으면 {@link #forAgent} 와 같은 규칙으로 선언만 만듭니다.
+     *
+     * @param project 프로젝트
+     * @param subnet  푸시 대상 서브넷 ({@code agent_id} 가 있어야 함)
+     * @param type    장치 유형
+     * @param vendor  관측 벤더 (null 허용)
+     * @param product 관측 제품명 (null 허용)
+     * @return 정책 JSON (선언 + 규칙 + {@code acl_apply})
+     */
+    @Transactional(readOnly = true)
+    public ObjectNode forSubnet(Project project,
+                                ProjectSubnet subnet,
+                                DeviceType type,
+                                String vendor,
+                                String product) {
+        final String id = PolicyJson.firstNonBlank(
+                subnet.getAgentId(), subnet.getSubnetId(), "unknown");
+        final DeviceType resolved = (type == null) ? DeviceType.VM : type;
+
+        if (!automaticEnforcementEnabled) {
+            final ObjectNode policy = forDevice(resolved, id, vendor, product);
+            ((ObjectNode) policy.get("summary")).put("source", "external-enforcement");
+            return policy;
+        }
+
+        try {
+            return projectPolicy(new ProjectMatch(project, subnet), resolved, id, vendor, product);
+        } catch (RuntimeException ex) {
+            log.warn("push policy build failed for subnet={}: {}; using default declaration",
+                    subnet.getSubnetId(), ex.getMessage());
+            return forDevice(resolved, id, vendor, product);
         }
     }
 
@@ -430,14 +481,47 @@ public class PolicyRegistryService {
     /**
      * 장비 변경 명령이 없는 빈 정책을 만듭니다. (폴백 경로)
      *
-     * <p>배정된 서브넷이 없는 Agent 용입니다. 등록과 수집만으로 기존 네트워크
-     * 설정이 바뀌지 않도록 식별 정보와 빈 {@code policies} 배열을 반환합니다.
+     * <h2>⚠️ "명령 없음" 이 아니라 "차단 해제" 다</h2>
+     * <p>배정된 서브넷이 없는 Agent 용 정책입니다. 등록과 수집만으로 기존
+     * 네트워크 설정이 바뀌지 않아야 하므로 예제 규칙({@code policies})은 비웁니다.
+     *
+     * <p>그런데 <b>비우는 것만으로는 부족합니다.</b> 운영자가 프로젝트에서 장치를
+     * 빼거나 금지 연결을 모두 지우면, 장치에는 이전에 넣은 차단 규칙이 남습니다.
+     * 노드를 아예 보내지 않으면 장치는 "규칙 없음" 과 "이번엔 안 보냄" 을 구분하지
+     * 못해 차단이 풀리지 않습니다. (실측: 배정을 해제한 Switch-4 에
+     * {@code dl_vlan=131, nw_dst=192.168.122.0/24} drop 이 그대로 남았습니다)
+     *
+     * <p>그래서 자동 집행이 켜져 있을 때는 전략에 <b>빈 목록</b>
+     * ({@link BatchPolicyContext#release})을 물어 {@code acl_apply} 를 싣습니다.
+     * 이 노드를 만드는 전략은 OVS 스위치와 라우터뿐이므로(방화벽·VM 은
+     * {@code null}), 외부에서 관리하는 방화벽 규칙은 건드리지 않습니다.
+     *
+     * <p>자동 집행이 <b>꺼져 있으면</b> 이 노드를 만들지 않습니다 — 외부 도구가
+     * 규칙을 관리하는 배포에서 우리가 규칙을 지우면 안 되기 때문입니다.
      *
      * @param deviceType 장치 유형 (null 이면 VM 으로 간주)
      * @param deviceId 장치 식별자
      * @return Agent 가 바로 적용할 수 있는 정책 JSON
      */
     public ObjectNode forDevice(DeviceType deviceType, String deviceId) {
+        return forDevice(deviceType, deviceId, null, null);
+    }
+
+    /**
+     * 장비 변경 명령이 없는 빈 정책을 만듭니다. (관측 벤더/제품 포함)
+     *
+     * <p>제품명이 필요한 이유: OVS 전략은 <b>제품이 Open vSwitch 일 때만</b>
+     * {@code acl_apply} 를 만듭니다. 제품 없이 물으면 해제 노드도 만들어지지
+     * 않아 스위치의 이전 차단이 남습니다.
+     *
+     * @param deviceType 장치 유형 (null 이면 VM 으로 간주)
+     * @param deviceId   장치 식별자
+     * @param vendor     텔레메트리에서 관측된 벤더 (null 허용)
+     * @param product    텔레메트리에서 관측된 제품명 (null 허용)
+     * @return Agent 가 바로 적용할 수 있는 정책 JSON
+     */
+    public ObjectNode forDevice(DeviceType deviceType, String deviceId,
+                                String vendor, String product) {
         final DeviceType type = (deviceType == null) ? DeviceType.VM : deviceType;
         final String id = PolicyJson.firstNonBlank(deviceId, "unknown");
 
@@ -459,6 +543,18 @@ public class PolicyRegistryService {
         // In particular, the example firewall declaration contains drop chains.
         // An unassigned agent must receive no commands until a policy is configured.
         policy.putArray("policies");
+
+        // 이전에 넣은 차단을 걷어냅니다. (빈 목록 = "우리 규칙을 모두 지워라")
+        if (automaticEnforcementEnabled) {
+            final ObjectNode release = policyStrategyFor(type)
+                    .batchEnforcementRule(BatchPolicyContext.release(vendor, product));
+            if (release != null) {
+                policy.set("acl_apply", release);
+                summary.put("release", true);
+                log.info("policy release node added for unassigned device type={} id={}",
+                        type, id);
+            }
+        }
         return policy;
     }
 
@@ -618,7 +714,20 @@ public class PolicyRegistryService {
             }
         }
 
-        final boolean firewall = (type == DeviceType.FIREWALL);
+        // 자기 서브넷에 닿지 않는 금지 쌍까지 받는 <b>경로 장치</b>입니다.
+        //
+        // ⚠️ 방화벽만 받으면 스위치·라우터에서 격리가 사라진다
+        //   스위치는 존 사이를 L2 로 이어 주고, 라우터는 자기가 들고 있는
+        //   VLAN 사이를 라우팅합니다. 즉 두 장치 모두 "자기 서브넷에 닿지
+        //   않는" 존 간 이동을 실제로 통과시킵니다. 여기서 제외하면 규칙에
+        //   그 쌍이 적혀 있지 않은 한 차단이 내려가지 않고, 등급을 건너뛰는
+        //   이동이 그대로 흐릅니다.
+        //
+        //   VM 같은 종단 장치는 자기 서브넷 기준으로만 받습니다 —
+        //   남의 대역 사이 트래픽을 그 장치가 중계하지 않기 때문입니다.
+        final boolean pathDevice = (type == DeviceType.FIREWALL
+                || type == DeviceType.SWITCH
+                || type == DeviceType.ROUTER);
         final String ownId = subnet.getSubnetId();
 
         final List<Connection> result = new ArrayList<>();
@@ -649,8 +758,9 @@ public class PolicyRegistryService {
                     && !subnet.allowsAnyPeer(destination.getSubnetId(), destination.getCidr());
             final boolean forbidden = zoneViolation || egressViolation;
 
-            // 방화벽은 자기 서브넷에 닿지 않아도 금지 연결을 집행합니다.
-            if (!outgoing && !incoming && !(firewall && forbidden)) {
+            // 경로 장치(방화벽·스위치·라우터)는 자기 서브넷에 닿지 않아도
+            // 금지 연결을 집행합니다.
+            if (!outgoing && !incoming && !(pathDevice && forbidden)) {
                 continue;
             }
 
@@ -667,6 +777,7 @@ public class PolicyRegistryService {
                     peer.getZoneClass(),
                     source.getCidr(),
                     destination.getCidr(),
+                    source.getVlanId(),
                     rule.getProtocol() == null ? "tcp" : rule.getProtocol(),
                     rule.getPort(),
                     forbidden,
@@ -729,6 +840,7 @@ public class PolicyRegistryService {
                 ZoneClass.OPEN,
                 subnet.getCidr(),
                 INTERNET_CIDR,
+                null,
                 "ip",
                 null,
                 true,
@@ -881,6 +993,7 @@ public class PolicyRegistryService {
      * @param peerClass       상대 서브넷 등급
      * @param sourceCidr      출발 대역
      * @param destinationCidr 도착 대역
+     * @param sourceVlanId    출발 대역의 VLAN 식별자 (없으면 null)
      * @param protocol        프로토콜
      * @param port            허용 포트 (null 이면 미지정)
      * @param forbidden       등급을 건너뛰는 금지 연결인지 여부
@@ -893,6 +1006,7 @@ public class PolicyRegistryService {
                               ZoneClass peerClass,
                               String sourceCidr,
                               String destinationCidr,
+                              Integer sourceVlanId,
                               String protocol,
                               Integer port,
                               boolean forbidden,
@@ -902,7 +1016,7 @@ public class PolicyRegistryService {
         PolicyBuildContext.ConnectionView toView() {
             return new PolicyBuildContext.ConnectionView(
                     ruleId, outgoing, peerId, peerCidr, peerClass,
-                    sourceCidr, destinationCidr, protocol, port, forbidden, reason);
+                    sourceCidr, destinationCidr, sourceVlanId, protocol, port, forbidden, reason);
         }
     }
 }

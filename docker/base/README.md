@@ -11,7 +11,7 @@ docker build -t sonar-validator/jdk26-base:26.0.2.1 docker/base
 또는 저장소 루트에서:
 
 ```bash
-docker compose --profile bootstrap build base-image
+docker compose -f docker/compose/compose.yaml build base-image
 ```
 
 ## 포함된 것

@@ -1,0 +1,269 @@
+{
+  "frontend": "http://172.16.255.245:5173",
+  "project_id": "PRJ-AADE1BC3",
+  "started_at": "2026-10-10T14:23:21.309Z",
+  "routes": [
+    {
+      "name": "dashboard",
+      "route": "/",
+      "document_status": 200,
+      "body_length": 1597,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "projects",
+      "route": "/project",
+      "document_status": 200,
+      "body_length": 801,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "agents",
+      "route": "/agent",
+      "document_status": 200,
+      "body_length": 2581,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "api-nodes",
+      "route": "/api-nodes",
+      "document_status": 200,
+      "body_length": 1143,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "profile",
+      "route": "/profile",
+      "document_status": 200,
+      "body_length": 612,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "compliance",
+      "route": "/compliance",
+      "document_status": 200,
+      "body_length": 2563,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "compliance-export",
+      "route": "/compliance/export",
+      "document_status": 200,
+      "body_length": 2493,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "policy",
+      "route": "/policy",
+      "document_status": 200,
+      "body_length": 1383,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "policy-export",
+      "route": "/policy/export",
+      "document_status": 200,
+      "body_length": 1211,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "logs",
+      "route": "/log",
+      "document_status": 200,
+      "body_length": 914,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "logs-export",
+      "route": "/log/export",
+      "document_status": 200,
+      "body_length": 914,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "network",
+      "route": "/network",
+      "document_status": 200,
+      "body_length": 2933,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "notifications",
+      "route": "/notification",
+      "document_status": 200,
+      "body_length": 15220,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "notifications-export",
+      "route": "/notification/export",
+      "document_status": 200,
+      "body_length": 15220,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    },
+    {
+      "name": "project-editor",
+      "route": "/project/editor/PRJ-AADE1BC3",
+      "document_status": 200,
+      "body_length": 5193,
+      "page_errors": [],
+      "http_errors": [],
+      "pass": true
+    }
+  ],
+  "known_bugs": [
+    {
+      "id": "BUG-CIDR-VALIDATION-001",
+      "severity": "HIGH",
+      "title": "초안 검증이 유효하지 않은 IPv4 CIDR을 수락함",
+      "submitted": "10.10.131.999/24",
+      "response_status": 200,
+      "evidence": "negative-invalid-cidr-rejected.png"
+    }
+  ],
+  "invalid_cidr": {
+    "submitted": "10.10.131.999/24",
+    "response_status": 200,
+    "response_body": {
+      "compliant": false,
+      "rule_count": 0,
+      "subnet_count": 5,
+      "violation_count": 3,
+      "messages": [
+        "오류: 인터넷 노출 — 기밀망/민감망 3건이 수집된 기본 경로로 인터넷에 나갈 수 있습니다."
+      ],
+      "violated_rule_ids": [
+        "internet-exposure"
+      ],
+      "metrics": {
+        "bdd_variables": 88,
+        "bdd_nodes_total": 2049,
+        "bdd_nodes_allowed": 1,
+        "bdd_nodes_forbidden": 124,
+        "bdd_nodes_violating": 1,
+        "allowed_combinations": 0,
+        "forbidden_combinations": 8796093022208,
+        "violating_combinations": 0,
+        "address_space": 3.094850098213451e+26
+      },
+      "violations": [
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "dst_subnet": null,
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "기밀망(Confidential) 10.10.131.999/24 을 가진 장치 Firewall 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 기밀망이 인터넷으로 나갈 수 있으므로 망분리 위반입니다.",
+          "severity": "CRITICAL",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.10.131.999 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.10.131.999",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "dst_subnet": null,
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "기밀망(Confidential) 10.10.132.0/24 을 가진 장치 Firewall 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 기밀망이 인터넷으로 나갈 수 있으므로 망분리 위반입니다.",
+          "severity": "CRITICAL",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.10.132.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.10.132.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        },
+        {
+          "rule_id": "internet-exposure",
+          "src_subnet": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "dst_subnet": null,
+          "src_class": "Confidential",
+          "dst_class": "Open",
+          "reason": "기밀망(Confidential) 10.10.133.0/24 을 가진 장치 Firewall 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 기밀망이 인터넷으로 나갈 수 있으므로 망분리 위반입니다.",
+          "severity": "CRITICAL",
+          "sampled_protocol": "tcp",
+          "sampled_packet": "tcp 10.10.133.0 -> 1.1.1.1 (all ports)",
+          "sampled_src_ip": "10.10.133.0",
+          "sampled_dst_ip": "1.1.1.1",
+          "sampled_port": null
+        }
+      ]
+    },
+    "persisted_cidr": "10.10.131.0/24",
+    "validator_rejected": false,
+    "persistence_preserved": true,
+    "pass": false
+  },
+  "reload_persistence": {
+    "expected": "10.10.131.0/24",
+    "actual": "10.10.131.0/24",
+    "pass": true
+  },
+  "policy_guard": {
+    "disabled": true,
+    "title": "위반이 있어 전송할 수 없습니다",
+    "pass": true
+  },
+  "auth_guard": {
+    "final_path": "/signin",
+    "pass": true
+  },
+  "page_errors": [],
+  "console_errors": [
+    {
+      "url": "http://172.16.255.245:5173/signin",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "url": "http://172.16.255.245:5173/signin",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    }
+  ],
+  "unexpected_console_errors": [],
+  "http_errors": [
+    {
+      "status": 401,
+      "url": "http://172.16.255.245:3000/api/v1/auth/me",
+      "page": "http://172.16.255.245:5173/signin"
+    },
+    {
+      "status": 401,
+      "url": "http://172.16.255.245:3000/api/v1/auth/me",
+      "page": "http://172.16.255.245:5173/signin"
+    }
+  ],
+  "unexpected_http_errors": [],
+  "execution_completed": true,
+  "pass": false,
+  "completed_at": "2026-10-10T14:23:47.848Z"
+}

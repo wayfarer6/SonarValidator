@@ -1,7 +1,7 @@
 import hashlib, json, pathlib, subprocess, sys
 
 root = pathlib.Path(__file__).resolve().parents[2]
-out = root / 'astra-e2e-d-ai-pbl-2'
+out = root / 'Test/e2e/d-ai-pbl-poc'
 env = dict(l.split('=', 1) for l in (root / '.env').read_text().splitlines() if '=' in l and not l.startswith('#'))
 secret = env['SONAR_TERMINAL_SHARED_SECRET'].strip('"\'')
 secret_hash = hashlib.sha256(secret.encode()).hexdigest()

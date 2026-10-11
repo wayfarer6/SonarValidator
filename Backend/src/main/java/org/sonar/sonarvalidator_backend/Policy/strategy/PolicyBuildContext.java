@@ -40,6 +40,7 @@ public record PolicyBuildContext(
      * @param peerClass       상대 서브넷 등급
      * @param sourceCidr      출발 대역
      * @param destinationCidr 도착 대역
+     * @param sourceVlanId    출발 대역의 VLAN 식별자 (없으면 null)
      * @param protocol        프로토콜
      * @param port            허용 포트 (null 이면 미지정)
      * @param forbidden       등급을 건너뛰는 금지 연결인지 여부
@@ -52,6 +53,7 @@ public record PolicyBuildContext(
                                  ZoneClass peerClass,
                                  String sourceCidr,
                                  String destinationCidr,
+                                 Integer sourceVlanId,
                                  String protocol,
                                  Integer port,
                                  boolean forbidden,

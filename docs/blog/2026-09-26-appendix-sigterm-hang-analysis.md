@@ -32,7 +32,7 @@ date: 2026-09-26
 ## 2. 재현 절차
 
 ```bash
-P=/home/osboxes/SonarValidator/SonarValidator_Prober
+P=/home/osboxes/SonarValidator/Prober
 rm -rf /tmp/sonar-hang && mkdir -p /tmp/sonar-hang/data
 
 cat > /tmp/dbg.conf <<'EOF'

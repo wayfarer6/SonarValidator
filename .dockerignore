@@ -20,38 +20,37 @@
 docs
 PoC용 네트워크 구성하기
 Poc용 네트워크-D-AI-PBL
-Agent_Test
-docker_images
+Test
+docker/D-AI-PBL-POC
 Workspace
 *.md
 
 # --- 백엔드 빌드 산출물 ---
-SonarValidator_Backend/target
-SonarValidator_Backend/data
-SonarValidator_Backend/.mvn/wrapper/maven-wrapper.jar
-SonarValidator_Backend/*.mv.db
-SonarValidator_Backend/*.trace.db
+Backend/target
+Backend/data
+Backend/.mvn/wrapper/maven-wrapper.jar
+Backend/*.mv.db
+Backend/*.trace.db
 
 # ⚠️ ANTLR 플러그인 생성물(.antlr)은 패키지 선언이 없어 컴포넌트 스캔을
 #    깨뜨린다. 손으로 작성한 파서가 이것을 쓰지 않으므로 이미지에 넣지 않는다.
-SonarValidator_Backend/src/main/java/org/sonar/sonarvalidator_backend/ANTLR4/.antlr
+Backend/src/main/java/org/sonar/sonarvalidator_backend/ANTLR4/.antlr
 
 # --- 프론트엔드 빌드 산출물 ---
-SonarValidator_Frontend/node_modules
-SonarValidator_Frontend/dist
-SonarValidator_Frontend/.vite
-SonarValidator_Frontend/coverage
+Frontend/node_modules
+Frontend/dist
+Frontend/.vite
+Frontend/coverage
 
 # --- C++ 프로버 빌드 산출물 ---
 # backend 이미지가 prober 바이너리를 직접 빌드하므로 소스는 컨텍스트에 포함한다.
-SonarValidator_Prober/.idea
-SonarValidator_Prober/build
-SonarValidator_Prober/build_static
-SonarValidator_Prober/build-*
-SonarValidator_Prober/Installer/sonar_validator_prober
-astra e2e 결과
-SonarValidator_Prober/antlr4-build
-SonarValidator_Prober/antlr4-runtime-src
+Prober/.idea
+Prober/build
+Prober/build_static
+Prober/build-*
+Prober/Installer/sonar_validator_prober
+Prober/antlr4-build
+Prober/antlr4-runtime-src
 
 # --- Windows 메타데이터 잔재 ---
 # 이 저장소에는 파일마다 "파일명:Zone.Identifier" 가 섞여 있다.
@@ -59,7 +58,7 @@ SonarValidator_Prober/antlr4-runtime-src
 #
 # ⚠️ `*:Zone.Identifier` 만 쓰면 하위 디렉터리를 잡지 못한다.
 #    dockerignore 의 패턴은 컨텍스트 루트 기준이고 `*` 가 `/` 를 넘지 않기
-#    때문에, SonarValidator_Frontend/favicon.png:Zone.Identifier 같은 파일이
+#    때문에, Frontend/favicon.png:Zone.Identifier 같은 파일이
 #    그대로 이미지에 복사된다. `**/` 를 반드시 붙일 것.
 **/*:Zone.Identifier
 

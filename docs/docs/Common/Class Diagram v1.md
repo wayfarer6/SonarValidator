@@ -28,14 +28,14 @@ flowchart LR
         CLI["CLI · pty<br/>ip a / show ip route / ovs-vsctl …"]
     end
 
-    subgraph PROBER["SonarValidator_Prober (C++23)"]
+    subgraph PROBER["Prober (C++23)"]
         COL["collector<br/>CollectState()"]
         TEL["telemetry<br/>TelemetryMonitor"]
         DBQ["database<br/>DatabaseQueue → SQLite"]
         MGMT["ManagementService<br/>WebSocket 클라이언트"]
     end
 
-    subgraph BACKEND["SonarValidator_Backend (Java 26)"]
+    subgraph BACKEND["Backend (Java 26)"]
         H["AgentWebSocketHandler"]
         R["AgentMessageRouterService"]
         CFG["DeviceConfigService<br/>+ 벤더 파서 6종"]

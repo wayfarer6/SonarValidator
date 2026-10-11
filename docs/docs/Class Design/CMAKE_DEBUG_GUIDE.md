@@ -1,6 +1,6 @@
 # Prober CMake 빌드 및 디버깅 가이드
 
-이 문서는 `SonarValidator_Prober`를 IDE나 Docker 없이 로컬에서 CMake로 구성하고,
+이 문서는 `Prober`를 IDE나 Docker 없이 로컬에서 CMake로 구성하고,
 테스트·디버깅하는 방법을 설명합니다. 예시는 Ubuntu 24.04 기준입니다.
 
 ## 1. 준비물
@@ -46,13 +46,13 @@ cmake --install "$HOME/tools/antlr4-build"
 구성이나 산출물을 덮어쓰지 않습니다.
 
 ```bash
-cmake -S SonarValidator_Prober \
-  -B SonarValidator_Prober/build-debug \
+cmake -S Prober \
+  -B Prober/build-debug \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
   -DANTLR4_RUNTIME_ROOT="$HOME/tools/antlr4-install"
 
-cmake --build SonarValidator_Prober/build-debug \
+cmake --build Prober/build-debug \
   --parallel \
   --target sonar_validator_prober
 ```
@@ -60,10 +60,10 @@ cmake --build SonarValidator_Prober/build-debug \
 전체 테스트 실행 파일도 함께 빌드하고 싶다면 타깃을 생략합니다.
 
 ```bash
-cmake --build SonarValidator_Prober/build-debug --parallel
+cmake --build Prober/build-debug --parallel
 ```
 
-생성된 `compile_commands.json`은 `SonarValidator_Prober/build-debug/`에 있습니다.
+생성된 `compile_commands.json`은 `Prober/build-debug/`에 있습니다.
 VS Code의 C/C++ 확장이나 clangd에서 이 파일을 사용하면 컴파일러 옵션과 include 경로를
 일치시킬 수 있습니다.
 
@@ -105,13 +105,13 @@ ANTLR4 C++ 런타임이 아직 없다면 앞의 **준비물** 절차를 따라 `
 설치합니다. 저장소 루트에서 Agent를 Debug 빌드합니다.
 
 ```bash
-cmake -S SonarValidator_Prober \
-  -B SonarValidator_Prober/build-debug \
+cmake -S Prober \
+  -B Prober/build-debug \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
   -DSONAR_DEBUG_BUILD=ON \
   -DANTLR4_RUNTIME_ROOT="$HOME/tools/antlr4-install"
-cmake --build SonarValidator_Prober/build-debug --parallel 4 \
+cmake --build Prober/build-debug --parallel 4 \
   --target sonar_validator_prober
 ```
 
@@ -143,7 +143,7 @@ Agent의 데이터베이스와 분리합니다.
 
 ```bash
 SONAR_TERMINAL_SHARED_SECRET='<백엔드와 동일한 32자 이상 비밀값>' \
-  SonarValidator_Prober/build-debug/sonar_validator_prober
+  Prober/build-debug/sonar_validator_prober
 ```
 
 이 명령은 Debug 프로필을 자동 적용하고 계속 실행합니다. 비밀값은 저장소 파일이나 셸
@@ -160,7 +160,7 @@ VS Code를 root로 실행하는 방식은 권장하지 않습니다.
 
 ```bash
 sudo --preserve-env=SONAR_CONFIG_PATH,SONAR_DATA_DIR,SONAR_TEMPLATE_PATH,SONAR_TERMINAL_SHARED_SECRET \
-  gdb --args "$PWD/SonarValidator_Prober/build-debug/sonar_validator_prober"
+  gdb --args "$PWD/Prober/build-debug/sonar_validator_prober"
 ```
 
 `sudo --preserve-env`가 시스템 정책상 차단되면 secret을 명령행 인자나 파일에 옮기지
@@ -196,13 +196,13 @@ sudo systemctl status sonar_validator_prober.service --no-pager
 모든 등록된 테스트를 실행합니다.
 
 ```bash
-ctest --test-dir SonarValidator_Prober/build-debug --output-on-failure
+ctest --test-dir Prober/build-debug --output-on-failure
 ```
 
 특정 테스트만 실행할 수도 있습니다. 아래 예시는 라우터 모델과 CLI 파서를 검증합니다.
 
 ```bash
-ctest --test-dir SonarValidator_Prober/build-debug \
+ctest --test-dir Prober/build-debug \
   --output-on-failure \
   -R 'router_test|cli_output_parser_test'
 ```
@@ -212,7 +212,7 @@ ctest --test-dir SonarValidator_Prober/build-debug \
 테스트 실행 파일을 GDB로 열면 실패를 재현하면서 브레이크포인트를 설정할 수 있습니다.
 
 ```bash
-gdb --args SonarValidator_Prober/build-debug/router_test
+gdb --args Prober/build-debug/router_test
 ```
 
 GDB 프롬프트에서:
@@ -229,7 +229,7 @@ continue
 실제 Prober의 도움말 경로는 DB나 장비 연결을 시작하지 않아 안전한 실행 확인에 쓸 수 있습니다.
 
 ```bash
-gdb --args SonarValidator_Prober/build-debug/sonar_validator_prober --help
+gdb --args Prober/build-debug/sonar_validator_prober --help
 ```
 
 Prober 초기화나 수집 경로를 디버깅할 때는 실제 장비 대신 격리된 데이터 디렉터리를
@@ -239,8 +239,8 @@ Prober 초기화나 수집 경로를 디버깅할 때는 실제 장비 대신 �
 ```bash
 mkdir -p /tmp/sonar-prober-debug
 SONAR_DATA_DIR=/tmp/sonar-prober-debug \
-SONAR_TEMPLATE_PATH="$PWD/SonarValidator_Prober/Installer/default_template.sqlite" \
-  gdb --args SonarValidator_Prober/build-debug/sonar_validator_prober
+SONAR_TEMPLATE_PATH="$PWD/Prober/Installer/default_template.sqlite" \
+  gdb --args Prober/build-debug/sonar_validator_prober
 ```
 
 ### 터미널에서 오프라인 실행
@@ -251,7 +251,7 @@ Debug 빌드는 실행 파일을 실행한 위치나 실행 파일 경로의 상
 저장소 루트에서 아래처럼 실행하면 별도의 환경변수 없이 오프라인 수집을 시작합니다.
 
 ```bash
-SonarValidator_Prober/build-debug/sonar_validator_prober --export-offline
+Prober/build-debug/sonar_validator_prober --export-offline
 ```
 
 이 경우 서버 주소는 `192.168.122.1:3000`, 노드 타입은 `VM`입니다. 스냅샷은 실행한
@@ -271,10 +271,10 @@ SonarValidator_Prober/build-debug/sonar_validator_prober --export-offline
 파싱합니다.
 
 ```bash
-cmake --build SonarValidator_Prober/build-debug \
+cmake --build Prober/build-debug \
   --target cli_output_parser_probe
 
-SonarValidator_Prober/build-debug/cli_output_parser_probe \
+Prober/build-debug/cli_output_parser_probe \
   route /tmp/show-route.txt cisco
 ```
 
@@ -289,7 +289,7 @@ ANTLR 생성 C++ 파일은 저장소에 포함되어 있어 일반 빌드에서�
 명시적으로 실행해야 합니다.
 
 ```bash
-cd SonarValidator_Prober
+cd Prober
 ANTLR4_JAR="$HOME/tools/antlr-4.13.2-complete.jar" \
   cmake --build build-debug --target regenerate_parser
 cmake --build build-debug --parallel

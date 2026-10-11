@@ -3,7 +3,7 @@ package org.sonar.sonarvalidator_backend.Model;
 /**
  * Agent(장치) 유형.
  *
- * C++ Prober 의 {@code SonarValidator_Prober/device_type.hpp}
+ * C++ Prober 의 {@code Prober/device_type.hpp}
  * ({@code enum class DeviceType { kSwitch, kVirtualMachine, kFirewall, kRouter }}) 와
  * 1:1 로 대응합니다. JSON 에서는 소문자 이름 대신 문서에서 합의한 약어
  * ("SWITCH", "ROUTER", "FIREWALL", "VM") 를 사용합니다.

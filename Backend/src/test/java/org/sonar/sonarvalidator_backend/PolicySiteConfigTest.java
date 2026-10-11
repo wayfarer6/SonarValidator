@@ -65,7 +65,7 @@ class PolicySiteConfigTest {
                 "Arista vEOS",
                 new PolicyBuildContext.ConnectionView(
                         "rule-1", true, "s2", "10.0.9.0/24", null,
-                        "10.0.8.0/24", "10.0.9.0/24", "tcp", null, true, "금지"));
+                        "10.0.8.0/24", "10.0.9.0/24", null, "tcp", null, true, "금지"));
 
         final ObjectNode rule = policy.enforcementRule(context);
         assertNotNull(rule, "실행 규칙 생성");

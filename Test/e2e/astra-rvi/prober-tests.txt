@@ -1,6 +1,6 @@
 # Prober 회귀 테스트 (2026-10-10, dohost/SIGTERM 수정 반영)
 
-Test project /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+Test project /home/osboxes/SonarValidator/Prober/build-debug
       Start  1: prober_config_test
  1/22 Test  #1: prober_config_test ....................   Passed    0.06 sec
       Start  2: database_service_test

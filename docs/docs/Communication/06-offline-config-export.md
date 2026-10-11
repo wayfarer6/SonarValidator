@@ -484,7 +484,7 @@ curl -b cookies.txt -X POST http://<server>:3000/api/v1/offline/import \
 ### Agent
 
 ```
-SonarValidator_Prober/
+Prober/
 ├── offline/
 │   ├── offline_export.hpp          # 스키마/문서/파일 API
 │   ├── offline_export.cpp          # 구현
@@ -499,7 +499,7 @@ SonarValidator_Prober/
 ### Backend
 
 ```
-SonarValidator_Backend/src/main/java/.../
+Backend/src/main/java/.../
 ├── Service/OfflineSnapshotService.java      # 신규
 ├── Controller/OfflineImportController.java  # 신규
 └── Service/AgentMessageRouterService.java   # acceptOfflineTelemetry 추가
@@ -511,7 +511,7 @@ src/test/java/.../
 ### Frontend
 
 ```
-SonarValidator_Frontend/src/
+Frontend/src/
 ├── lib/api/offline.ts                       # 신규
 ├── components/offline/OfflineImportCard.tsx # 신규
 ├── pages/SubnetAdvanceConfiguration.tsx     # 카드 교체

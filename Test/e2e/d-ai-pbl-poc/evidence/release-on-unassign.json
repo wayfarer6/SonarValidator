@@ -1,0 +1,28 @@
+{
+  "bug": "unassigned / lost-subnet devices kept previously installed blocks (차단이 안 풀림)",
+  "cause": "forAgent() fell back to forDevice(), which had no acl_apply. The device could not tell \"no rules\" from \"this cycle sent nothing\".",
+  "fix": "forDevice() now appends an EMPTY acl_apply (declarative release) built by BatchPolicyContext.release(vendor, product), only while automatic enforcement is on.",
+  "scope": "Only strategies that implement batchEnforcementRule receive it: OVS switch + router. Firewall and VM return null, so the externally managed firewall nft rules (astra_cso) are never touched.",
+  "external_mode": "automaticEnforcementEnabled=false still sends NO acl_apply, so deployments where external tooling owns the rules are unaffected.",
+  "reviewer_note": "Unassigned routers now carry a harmless SONAR-CSO chain containing only RETURN + a FORWARD jump. That scoped chain is precisely what lets us clear our own drops without touching other tools.",
+  "checked_at": "2026-10-10T13:32:10.800028+00:00",
+  "e2e_unassign_release": {
+    "target": "Switch-3 (172.16.255.103), OVS bridge br0",
+    "step1_install_observed": "cookie=0x534f4e41, priority=20000, ip, dl_vlan=131, nw_src=10.10.131.0/24, nw_dst=192.168.122.0/24 actions=drop  (flow count 1)",
+    "step2_unassign_policy_observed": "summary.source=default, summary.release=true, acl_apply present, acl_rules=[] (0)",
+    "step3_flows_after_unassign_current": "0",
+    "manual_cleanup_needed": false
+  },
+  "router_release_state": {
+    "172.16.255.1": "-N SONAR-CSO\n-A SONAR-CSO -j RETURN",
+    "172.16.255.3": "-N SONAR-CSO\n-A SONAR-CSO -j RETURN",
+    "172.16.255.4": "-N SONAR-CSO\n-A SONAR-CSO -j RETURN",
+    "172.16.255.5": "-N SONAR-CSO\n-A SONAR-CSO -j RETURN",
+    "172.16.255.6": "-N SONAR-CSO\n-A SONAR-CSO -j RETURN"
+  },
+  "previously_observed_stale_flow": "Switch-4 (172.16.255.104) kept dl_vlan=131 nw_dst=192.168.122.0/24 drop after its subnet was removed; had to be cleared by hand before this fix.",
+  "tests": {
+    "backend_total": 441,
+    "added": "UnassignedReleasePolicyTest (5 cases)"
+  }
+}

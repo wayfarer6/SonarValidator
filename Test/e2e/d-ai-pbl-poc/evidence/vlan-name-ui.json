@@ -1,0 +1,16 @@
+{
+  "agent": "Switch-1",
+  "vlan": 111,
+  "before": "감시장비망",
+  "status": "저장했습니다: Switch-1 VLAN111 → 감시장비망",
+  "afterReload": "감시장비망",
+  "persisted": true,
+  "apiVlans": [
+    {
+      "agent_id": "Switch-1",
+      "vlan_id": 111,
+      "name": "감시장비망"
+    }
+  ],
+  "errors": []
+}

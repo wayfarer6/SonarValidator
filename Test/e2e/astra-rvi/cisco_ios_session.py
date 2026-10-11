@@ -7,7 +7,7 @@ guestshell 안의 `dohost` 는 guestshell↔IOS CLI 세션(IOSP)이 있어야 �
 그 세션은 **IOS 측이** 만들어야 하며, IOS 에서 guestshell 앱을 재시작
 (`guestshell disable` → `guestshell enable`)해야 생깁니다.
 컨테이너 안에서 SSH 로 들어가거나 systemd 로 서비스를 띄우는 것만으로는
-절대 생기지 않습니다. (실측 확인 — astra e2e-RVI/cisco-dohost-diagnosis.md)
+절대 생기지 않습니다. (실측 확인 — Test/e2e/astra-rvi/cisco-dohost-diagnosis.md)
 
 비밀번호 취급
 ------------

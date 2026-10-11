@@ -11,12 +11,12 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'SonarValidator_Backend/**'
+      - 'Backend/**'
       - '.github/workflows/backend.yml'
   pull_request:
     branches: [main, develop]
     paths:
-      - 'SonarValidator_Backend/**'
+      - 'Backend/**'
       - '.github/workflows/backend.yml'
   workflow_dispatch:
 
@@ -63,7 +63,7 @@ jobs:
       #   증분 빌드는 이전 산출물이 남아 "있어야 할 클래스가 없다"
       #   (NoClassDefFoundError) 를 만들 수 있습니다. 로컬에서 실제로 겪었습니다.
       - name: Run tests
-        working-directory: SonarValidator_Backend
+        working-directory: Backend
         run: ./mvnw -B clean test
 
       # 테스트가 실패했을 때 원인을 볼 수 있게 리포트를 남깁니다.
@@ -73,7 +73,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backend-surefire-reports
-          path: SonarValidator_Backend/target/surefire-reports/
+          path: Backend/target/surefire-reports/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -81,12 +81,12 @@ jobs:
         if: always()
         run: |
           # 요약 한 줄만 남깁니다. 전체 XML 을 붙이면 로그가 읽히지 않습니다.
-          if [ -d SonarValidator_Backend/target/surefire-reports ]; then
-            total=$(grep -ho 'tests="[0-9]*"' SonarValidator_Backend/target/surefire-reports/*.xml 2>/dev/null \
+          if [ -d Backend/target/surefire-reports ]; then
+            total=$(grep -ho 'tests="[0-9]*"' Backend/target/surefire-reports/*.xml 2>/dev/null \
               | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo 0)
-            failures=$(grep -ho 'failures="[0-9]*"' SonarValidator_Backend/target/surefire-reports/*.xml 2>/dev/null \
+            failures=$(grep -ho 'failures="[0-9]*"' Backend/target/surefire-reports/*.xml 2>/dev/null \
               | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo 0)
-            errors=$(grep -ho 'errors="[0-9]*"' SonarValidator_Backend/target/surefire-reports/*.xml 2>/dev/null \
+            errors=$(grep -ho 'errors="[0-9]*"' Backend/target/surefire-reports/*.xml 2>/dev/null \
               | grep -o '[0-9]*' | paste -sd+ - | bc 2>/dev/null || echo 0)
             echo "### Backend 테스트 결과" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"

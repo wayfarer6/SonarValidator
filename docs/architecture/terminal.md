@@ -83,7 +83,7 @@ sequenceDiagram
 
 ## 레이어 및 패키지 책임
 
-### Frontend: `SonarValidator_Frontend/src`
+### Frontend: `Frontend/src`
 
 | 경로 | 책임 |
 | --- | --- |
@@ -94,9 +94,9 @@ sequenceDiagram
 | `lib/api/client.ts` | API base URL, `credentials: include`, 요청/오류 처리 |
 | `App.tsx`, `main.tsx` | 라우팅 및 AuthProvider 구성. 보호된 화면은 세션 상태가 확정된 뒤 렌더링 |
 
-Frontend는 Agent 주소를 직접 사용하지 않습니다. 사용자 입력은 브라우저→Backend로만 갑니다. Compose 배포에서는 브라우저가 `http://<host>/api/...`로 요청하고 `docker/frontend/nginx.conf`가 `/api/`를 `backend:3000`으로 reverse proxy하므로 같은 origin입니다. Nginx는 WebSocket Upgrade 헤더를 전달하고 buffering을 끄도록 설정돼 있습니다. 반면 현재 `SonarValidator_Frontend/vite.config.ts`에는 dev proxy 설정이 없고 `API_BASE_URL`은 기본적으로 현재 hostname의 3000 포트를 가리킵니다. 그래서 Vite 개발 실행에서는 브라우저가 `http://<host>:3000/api/...`로 직접 연결하며 backend CORS와 session cookie 조건이 적용됩니다. `JSESSIONID`는 HttpOnly이므로 `document.cookie`에서 보이지 않는 것이 정상입니다. 인증 여부는 `/api/v1/auth/me` 응답으로 확인합니다.
+Frontend는 Agent 주소를 직접 사용하지 않습니다. 사용자 입력은 브라우저→Backend로만 갑니다. Compose 배포에서는 브라우저가 `http://<host>/api/...`로 요청하고 `docker/frontend/nginx.conf`가 `/api/`를 `backend:3000`으로 reverse proxy하므로 같은 origin입니다. Nginx는 WebSocket Upgrade 헤더를 전달하고 buffering을 끄도록 설정돼 있습니다. 반면 현재 `Frontend/vite.config.ts`에는 dev proxy 설정이 없고 `API_BASE_URL`은 기본적으로 현재 hostname의 3000 포트를 가리킵니다. 그래서 Vite 개발 실행에서는 브라우저가 `http://<host>:3000/api/...`로 직접 연결하며 backend CORS와 session cookie 조건이 적용됩니다. `JSESSIONID`는 HttpOnly이므로 `document.cookie`에서 보이지 않는 것이 정상입니다. 인증 여부는 `/api/v1/auth/me` 응답으로 확인합니다.
 
-### Backend: `SonarValidator_Backend/src/main/java/org/sonar/sonarvalidator_backend`
+### Backend: `Backend/src/main/java/org/sonar/sonarvalidator_backend`
 
 | 패키지/클래스 | 책임 |
 | --- | --- |
@@ -112,7 +112,7 @@ Frontend는 Agent 주소를 직접 사용하지 않습니다. 사용자 입력�
 
 Broker의 두 연결 map은 Backend 프로세스 메모리에만 존재합니다. Backend를 재시작하면 모든 WebSocket이 끊기며 Agent가 재접속하고 Browser도 다시 열어야 합니다. 수평 확장 시에는 단일 인스턴스 메모리 map으로 충분하지 않으므로 sticky routing 또는 별도 session/message broker 설계가 필요합니다.
 
-### Prober Agent: `SonarValidator_Prober`
+### Prober Agent: `Prober`
 
 | 경로 | 책임 |
 | --- | --- |
@@ -136,13 +136,13 @@ Prober 전체 구조에는 장비별 수집·파서·정책 코드가 있지만,
 
 | 경로 | 용도 |
 | --- | --- |
-| `SonarValidator_Frontend/` | React + TypeScript + Vite 브라우저 앱 |
-| `SonarValidator_Backend/` | Spring Boot REST/WebSocket 서버 및 영속성 계층 |
-| `SonarValidator_Prober/` | C++ Agent/수집기, parser, PTY, SQLite 및 worker |
-| `docker/`, `docker-compose.yml` | 서비스별 Dockerfile 및 통합 로컬 스택 |
+| `Frontend/` | React + TypeScript + Vite 브라우저 앱 |
+| `Backend/` | Spring Boot REST/WebSocket 서버 및 영속성 계층 |
+| `Prober/` | C++ Agent/수집기, parser, PTY, SQLite 및 worker |
+| `docker/`, `docker/compose/compose.yaml` | 서비스별 Dockerfile 및 통합 로컬 스택 |
 | `mock_API/` | Frontend/API 작업용 mock 구현 |
 | `docs/` | Docusaurus 설계·사용 문서 사이트 |
-| `Agent_Test/` | Agent/배포 실험 파일 및 시나리오 |
+| `Test/agent/` | Agent/배포 실험 파일 및 시나리오 |
 | `dev.sh` | 로컬 Frontend/Backend 개발 실행 스크립트 |
 
 ## 관련 라이브러리와 런타임
@@ -182,12 +182,12 @@ Prober 전체 구조에는 장비별 수집·파서·정책 코드가 있지만,
 
 ## React xterm 사용법
 
-현재 React 터미널 구현은 `SonarValidator_Frontend/src/components/project/AgentTerminal.tsx`에 있습니다. xterm은 terminal 화면과 키 입력을 제공할 뿐, Agent에 직접 연결하거나 셸을 실행하지 않습니다. 연결 전제 조건은 사용자가 프로젝트 화면에 로그인되어 있고, Backend의 browser WebSocket이 인증/Origin/프로젝트 소속 검사를 통과하며, 같은 Agent의 terminal WebSocket session이 Backend broker에 등록된 상태입니다.
+현재 React 터미널 구현은 `Frontend/src/components/project/AgentTerminal.tsx`에 있습니다. xterm은 terminal 화면과 키 입력을 제공할 뿐, Agent에 직접 연결하거나 셸을 실행하지 않습니다. 연결 전제 조건은 사용자가 프로젝트 화면에 로그인되어 있고, Backend의 browser WebSocket이 인증/Origin/프로젝트 소속 검사를 통과하며, 같은 Agent의 terminal WebSocket session이 Backend broker에 등록된 상태입니다.
 
 ### 의존성
 
 ```bash
-cd SonarValidator_Frontend
+cd Frontend
 npm install
 ```
 
@@ -362,8 +362,8 @@ Browser 입력은 8192자 이하, resize는 열 20–300/행 5–100으로 제�
 
 ## 개발 검증 위치
 
-- Backend unit tests: `SonarValidator_Backend/src/test/java/.../Service/AgentTerminalBrokerTest.java`, `.../TerminalBrowserHandshakeInterceptorTest.java`
-- Prober CMake/CTest: `SonarValidator_Prober/CMakeLists.txt`와 `SonarValidator_Prober/build-debug/`
-- Frontend type/lint/build: `SonarValidator_Frontend/package.json`
+- Backend unit tests: `Backend/src/test/java/.../Service/AgentTerminalBrokerTest.java`, `.../TerminalBrowserHandshakeInterceptorTest.java`
+- Prober CMake/CTest: `Prober/CMakeLists.txt`와 `Prober/build-debug/`
+- Frontend type/lint/build: `Frontend/package.json`
 
 실제 운영/개발 포트와 endpoint는 환경 설정에 따라 다를 수 있습니다. 문서에 비밀번호, shared secret, session cookie 등 credential 값을 넣지 않습니다.

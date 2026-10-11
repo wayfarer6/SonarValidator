@@ -55,7 +55,7 @@ ENV TZ=Asia/Seoul
 # -----------------------------------------------------------------------------
 # curl      : JDK/Maven 다운로드 + 컨테이너 healthcheck(Actuator 호출)
 # tini      : PID 1 로 두어 SIGTERM 을 java 프로세스에 정확히 전달한다.
-#             이게 없으면 `docker compose stop` 이 SIGKILL 로 끝나고,
+#             이게 없으면 `docker compose -f docker/compose/compose.yaml stop` 이 SIGKILL 로 끝나고,
 #             진행 중인 텔레메트리 트랜잭션이 끊긴다.
 # tzdata    : 위 TZ 를 실제로 적용하려면 필요하다.
 RUN apt-get update \

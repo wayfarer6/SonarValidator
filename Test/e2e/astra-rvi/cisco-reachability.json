@@ -9,7 +9,7 @@
       "ens4": "192.168.122.32/24 (GNS3/NAT 쪽)",
       "docker0": "172.17.0.1/16 (DOWN)"
     },
-    "listener": "java *:3000 (모든 인터페이스, SonarValidator_Backend)",
+    "listener": "java *:3000 (모든 인터페이스, Backend)",
     "routes": [
       "default via 192.168.122.1 dev ens4 metric 101",
       "default via 10.20.0.1 dev ens3 metric 20100",

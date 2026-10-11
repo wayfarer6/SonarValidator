@@ -22,12 +22,12 @@ WORKDIR /app
 
 # package.json + lock 파일을 먼저 복사해 의존성 레이어를 캐시한다.
 # npm ci 는 lock 파일 기준으로 설치하므로 재현 가능하고 npm install 보다 빠르다.
-COPY SonarValidator_Frontend/package.json SonarValidator_Frontend/package-lock.json ./
+COPY Frontend/package.json Frontend/package-lock.json ./
 
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund
 
-COPY SonarValidator_Frontend/ ./
+COPY Frontend/ ./
 
 # ⚠️ VITE_ 접두사 변수는 빌드 시점에 코드로 "치환"된다. 런타임 환경변수로는
 #    바꿀 수 없다. 그래서 nginx 프록시와 짝을 이루도록 여기서 정한다.

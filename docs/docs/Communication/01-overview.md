@@ -45,7 +45,7 @@ STOMP 의 `receipt` 가 하지 못했던 일을 애플리케이션 계층에서 
 | `/api/v1/telemetry` | 상태 보고(일방향) | 3000 |
 | `/api/v1/agents` | 운영자용 REST 조회/푸시 (HTTP) | 3000 |
 
-포트 3000 은 `SonarValidator_Prober/Installer/default.conf` 의 `SERVER_PORT=3000` 과
+포트 3000 은 `Prober/Installer/default.conf` 의 `SERVER_PORT=3000` 과
 일치시키기 위한 것입니다. (`application.properties` 의 `server.port=3000`)
 
 ## 4. 메시지 종류 한눈에 보기

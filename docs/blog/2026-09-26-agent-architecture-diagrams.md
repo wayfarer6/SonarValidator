@@ -5,7 +5,7 @@ authors: [sonarvalidator]
 tags: [architecture, agent]
 date: 2026-09-26
 ---
-`SonarValidator_Prober` (C++23 프로버 에이전트)의 구조를 다이어그램으로 정리한 문서입니다.
+`Prober` (C++23 프로버 에이전트)의 구조를 다이어그램으로 정리한 문서입니다.
 모든 내용은 실제 소스 코드를 기준으로 작성했습니다.
 
 **범위**: Linux VM (Ubuntu), Cisco 8000v (IOS-XE), Arista vEOS, Alpine 컨테이너.

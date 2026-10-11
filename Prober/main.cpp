@@ -102,7 +102,7 @@ bool ApplyDebugDefaults()
     const fs::path executable = fs::read_symlink("/proc/self/exe");
     const fs::path data_directory = executable.parent_path() / "data";
     const fs::path template_path =
-        repository_root / "SonarValidator_Prober/Installer/default_template.sqlite";
+        repository_root / "Prober/Installer/default_template.sqlite";
 
     if (!SetDebugEnvironmentDefault("SONAR_CONFIG_PATH", *profile) ||
         !SetDebugEnvironmentDefault("SONAR_DATA_DIR", data_directory) ||

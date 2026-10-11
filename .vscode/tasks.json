@@ -7,9 +7,9 @@
       "command": "cmake",
       "args": [
         "-S",
-        "${workspaceFolder}/SonarValidator_Prober",
+        "${workspaceFolder}/Prober",
         "-B",
-        "${workspaceFolder}/SonarValidator_Prober/build-debug",
+        "${workspaceFolder}/Prober/build-debug",
         "-DCMAKE_BUILD_TYPE=Debug",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         "-DSONAR_DEBUG_BUILD=ON",
@@ -27,7 +27,7 @@
       "command": "cmake",
       "args": [
         "--build",
-        "${workspaceFolder}/SonarValidator_Prober/build-debug",
+        "${workspaceFolder}/Prober/build-debug",
         "--parallel",
         "4",
         "--target",
@@ -50,7 +50,7 @@
       "command": "cmake",
       "args": [
         "--build",
-        "${workspaceFolder}/SonarValidator_Prober/build-debug",
+        "${workspaceFolder}/Prober/build-debug",
         "--parallel",
         "4"
       ],
@@ -67,7 +67,7 @@
       "command": "ctest",
       "args": [
         "--test-dir",
-        "${workspaceFolder}/SonarValidator_Prober/build-debug",
+        "${workspaceFolder}/Prober/build-debug",
         "--output-on-failure"
       ],
       "options": {

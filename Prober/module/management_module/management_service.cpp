@@ -1045,11 +1045,17 @@ bool ManagementService::ApplyOpenVSwitchPolicy(const Json& policy)
             // openflow 는 대역을 CIDR 표기로 그대로 받습니다.
             // nw_src/nw_dst 는 흐름 매칭의 표준 필드입니다.
             //
+            // ⚠️ VLAN 을 함께 매칭합니다. OpenFlow 는 dl_vlan 을 지정하지 않으면
+            //    <b>무태그 프레임만</b> 보고, access 포트가 붙인 내부 VLAN 이나
+            //    트렁크 태그를 가진 존 간 트래픽은 매칭되지 않습니다.
+            const std::string vlan_match =
+                vlan_id.empty() ? std::string() : (",dl_vlan=" + vlan_id);
+            //
             // 쿠키를 찍는 이유는 일괄 적용(ApplyOpenVSwitchAcl)과 같습니다 —
             // 나중에 <b>우리 흐름만</b> 골라 지우기 위해서입니다.
             return RunCommand("ovs-ofctl -O OpenFlow13 add-flow " + bridge + " " +
                               "cookie=" + kAclCookie + ",priority=" + std::to_string(priority) +
-                              ",ip,nw_src=" + src + ",nw_dst=" + dst +
+                              ",ip" + vlan_match + ",nw_src=" + src + ",nw_dst=" + dst +
                               ",actions=" + (deny ? "drop" : "normal"));
         }
 
@@ -1159,10 +1165,17 @@ bool ManagementService::ApplyOpenVSwitchAcl(const Json& policy)
         //    in_port 를 쓰지 않는 이유: 존 간 이동은 브리지의 어느 포트로든
         //    들어올 수 있습니다. 업링크만 지정하면 다른 경로로 들어온 같은
         //    이동을 놓칩니다.
+        // ⚠️ VLAN 을 함께 매칭합니다. OpenFlow 는 dl_vlan 을 지정하지 않으면
+        //    <b>무태그 프레임만</b> 봅니다. 그런데 access 포트는 수신 시 내부
+        //    VLAN 을 붙이고(uplink eth0 trunks [111,112]), 트렁크는 태그를 그대로
+        //    흘리므로 존 간 트래픽에는 항상 태그가 있습니다. 지정하지 않으면
+        //    차단 플로우가 한 번도 매칭되지 않아 <b>막히지 않습니다.</b>
+        const std::string vlan_match =
+            entry.vlan.empty() ? std::string() : (",dl_vlan=" + entry.vlan);
         const std::string add_command =
             "ovs-ofctl -O OpenFlow13 add-flow " + bridge +
             " cookie=" + kAclCookie + ",priority=" + std::to_string(kAclPriority) +
-            ",ip,nw_src=" + entry.source + ",nw_dst=" + entry.destination +
+            ",ip" + vlan_match + ",nw_src=" + entry.source + ",nw_dst=" + entry.destination +
             ",actions=drop";
         if (!RunCommand(add_command))
         {
@@ -1497,41 +1510,44 @@ bool ManagementService::ApplyFrrRouterPolicy(const Json& policy)
     return false;
 }
 
-// FRR 라우터의 차단 ACL 을 선언적으로 맞춥니다. (Cisco 의 ApplyCiscoRouterAcl 과 같은 이유)
+// FRR 라우터의 차단 규칙을 선언적으로 맞춥니다. (Cisco 의 ApplyCiscoRouterAcl 과 같은 이유)
 //
-// ⚠️ 이 랩에는 FRR 라우터가 없어 <b>실장비 검증을 하지 못했습니다.</b>
-//    문법은 FRR(zebra) 의 표준 access-list 입니다:
-//      access-list <name> deny ip <src> <wild> <dst> <wild>
-//    vtysh 는 표준 ACL 에서 `ip` 키워드를 받습니다. (IOS 와 달리 이름이
-//    숫자/문자 모두 가능)
+// ⚠️ 실장비 확인 — FRR access-list 는 인터페이스에 걸 수 없다
+//   FRR 8.2.2 의 zebra 는 `access-list SONAR-CSO deny ip ...` 로 목록을
+//   만들 수 있고 `show ip access-list` 로도 보입니다. 그런데 그 목록을
+//   인터페이스에 <b>거는 명령이 없습니다.</b>
+//     frr(config-if)# ip access-group SONAR-CSO in
+//     % Unknown command: ip access-group SONAR-CSO in
+//   그래서 ACL 을 만들어도 트래픽 판정에 전혀 쓰이지 않습니다.
 //
-// ⚠️ `no access-list <name>` 은 목록 전체를 지웁니다. 그래서 IOS 와 같은
-//    "지우고 다시 쓰기" 전략을 씁니다 — 지운 규칙이 남지 않게 하는 유일한
-//    방법입니다.
+//   라우터는 `ip_forward=1` 로 커널이 패킷을 전달(forward)하므로, 실제
+//   차단은 커널의 FORWARD 체인에서 해야 합니다. 이 랩의 기존 CSO 작업도
+//   같은 이유로 iptables 전용 체인(ASTRA_CSO_WAN)을 썼습니다.
+//
+//   그래서 FRR 경로는 <b>iptables 전용 체인</b>을 만들고 FORWARD 에서
+//   한 번 점프시킵니다. 갱신은 체인 비우기(flush) 후 다시 채우기입니다 —
+//   운영자가 금지 연결을 지우면 그 규칙이 장치에서도 사라집니다.
 bool ManagementService::ApplyFrrRouterAcl(const Json& policy)
 {
-    const std::string acl_name = ReadAclName(policy);
-    if (acl_name.empty())
+    const std::string chain = ReadAclName(policy);
+    if (chain.empty())
     {
         std::cerr << "[POLICY] FRR ACL apply without rule_target.acl_name\n";
         return false;
     }
 
-    const std::string interface_name = ReadApplyTarget(policy);
     const std::vector<AclEntry> entries = ReadAclEntries(policy);
-    // IOS 와 같은 순수 함수로 명령을 만듭니다. 두 벤더가 같은 규칙
-    // (지우고 다시 쓰기 + 마지막 permit)을 따르는지 나란히 볼 수 있습니다.
-    const std::vector<std::string> lines =
-        acl::BuildFrrAclCommands(acl_name, interface_name, entries);
+    // 순수 함수가 명령을 만듭니다. 그래야 "차단 외 트래픽이 계속 흐르는지"
+    // (RETURN 줄이 빠지지 않았는지) 를 장치 없이 고정할 수 있습니다.
+    const std::string script = acl::BuildFrrIptablesScript(chain, entries);
 
-    const bool ok = RunCommand(VtyshCommand(lines));
-    if (!ok)
+    if (!RunCommand(script))
     {
-        std::cerr << "[POLICY] FRR ACL apply failed: acl=" << acl_name
+        std::cerr << "[POLICY] FRR iptables apply failed: chain=" << chain
                   << " entries=" << entries.size() << '\n';
         return false;
     }
-    std::cout << "[POLICY] FRR ACL applied: acl=" << acl_name
+    std::cout << "[POLICY] FRR iptables applied: chain=" << chain
               << " entries=" << entries.size() << '\n';
     return true;
 }

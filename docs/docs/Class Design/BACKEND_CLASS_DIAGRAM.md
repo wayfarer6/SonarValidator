@@ -1,6 +1,6 @@
-# Backend (SonarValidator_Backend) 클래스 다이어그램
+# Backend (Backend) 클래스 다이어그램
 
-`SonarValidator_Backend` (Spring Boot / Java)의 **전체 클래스 구조**를 PlantUML로 정리한 문서입니다.
+`Backend` (Spring Boot / Java)의 **전체 클래스 구조**를 PlantUML로 정리한 문서입니다.
 모든 내용은 실제 소스 코드(`src/main/java/org/sonar/sonarvalidator_backend`)를 기준으로 작성했습니다.
 
 - **기술 스택**: Spring Boot, Spring Web / WebSocket / Data JPA, ANTLR(CLI 파서), BDD 기반 망분리 검증

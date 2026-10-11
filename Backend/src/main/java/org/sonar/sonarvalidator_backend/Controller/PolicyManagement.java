@@ -5,14 +5,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
+import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Policy.PacketVariables;
-import org.sonar.sonarvalidator_backend.Policy.PolicyRule;
 import org.sonar.sonarvalidator_backend.Policy.PolicyViolation;
 import org.sonar.sonarvalidator_backend.Policy.SegmentationBddEngine;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
+import org.sonar.sonarvalidator_backend.Service.AgentTelemetryStore;
 import org.sonar.sonarvalidator_backend.Service.NotificationService;
+import org.sonar.sonarvalidator_backend.Service.PolicyRegistryService;
 import org.sonar.sonarvalidator_backend.Service.ProjectService;
 import org.sonar.sonarvalidator_backend.Service.QuarantineService;
 import org.slf4j.Logger;
@@ -24,7 +27,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
@@ -54,8 +56,6 @@ import tools.jackson.databind.node.ObjectNode;
 public class PolicyManagement {
 
     private static final Logger log = LoggerFactory.getLogger(PolicyManagement.class);
-
-    private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     private final ProjectService projectService;
     private final AgentSessionRegistry registry;
@@ -87,22 +87,46 @@ public class PolicyManagement {
     private final org.sonar.sonarvalidator_backend.Service.policy.PolicyPushNotifier pushNotifier;
 
     /**
+     * 정책 생성기입니다.
+     *
+     * <p>푸시도 <b>에이전트가 받는 것과 같은 정책</b>을 보내야 합니다.
+     * 예전에는 이 컨트롤러가 규칙 목록을 직접 만들어 보냈고, 그래서 차단 노드
+     * ({@code acl_apply})가 빠져 화면 푸시가 아무것도 막지 못했습니다.
+     */
+    private final PolicyRegistryService policyRegistry;
+
+    /**
+     * 최근 관측 벤더/제품 저장소입니다.
+     *
+     * <p>Open vSwitch 처럼 <b>제품명으로 분기</b>하는 전략이 있습니다
+     * ({@code SwitchPolicy} 는 OVS 일 때만 {@code acl_apply} 를 만듭니다).
+     * 제품명 없이 정책을 만들면 스위치 푸시가 차단을 담지 못합니다.
+     */
+    private final AgentTelemetryStore telemetryStore;
+
+    /**
      * @param projectService      프로젝트 서비스 (검증 엔진 접근)
      * @param registry            Agent 세션 레지스트리 (푸시 대상)
      * @param quarantineService   격리 상태 서비스 (대상 제외)
      * @param notificationService 알림 서비스
      * @param pushNotifier        푸시 결과 분류기
+     * @param policyRegistry      정책 생성기 (푸시 본문)
+     * @param telemetryStore      관측 벤더/제품 저장소
      */
     public PolicyManagement(ProjectService projectService,
                             AgentSessionRegistry registry,
                             QuarantineService quarantineService,
                             NotificationService notificationService,
-                            org.sonar.sonarvalidator_backend.Service.policy.PolicyPushNotifier pushNotifier) {
+                            org.sonar.sonarvalidator_backend.Service.policy.PolicyPushNotifier pushNotifier,
+                            PolicyRegistryService policyRegistry,
+                            AgentTelemetryStore telemetryStore) {
         this.projectService = projectService;
         this.registry = registry;
         this.quarantineService = quarantineService;
         this.notificationService = notificationService;
         this.pushNotifier = pushNotifier;
+        this.policyRegistry = policyRegistry;
+        this.telemetryStore = telemetryStore;
     }
 
     /**
@@ -230,7 +254,6 @@ public class PolicyManagement {
             return body;
         }
 
-        final List<PolicyRule> rules = project.toPolicyRules();
         final List<Map<String, Object>> deliveries = new ArrayList<>();
 
         // 격리된 장치는 한 번만 조회해 집합으로 둡니다. (서브넷 수만큼 DB 를 치지 않기)
@@ -251,27 +274,30 @@ public class PolicyManagement {
                 log.info("policy push skipped quarantined agent={} project={}", agentId, projectId);
                 continue;
             }
-            final ObjectNode payload = JSON.objectNode();
+            // ⚠️ 푸시도 에이전트가 받는 것과 <b>같은 정책</b>을 보냅니다.
+            //    예전에는 규칙 목록(rules[])만 보내서 차단 노드(acl_apply)가
+            //    빠졌고, 화면에서 푸시해도 장치에는 아무 차단도 들어가지
+            //    않았습니다. (실측: OVS 는 NORMAL 흐름만, 라우터는 ACL 없음)
+            //
+            //    제품명은 OVS 처럼 제품으로 분기하는 전략에 필요합니다.
+            final DeviceType deviceType = DeviceType.inferFromDeviceId(agentId);
+            final NeutralDeviceConfig observed = telemetryStore.configOf(agentId);
+            final String vendor = (observed == null) ? null : observed.getVendor();
+            final String product = (observed == null) ? null : observed.getProduct();
+
+            final ObjectNode payload = policyRegistry.forSubnet(
+                    project, subnet, deviceType, vendor, product);
+            // 추적용 정보입니다. 프로버는 policies/acl_apply 만 보고 나머지는
+            // 무시하므로 로그·대조에만 쓰입니다.
             payload.put("project_id", projectId);
             payload.put("subnet_id", subnet.getSubnetId());
             payload.put("cidr", subnet.getCidr());
             payload.put("subnet_class", subnet.getZoneClass() == null
                     ? null
                     : subnet.getZoneClass().label());
-
-            final var ruleNodes = payload.putArray("rules");
-            for (final PolicyRule rule : rules) {
-                if (!rule.isEnabled() || !subnet.getSubnetId().equals(rule.getSource())) {
-                    continue;
-                }
-                final ObjectNode ruleNode = ruleNodes.addObject();
-                ruleNode.put("rule_id", rule.getId());
-                ruleNode.put("destination", rule.getDestination());
-                ruleNode.put("protocol", rule.getProtocol());
-                if (rule.hasPort() && rule.getPort() != PacketVariables.ANY_PORT) {
-                    ruleNode.put("port", rule.getPort());
-                }
-            }
+            final int ruleCount = payload.has("policies")
+                    ? payload.get("policies").size()
+                    : 0;
 
             final Envelope envelope = Envelope.of(Envelope.Types.COMMAND);
             envelope.setAgent_id(agentId);
@@ -284,7 +310,10 @@ public class PolicyManagement {
             final Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("agent_id", agentId);
             entry.put("subnet_id", subnet.getSubnetId());
-            entry.put("rule_count", ruleNodes.size());
+            entry.put("rule_count", ruleCount);
+            // 차단 노드가 함께 갔는지 응답만 보고 판단할 수 있어야 합니다.
+            entry.put("acl_apply", payload.has("acl_apply"));
+            entry.put("enforcement_source", payload.path("summary").path("source").asString("?"));
             entry.put("delivered", delivered);
             deliveries.add(entry);
         }

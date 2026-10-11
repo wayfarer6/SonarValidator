@@ -3,10 +3,10 @@
 # SonarValidator Backend (Spring Boot 4.1.1 / Java 26)
 # =============================================================================
 #
-# 3개 빌드 단계로 나눈다 (builder 는 사전에 만든 BASE_IMAGE 를 사용).
-#   1) prober-builder : C++23 Prober(Agent) 정적 바이너리 빌드
-#   2) builder        : 소스를 컴파일해 실행 가능한 fat jar 생성 (바이너리 스테이징 포함)
-#   3) runtime        : JDK 와 번들 생성에 필요한 프로버 바이너리를 담은 Ubuntu
+# 3개 빌드 컨텍스트/단계로 나눈다.
+#   1) prober_bundle : 별도 Prober compiler 이미지가 만든 Agent Bundle
+#   2) builder       : 소스를 컴파일해 실행 가능한 fat jar 생성
+#   3) runtime       : JDK 와 번들 생성에 필요한 Prober 바이너리를 담은 Ubuntu
 #
 # 런타임에 Maven 은 필요 없다. base 이미지에서 /opt/java 만 복사해 오므로
 # 최종 이미지에는 Maven 과 apt 캐시가 들어가지 않는다.
@@ -19,80 +19,38 @@
 # 파일을 읽어야 하므로 최종 이미지의 동일 경로로 복사한다.
 #
 # 빌드 (저장소 루트에서)
-#   docker build -t sonar-validator/backend:latest -f docker/backend/Dockerfile .
+#   docker compose -f docker/compose/compose.yaml build backend
 #
-# 선행 조건: 베이스 이미지가 먼저 구워져 있어야 한다.
-#   docker build -t sonar-validator/jdk26-base:26.0.2.1 docker/base
+# Compose가 `sonar_base`와 `prober_bundle` 빌드 컨텍스트를 제공합니다.
 # =============================================================================
 
-# Prober 정적 바이너리 빌드용 베이스 이미지
-# 개발 환경에 맞춘 gcc/cmake 등을 포함합니다.
-ARG BUILDER_IMAGE=ubuntu:24.04
-ARG BASE_IMAGE=sonar-validator/jdk26-base:26.0.2.1
-
-# Prober 빌드 스테이지
-FROM ${BUILDER_IMAGE} AS prober-builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates build-essential g++ cmake \
-      curl unzip \
-      libsqlite3-dev libssl-dev \
-      libboost-dev nlohmann-json3-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /build
-
-# ANTLR4 C++ 런타임을 받아 빌드합니다.
-# 버전은 프로버의 생성 소스와 반드시 같아야 합니다.
-ARG ANTLR4_VERSION=4.13.2
-RUN mkdir -p /opt/antlr4-install && \
-    curl -fsSL -o /tmp/antlr4-cxx.zip \
-      "https://www.antlr.org/download/antlr4-cpp-runtime-${ANTLR4_VERSION}-source.zip" && \
-    unzip -q /tmp/antlr4-cxx.zip -d /tmp/antlr4-src && \
-    cd /tmp/antlr4-src && \
-    cmake -B build \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/opt/antlr4-install && \
-    cmake --build build --parallel $(nproc) && \
-    cmake --install build
-
-# Prober 소스를 복사하고 정적 바이너리를 빌드합니다.
-COPY SonarValidator_Prober/ ./
-
-RUN cmake -S . -B build_static \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DSONAR_STATIC_LINK=ON \
-  -DCMAKE_EXE_LINKER_FLAGS=-static \
-      -DANTLR4_RUNTIME_ROOT=/opt/antlr4-install && \
-    cmake --build build_static --target installer_bundle --parallel $(nproc) && \
-    mkdir -p /tmp/sonar_stage && \
-    cp -R Installer/Installer.sh Installer/default_template.sqlite Installer/sonar_validator_prober Installer/systemd Installer/rc-service /tmp/sonar_stage/ && \
-    ls -la /tmp/sonar_stage/
+# Compose가 이 이름에 `prober-compiler` 서비스의 결과 이미지를 연결한다.
+FROM prober_bundle AS prober-bundle
 
 # Backend builder 스테이지
-FROM ${BASE_IMAGE} AS builder
+FROM sonar_base AS builder
 
 WORKDIR /build
 
 # 스테이징 디렉터리를 준비합니다 (Prober 에서 복사해올 준비).
 RUN mkdir -p /tmp/sonar_stage
 
-# Prober 바이너리를 이전 단계에서 복사합니다.
-COPY --from=prober-builder /tmp/sonar_stage/ /tmp/sonar_stage/
+# Prober compiler 이미지가 만든 Bundle만 가져옵니다.
+COPY --from=prober-bundle /tmp/sonar_stage/ /tmp/sonar_stage/
 
 # 의존성만 먼저 받아 캐시를 만든다. 소스만 바뀌었을 때 Maven 이
 # 전체를 다시 내려받지 않도록 pom.xml 을 먼저 복사한다.
 #
 # dependency:go-offline 은 일부 플러그인을 완벽히 받지 못할 수 있어 실패를
 # 허용한다. 어차피 다음 단계의 package 가 필요한 것을 채운다.
-COPY SonarValidator_Backend/pom.xml ./
+COPY Backend/pom.xml ./
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q dependency:go-offline || true
 
 # ANTLR 문법이 src/main/antlr4 가 아닌 src/main/java/.../ANTLR4 에 있고
 # .antlr/ 생성물은 손으로 만든 파서가 쓰지 않으므로, antlr4-maven-plugin 은
 # "No ANTLR 4 grammars to compile" 으로 넘어간다. (정상)
-COPY SonarValidator_Backend/ ./
+COPY Backend/ ./
 
 ARG SKIP_TESTS=true
 RUN --mount=type=cache,target=/root/.m2 \

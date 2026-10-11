@@ -477,7 +477,7 @@ export default function Notification() {
               <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{error}</p>
               {offline && (
                 <p className="mt-2 rounded bg-white/60 p-2 font-mono text-[11px] text-gray-700 dark:bg-black/20 dark:text-gray-200">
-                  cd SonarValidator_Backend && ./mvnw spring-boot:run
+                  cd Backend && ./mvnw spring-boot:run
                 </p>
               )}
               <Button className="mt-3" size="sm" variant="outline" onClick={notifications.reload}>

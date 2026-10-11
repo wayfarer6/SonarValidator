@@ -49,7 +49,7 @@ date: 2026-09-26
 | Frontend | `http://localhost:5173` | Vite dev (esbuild) |
 | Agent | `IT-Test-VM` (NODE_TYPE=VM) | SERVER_IP=localhost:3000 |
 | DB | H2 `jdbc:h2:file:./data/sonarvalidator;AUTO_SERVER=TRUE` | user `sa`, password 공백 |
-| 실행 경로 | Backend `/home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Backend` | H2 파일이 cwd 기준 |
+| 실행 경로 | Backend `/home/osboxes/IdeaProjects/SonarValidator/Backend` | H2 파일이 cwd 기준 |
 
 ### 기동 사전 점검 결과
 
@@ -63,7 +63,7 @@ date: 2026-09-26
 | 6 | Agent 프로세스 | 실행 중 |
 | 7 | Agent 접속 | `connected` 확인 |
 
-> Docker 컨테이너는 처음부터 없었습니다 → **3000 포트 충돌 없음** (사전 `docker compose down` 불필요했음)
+> Docker 컨테이너는 처음부터 없었습니다 → **3000 포트 충돌 없음** (사전 `docker compose -f docker/compose/compose.yaml down` 불필요했음)
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "binary_sha256": "dcdea43437d12b0d25cb777a114b9eb07e136d2836bc6c0827118378102b4a3b",
-  "binary": "SonarValidator_Prober/build-rvi/sonar_validator_prober",
+  "binary": "Prober/build-rvi/sonar_validator_prober",
   "build": "Release, statically linked",
   "built_at_utc": "2026-10-10T00:52:00Z",
   "fixes": [

@@ -1,6 +1,6 @@
 import pathlib,subprocess,shlex,json,hashlib,datetime
 root=pathlib.Path(__file__).resolve().parents[2]
-out=root/'astra-e2e-d-ai-pbl-2'
+out=root/'Test/e2e/d-ai-pbl-poc'
 stage=pathlib.Path.home()/'.local/share/sonar-e2e-2/stage'
 env=dict(l.split('=',1) for l in (root/'.env').read_text().splitlines() if '=' in l and not l.startswith('#'))
 nodes=[('Gateway-Router',1,'Router'),('DMZ-Router',3,'Router'),('C4I-Network-Router',4,'Router'),('Survillance-Network-Router',5,'Router'),('VDI-Router',6,'Router')]+[(f'Switch-{i}',101+i,'Switch') for i in range(5)]+[('Firewall',2,'Firewall')]

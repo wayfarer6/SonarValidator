@@ -5,12 +5,12 @@
       "name": "Prober: Debug safe startup (--help)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/SonarValidator_Prober/build-debug/sonar_validator_prober",
+      "program": "${workspaceFolder}/Prober/build-debug/sonar_validator_prober",
       "args": [
         "--help"
       ],
       "stopAtEntry": true,
-      "cwd": "${workspaceFolder}/SonarValidator_Prober",
+      "cwd": "${workspaceFolder}/Prober",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",
@@ -28,18 +28,18 @@
       "name": "Prober: Debug with local config (may access devices)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/SonarValidator_Prober/build-debug/sonar_validator_prober",
+      "program": "${workspaceFolder}/Prober/build-debug/sonar_validator_prober",
       "args": [],
       "stopAtEntry": true,
-      "cwd": "${workspaceFolder}/SonarValidator_Prober",
+      "cwd": "${workspaceFolder}/Prober",
       "environment": [
         {
           "name": "SONAR_DATA_DIR",
-          "value": "${workspaceFolder}/SonarValidator_Prober/build-debug/data"
+          "value": "${workspaceFolder}/Prober/build-debug/data"
         },
         {
           "name": "SONAR_TEMPLATE_PATH",
-          "value": "${workspaceFolder}/SonarValidator_Prober/Installer/default_template.sqlite"
+          "value": "${workspaceFolder}/Prober/Installer/default_template.sqlite"
         },
         {
           "name": "SONAR_CONFIG_PATH",
@@ -62,10 +62,10 @@
       "name": "Prober test: Router",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/SonarValidator_Prober/build-debug/router_test",
+      "program": "${workspaceFolder}/Prober/build-debug/router_test",
       "args": [],
       "stopAtEntry": true,
-      "cwd": "${workspaceFolder}/SonarValidator_Prober",
+      "cwd": "${workspaceFolder}/Prober",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",

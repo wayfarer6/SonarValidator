@@ -13,7 +13,7 @@
 // 서버가 떠 있지 않으면 SKIP(종료 코드 0)으로 처리해 CI를 막지 않습니다.
 //
 // 실행 예:
-//   cd Agent_Test/mock_API && npm run envelope     # 별도 터미널
+//   cd Test/agent/mock_API && npm run envelope     # 별도 터미널
 //   ./management_service_integration_test
 //
 // 연결 유지 모드(서버 -> 에이전트 푸시 검증용):

@@ -22,9 +22,9 @@ date: 2026-09-26
 ```mermaid
 flowchart TB
     subgraph MONO["한 저장소 (모노레포)"]
-        B["SonarValidator_Backend<br/>Spring Boot"]
-        F["SonarValidator_Frontend<br/>React + Vite"]
-        P["SonarValidator_Prober<br/>C++23 Agent"]
+        B["Backend<br/>Spring Boot"]
+        F["Frontend<br/>React + Vite"]
+        P["Prober<br/>C++23 Agent"]
     end
 
     subgraph REQ["요구 환경이 모두 다름"]
@@ -50,7 +50,7 @@ flowchart TB
 on:
   pull_request:
     paths:
-      - 'SonarValidator_Backend/**'
+      - 'Backend/**'
       - '.github/workflows/backend.yml'   # 워크플로 자신을 바꾼 PR 은 반드시 검증
 ```
 
@@ -190,8 +190,8 @@ CI 를 넣기 **전에** 이미 린트 오류가 쌓여 있었습니다. 이 상
 
 | 파일 | 결함 | 규칙 |
 | --- | --- | --- |
-| `SonarValidator_Frontend/src/svg.d.ts` | `import React = require("react")` | `@typescript-eslint/no-require-imports` |
-| `SonarValidator_Frontend/src/components/ecommerce/CountryMap.tsx` | `} as any` | `@typescript-eslint/no-explicit-any` |
+| `Frontend/src/svg.d.ts` | `import React = require("react")` | `@typescript-eslint/no-require-imports` |
+| `Frontend/src/components/ecommerce/CountryMap.tsx` | `} as any` | `@typescript-eslint/no-explicit-any` |
 
 ### 4.1 `svg.d.ts`
 
@@ -291,16 +291,16 @@ flowchart LR
 
 ```bash
 # Backend — CI 와 같은 명령
-cd SonarValidator_Backend
+cd Backend
 export JAVA_HOME=<JDK 26 경로>
 ./mvnw -B clean test
 
 # Frontend — CI 와 같은 순서
-cd SonarValidator_Frontend
+cd Frontend
 npm ci && npx tsc -b && npm run lint && npm run build
 
 # Prober — ANTLR4 런타임이 이미 있다면
-cd SonarValidator_Prober
+cd Prober
 cmake -B build -DCMAKE_BUILD_TYPE=Release -DANTLR4_RUNTIME_ROOT=<경로>
 cmake --build build --parallel "$(nproc)"
 ctest --test-dir build --output-on-failure

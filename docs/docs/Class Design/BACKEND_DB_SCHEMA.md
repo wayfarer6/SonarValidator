@@ -1,6 +1,6 @@
-# Backend (SonarValidator_Backend) DB 스키마
+# Backend (Backend) DB 스키마
 
-`SonarValidator_Backend` (Spring Boot + JPA)의 **관계형 DB 스키마** 문서입니다.
+`Backend` (Spring Boot + JPA)의 **관계형 DB 스키마** 문서입니다.
 모든 내용은 실제 소스(`Model/entity/*.java`, `Model/Configuration.java`, `application-*.yml`)를 기준으로 작성했습니다.
 
 - **DBMS**

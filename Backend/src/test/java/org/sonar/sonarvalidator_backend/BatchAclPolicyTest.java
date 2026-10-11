@@ -71,7 +71,7 @@ class BatchAclPolicyTest {
                                                                 String destination,
                                                                 boolean forbidden) {
         return new PolicyBuildContext.ConnectionView("rule-1", true, "peer", destination, null,
-                source, destination, "tcp", null, forbidden, "등급 건너뛰기");
+                source, destination, null, "tcp", null, forbidden, "등급 건너뛰기");
     }
 
     @Test

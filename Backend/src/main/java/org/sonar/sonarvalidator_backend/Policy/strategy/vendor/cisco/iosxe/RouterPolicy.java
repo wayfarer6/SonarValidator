@@ -179,8 +179,10 @@ public class RouterPolicy implements DevicePolicy {
         rule.putArray("vendor").add(context.vendorOr(defaultVendor()));
         rule.putArray("product").add(context.productOr(defaultProduct()));
         rule.putArray("model").add(defaultProduct());
-        rule.putArray("subnet_id").add(
-                PolicyJson.firstNonBlank(context.subnet().getSubnetId(), "subnet"));
+        // 해제 노드(subnet == null)에서는 서브넷 식별자가 없습니다.
+        rule.putArray("subnet_id").add(context.subnet() == null
+                ? "subnet"
+                : PolicyJson.firstNonBlank(context.subnet().getSubnetId(), "subnet"));
         // 이 정책이 보호하는 대역입니다.
         //
         // ⚠️ Prober 는 이 값으로 <b>ACL 을 걸 인터페이스를 장치에서 직접 찾습니다</b>.
@@ -188,7 +190,10 @@ public class RouterPolicy implements DevicePolicy {
         //    8000v 처럼 `GigabitEthernet1..4` 를 쓰는 장치에서는 존재하지 않습니다.
         //    그러면 ACL 이 만들어지기만 하고 어디에도 걸리지 않아 <b>차단이
         //    전혀 동작하지 않습니다.</b> (RVI 실장비에서 실측한 실패)
-        if (context.subnet().getCidr() != null) {
+        // ⚠️ 배정된 서브넷이 있어야 대역을 실을 수 있습니다. 해제 노드에는
+        //    서브넷이 없으므로 생략합니다 (C++ 가 ACL 을 지우고 인터페이스
+        //    바인딩을 푼 뒤, 장치에 존재하는 인터페이스만 다시 겁니다).
+        if (context.subnet() != null && context.subnet().getCidr() != null) {
             rule.putArray("subnet_cidr").add(context.subnet().getCidr());
         }
         // ⚠️ "apply" 여야 합니다. "create" 로 보내면 Prober 의 라우터 적용기가
@@ -209,10 +214,17 @@ public class RouterPolicy implements DevicePolicy {
 
         final ArrayNode entries = rule.putArray("acl_rules");
         for (final PolicyBuildContext.ConnectionView connection : forbidden) {
+            if (isManagementPlane(connection)) {
+                continue;
+            }
             final ObjectNode criteria = aclEntry(connection);
             if (criteria == null) {
                 continue;
             }
+            // IOS 는 와일드카드 마스크를, 리눅스 iptables(FRR 라우터)는 CIDR 을
+            // 씁니다. 둘 다 실어 보내고 장치가 자기 문법을 고르게 합니다.
+            criteria.putArray("ip_saddr_cidr").add(connection.sourceCidr());
+            criteria.putArray("ip_daddr_cidr").add(connection.destinationCidr());
             final ObjectNode entry = entries.addObject();
             entry.set("match_criteria", criteria);
             entry.putArray("action").add("deny");
@@ -221,6 +233,24 @@ public class RouterPolicy implements DevicePolicy {
             }
         }
         return rule;
+    }
+
+    /**
+     * 관리 평면과 겹치는 집행 항목인지 판정합니다.
+     *
+     * <h2>⚠️ 왜 걸러내는가</h2>
+     * <p>자동 집행을 켜면 모든 금지 쌍이 라우터로 내려갑니다. 관리 대역이
+     * 프로젝트 서브넷으로 들어 있어 등급 차이로 "금지" 가 되면, 그 규칙이
+     * <b>프로버 자신의 보고 경로를 끊습니다.</b> 원격으로 되돌릴 방법도 함께
+     * 사라지므로, 집행 목록에서만 제외합니다. (수집·화면에는 그대로 남습니다)
+     *
+     * @param connection 연결
+     * @return 관리 대역과 겹치면 true
+     */
+    private boolean isManagementPlane(PolicyBuildContext.ConnectionView connection) {
+        final String prefix = site.getManagementPrefix();
+        return PolicyJson.overlapsManagementPrefix(connection.sourceCidr(), prefix)
+                || PolicyJson.overlapsManagementPrefix(connection.destinationCidr(), prefix);
     }
 
     /**

@@ -16,7 +16,7 @@ Alpine/FRR PoC 결과와 분리합니다. 날짜: 2026-10-10 (Asia/Seoul).
 - 백엔드: 초기 조사 당시 TCP 3000 리스너가 없었음. 서버를 기동하거나 운영 데이터를 변경하지 않음.
 - OPNsense: 수정된 백엔드 API 클라이언트로 실장비 진단 **5/5 성공**.
 - 터미널 키: 사용자 제공 장비 키와 디버그 Agent 키가 같았으나 백엔드 환경변수는 없었음.
-  외부 `SonarValidator_Backend/config/application-local.properties`에 같은 키를 설정하고
+  외부 `Backend/config/application-local.properties`에 같은 키를 설정하고
   **실제 Spring 설정 로더로 64자·일치 여부를 확인**함. 키 값은 결과에 저장하지 않음.
 - 소스의 `Installer/default.conf`는 키가 빈 템플릿. 서버 생성 번들 또는 아래 준비된 번들을 사용.
 
@@ -57,7 +57,7 @@ HTTP 허용은 명시한 origin에만 적용하고, 인증 없는 접근·다른
 
 ```bash
 python3 'astraa e2e-RVI/stage_installer.py' \
-  --binary SonarValidator_Prober/build-debug/sonar_validator_prober \
+  --binary Prober/build-debug/sonar_validator_prober \
   --secret-config .vscode/debug-default.conf
 ```
 
@@ -68,14 +68,14 @@ python3 'astraa e2e-RVI/stage_installer.py' \
 
 ```bash
 python3 'astraa e2e-RVI/test_shutdown.py' \
-  SonarValidator_Prober/build-debug/sonar_validator_prober \
-  SonarValidator_Prober/Installer/default_template.sqlite
+  Prober/build-debug/sonar_validator_prober \
+  Prober/Installer/default_template.sqlite
 ```
 
 Java 진단은 백엔드 클래스와 Maven 의존성 classpath를 사용합니다.
 
 ```bash
-cd SonarValidator_Backend
+cd Backend
 ./mvnw -q dependency:build-classpath -Dmdep.outputFile=/tmp/sonar-rvi-classpath
 java -cp "target/classes:$(cat /tmp/sonar-rvi-classpath)" \
   '../astraa e2e-RVI/CheckTerminalConfig.java' \

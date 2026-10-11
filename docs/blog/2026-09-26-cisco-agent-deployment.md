@@ -39,7 +39,7 @@ date: 2026-09-26
 | --- | --- | --- |
 | GNS3 호스트 SSH | `ssh1032007@192.168.122.1` (키 인증) | 필수 |
 | 콘솔 포트 | GNS3 호스트의 `127.0.0.1:5018` | 필수 |
-| 정적 바이너리 | `SonarValidator_Prober/build_static/sonar_validator_prober` | ELF 64-bit **statically linked** |
+| 정적 바이너리 | `Prober/build_static/sonar_validator_prober` | ELF 64-bit **statically linked** |
 | 백엔드 | `192.168.122.32:3000` 실행 중 | 필수 |
 | HTTP 서버 | 배포 파일 제공용 (예: `:8899`) | 필수 |
 | 관리자 비밀번호 | `~/.sonar_cisco_pw` (권한 600) | 자동 인식 |
@@ -124,8 +124,8 @@ guestshell 은 NAT 로만 나가므로 **`SERVER_IP=192.168.122.32`** 를 써야
 cd /home/osboxes/SonarValidator
 rm -rf /tmp/cisco_deploy && mkdir -p /tmp/cisco_deploy
 
-cp SonarValidator_Prober/build_static/sonar_validator_prober /tmp/cisco_deploy/
-cp SonarValidator_Prober/Installer/default_template.sqlite      /tmp/cisco_deploy/
+cp Prober/build_static/sonar_validator_prober /tmp/cisco_deploy/
+cp Prober/Installer/default_template.sqlite      /tmp/cisco_deploy/
 chmod 644 /tmp/cisco_deploy/*
 ```
 

@@ -16,7 +16,7 @@ secret = next((line.split('=', 1)[1].split(';', 1)[0].strip().strip('"')
                if line.strip().startswith('TERMINAL_SHARED_SECRET=')), '')
 if len(secret) < 32:
     raise SystemExit('A shared key of at least 32 characters is required')
-source = root / 'SonarValidator_Prober'
+source = root / 'Prober'
 assets = {
     'Installer.sh': source / 'Installer/Installer.sh',
     'sonar_validator_prober': args.binary,

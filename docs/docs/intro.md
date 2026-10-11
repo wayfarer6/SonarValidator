@@ -65,8 +65,8 @@ flowchart LR
 Agent(Prober) 없이 Frontend + Backend 만 띄워 개발할 때는 루트의 스크립트를 씁니다.
 
 ```bash
-./dev.sh                 # 프론트(5173) + 백엔드(3000, 디버그) 실행
-./dev.sh --backend-only  # 백엔드만
+./Test/dev.sh                 # 프론트(5173) + 백엔드(3000, 디버그) 실행
+./Test/dev.sh --backend-only  # 백엔드만
 ```
 
 각 계층을 개별 실행하는 방법과 테스트 명령은 저장소 루트의 `README.md` 를 보세요.

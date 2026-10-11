@@ -29,6 +29,11 @@ namespace acl
 // ACL 한 줄의 주소 4종(네트워크 주소 + 반전 마스크)입니다.
 //
 // 서버가 보낸 acl_rules[] 를 벤더별 문법으로 옮길 때 공통으로 씁니다.
+//
+// ⚠️ cidr 필드가 따로 있는 이유
+//   IOS/FRR access-list 는 <b>네트워크 + 역마스크</b>를 쓰지만, iptables 는
+//   <b>CIDR</b> 을 씁니다. 두 문법을 모두 만들 수 있도록 원본 CIDR 도
+//   함께 받습니다. (없으면 역마스크에서 역산합니다)
 struct Entry
 {
     std::string source;
@@ -36,7 +41,94 @@ struct Entry
     std::string destination;
     std::string destination_wildcard;
     std::string reason;
+    std::string source_cidr;
+    std::string destination_cidr;
+    // 출발 대역의 VLAN 식별자입니다. (없으면 무태그)
+    //
+    // ⚠️ OpenFlow 는 VLAN 을 지정하지 않으면 <b>무태그 프레임만</b> 매칭합니다.
+    //   그런데 access 포트는 수신 시 내부 VLAN 을 붙이고 트렁크는 태그를 그대로
+    //   흘리므로, 존 간 트래픽에는 항상 태그가 있습니다. 지정하지 않으면
+    //   차단 플로우가 한 번도 매칭되지 않습니다.
+    std::string vlan;
 };
+
+// 역마스크(0.0.0.255)를 접두사 길이(24)로 바꿉니다.
+//
+// 역마스크는 호스트 비트가 1 이므로, 뒤에서부터 0 인 비트를 세면 접두사가
+// 됩니다. 형식을 알 수 없으면 -1 을 돌려줍니다.
+inline int PrefixFromWildcard(const std::string& wildcard)
+{
+    if (wildcard.empty())
+    {
+        return -1;
+    }
+    unsigned long value = 0;
+    int octets = 0;
+    std::size_t start = 0;
+    while (octets < 4)
+    {
+        const std::size_t dot = wildcard.find('.', start);
+        const std::string part = wildcard.substr(
+            start, dot == std::string::npos ? std::string::npos : dot - start);
+        if (part.empty())
+        {
+            return -1;
+        }
+        int octet = 0;
+        for (const char character : part)
+        {
+            if (character < '0' || character > '9')
+            {
+                return -1;
+            }
+            octet = octet * 10 + (character - '0');
+        }
+        if (octet > 255)
+        {
+            return -1;
+        }
+        value = (value << 8) | static_cast<unsigned long>(octet);
+        ++octets;
+        if (dot == std::string::npos)
+        {
+            break;
+        }
+        start = dot + 1;
+    }
+    if (octets != 4)
+    {
+        return -1;
+    }
+    int prefix = 0;
+    for (int bit = 31; bit >= 0; --bit)
+    {
+        if (((value >> bit) & 1UL) != 0UL)
+        {
+            break;
+        }
+        ++prefix;
+    }
+    return prefix;
+}
+
+// 네트워크 주소 + 역마스크를 CIDR 로 바꿉니다. (역마스크가 없으면 /32)
+inline std::string CidrFrom(const std::string& network, const std::string& wildcard)
+{
+    if (network.empty())
+    {
+        return {};
+    }
+    if (wildcard.empty())
+    {
+        return network + "/32";
+    }
+    const int prefix = PrefixFromWildcard(wildcard);
+    if (prefix < 0)
+    {
+        return {};
+    }
+    return network + "/" + std::to_string(prefix);
+}
 
 // 일괄 ACL(acl_apply) 노드에서 차단 목록을 읽습니다.
 //
@@ -66,6 +158,9 @@ inline std::vector<Entry> ReadEntries(const nlohmann::json& policy)
         entry.source_wildcard = policy_json::AsString(source_json, "ip_saddr_wildcard");
         entry.destination = policy_json::AsString(source_json, "ip_daddr");
         entry.destination_wildcard = policy_json::AsString(source_json, "ip_daddr_wildcard");
+        entry.source_cidr = policy_json::AsString(source_json, "ip_saddr_cidr");
+        entry.destination_cidr = policy_json::AsString(source_json, "ip_daddr_cidr");
+        entry.vlan = policy_json::AsString(source_json, "vlan_id");
         entry.reason = policy_json::AsString(rule, "reason");
 
         if (entry.source.empty() || entry.destination.empty())
@@ -73,6 +168,15 @@ inline std::vector<Entry> ReadEntries(const nlohmann::json& policy)
             std::cerr << "[POLICY] dropping ACL entry with empty address (src='"
                       << entry.source << "' dst='" << entry.destination << "')\n";
             continue;
+        }
+        // iptables 문법용 CIDR 이 없으면 역마스크에서 역산합니다.
+        if (entry.source_cidr.empty())
+        {
+            entry.source_cidr = CidrFrom(entry.source, entry.source_wildcard);
+        }
+        if (entry.destination_cidr.empty())
+        {
+            entry.destination_cidr = CidrFrom(entry.destination, entry.destination_wildcard);
         }
         entries.push_back(std::move(entry));
     }
@@ -181,58 +285,78 @@ inline std::vector<std::string> BuildIosAclCommands(const std::string& acl_name,
     return commands;
 }
 
-// FRR(vtysh) 라우터의 차단 ACL 명령 목록을 만듭니다.
+// FRR 라우터의 차단 규칙을 <b>iptables 전용 체인</b>으로 만듭니다.
 //
-// ⚠️ 이 랩에는 FRR 라우터가 없어 <b>실장비 검증을 하지 못했습니다.</b>
-//    문법은 FRR(zebra) 의 표준 access-list 입니다:
-//      access-list <name> deny ip <src> <wild> <dst> <wild>
-//    vtysh 는 표준 ACL 에서 `ip` 키워드를 받습니다. (IOS 와 달리 이름이
-//    숫자/문자 모두 가능)
+// ⚠️ 왜 FRR access-list 가 아니라 iptables 인가 — 실장비 확인
+//   FRR 8.2.2 의 zebra 는 `access-list <name> deny ip ...` 로 목록을 만들 수는
+//   있습니다(`show ip access-list` 로 보입니다). 그런데 그 목록을
+//   <b>인터페이스에 거는 명령이 없습니다.</b>
+//     frr(config-if)# ip access-group SONAR-CSO in
+//     % Unknown command: ip access-group SONAR-CSO in
+//   즉 ACL 을 만들어도 트래픽 판정에 전혀 쓰이지 않습니다. 라우터는
+//   `ip_forward=1` 로 커널이 전달(forward)하므로, 실제 차단은 커널의
+//   FORWARD 체인에서 해야 합니다. (기존 랩의 ASTRA_CSO_WAN 과 같은 방식)
 //
-// ⚠️ `no access-list <name>` 은 목록 전체를 지웁니다. 그래서 IOS 와 같은
-//    "지우고 다시 쓰기" 전략을 씁니다 — 지운 규칙이 남지 않게 하는 유일한
-//    방법입니다.
+// ⚠️ 왜 전용 체인인가
+//   FORWARD 에 규칙을 직접 넣으면 다른 관리 도구가 넣은 규칙과 섞여
+//   "우리 것만" 나중에 걷어낼 수 없습니다. 전용 체인을 만들고 FORWARD 에서
+//   한 번만 점프시키면, 갱신은 체인 비우기(flush)로 끝납니다.
 //
-// ⚠️ IOS 와 같은 이유로 `permit ip any any` 를 반드시 넣습니다. FRR 도
-//    매칭되는 줄이 없으면 암묵적 deny 로 떨어지므로, 이 ACL 을 인터페이스에
-//    걸면 차단 대상이 아닌 트래픽까지 막혀 인터페이스가 죽습니다.
+// ⚠️ 마지막에 RETURN
+//   체인 끝에 RETURN 을 두어 매칭되지 않은 트래픽이 FORWARD 의 나머지
+//   규칙으로 돌아가게 합니다. 없으면 체인 끝에서 기본 정책으로 떨어져
+//   다른 규칙을 건너뜁니다.
 //
-// @param acl_name       ACL 이름
-// @param interface_name ACL 을 걸 인터페이스 (비어 있으면 걸지 않음)
-// @param entries        차단할 주소 쌍 목록
-// @return vtysh 명령 목록
-inline std::vector<std::string> BuildFrrAclCommands(const std::string& acl_name,
-                                                    const std::string& interface_name,
-                                                    const std::vector<Entry>& entries)
+// ⚠️ 여러 줄을 한 스크립트로 돌려주는 이유
+//   중간에 실패하면 체인이 반쯤 적용된 상태로 남으면 안 되므로,
+//   "만들기 → 비우기 → 채우기 → RETURN → FORWARD 점프" 를 한 번에 보냅니다.
+//   마지막 줄이 체인 부재 시 실패하므로 반쯤 적용된 상태를 성공으로
+//   보고하지 않습니다.
+//
+// @param chain   전용 체인 이름 (예: SONAR-CSO)
+// @param entries 차단할 주소 쌍 목록 (CIDR 사용)
+// @return iptables 셸 스크립트 (한 번 실행)
+inline std::string BuildFrrIptablesScript(const std::string& chain,
+                                          const std::vector<Entry>& entries)
 {
-    std::vector<std::string> lines = {"configure terminal"};
+    std::vector<std::string> lines;
+    // 없으면 만들고, 있으면 비웁니다. (-N 은 이미 있으면 실패하므로 허용)
+    lines.push_back("iptables -N " + chain + " 2>/dev/null || true");
+    lines.push_back("iptables -F " + chain);
 
-    if (!interface_name.empty())
+    for (const auto& entry : entries)
     {
-        lines.push_back("interface " + interface_name);
-        lines.push_back("no ip access-group " + acl_name + " in");
-        lines.push_back("exit");
+        // CIDR 이 비어 있으면 역마스크에서 역산합니다. 서버가 CIDR 을 실어
+        // 보내지 않는 경우에도 iptables 규칙을 만들 수 있어야 합니다.
+        const std::string source_cidr = entry.source_cidr.empty()
+            ? CidrFrom(entry.source, entry.source_wildcard) : entry.source_cidr;
+        const std::string destination_cidr = entry.destination_cidr.empty()
+            ? CidrFrom(entry.destination, entry.destination_wildcard) : entry.destination_cidr;
+        if (source_cidr.empty() || destination_cidr.empty())
+        {
+            std::cerr << "[POLICY] skipping FRR rule with unusable CIDR (src='"
+                      << source_cidr << "' dst='" << destination_cidr << "')\n";
+            continue;
+        }
+        lines.push_back("iptables -A " + chain + " -s " + source_cidr +
+                        " -d " + destination_cidr +
+                        " -m comment --comment SONAR-CSO-deny -j DROP");
     }
-    lines.push_back("no access-list " + acl_name);
+    lines.push_back("iptables -A " + chain + " -j RETURN");
 
-    if (!entries.empty())
+    // FORWARD 에 한 번만 건다. 이미 있으면 아무것도 하지 않습니다.
+    // ⚠️ 이 줄은 체인이 없으면 실패하므로, 반쯤 적용된 상태를 성공으로
+    //    보고하지 않게 하는 검증 역할도 겸합니다.
+    lines.push_back("iptables -C FORWARD -j " + chain +
+                    " 2>/dev/null || iptables -I FORWARD 1 -j " + chain);
+
+    std::string script;
+    for (const std::string& line : lines)
     {
-        for (const auto& entry : entries)
-        {
-            lines.push_back("access-list " + acl_name + " deny ip " + entry.source + " " +
-                            entry.source_wildcard + " " + entry.destination + " " +
-                            entry.destination_wildcard);
-        }
-        lines.push_back("access-list " + acl_name + " permit ip any any");
-
-        if (!interface_name.empty())
-        {
-            lines.push_back("interface " + interface_name);
-            lines.push_back("ip access-group " + acl_name + " in");
-            lines.push_back("exit");
-        }
+        script += line;
+        script += '\n';
     }
-    return lines;
+    return script;
 }
 
 }  // namespace acl

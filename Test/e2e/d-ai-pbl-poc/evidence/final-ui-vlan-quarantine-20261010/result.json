@@ -1,0 +1,747 @@
+{
+  "run_name": "final-ui-vlan-quarantine-20261010",
+  "frontend": "http://172.16.255.245:5173",
+  "project_id": "PRJ-AADE1BC3",
+  "target_vlans": [
+    131,
+    132,
+    133
+  ],
+  "target_cidrs": [
+    "10.10.131.0/24",
+    "10.10.132.0/24",
+    "10.10.133.0/24"
+  ],
+  "started_at": "2026-10-10T14:26:46.095Z",
+  "steps": [
+    {
+      "name": "login",
+      "pass": true
+    },
+    {
+      "name": "three_vlans_confidential",
+      "pass": true,
+      "selected": [
+        {
+          "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "cidr": "10.10.131.0/24",
+          "vlan_id": 131,
+          "subnet_class": "Confidential",
+          "name": "VLAN131",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        },
+        {
+          "id": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "cidr": "10.10.132.0/24",
+          "vlan_id": 132,
+          "subnet_class": "Confidential",
+          "name": "VLAN132",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        },
+        {
+          "id": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "cidr": "10.10.133.0/24",
+          "vlan_id": 133,
+          "subnet_class": "Confidential",
+          "name": "VLAN133",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        }
+      ]
+    },
+    {
+      "name": "vlan131_quarantine",
+      "pass": true,
+      "state": {
+        "agent_id": "Firewall",
+        "node_id": 12,
+        "scope": "CONNECTION",
+        "target_cidr": "10.10.131.0/24",
+        "project_id": "PRJ-AADE1BC3",
+        "reason": null,
+        "requested_by": "operator",
+        "command_delivered": false,
+        "quarantined_at": "2026-10-10T14:26:57.327Z",
+        "released_at": null,
+        "released_by": null,
+        "active": true,
+        "applied": true,
+        "applied_detail": "nft IPv4 subnet quarantine reconciled"
+      }
+    },
+    {
+      "name": "vlan131_release",
+      "pass": true
+    }
+  ],
+  "before": {
+    "project_id": "PRJ-AADE1BC3",
+    "name": "test",
+    "category": "",
+    "description": "",
+    "status": "Planning",
+    "management_prefix": null,
+    "management_server_ip": "172.16.255.245",
+    "management_server_port": 3000,
+    "created_at": "2026-10-09T05:32:31.150Z",
+    "updated_at": "2026-10-10T14:24:31.171Z",
+    "subnet_count": 5,
+    "rule_count": 0,
+    "subnets": [
+      {
+        "id": "Subnet-fe651580-07ec-3796-8347-db2778c86aa8",
+        "cidr": "192.168.122.0/24",
+        "vlan_id": null,
+        "subnet_class": "Open",
+        "name": "Gateway-Router / eth0",
+        "agent_id": "Gateway-Router",
+        "manually_edited": false,
+        "allowed_peers": []
+      },
+      {
+        "id": "Subnet-17876749-32f9-36bf-aa72-79a4aaf2fb9d",
+        "cidr": "10.99.10.0/24",
+        "vlan_id": null,
+        "subnet_class": "Open",
+        "name": "Gateway-Router / eth1",
+        "agent_id": "Gateway-Router",
+        "manually_edited": false,
+        "allowed_peers": []
+      },
+      {
+        "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+        "cidr": "10.10.131.0/24",
+        "vlan_id": 131,
+        "subnet_class": "Confidential",
+        "name": "VLAN131",
+        "agent_id": "Firewall",
+        "manually_edited": true,
+        "allowed_peers": []
+      },
+      {
+        "id": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+        "cidr": "10.10.132.0/24",
+        "vlan_id": 132,
+        "subnet_class": "Confidential",
+        "name": "VLAN132",
+        "agent_id": "Firewall",
+        "manually_edited": true,
+        "allowed_peers": []
+      },
+      {
+        "id": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+        "cidr": "10.10.133.0/24",
+        "vlan_id": 133,
+        "subnet_class": "Confidential",
+        "name": "VLAN133",
+        "agent_id": "Firewall",
+        "manually_edited": true,
+        "allowed_peers": []
+      }
+    ],
+    "rules": [],
+    "draft": false,
+    "vlan_names": []
+  },
+  "save": {
+    "status": 200,
+    "body": {
+      "project_id": "PRJ-AADE1BC3",
+      "name": "test",
+      "category": "",
+      "description": "",
+      "status": "Planning",
+      "management_prefix": null,
+      "management_server_ip": "172.16.255.245",
+      "management_server_port": 3000,
+      "created_at": "2026-10-09T05:32:31.150Z",
+      "updated_at": "2026-10-10T14:26:49.685Z",
+      "subnet_count": 5,
+      "rule_count": 0,
+      "subnets": [
+        {
+          "id": "Subnet-fe651580-07ec-3796-8347-db2778c86aa8",
+          "cidr": "192.168.122.0/24",
+          "vlan_id": null,
+          "subnet_class": "Open",
+          "name": "Gateway-Router / eth0",
+          "agent_id": "Gateway-Router",
+          "manually_edited": false,
+          "allowed_peers": []
+        },
+        {
+          "id": "Subnet-17876749-32f9-36bf-aa72-79a4aaf2fb9d",
+          "cidr": "10.99.10.0/24",
+          "vlan_id": null,
+          "subnet_class": "Open",
+          "name": "Gateway-Router / eth1",
+          "agent_id": "Gateway-Router",
+          "manually_edited": false,
+          "allowed_peers": []
+        },
+        {
+          "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "cidr": "10.10.131.0/24",
+          "vlan_id": 131,
+          "subnet_class": "Confidential",
+          "name": "VLAN131",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        },
+        {
+          "id": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "cidr": "10.10.132.0/24",
+          "vlan_id": 132,
+          "subnet_class": "Confidential",
+          "name": "VLAN132",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        },
+        {
+          "id": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "cidr": "10.10.133.0/24",
+          "vlan_id": 133,
+          "subnet_class": "Confidential",
+          "name": "VLAN133",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        }
+      ],
+      "rules": []
+    }
+  },
+  "after_confidential": {
+    "project_id": "PRJ-AADE1BC3",
+    "name": "test",
+    "category": "",
+    "description": "",
+    "status": "Planning",
+    "management_prefix": null,
+    "management_server_ip": "172.16.255.245",
+    "management_server_port": 3000,
+    "created_at": "2026-10-09T05:32:31.150Z",
+    "updated_at": "2026-10-10T14:26:49.685Z",
+    "subnet_count": 5,
+    "rule_count": 0,
+    "subnets": [
+      {
+        "id": "Subnet-fe651580-07ec-3796-8347-db2778c86aa8",
+        "cidr": "192.168.122.0/24",
+        "vlan_id": null,
+        "subnet_class": "Open",
+        "name": "Gateway-Router / eth0",
+        "agent_id": "Gateway-Router",
+        "manually_edited": false,
+        "allowed_peers": []
+      },
+      {
+        "id": "Subnet-17876749-32f9-36bf-aa72-79a4aaf2fb9d",
+        "cidr": "10.99.10.0/24",
+        "vlan_id": null,
+        "subnet_class": "Open",
+        "name": "Gateway-Router / eth1",
+        "agent_id": "Gateway-Router",
+        "manually_edited": false,
+        "allowed_peers": []
+      },
+      {
+        "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+        "cidr": "10.10.131.0/24",
+        "vlan_id": 131,
+        "subnet_class": "Confidential",
+        "name": "VLAN131",
+        "agent_id": "Firewall",
+        "manually_edited": true,
+        "allowed_peers": []
+      },
+      {
+        "id": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+        "cidr": "10.10.132.0/24",
+        "vlan_id": 132,
+        "subnet_class": "Confidential",
+        "name": "VLAN132",
+        "agent_id": "Firewall",
+        "manually_edited": true,
+        "allowed_peers": []
+      },
+      {
+        "id": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+        "cidr": "10.10.133.0/24",
+        "vlan_id": 133,
+        "subnet_class": "Confidential",
+        "name": "VLAN133",
+        "agent_id": "Firewall",
+        "manually_edited": true,
+        "allowed_peers": []
+      }
+    ],
+    "rules": [],
+    "draft": false,
+    "vlan_names": []
+  },
+  "policy_push": {
+    "status": "blocked_by_validation",
+    "reason": "위반이 있어 전송할 수 없습니다"
+  },
+  "baseline_terminal": "\u001b[?2004hFirewall:~# ping -c 2 -W 1 10.10.131.10 >/dev/null; r131=$?; ping -c 2 -W 1 10.10.132.10 >/dev/null; r132=$?; echo BASELINE_131=$r131 BASELINE_132 \r=$r132; printf 'BASELINE_COMPLETE_%s\\n' $((700+7))\r\n\u001b[?2004l\rBASELINE_131=0 BASELINE_132=0\r\nBASELINE_COMPLETE_707\r\n\u001b[?2004hFirewall:~# ",
+  "quarantine_request": {
+    "status": 200,
+    "body": {
+      "agent_id": "Firewall",
+      "node_id": 12,
+      "scope": "CONNECTION",
+      "target_cidr": "10.10.131.0/24",
+      "project_id": "PRJ-AADE1BC3",
+      "reason": null,
+      "requested_by": "operator",
+      "command_delivered": false,
+      "quarantined_at": "2026-10-10T14:26:57.327Z",
+      "released_at": null,
+      "released_by": null,
+      "active": true,
+      "applied": null,
+      "applied_detail": null,
+      "delivered": false,
+      "retry": false,
+      "warning": "방화벽 연결 격리입니다. 규칙은 서버가 정책 푸시로 내려보내며, 장치가 연결되면 적용됩니다.",
+      "connected": true,
+      "warnings": [
+        "방화벽은 인터페이스가 아니라 규칙으로 격리합니다. 대상 대역 10.10.131.0/24 으로 가는 연결만 차단됩니다.",
+        "제어평면(172.16.255.0/24) 은 차단 대상에서 제외되어야 합니다. 차단 규칙이 관리 대역을 포함하면 해제 경로가 끊깁니다."
+      ]
+    }
+  },
+  "quarantine_applied": {
+    "response": {
+      "status": 200,
+      "body": {
+        "project_id": "PRJ-AADE1BC3",
+        "total": 1,
+        "agent_ids": [],
+        "node_ids": [],
+        "quarantined": [
+          {
+            "agent_id": "Firewall",
+            "node_id": 12,
+            "scope": "CONNECTION",
+            "target_cidr": "10.10.131.0/24",
+            "project_id": "PRJ-AADE1BC3",
+            "reason": null,
+            "requested_by": "operator",
+            "command_delivered": false,
+            "quarantined_at": "2026-10-10T14:26:57.327Z",
+            "released_at": null,
+            "released_by": null,
+            "active": true,
+            "applied": true,
+            "applied_detail": "nft IPv4 subnet quarantine reconciled"
+          }
+        ]
+      }
+    },
+    "matching": {
+      "agent_id": "Firewall",
+      "node_id": 12,
+      "scope": "CONNECTION",
+      "target_cidr": "10.10.131.0/24",
+      "project_id": "PRJ-AADE1BC3",
+      "reason": null,
+      "requested_by": "operator",
+      "command_delivered": false,
+      "quarantined_at": "2026-10-10T14:26:57.327Z",
+      "released_at": null,
+      "released_by": null,
+      "active": true,
+      "applied": true,
+      "applied_detail": "nft IPv4 subnet quarantine reconciled"
+    }
+  },
+  "isolated_terminal": "\u001b[?2004hFirewall:~# nft list table inet sonar_quarantine; ping -c 2 -W 1 10.10.131.10 >/dev/null; r131=$?; ping -c 2 -W 1 10.10.132.10 >/dev/null; r132=$? \r; echo ISOLATED_131=$r131 UNAFFECTED_132=$r132; printf 'ISOLATION_COMPLETE_%s\\n' $((800+8))\r\n\u001b[?2004l\rtable inet sonar_quarantine {\r\n\tchain input {\r\n\t\ttype filter hook input priority -200; policy accept;\r\n\t\tip saddr 10.10.131.0/24 counter packets 0 bytes 0 drop\r\n\t\tip daddr 10.10.131.0/24 counter packets 0 bytes 0 drop\r\n\t}\r\n\r\n\tchain forward {\r\n\t\ttype filter hook forward priority -200; policy accept;\r\n\t\tip saddr 10.10.131.0/24 counter packets 1 bytes 60 drop\r\n\t\tip daddr 10.10.131.0/24 counter packets 0 bytes 0 drop\r\n\t}\r\n\r\n\tchain output {\r\n\t\ttype filter hook output priority -200; policy accept;\r\n\t\tip saddr 10.10.131.0/24 counter packets 0 bytes 0 drop\r\n\t\tip daddr 10.10.131.0/24 counter packets 0 bytes 0 drop\r\n\t}\r\n}\r\nping: sendto: Operation not permitted\r\nISOLATED_131=1 UNAFFECTED_132=0\r\nISOLATION_COMPLETE_808\r\n\u001b[?2004hFirewall:~# ",
+  "release_request": {
+    "status": 200,
+    "body": {
+      "agent_id": "Firewall",
+      "node_id": 12,
+      "scope": "CONNECTION",
+      "target_cidr": "10.10.131.0/24",
+      "project_id": "PRJ-AADE1BC3",
+      "reason": null,
+      "requested_by": "operator",
+      "command_delivered": false,
+      "quarantined_at": "2026-10-10T14:26:57.327Z",
+      "released_at": "2026-10-10T14:27:04.972Z",
+      "released_by": "operator",
+      "active": false,
+      "applied": true,
+      "applied_detail": "nft IPv4 subnet quarantine reconciled",
+      "delivered": false,
+      "retry": false,
+      "warning": "방화벽 연결 격리입니다. 규칙은 서버가 정책 푸시로 내려보내며, 장치가 연결되면 적용됩니다.",
+      "available": null,
+      "blocked": null,
+      "preserved": null,
+      "connected": true,
+      "released": true
+    }
+  },
+  "quarantine_released": {
+    "response": {
+      "status": 200,
+      "body": {
+        "project_id": "PRJ-AADE1BC3",
+        "total": 0,
+        "agent_ids": [],
+        "node_ids": [],
+        "quarantined": []
+      }
+    },
+    "matching": null
+  },
+  "released_terminal": "\u001b[?2004hFirewall:~# \r\u001b[K\rFirewall:~# if nft list table inet sonar_quarantine >/dev/null 2>&1; then echo QUARANTINE_TABLE_PRESENT; else echo QUARANTINE_TABLE_REMOVED; fi; p \ring -c 2 -W 1 10.10.131.10 >/dev/null; r131=$?; ping -c 2 -W 1 10.10.132.10 >/dev/null; r132=$?; echo RELEASED_131=$r131 UNAFFECTED_132=$r132; pri \rntf 'RELEASE_COMPLETE_%s\\n' $((900+9))\r\n\u001b[?2004l\rQUARANTINE_TABLE_REMOVED\r\nRELEASED_131=0 UNAFFECTED_132=0\r\nRELEASE_COMPLETE_909\r\n\u001b[?2004hFirewall:~# ",
+  "final": {
+    "project": {
+      "project_id": "PRJ-AADE1BC3",
+      "name": "test",
+      "category": "",
+      "description": "",
+      "status": "Planning",
+      "management_prefix": null,
+      "management_server_ip": "172.16.255.245",
+      "management_server_port": 3000,
+      "created_at": "2026-10-09T05:32:31.150Z",
+      "updated_at": "2026-10-10T14:26:49.685Z",
+      "subnet_count": 5,
+      "rule_count": 0,
+      "subnets": [
+        {
+          "id": "Subnet-fe651580-07ec-3796-8347-db2778c86aa8",
+          "cidr": "192.168.122.0/24",
+          "vlan_id": null,
+          "subnet_class": "Open",
+          "name": "Gateway-Router / eth0",
+          "agent_id": "Gateway-Router",
+          "manually_edited": false,
+          "allowed_peers": []
+        },
+        {
+          "id": "Subnet-17876749-32f9-36bf-aa72-79a4aaf2fb9d",
+          "cidr": "10.99.10.0/24",
+          "vlan_id": null,
+          "subnet_class": "Open",
+          "name": "Gateway-Router / eth1",
+          "agent_id": "Gateway-Router",
+          "manually_edited": false,
+          "allowed_peers": []
+        },
+        {
+          "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+          "cidr": "10.10.131.0/24",
+          "vlan_id": 131,
+          "subnet_class": "Confidential",
+          "name": "VLAN131",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        },
+        {
+          "id": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+          "cidr": "10.10.132.0/24",
+          "vlan_id": 132,
+          "subnet_class": "Confidential",
+          "name": "VLAN132",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        },
+        {
+          "id": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+          "cidr": "10.10.133.0/24",
+          "vlan_id": 133,
+          "subnet_class": "Confidential",
+          "name": "VLAN133",
+          "agent_id": "Firewall",
+          "manually_edited": true,
+          "allowed_peers": []
+        }
+      ],
+      "rules": [],
+      "draft": false,
+      "vlan_names": []
+    },
+    "quarantine": {
+      "project_id": "PRJ-AADE1BC3",
+      "total": 0,
+      "agent_ids": [],
+      "node_ids": [],
+      "quarantined": []
+    },
+    "overview": {
+      "connected": 16,
+      "total_policy_requests": 8333,
+      "server_time": "2026-10-10T14:27:11.942366607Z",
+      "agents": [
+        {
+          "agent_id": "Firewall",
+          "project_id": "PRJ-AADE1BC3",
+          "device_type": "FIREWALL",
+          "node_type": "VM",
+          "expected_ip": null,
+          "registered_at": "2026-10-10T13:01:17.458Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": true
+        },
+        {
+          "agent_id": "Switch-3",
+          "project_id": "PRJ-AADE1BC3",
+          "device_type": "SWITCH",
+          "node_type": "VM",
+          "expected_ip": null,
+          "registered_at": "2026-10-10T13:01:17.329Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "test-vm",
+          "project_id": "PRJ-AADE1BC3",
+          "device_type": "VM",
+          "node_type": "VM",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T05:33:35.768Z",
+          "connected": false,
+          "telemetry_seen": false,
+          "expected": true,
+          "state": "silent",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Gateway-Router",
+          "project_id": "PRJ-AADE1BC3",
+          "device_type": "ROUTER",
+          "node_type": "Router",
+          "expected_ip": "172.16.255.245",
+          "registered_at": "2026-10-09T05:33:06.147Z",
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": true,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Management-Console",
+          "project_id": null,
+          "device_type": "VM",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "VDI-1",
+          "project_id": null,
+          "device_type": "VM",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Survillance-Network-Router",
+          "project_id": null,
+          "device_type": "ROUTER",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "TOD-Cam",
+          "project_id": null,
+          "device_type": "VM",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "C4I-Network-Router",
+          "project_id": null,
+          "device_type": "ROUTER",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "UAV",
+          "project_id": null,
+          "device_type": "VM",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Switch-0",
+          "project_id": null,
+          "device_type": "SWITCH",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "VDI-Router",
+          "project_id": null,
+          "device_type": "ROUTER",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "VDI-2",
+          "project_id": null,
+          "device_type": "VM",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Switch-2",
+          "project_id": null,
+          "device_type": "SWITCH",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Switch-1",
+          "project_id": null,
+          "device_type": "SWITCH",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "Switch-4",
+          "project_id": null,
+          "device_type": "SWITCH",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "DMZ-Router",
+          "project_id": null,
+          "device_type": "ROUTER",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": true,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "connected",
+          "api_managed": false
+        },
+        {
+          "agent_id": "telemetry-test-vm-01",
+          "project_id": null,
+          "device_type": "VM",
+          "node_type": null,
+          "expected_ip": null,
+          "registered_at": null,
+          "connected": false,
+          "telemetry_seen": true,
+          "expected": false,
+          "state": "telemetry-only",
+          "api_managed": false
+        }
+      ],
+      "quarantined_count": 0,
+      "quarantined": [],
+      "total": 18,
+      "expected_total": 4,
+      "silent": 1
+    }
+  },
+  "completed_at": "2026-10-10T14:27:11.948Z",
+  "pass": true,
+  "browser_errors": [
+    {
+      "type": "http",
+      "status": 401,
+      "url": "http://172.16.255.245:3000/api/v1/auth/me"
+    },
+    {
+      "type": "http",
+      "status": 401,
+      "url": "http://172.16.255.245:3000/api/v1/auth/me"
+    }
+  ]
+}

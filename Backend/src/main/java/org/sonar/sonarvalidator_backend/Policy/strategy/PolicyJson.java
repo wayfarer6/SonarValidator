@@ -175,4 +175,120 @@ public final class PolicyJson {
     public static String label(org.sonar.sonarvalidator_backend.Policy.ZoneClass zone) {
         return zone == null ? "Unknown" : zone.label();
     }
+
+    /**
+     * 두 대역이 겹치는지 판정합니다.
+     *
+     * <h2>⚠️ 왜 필요한가 — 관리 평면 자기 차단 방지</h2>
+     * <p>자동 집행을 켜면 <b>모든 금지 쌍</b>이 장치로 내려갑니다. 그런데
+     * 프로젝트에 관리 대역({@code 172.16.255.0/24})이 서브넷으로 들어 있으면,
+     * 그 대역과 등급 차이가 나는 대역 사이의 이동도 "금지" 로 판정될 수
+     * 있습니다.
+     *
+     * <p>그 규칙이 스위치/라우터에 내려가면 <b>관리 트래픽이 차단되어</b>
+     * 프로버가 서버에 보고하지 못하고 스스로 고립됩니다. 그러면 정책을 되돌릴
+     * 원격 경로도 사라집니다 — 도구가 자기 발판을 끊는 실패입니다.
+     *
+     * <p>그래서 집행 규칙을 만들 때 관리 대역과 겹치는 항목은 <b>걸러냅니다.</b>
+     * 수집·화면에는 그대로 남습니다(운영자가 위반을 봐야 하므로).
+     *
+     * @param cidrA 첫 대역 (CIDR)
+     * @param cidrB 둘째 대역 (CIDR)
+     * @return 겹치면 true (형식을 알 수 없으면 false)
+     */
+    public static boolean overlaps(String cidrA, String cidrB) {
+        final String[] left = splitCidr(cidrA);
+        final String[] right = splitCidr(cidrB);
+        if (left == null || right == null) {
+            return false;
+        }
+        final long addressA = ipv4Of(left[0]);
+        final long addressB = ipv4Of(right[0]);
+        final int lengthA = prefixLengthOf(left[1]);
+        final int lengthB = prefixLengthOf(right[1]);
+        if (addressA < 0 || addressB < 0 || lengthA < 0 || lengthB < 0) {
+            return false;
+        }
+        // 짧은 쪽(넓은 쪽) 접두사로 맞춰 비교합니다. /16 과 /24 는
+        // /16 기준으로 같은지 보면 겹침을 알 수 있습니다.
+        final int shorter = Math.min(lengthA, lengthB);
+        final long mask = (shorter == 0) ? 0L : (0xFFFFFFFFL << (32 - shorter)) & 0xFFFFFFFFL;
+        return (addressA & mask) == (addressB & mask);
+    }
+
+    /**
+     * 집행 항목이 관리 평면과 충돌하는지 판정합니다.
+     *
+     * <h2>⚠️ 왜 {@link #overlaps} 를 그대로 쓰면 안 되는가</h2>
+     * <p>인터넷 기본 경로 차단은 {@code 0.0.0.0/0} 입니다. 이 대역은
+     * <b>모든</b> 대역과 겹치므로, 단순히 겹침만 보면 관리 대역을 겨냥하지
+     * 않은 정상 차단까지 전부 걸러집니다.
+     * (실측: 허용 목록 밖 기본 경로 차단이 사라져 테스트가 실패했습니다)
+     *
+     * <p>그래서 <b>전체를 겨냥한 대역({@code /0})은 제외</b>하고, 특정 대역과
+     * 관리 대역이 실제로 겹칠 때만 관리 평면 충돌로 봅니다.
+     *
+     * @param cidr   검사할 대역
+     * @param prefix 관리 대역
+     * @return 관리 평면과 충돌하면 true
+     */
+    public static boolean overlapsManagementPrefix(String cidr, String prefix) {
+        if (cidr == null || prefix == null || prefix.isBlank()) {
+            return false;
+        }
+        final String[] parts = splitCidr(cidr);
+        if (parts == null || "0".equals(parts[1])) {
+            // 전체를 겨냥한 차단은 관리 대역만을 노린 것이 아닙니다.
+            return false;
+        }
+        return overlaps(cidr, prefix);
+    }
+
+    /**
+     * 점 표기 IPv4 주소를 32비트 값으로 바꿉니다.
+     *
+     * @param dotted 주소 (예: {@code 10.20.111.0})
+     * @return 값 (형식 오류면 -1)
+     */
+    private static long ipv4Of(String dotted) {
+        if (dotted == null) {
+            return -1;
+        }
+        final String[] octets = dotted.split("\\.");
+        if (octets.length != 4) {
+            return -1;
+        }
+        long value = 0;
+        for (final String octet : octets) {
+            final int part;
+            try {
+                part = Integer.parseInt(octet);
+            } catch (RuntimeException ex) {
+                return -1;
+            }
+            if (part < 0 || part > 255) {
+                return -1;
+            }
+            value = (value << 8) | part;
+        }
+        return value;
+    }
+
+    /**
+     * 접두사 길이 문자열을 정수로 바꿉니다.
+     *
+     * @param prefix 접두사 (예: {@code 24})
+     * @return 길이 (형식 오류면 -1)
+     */
+    private static int prefixLengthOf(String prefix) {
+        if (prefix == null) {
+            return -1;
+        }
+        try {
+            final int length = Integer.parseInt(prefix.trim());
+            return (length < 0 || length > 32) ? -1 : length;
+        } catch (RuntimeException ex) {
+            return -1;
+        }
+    }
 }

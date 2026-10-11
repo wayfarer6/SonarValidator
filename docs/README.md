@@ -1,4 +1,9 @@
-# Website
+# SonarValidator 문서
+
+- [저장소 구조](STRUCTURE.md)
+- [배포 가이드](DEPLOYMENT.md)
+
+아래 명령으로 상세 설계/운영 문서 사이트를 실행합니다.
 
 This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
 
@@ -7,8 +12,6 @@ This website is built using [Docusaurus](https://docusaurus.io/), a modern stati
 ```bash
 npm install
 ```
-
-**Note**: feel free to use the package manager of your choice.
 
 ## Local Development
 

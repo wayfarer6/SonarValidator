@@ -5,7 +5,7 @@ authors: [sonarvalidator]
 tags: [architecture, backend]
 date: 2026-09-26
 ---
-`SonarValidator_Backend` (Spring Boot 4.1 / Java 26)의 구조를 다이어그램으로
+`Backend` (Spring Boot 4.1 / Java 26)의 구조를 다이어그램으로
 정리한 문서입니다. 모든 내용은 실제 소스 코드를 기준으로 작성했습니다.
 
 > **v1.0 (2026-09-25)** — 격리 기능(`QuarantineService` / `QuarantineController` /
@@ -893,9 +893,9 @@ DELETE /api/v1/quarantine/ATICS-agent?released_by=tester
 ### 9.1 기동
 
 ```bash
-# docker compose 가 3000 을 점유하므로 먼저 내립니다.
-docker compose down
-cd SonarValidator_Backend
+# docker compose -f docker/compose/compose.yaml 가 3000 을 점유하므로 먼저 내립니다.
+docker compose -f docker/compose/compose.yaml down
+cd Backend
 export JAVA_HOME=/home/osboxes/.sdkman/candidates/java/26.0.2-oracle
 nohup ./mvnw spring-boot:run > /tmp/sonar-backend.log 2>&1 &
 ```

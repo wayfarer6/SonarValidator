@@ -5,17 +5,14 @@
 #   frontend (nginx)  ──/api/*──▶  backend (Spring Boot / Java 26)  ──▶  postgres
 #
 # 사용법
-#   docker compose up -d --build        # 전체 기동
-#   docker compose ps                   # 상태
-#   docker compose logs -f backend      # 로그
-#   docker compose down                 # 종료 (볼륨 유지)
-#   docker compose down -v              # 종료 + DB 삭제
+#   docker compose -f docker/compose/compose.yaml up -d --build        # 전체 기동
+#   docker compose -f docker/compose/compose.yaml ps                   # 상태
+#   docker compose -f docker/compose/compose.yaml logs -f backend      # 로그
+#   docker compose -f docker/compose/compose.yaml down                 # 종료 (볼륨 유지)
+#   docker compose -f docker/compose/compose.yaml down -v              # 종료 + DB 삭제
 #
-# ⚠️ 최초 1회는 JDK 26 베이스 이미지를 먼저 구워야 한다.
-#    (backend 이미지가 그 베이스를 FROM 으로 쓰기 때문)
-#      docker compose --profile bootstrap build
-#    또는
-#      ./docker/scripts/build-all.sh
+# Backend 빌드는 base-image 서비스를 빌드 컨텍스트로 참조하므로
+# `docker compose -f docker/compose/compose.yaml up --build` 한 번으로 의존 순서까지 처리한다.
 # =============================================================================
 
 # compose 프로젝트 이름. 컨테이너/네트워크/볼륨 이름 앞에 붙는다.
@@ -37,24 +34,37 @@ services:
   # ===========================================================================
   # 0) JDK 26 베이스 이미지 (빌드 전용)
   # ===========================================================================
-  # 이 서비스는 "실행"되지 않는다. base 이미지를 굽기 위한 자리다.
-  # profile 로 분리해 두어 `docker compose up` 이 컨테이너를 만들지 않는다.
-  #
-  #   docker compose --profile bootstrap build
+  # 이 서비스는 base 이미지를 굽기 위한 자리다. `up` 때 생성되더라도
+  # /bin/true 로 즉시 정상 종료하며, Backend 빌드가 이 서비스를 참조한다.
   #
   base-image:
-    profiles: ["bootstrap"]
     image: ${BASE_IMAGE:-sonar-validator/jdk26-base:26.0.2.1}
     build:
-      context: ./docker/base
+      context: ../base
       dockerfile: Dockerfile
-    # 이미지 빌드만 하고 컨테이너는 만들지 않도록 즉시 종료하는 명령을 둔다.
-    # (profile 로 이미 up 대상에서 빠지지만, 명시적으로 한 번 더 방어)
+    # 빌드 그래프에는 포함하되 `up`에서는 컨테이너를 만들지 않는다.
+    scale: 0
     command: ["/bin/true"]
     restart: "no"
 
   # ===========================================================================
-  # 1) PostgreSQL
+  # 1) C++ Prober 컴파일 이미지 (빌드 전용)
+  # ===========================================================================
+  # CMake/ANTLR4/compiler 툴체인을 Backend Dockerfile과 런타임에서 분리한다.
+  # 결과 이미지의 /tmp/sonar_stage만 Backend 빌드 컨텍스트로 전달된다.
+  prober-compiler:
+    image: ${PROBER_COMPILER_IMAGE:-sonar-validator/prober-compiler:latest}
+    build:
+      context: ../..
+      dockerfile: docker/compiler/prober/Dockerfile
+      target: bundle
+    # Backend의 추가 빌드 컨텍스트로만 쓰며 실행 컨테이너는 만들지 않는다.
+    scale: 0
+    command: ["/bin/true"]
+    restart: "no"
+
+  # ===========================================================================
+  # 2) PostgreSQL
   # ===========================================================================
   postgres:
     image: postgres:17-alpine
@@ -65,7 +75,7 @@ services:
     environment:
       # ⚠️ 이 세 값은 "컨테이너를 처음 만들 때"만 쓰인다.
       #    볼륨(postgres-data)이 이미 있으면 무시되므로, 값을 바꾸려면
-      #    `docker compose down -v` 로 볼륨을 지우고 다시 올려야 한다.
+      #    `docker compose -f docker/compose/compose.yaml down -v` 로 볼륨을 지우고 다시 올려야 한다.
       POSTGRES_DB: ${DB_NAME:-sonarvalidator}
       POSTGRES_USER: ${DB_USER:-sonarvalidator}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-sonarvalidator}
@@ -102,28 +112,25 @@ services:
       - sonar-net
 
   # ===========================================================================
-  # 2) Spring Boot 백엔드 (Java 26)
+  # 3) Spring Boot 백엔드 (Java 26)
   # ===========================================================================
   backend:
     build:
-      context: .
+      context: ../..
       dockerfile: docker/backend/Dockerfile
+      additional_contexts:
+        sonar_base: service:base-image
+        prober_bundle: service:prober-compiler
       args:
-        # docker/base 로 구운 이미지를 그대로 쓴다.
-        BASE_IMAGE: ${BASE_IMAGE:-sonar-validator/jdk26-base:26.0.2.1}
         # 이미지 빌드 중 테스트는 기본적으로 건너뛴다.
         # (테스트는 호스트에서 ./mvnw test 로 돌리는 편이 빠르다)
-        #   docker compose build --build-arg SKIP_TESTS=false backend
+        #   docker compose -f docker/compose/compose.yaml build --build-arg SKIP_TESTS=false backend
         SKIP_TESTS: ${SKIP_TESTS:-true}
 
     image: sonar-validator/backend:${IMAGE_TAG:-latest}
     container_name: sonar-backend
     restart: unless-stopped
     logging: *default-logging
-
-    # 시크릿/설정은 .env 에서 온다. (.env.example 을 복사해 만든다)
-    env_file:
-      - .env
 
     environment:
       # ---------------------------------------------------------------------
@@ -165,7 +172,7 @@ services:
       #    운영에서는 반드시 고정된 값을 주입할 것.
       SONAR_SECRET_KEY: ${SONAR_SECRET_KEY:-}
       # 평문 HTTP OPNsense 접속 허용 여부. 기본 true(랩) — 자세한 설명은
-      # SonarValidator_Backend/src/main/resources/application.properties 참고.
+      # Backend/src/main/resources/application.properties 참고.
       # 운영에서 평문 HTTP 를 막으려면 false 로 두고 허용 장비만
       # SONAR_OPNSENSE_HTTP_ORIGINS 에 나열한다.
       SONAR_OPNSENSE_ALLOW_HTTP: ${SONAR_OPNSENSE_ALLOW_HTTP:-true}
@@ -173,7 +180,9 @@ services:
 
       # 원격 Agent terminal WebSocket 인증용. env_file 변수는 동일 키의
       # 명시적 environment 항목에서 빈 기본값으로 덮이지 않도록 별도 전달합니다.
-      SONAR_TERMINAL_SHARED_SECRET: ${SONAR_TERMINAL_SHARED_SECRET:?SONAR_TERMINAL_SHARED_SECRET must be set in .env}
+      # 로컬/PoC는 별도 .env 없이도 기동할 수 있다. 운영 배포에서는 반드시
+      # 충분히 긴 무작위 값으로 덮어써야 한다.
+      SONAR_TERMINAL_SHARED_SECRET: ${SONAR_TERMINAL_SHARED_SECRET:-sonarvalidator-local-terminal-secret-change-before-production}
 
       # ---------------------------------------------------------------------
       # CORS 허용 출처
@@ -188,7 +197,7 @@ services:
 
     ports:
       # C++ Prober 가 기본적으로 3000 을 본다
-      # (SonarValidator_Prober/Installer/default.conf 의 SERVER_PORT=3000).
+      # (Prober/Installer/default.conf 의 SERVER_PORT=3000).
       # nginx 를 경유해도 되지만, 랩 장치를 그대로 두려면 직접 노출이 편하다.
       - "${BACKEND_PORT:-3000}:3000"
 
@@ -209,11 +218,11 @@ services:
       - sonar-net
 
   # ===========================================================================
-  # 3) React 프론트엔드 (nginx)
+  # 4) React 프론트엔드 (nginx)
   # ===========================================================================
   frontend:
     build:
-      context: .
+      context: ../..
       dockerfile: docker/frontend/Dockerfile
       args:
         # ⚠️ VITE_* 는 빌드 시점에 코드로 치환된다.
@@ -255,6 +264,6 @@ networks:
     driver: bridge
 
 volumes:
-  # ⚠️ `docker compose down -v` 하면 이 볼륨이 삭제되어 DB 데이터가 사라진다.
+  # ⚠️ `docker compose -f docker/compose/compose.yaml down -v` 하면 이 볼륨이 삭제되어 DB 데이터가 사라진다.
   postgres-data:
     name: sonarvalidator-postgres-data

@@ -15,7 +15,7 @@ Alpine/FRR 기반 PoC 네트워크와 별개입니다. 검증 스크립트와 �
 | 다운로드 번들에 서비스 누락 | 일반/Cisco systemd 및 OpenRC 파일을 번들과 Docker 스테이징에 포함 |
 | OPNsense NAT 경로 404 | RVI에서 `/api/firewall/filter/get` 우선. `/search_nat`는 구버전 404 폴백으로만 사용 |
 | OPNsense HTTP 주소가 코드에서 거부됨 | 서버의 `SONAR_OPNSENSE_HTTP_ORIGINS`에 명시한 origin만 예외 허용. 기본 HTTPS 동작과 redirect 금지는 유지 |
-| Cisco `dohost` 가 항상 `Unexpected Error` | guestshell↔IOS CLI 세션(IOSP) 부재. IOS 에서 `guestshell disable` → `guestshell enable` 로 세션 재생성. 상세: [`astra e2e-RVI/cisco-dohost-diagnosis.md`](../../../../astra%20e2e-RVI/cisco-dohost-diagnosis.md) |
+| Cisco `dohost` 가 항상 `Unexpected Error` | guestshell↔IOS CLI 세션(IOSP) 부재. IOS 에서 `guestshell disable` → `guestshell enable` 로 세션 재생성. 상세: [`Test/e2e/astra-rvi/cisco-dohost-diagnosis.md`](../../../../astra%20e2e-RVI/cisco-dohost-diagnosis.md) |
 | 설치된 `default.conf` 가 템플릿 그대로 | 번들의 `default.conf` 를 장비 값으로 채우지 않으면 서버 IP·키가 빈 템플릿으로 설치됨(터미널 비활성). 배포 전 반드시 확인 |
 | `dohost` 실패를 텔레메트리로 오인 | `dohost` 는 실패해도 종료코드 0. `ios_cli` 가 오류 문자열을 판정해 빈 출력을 반환하도록 수정 |
 
@@ -34,12 +34,12 @@ Alpine/FRR 기반 PoC 네트워크와 별개입니다. 검증 스크립트와 �
 정적 링크 빌드 예:
 
 ```bash
-cmake -S SonarValidator_Prober -B SonarValidator_Prober/build-rvi \
+cmake -S Prober -B Prober/build-rvi \
   -DCMAKE_BUILD_TYPE=Release -DSONAR_STATIC_LINK=ON \
   -DCMAKE_EXE_LINKER_FLAGS=-static \
   -DANTLR4_RUNTIME_ROOT="$HOME/tools/antlr4-install"
-cmake --build SonarValidator_Prober/build-rvi --target installer_bundle -j2
-file SonarValidator_Prober/Installer/sonar_validator_prober
+cmake --build Prober/build-rvi --target installer_bundle -j2
+file Prober/Installer/sonar_validator_prober
 ```
 
 `installer_bundle`은 Installer 아래 서비스 파일을 원본으로부터 다시 생성합니다.
@@ -102,13 +102,13 @@ MANAGEMENT_PREFIX=10.20.0.0/24,192.168.35.0/24,192.168.122.0/24;
 
 ### 이번 로컬 환경의 백엔드 설정
 
-`SonarValidator_Backend/config/application-local.properties`에 사용자 제공 장비 키와
+`Backend/config/application-local.properties`에 사용자 제공 장비 키와
 동일한 키를 넣었습니다. 파일은 git 제외 대상이며 권한은 0600입니다.
-`SonarValidator_Backend` 디렉터리에서 백엔드를 실행하면 기본 `local` 프로필이 읽습니다.
+`Backend` 디렉터리에서 백엔드를 실행하면 기본 `local` 프로필이 읽습니다.
 이 파일은 빌드 JAR에 포함되지 않습니다. 다른 호스트나 Docker에서는 환경변수로 주입합니다.
 
 ```bash
-cd SonarValidator_Backend
+cd Backend
 ./mvnw spring-boot:run
 ```
 
@@ -121,7 +121,7 @@ RVI HTTP 허용 주소도 이 외부 설정에 지정했습니다.
 ## 4. Arista 설치
 
 ```bash
-scp -r SonarValidator_Prober/Installer admin@10.20.0.4:/home/admin
+scp -r Prober/Installer admin@10.20.0.4:/home/admin
 # Arista의 bash에서 default.conf를 위 장비 설정으로 편집 후:
 cd /home/admin/Installer
 sudo sh Installer.sh
@@ -135,7 +135,7 @@ Arista에서는 일반 서비스 프로필을 사용하며 `FastCli` 권한을 �
 ## 5. Cisco guestshell 설치
 
 ```bash
-scp -P 2222 -r SonarValidator_Prober/Installer guestshell@10.20.0.1:/home/guestshell
+scp -P 2222 -r Prober/Installer guestshell@10.20.0.1:/home/guestshell
 # guestshell에서 default.conf를 위 장비 설정으로 편집 후:
 cd /home/guestshell/Installer
 sudo env SONAR_INSTALL_PROFILE=cisco sh Installer.sh

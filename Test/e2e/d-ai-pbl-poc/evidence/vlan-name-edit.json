@@ -1,0 +1,54 @@
+{
+  "feature": "collected VLAN name editing",
+  "checked_at": "2026-10-10T13:17:03.655648+00:00",
+  "endpoints": {
+    "list": "GET /api/v1/projects/{id}/vlans",
+    "save": "PUT /api/v1/projects/{id}/vlans"
+  },
+  "backend_model": "project_vlan (project_id, agent_id, vlan_id, name) unique",
+  "why_new_model": "ProjectSubnet.cidr is NOT NULL, so an L2 VLAN without an address had nowhere to store a name; a fake CIDR would pollute policy targets",
+  "ui": "수집된 VLAN 표에 이름 입력 + 저장 (components/project/DiscoveredVlans.tsx)",
+  "verified": {
+    "save": {
+      "project_id": "PRJ-AADE1BC3",
+      "agent_id": "Switch-3",
+      "vlan_id": 131,
+      "name": "ATICS 통신망",
+      "saved": true
+    },
+    "list_after_save": [
+      {
+        "agent_id": "Switch-3",
+        "vlan_id": 131,
+        "name": "ATICS 통신망"
+      }
+    ],
+    "subnet_row_merge": [
+      {
+        "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+        "cidr": "10.10.131.0/24",
+        "vlan_id": 131,
+        "subnet_class": "Open",
+        "name": "VLAN131",
+        "agent_id": "Firewall",
+        "manually_edited": false,
+        "allowed_peers": []
+      }
+    ],
+    "editing_vlan_names": [
+      {
+        "agent_id": "Switch-3",
+        "vlan_id": 131,
+        "name": "ATICS 통신망"
+      }
+    ],
+    "blank_clears": {
+      "project_id": "PRJ-AADE1BC3",
+      "agent_id": "Switch-3",
+      "vlan_id": 131,
+      "name": null,
+      "saved": false
+    },
+    "list_after_clear": []
+  }
+}

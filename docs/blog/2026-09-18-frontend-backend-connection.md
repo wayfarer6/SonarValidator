@@ -119,7 +119,7 @@ export function listProjects(): Promise<ApiProjectList> {
 
 ```
 백엔드에 연결할 수 없습니다
-cd SonarValidator_Backend && ./mvnw spring-boot:run
+cd Backend && ./mvnw spring-boot:run
 [다시 시도]
 ```
 

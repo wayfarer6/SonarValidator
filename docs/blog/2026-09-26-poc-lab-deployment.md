@@ -81,7 +81,7 @@ ip addr add 172.16.255.10N/24 dev eth11      # Switch-0..4 → .101 ~ .105
 ### 4-1. 준비 (호스트)
 
 ```sh
-cd SonarValidator_Prober
+cd Prober
 cmake --build build_static -j"$(nproc)"        # musl(Alpine) 대응 정적 바이너리
 mkdir -p /tmp/sonar_stage
 cp build_static/sonar_validator_prober /tmp/sonar_stage/
@@ -171,7 +171,7 @@ done
 ### 6-1. mock API 로 통신 확인
 
 ```sh
-cd Agent_Test/mock_API
+cd Test/agent/mock_API
 MOCK_PUSH_INTERVAL_MS=20000 node envelope_server.js &
 ```
 
@@ -181,7 +181,7 @@ MOCK_PUSH_INTERVAL_MS=20000 node envelope_server.js &
 ### 6-2. Spring 백엔드로 확인
 
 ```sh
-cd SonarValidator_Backend
+cd Backend
 export JAVA_HOME=/home/osboxes/.sdkman/candidates/java/26.0.2-oracle
 ./mvnw spring-boot:run          # 포트 3000 (mock 과 동시 실행 불가)
 ```

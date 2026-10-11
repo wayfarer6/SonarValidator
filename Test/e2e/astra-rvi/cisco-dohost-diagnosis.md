@@ -106,7 +106,7 @@ AGENT_NAME=test-vm
 TERMINAL_SHARED_SECRET=;
 ```
 
-이 값은 저장소의 `SonarValidator_Prober/Installer/default.conf` 템플릿과 **완전히 동일**합니다.
+이 값은 저장소의 `Prober/Installer/default.conf` 템플릿과 **완전히 동일**합니다.
 (scp 한 `/home/guestshell/Installer/default.conf` 도 같은 템플릿, 타임스탬프 10-09 12:33)
 
 그 결과:
@@ -277,7 +277,7 @@ TERMINAL_SHARED_SECRET=<백엔드와 동일한 32자 이상>;
 MANAGEMENT_PREFIX=10.20.0.0/24,192.168.35.0/24,192.168.122.0/24;
 ```
 
-키 값은 저장소에 기록하지 않습니다. `astra e2e-RVI/artifacts/Cisco/Installer/` 의
+키 값은 저장소에 기록하지 않습니다. `Test/e2e/astra-rvi/artifacts/Cisco/Installer/` 의
 준비된 번들을 쓰면 됩니다.
 
 ### 7.3 재배포 확인

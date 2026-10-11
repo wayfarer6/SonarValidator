@@ -1,0 +1,101 @@
+{
+  "run_name": "cidr-and-agent-guard-20261010",
+  "frontend": "http://172.16.255.245:5173",
+  "project_id": "PRJ-AADE1BC3",
+  "started_at": "2026-10-10T14:30:51.566Z",
+  "invalid_cidr_matrix": [
+    {
+      "name": "octet-overflow",
+      "submitted": "10.10.131.999/24",
+      "response_status": 200,
+      "invalid_flagged": false,
+      "compliant": false,
+      "violation_count": 3,
+      "echoed_in_response": true,
+      "screenshot": "invalid-octet-overflow.png",
+      "pass": false
+    },
+    {
+      "name": "prefix-overflow",
+      "submitted": "10.10.131.0/33",
+      "response_status": 200,
+      "invalid_flagged": false,
+      "compliant": false,
+      "violation_count": 3,
+      "echoed_in_response": true,
+      "screenshot": "invalid-prefix-overflow.png",
+      "pass": false
+    },
+    {
+      "name": "missing-octet",
+      "submitted": "10.10.131/24",
+      "response_status": 200,
+      "invalid_flagged": false,
+      "compliant": false,
+      "violation_count": 3,
+      "echoed_in_response": true,
+      "screenshot": "invalid-missing-octet.png",
+      "pass": false
+    },
+    {
+      "name": "non-numeric",
+      "submitted": "not-an-ip/24",
+      "response_status": 200,
+      "invalid_flagged": false,
+      "compliant": false,
+      "violation_count": 3,
+      "echoed_in_response": true,
+      "screenshot": "invalid-non-numeric.png",
+      "pass": false
+    }
+  ],
+  "persistence": {
+    "expected": "10.10.131.0/24",
+    "actual": "10.10.131.0/24",
+    "pass": true
+  },
+  "agent_guards": {
+    "offline_vm": {
+      "unsupported_label": true,
+      "isolation_button_count": 0,
+      "pass": true
+    },
+    "unassigned_router": {
+      "isolation_button_present": true,
+      "isolation_button_disabled": true,
+      "title": "프로젝트에 연결된 Agent만 서브넷을 선택할 수 있습니다",
+      "pass": true
+    }
+  },
+  "final_state": {
+    "project_status": 200,
+    "vlan_131_132_133": [
+      {
+        "vlan_id": 131,
+        "cidr": "10.10.131.0/24",
+        "subnet_class": "Confidential"
+      },
+      {
+        "vlan_id": 132,
+        "cidr": "10.10.132.0/24",
+        "subnet_class": "Confidential"
+      },
+      {
+        "vlan_id": 133,
+        "cidr": "10.10.133.0/24",
+        "subnet_class": "Confidential"
+      }
+    ],
+    "quarantine_status": 200,
+    "active_quarantine_total": 0,
+    "overview_status": 200,
+    "connected_agents": 16,
+    "total_agents": 18,
+    "silent_agents": 1,
+    "pass": true
+  },
+  "runtime_errors": [],
+  "execution_completed": true,
+  "pass": false,
+  "completed_at": "2026-10-10T14:31:01.216Z"
+}

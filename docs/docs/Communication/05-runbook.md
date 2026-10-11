@@ -7,7 +7,7 @@ sidebar_position: 5
 ## 서버 실행
 
 ```bash
-cd SonarValidator_Backend
+cd Backend
 export JAVA_HOME=/home/osboxes/.sdkman/candidates/java/26.0.2-oracle
 export PATH="$JAVA_HOME/bin:$PATH"
 ./mvnw spring-boot:run
@@ -25,7 +25,7 @@ curl -s http://localhost:3000/api/v1/agents
 ### 1) 봉투 단위 테스트 (서버 불필요)
 
 ```bash
-cd SonarValidator_Prober
+cd Prober
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j4
 ./build/envelope_test
@@ -69,7 +69,7 @@ curl -s -X POST http://localhost:3000/api/v1/agents/integration-vm-01/push \
 ## mock 서버 (Spring 없이 검증)
 
 ```bash
-cd Agent_Test/mock_API
+cd Test/agent/mock_API
 npm run envelope          # node envelope_server.js
 ```
 
@@ -87,7 +87,7 @@ MOCK_PUSH_INTERVAL_MS=20000 npm run envelope
 ## 전체 테스트 한 번에
 
 ```bash
-cd SonarValidator_Prober/build && ctest --output-on-failure
+cd Prober/build && ctest --output-on-failure
 ```
 
 ```

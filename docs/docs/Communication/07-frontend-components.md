@@ -12,7 +12,7 @@ sidebar_label: "07. 공통 컴포넌트"
 
 ## 1. `MermaidDiagram` — 확대/축소 가능한 다이어그램
 
-**경로**: `SonarValidator_Frontend/src/components/common/MermaidDiagram.tsx`
+**경로**: `Frontend/src/components/common/MermaidDiagram.tsx`
 
 ### 1.1 왜 필요한가
 
@@ -123,7 +123,7 @@ SVG 를 다시 주입할 때 인라인 스타일도 되돌리기 때문입니다
 
 ## 2. `Branch_Divider` — 환경 구성 방식 분기선
 
-**경로**: `SonarValidator_Frontend/src/components/common/Branch_Divider.tsx`
+**경로**: `Frontend/src/components/common/Branch_Divider.tsx`
 
 ### 2.1 왜 필요한가
 
@@ -204,7 +204,7 @@ SVG 를 다시 주입할 때 인라인 스타일도 되돌리기 때문입니다
 
 ## 3. `AgentDeployCard` — Prober 설치 번들 만들기
 
-**경로**: `SonarValidator_Frontend/src/components/project/AgentDeployCard.tsx`
+**경로**: `Frontend/src/components/project/AgentDeployCard.tsx`
 
 ### 3.1 왜 서버가 설정을 채우는가
 

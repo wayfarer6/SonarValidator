@@ -21,12 +21,12 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'SonarValidator_Prober/**'
+      - 'Prober/**'
       - '.github/workflows/prober.yml'
   pull_request:
     branches: [main, develop]
     paths:
-      - 'SonarValidator_Prober/**'
+      - 'Prober/**'
       - '.github/workflows/prober.yml'
   workflow_dispatch:
 
@@ -126,7 +126,7 @@ jobs:
       #   "문법을 안 커밋했다" 를 알기 어렵습니다.
       - name: Verify committed ANTLR parsers
         run: |
-          count=$(find SonarValidator_Prober/components/parser/generated/grammar \
+          count=$(find Prober/components/parser/generated/grammar \
             -name '*Parser.cpp' 2>/dev/null | wc -l)
           echo "커밋된 Parser.cpp: ${count}개"
           if [ "$count" -eq 0 ]; then
@@ -136,23 +136,23 @@ jobs:
           fi
 
       - name: Configure
-        working-directory: SonarValidator_Prober
+        working-directory: Prober
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DANTLR4_RUNTIME_ROOT="${ANTLR4_RUNTIME_ROOT}"
 
       - name: Build
-        working-directory: SonarValidator_Prober
+        working-directory: Prober
         run: cmake --build build --parallel "$(nproc)"
 
       - name: Run tests
-        working-directory: SonarValidator_Prober
+        working-directory: Prober
         run: ctest --test-dir build --output-on-failure
 
       - name: Test summary
         if: always()
-        working-directory: SonarValidator_Prober
+        working-directory: Prober
         run: |
           # LastTest.log 에서 결과 줄만 뽑습니다. 전체를 붙이면 로그가 묻힙니다.
           if [ -f build/Testing/Temporary/LastTest.log ]; then

@@ -75,7 +75,7 @@ public class AgentBundleService {
     /**
      * 번들을 풀었을 때 나오는 루트 폴더 이름입니다.
      *
-     * <p>저장소의 {@code SonarValidator_Prober/Installer/} 와 같은 이름을 씁니다.
+     * <p>저장소의 {@code Prober/Installer/} 와 같은 이름을 씁니다.
      * 평평하게(루트에 파일만) 담으면 {@code Installer.sh} 처럼 "설치 스크립트" 인지
      * "설치 폴더" 인지 구분되지 않고, 풀었을 때 현재 폴더에 파일이 흩어집니다.
      */
@@ -520,7 +520,7 @@ public class AgentBundleService {
                 바이너리가 없다면 서버 배포 단계에서 스테이징이 누락된 것이므로,
                 먼저 정적 빌드를 만들고 /tmp/sonar_stage 에 넣어 주세요:
 
-                  cd SonarValidator_Prober && cmake -S . -B build_static -DCMAKE_BUILD_TYPE=Release
+                  cd Prober && cmake -S . -B build_static -DCMAKE_BUILD_TYPE=Release
                   cmake --build build_static --target sonar_validator_prober
                   cp build_static/sonar_validator_prober /tmp/sonar_stage/
 

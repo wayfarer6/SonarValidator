@@ -1181,7 +1181,7 @@ ARISTA#reload
 
 ## 구현 현황 및 주의사항
 
-`SonarValidator_Prober/management_service.cpp`의 `Apply*Policy` 기준 현재 적용 범위입니다.
+`Prober/management_service.cpp`의 `Apply*Policy` 기준 현재 적용 범위입니다.
 
 | 정책 함수                   | 대상         | 구현 상태 | 비고                                                                     |
 | --------------------------- | ------------ | --------- | ------------------------------------------------------------------------ |

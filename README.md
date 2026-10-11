@@ -27,33 +27,35 @@ flowchart LR
 
 ```
 .
-├── SonarValidator_Prober/     # C++ 수집 에이전트
+├── Prober/     # C++ 수집 에이전트
 │   ├── components/            # 재사용 부품 (parser, device, policy, terminal …)
 │   ├── module/                # 오케스트레이션 (수집 / 초기화 / 관리 / 내보내기)
 │   ├── database/              # SQLite 계층 (schema, telemetry_store)
 │   └── workers/               # 워커 스레드
-├── SonarValidator_Backend/    # Spring Boot 서버
+├── Backend/    # Spring Boot 서버
 │   └── src/main/antlr4/       # Java 쪽 ANTLR 문법 (.g4)
-├── SonarValidator_Frontend/   # React 프론트엔드
-├── docs/                      # Docusaurus 문서 사이트 (설계·가이드·테스트 문서는 blog/ 에 정리)
-├── dev.sh                     # 프론트+백엔드 개발 스택 실행 스크립트
-└── docker/                    # 이미지 / 컴포즈 정의
+├── Frontend/   # React 프론트엔드
+├── docs/                      # 배포·구조 문서와 Docusaurus 사이트
+├── docker/                    # Compose, 컴파일/런타임 이미지, D-AI-PBL PoC appliance
+├── Test/                      # dev.sh, 통합 테스트, Agent/E2E 자료
+├── LICENSE
+└── README.md
 ```
 
 ## 빠른 시작
 
-### 0. 개발 스택 한 번에 실행 (Agent 불필요)
+### 0. 개발 스택 한 번에 실행
 
-Agent(Prober) 없이 **Frontend + Backend** 만 띄워 개발/테스트할 때 씁니다.
+Frontend + Backend를 띄우고 Agent 다운로드에 필요한 Bundle 자산도 준비합니다.
 백엔드는 H2 파일 DB(`local` 프로필), 디버거(JDWP 5005)가 함께 열립니다.
 
 ```bash
-./dev.sh                 # 프론트(5173) + 백엔드(3000, 디버그) 실행
-./dev.sh --no-debug      # 디버그 포트 없이
-./dev.sh --backend-only  # 백엔드만
-./dev.sh --frontend-only # 프론트만
+./Test/dev.sh                 # 프론트(5173) + 백엔드(3000, 디버그) 실행
+./Test/dev.sh --no-debug      # 디버그 포트 없이
+./Test/dev.sh --backend-only  # 백엔드만
+./Test/dev.sh --frontend-only # 프론트만
 
-BACKEND_PORT=3300 ./dev.sh   # 포트가 점유된 경우 변경
+BACKEND_PORT=3300 ./Test/dev.sh   # 포트가 점유된 경우 변경
 ```
 
 - Ctrl+C 한 번으로 두 프로세스가 함께 종료됩니다.
@@ -66,7 +68,7 @@ BACKEND_PORT=3300 ./dev.sh   # 포트가 점유된 경우 변경
 Java 26 과 Maven Wrapper 를 사용합니다. 시스템 `mvn` 은 필요하지 않습니다.
 
 ```bash
-cd SonarValidator_Backend
+cd Backend
 ./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=3300
 ```
 
@@ -79,7 +81,7 @@ cd SonarValidator_Backend
 ANTLR 툴체인(jar + C++ 런타임)이 필요합니다. 경로는 환경변수로 지정할 수 있습니다.
 
 ```bash
-cd SonarValidator_Prober
+cd Prober
 ANTLR4_JAR=$HOME/tools/antlr.jar \
 ANTLR4_RUNTIME_ROOT=$HOME/tools/antlr4-install \
 ./build.sh          # 구성 → 빌드 → 테스트 → 실행
@@ -88,14 +90,14 @@ ANTLR4_RUNTIME_ROOT=$HOME/tools/antlr4-install \
 수동으로 빌드/테스트만 할 때:
 
 ```bash
-cd SonarValidator_Prober
+cd Prober
 cmake -S . -B build -DANTLR4_JAR=... -DANTLR4_RUNTIME_ROOT=...
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
 CMake Debug 빌드, GDB, 선택 테스트, ANTLR 준비 방법은
-[Prober CMake 디버깅 가이드](CMAKE_DEBUG_GUIDE.md)를 참고하세요.
+[Prober CMake 디버깅 가이드](docs/docs/Class%20Design/CMAKE_DEBUG_GUIDE.md)를 참고하세요.
 VS Code에서 Agent를 실제 실행해 브레이크포인트를 확인하거나 권한이 필요한 테스트를
 수행할 때도 같은 가이드의 **실제 Agent 프로세스 테스트** 절을 참고하세요. sudo 명령은
 사용자가 직접 실행하며, VS Code 자체를 sudo로 실행할 필요는 없습니다.
@@ -103,7 +105,7 @@ VS Code에서 Agent를 실제 실행해 브레이크포인트를 확인하거나
 ### 3. Frontend
 
 ```bash
-cd SonarValidator_Frontend
+cd Frontend
 npm install
 npm run dev
 ```
@@ -111,16 +113,25 @@ npm run dev
 ### 4. 전체 스택 (Docker)
 
 ```bash
-docker compose up --build
+docker compose -f docker/compose/compose.yaml up --build
 ```
+
+자세한 절차는 [배포 가이드](docs/DEPLOYMENT.md)를 참고하세요.
 
 ## 테스트
 
+```bash
+./Test/test.sh             # 전체 검사
+./Test/test.sh --backend   # 대상별 검사
+./Test/test.sh --docker
+./Test/test.sh --bundle
+```
+
 | 대상     | 명령                                                                       | 현재 상태                          |
 | -------- | -------------------------------------------------------------------------- | ---------------------------------- |
-| Backend  | `cd SonarValidator_Backend && ./mvnw clean test`                         | **261 tests, 0 failures**    |
-| Prober   | `cd SonarValidator_Prober && ctest --test-dir build --output-on-failure` | **13 tests, 100% passed**    |
-| Frontend | `cd SonarValidator_Frontend && npx tsc -b && npm run lint`               | **tsc clean, lint 0 errors** |
+| Backend  | `cd Backend && ./mvnw clean test`                                           | **441 tests, 0 failures**             |
+| Prober   | `cd Prober && ctest --test-dir build-test --output-on-failure`              | **23 tests, 100% passed**              |
+| Frontend | `cd Frontend && npx tsc -b && npm run lint && npm run build`                | **type-check/build 통과, lint 0 errors** |
 
 ### ⚠️ Frontend 는 `npm run dev` 로 검증하지 않습니다
 
@@ -142,9 +153,9 @@ ANTLR 런타임 빌드(수 분)까지 돌면 대기 시간만 늘고, 정작 어
 
 | 워크플로                                          | 트리거 경로                    | 단계                                                        |
 | ------------------------------------------------- | ------------------------------ | ----------------------------------------------------------- |
-| [`backend.yml`](.github/workflows/backend.yml)   | `SonarValidator_Backend/**`  | JDK 26 →`./mvnw -B clean test` → surefire 리포트        |
-| [`frontend.yml`](.github/workflows/frontend.yml) | `SonarValidator_Frontend/**` | Node 22 →`npm ci` → `tsc -b` → `lint` → `build` |
-| [`prober.yml`](.github/workflows/prober.yml)     | `SonarValidator_Prober/**`   | ANTLR4 4.13.2 소스 빌드 →`cmake` → `ctest`            |
+| [`backend.yml`](.github/workflows/backend.yml)   | `Backend/**`  | JDK 26 →`./mvnw -B clean test` → surefire 리포트        |
+| [`frontend.yml`](.github/workflows/frontend.yml) | `Frontend/**` | Node 22 →`npm ci` → `tsc -b` → `lint` → `build` |
+| [`prober.yml`](.github/workflows/prober.yml)     | `Prober/**`   | ANTLR4 4.13.2 소스 빌드 →`cmake` → `ctest`            |
 
 ```mermaid
 flowchart LR
@@ -188,8 +199,8 @@ ANTLR 이 자동 생성합니다.
 - C++: `components/parser/grammar/*.g4` → `cmake --build build --target regenerate_parser`
   (생성물은 저장소에 커밋되므로 **재생성 결과를 함께 커밋**해야 합니다)
 
-자세한 내용은 [`SonarValidator_Backend/README.md`](SonarValidator_Backend/README.md) 와
-[`SonarValidator_Prober/README.md`](SonarValidator_Prober/README.md) 를 참고하세요.
+자세한 내용은 [`Backend/README.md`](Backend/README.md) 와
+[`Prober/README.md`](Prober/README.md) 를 참고하세요.
 
 ## 문서
 

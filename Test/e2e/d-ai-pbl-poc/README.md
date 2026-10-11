@@ -82,6 +82,22 @@ QEMU VM 은 systemd 로 실행한다. 컨테이너 VM 은 방화벽 뒤 GNS3 호
 `Unexpected end of JSON input` 으로 중단됐다. 로그인 폼이 나타날 때까지 기다렸다가
 입력·제출하고, 마지막에 `/auth/me` 200 을 확인해 실패 시 즉시 원인이 드러나게 고쳤다.
 
+**VLAN 표시 필터와 이름 편집.** 프론트엔드 `getProjectDevices` 가 수집 결과를
+`expected && project_id` 집합과 교집합했습니다. 그래서 **프로젝트에 등록되지 않은
+스위치의 OVS VLAN 이 전부 사라져** "수집된 VLAN" 표가 항상 0건이었습니다.
+실측(dev 스택): 스위치 5대가 VLAN 10 / 111·112 / 121·122 / 131·132·133 / 141 을
+보고했고 백엔드 `GET /api/v1/network/discovered` 에도 들어 있었지만, 등록 예정
+Agent 가 Gateway-Router 1대뿐이라 표가 비었습니다. 수집 결과를 기준으로 두고
+**아직 보고가 없는 등록 예정 장치만 자리표시자로 더하도록** 고쳤습니다.
+
+VLAN **이름**은 저장할 자리가 없었습니다. `ProjectSubnet.cidr` 이 `NOT NULL` 이라
+주소 없는 L2 VLAN(OVS 대부분)은 이름을 담을 수 없고, 가짜 대역을 넣으면 정책
+엔진이 실제 대역으로 봅니다. 그래서 `project_vlan` 표(`project, agent_id,
+vlan_id, name` 유니크)와 `GET/PUT /api/v1/projects/{id}/vlans` 를 추가하고,
+"수집된 VLAN" 표에서 **이름을 입력·저장**하도록 했습니다. 이름은 표시용이며
+등급·대역·집행 규칙을 바꾸지 않습니다. 비우고 저장하면 미지정으로 돌아갑니다.
+저장된 이름은 서브넷 편집 행에도 반영됩니다.
+
 ## 프론트엔드 검증
 
 ### 터미널 (14/14)
@@ -171,6 +187,23 @@ Public-Web-Server · Management-Console` 을 등록 예정 Agent 로 등록했�
 
 ## 남은 범위와 주의해서 해석할 항목
 
+- **차단 해제(배정 해제 시 잔여 차단)** — 수정 완료. 장치가 서브넷 배정을 잃으면
+  `forAgent` 가 `forDevice()` 폴백으로 빠지는데 그 정책에는 `acl_apply` 가 없어
+  이전 차단(OVS 쿠키 플로우, 라우터 전용 체인)이 남았습니다. 이제 폴백에도
+  **빈 `acl_apply`(선언적 해제)** 를 실어 "우리 규칙을 모두 지워라" 를 명시합니다.
+  실측 검증(Switch-3): 차단 설치(flow 1) → 배정 해제(`summary.release=true`,
+  `acl_rules=[]`) → **flow 0 자동 정리**. 라우터 5대도 `SONAR-CSO` 체인에
+  `RETURN` 만 남고 drop 0 입니다.
+
+  안전 범위: `batchEnforcementRule` 을 구현한 **OVS 스위치와 라우터만** 해제 노드를
+  받습니다. 방화벽·VM 은 `null` 이라 외부에서 관리하는 방화벽 nft 규칙(`astra_cso`)
+  을 건드리지 않습니다. 자동 집행이 꺼져 있으면(`external-enforcement`) 해제 노드도
+  만들지 않아, 외부 도구가 규칙을 소유한 배포에 영향이 없습니다.
+- 배정 없는 라우터에는 `RETURN` 만 담긴 `SONAR-CSO` 체인과 FORWARD 점프가 생깁니다.
+  트래픽을 막지 않는 무해한 상태이며, 우리 규칙만 지우기 위한 <b>범위 한정</b>의
+  대가입니다.
+- VLAN 이름은 표시용입니다. 등급(CSO)·대역·허용 목록을 바꾸지 않으므로,
+  격리를 실제로 걸려면 서브넷 편집에서 등급과 규칙을 지정해야 합니다.
 - GNS3 에서 전원이 꺼져 있는 `KNCCS` · `AFCCS` · `Public-Web-Server` 에는 에이전트를 배포하지 않았다.
   등록 예정 Agent 로만 존재하며, 수집·터미널 검증 대상이 아니다.
 - 실제 패킷 송수신에 대한 CSO 분리·차단 정책의 **적용 효과**는 검증하지 않았다. 방화벽의 `astra_cso`

@@ -2,29 +2,31 @@
 #
 # dev.sh — SonarValidator 로컬 개발 스택 실행 스크립트
 #
-# Agent(Prober) 없이 Frontend + Backend 만 띄워서 개발/테스트합니다.
+# Frontend + Backend 를 띄우고 Agent 다운로드용 번들 자산도 준비합니다.
 #
 #   Backend  : Spring Boot (H2 파일 DB, local 프로필)   -> http://localhost:3000
 #   Frontend : Vite dev server                          -> http://localhost:5173
 #   Debug    : JDWP (suspend=n)                         -> localhost:5005 attach
 #
 # 사용법:
-#   ./dev.sh                 # 프론트 + 백엔드(디버그) 둘 다 실행
-#   ./dev.sh --no-debug      # 디버그 포트 없이 실행
-#   ./dev.sh --backend-only  # 백엔드만
-#   ./dev.sh --frontend-only # 프론트만
-#   ./dev.sh --no-install    # node_modules 없을 때 npm install 건너뛰기
+#   ./Test/dev.sh                 # 프론트 + 백엔드(디버그) 둘 다 실행
+#   ./Test/dev.sh --no-debug      # 디버그 포트 없이 실행
+#   ./Test/dev.sh --backend-only  # 백엔드만
+#   ./Test/dev.sh --frontend-only # 프론트만
+#   ./Test/dev.sh --no-install    # node_modules 없을 때 npm install 건너뛰기
+#   ./Test/dev.sh --no-agent-bundle # Agent 번들 준비를 건너뛰기
 #
 # 환경변수로 포트 변경:
-#   BACKEND_PORT=3300 FRONTEND_PORT=5174 DEBUG_PORT=5006 ./dev.sh
+#   BACKEND_PORT=3300 FRONTEND_PORT=5174 DEBUG_PORT=5006 ./Test/dev.sh
 #
 # Ctrl+C 한 번으로 두 프로세스가 함께 종료됩니다.
 #
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$ROOT/SonarValidator_Backend"
-FRONTEND_DIR="$ROOT/SonarValidator_Frontend"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BACKEND_DIR="$ROOT/Backend"
+FRONTEND_DIR="$ROOT/Frontend"
 
 BACKEND_PORT="${BACKEND_PORT:-3000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
@@ -34,6 +36,7 @@ RUN_BACKEND=1
 RUN_FRONTEND=1
 DO_INSTALL=1
 DEBUG=1
+PREPARE_AGENT_BUNDLE=1
 
 c_reset=$'\033[0m'; c_dim=$'\033[2m'; c_cyan=$'\033[36m'
 c_green=$'\033[32m'; c_yellow=$'\033[33m'; c_red=$'\033[31m'
@@ -46,6 +49,7 @@ for arg in "$@"; do
     --frontend-only) RUN_BACKEND=0 ;;
     --no-install)    DO_INSTALL=0 ;;
     --no-debug)      DEBUG=0 ;;
+    --no-agent-bundle) PREPARE_AGENT_BUNDLE=0 ;;
     -h|--help)       usage; exit 0 ;;
     *) printf '%s알 수 없는 옵션: %s%s\n' "$c_red" "$arg" "$c_reset" >&2; usage; exit 2 ;;
   esac
@@ -57,6 +61,77 @@ die()  { printf '%s[dev]%s %s\n' "$c_red" "$c_reset" "$*" >&2; exit 1; }
 
 port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
+resolve_antlr_runtime() {
+  local candidate
+  if [ -n "${ANTLR4_RUNTIME_ROOT:-}" ]; then
+    printf '%s\n' "$ANTLR4_RUNTIME_ROOT"
+    return
+  fi
+  for candidate in \
+    "$ROOT/.cache/antlr4-install" \
+    "${HOME:-}/tools/antlr4-install" \
+    /opt/antlr4-install \
+    /usr/local \
+    /usr; do
+    if [ -f "$candidate/lib/libantlr4-runtime.a" ] && \
+       [ -d "$candidate/include/antlr4-runtime" ]; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+  return 1
+}
+
+stage_agent_bundle() {
+  local runtime_root
+  runtime_root="$(resolve_antlr_runtime)" || die \
+    "ANTLR4 C++ 런타임을 찾을 수 없습니다. ANTLR4_RUNTIME_ROOT를 지정하거나 --no-agent-bundle을 사용하세요."
+
+  log "Agent Bundle 빌드 및 스테이징..."
+  cmake -S "$PROBER_DIR" -B "$PROBER_BUILD_DIR" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DSONAR_STATIC_LINK=ON \
+    -DCMAKE_EXE_LINKER_FLAGS=-static \
+    -DANTLR4_RUNTIME_ROOT="$runtime_root"
+  cmake --build "$PROBER_BUILD_DIR" \
+    --parallel "${BUILD_JOBS:-4}" --target installer_bundle
+
+  install -d "$STAGE_DIR/systemd" "$STAGE_DIR/rc-service"
+  install -m 755 "$PROBER_DIR/Installer/sonar_validator_prober" \
+    "$STAGE_DIR/sonar_validator_prober"
+  install -m 755 "$PROBER_DIR/Installer/Installer.sh" "$STAGE_DIR/Installer.sh"
+  install -m 644 "$PROBER_DIR/Installer/default_template.sqlite" \
+    "$STAGE_DIR/default_template.sqlite"
+  install -m 644 "$PROBER_DIR/Installer/systemd/sonar_validator_prober.service" \
+    "$STAGE_DIR/systemd/sonar_validator_prober.service"
+  install -m 644 "$PROBER_DIR/Installer/systemd/sonar_validator_prober-cisco.service" \
+    "$STAGE_DIR/systemd/sonar_validator_prober-cisco.service"
+  install -m 755 "$PROBER_DIR/Installer/rc-service/sonar_validator_prober" \
+    "$STAGE_DIR/rc-service/sonar_validator_prober"
+}
+
+configure_terminal_secret() {
+  local secret_file="$ROOT/.runtime/terminal-secret"
+  local configured="${SONAR_TERMINAL_SHARED_SECRET:-}"
+
+  if [ -z "$configured" ] && [ -f "$ROOT/.env" ]; then
+    configured="$(sed -n 's/^SONAR_TERMINAL_SHARED_SECRET=//p' "$ROOT/.env" | tail -n 1)"
+  fi
+  if [ -z "$configured" ] && [ -f "$secret_file" ]; then
+    configured="$(cat "$secret_file")"
+  fi
+  if [ "${#configured}" -lt 32 ]; then
+    command -v openssl >/dev/null 2>&1 || die \
+      "Agent Bundle용 비밀값이 필요합니다. SONAR_TERMINAL_SHARED_SECRET에 32자 이상을 지정하세요."
+    install -d -m 700 "$ROOT/.runtime"
+    configured="$(openssl rand -hex 32)"
+    printf '%s\n' "$configured" > "$secret_file"
+    chmod 600 "$secret_file"
+    log "개발용 Agent 터미널 비밀값을 .runtime/terminal-secret에 생성했습니다."
+  fi
+  export SONAR_TERMINAL_SHARED_SECRET="$configured"
+}
+
 # --- 사전 점검 --------------------------------------------------------------
 if [ "$RUN_BACKEND" = 1 ]; then
   [ -x "$BACKEND_DIR/mvnw" ] || die "Maven wrapper 를 찾을 수 없습니다: $BACKEND_DIR/mvnw"
@@ -66,24 +141,19 @@ if [ "$RUN_BACKEND" = 1 ]; then
     warn "현재 Java ${java_major} 입니다. 이 프로젝트는 JDK 26 을 사용합니다."
   fi
   if port_in_use "$BACKEND_PORT"; then
-    die "포트 $BACKEND_PORT 이(가) 이미 사용 중입니다. (docker compose 로 띄운 백엔드일 수 있습니다)
-     BACKEND_PORT=3300 ./dev.sh 처럼 다른 포트를 지정하거나 기존 프로세스를 종료하세요."
+    die "포트 $BACKEND_PORT 이(가) 이미 사용 중입니다. (docker compose -f docker/compose/compose.yaml 로 띄운 백엔드일 수 있습니다)
+     BACKEND_PORT=3300 ./Test/dev.sh 처럼 다른 포트를 지정하거나 기존 프로세스를 종료하세요."
   fi
 
-  PROBER_DIR="$ROOT/SonarValidator_Prober"
-  PROBER_BUILD_DIR="${PROBER_BUILD_DIR:-$PROBER_DIR/build-debug}"
-  STAGE_DIR="${SONAR_DEPLOY_STAGE_DIR:-/tmp/sonar_stage}"
-  if [ ! -x "$STAGE_DIR/sonar_validator_prober" ]; then
+  if [ "$PREPARE_AGENT_BUNDLE" = 1 ]; then
+    PROBER_DIR="$ROOT/Prober"
+    PROBER_BUILD_DIR="${PROBER_BUILD_DIR:-$PROBER_DIR/build-dev}"
+    STAGE_DIR="${SONAR_DEPLOY_STAGE_DIR:-/tmp/sonar_stage}"
     [ -f "$PROBER_DIR/CMakeLists.txt" ] || die "Prober 소스 디렉터리를 찾을 수 없습니다: $PROBER_DIR"
-    command -v cmake >/dev/null 2>&1 || die "cmake 가 없어 Agent 바이너리를 준비할 수 없습니다."
-    log "Agent 바이너리가 stage 에 없어 Prober 를 빌드합니다..."
-    cmake -S "$PROBER_DIR" -B "$PROBER_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release
-    cmake --build "$PROBER_BUILD_DIR" --parallel "${BUILD_JOBS:-4}" --target sonar_validator_prober
-  fi
-  mkdir -p "$STAGE_DIR"
-  install -m 755 "$PROBER_BUILD_DIR/sonar_validator_prober" "$STAGE_DIR/sonar_validator_prober"
-  if [ -f "$PROBER_DIR/Installer/default_template.sqlite" ]; then
-    install -m 644 "$PROBER_DIR/Installer/default_template.sqlite" "$STAGE_DIR/default_template.sqlite"
+    command -v cmake >/dev/null 2>&1 || die "cmake 가 없어 Agent Bundle을 준비할 수 없습니다."
+    stage_agent_bundle
+    configure_terminal_secret
+    export SONAR_DEPLOY_STAGE_DIR="$STAGE_DIR"
   fi
 fi
 

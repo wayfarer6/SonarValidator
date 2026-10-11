@@ -1,6 +1,6 @@
-# Frontend (SonarValidator_Frontend) 클래스 다이어그램
+# Frontend (Frontend) 클래스 다이어그램
 
-`SonarValidator_Frontend` (React + TypeScript + Vite + Tailwind)의 **전체 컴포넌트/모듈 구조**를
+`Frontend` (React + TypeScript + Vite + Tailwind)의 **전체 컴포넌트/모듈 구조**를
 PlantUML로 정리한 문서입니다. React 함수 컴포넌트이므로 "클래스"는 컴포넌트/훅/모듈 단위로 표현했습니다.
 
 - **기술 스택**: React 18, TypeScript, react-router, Tailwind CSS, mermaid, jsPDF

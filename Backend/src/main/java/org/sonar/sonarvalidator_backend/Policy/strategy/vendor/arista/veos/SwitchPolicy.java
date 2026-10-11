@@ -171,6 +171,11 @@ public class SwitchPolicy implements DevicePolicy {
         rule.putArray("destination_subnet").add(connection.destinationCidr());
         rule.putArray("applied_interface").add(uplinkPort());
         rule.putArray("bridge_name").add(bridgeName());
+        // 출발 대역의 VLAN 입니다. C++ 의 create 경로가 이 값을 `dl_vlan=` 으로
+        // 붙입니다 — 없으면 태그된 존 간 트래픽에 매칭되지 않습니다.
+        if (connection.sourceVlanId() != null) {
+            rule.putArray("vlan_id").add(connection.sourceVlanId());
+        }
 
         // C++ 는 action=="deny" 만 drop 으로 보고 나머지는 normal(통과)입니다.
         rule.putArray("action").add(connection.forbidden() ? "deny" : "accept");
@@ -222,8 +227,11 @@ public class SwitchPolicy implements DevicePolicy {
         rule.putArray("vendor").add(context.vendorOr(defaultVendor()));
         rule.putArray("product").add(product);
         rule.putArray("model").add(defaultProduct());
-        rule.putArray("subnet_id").add(
-                PolicyJson.firstNonBlank(context.subnet().getSubnetId(), "subnet"));
+        // 해제 노드(subnet == null)에서는 서브넷 식별자가 없습니다.
+        // 그래도 필드는 남깁니다 — 프로버가 이 키의 존재를 전제로 읽습니다.
+        rule.putArray("subnet_id").add(context.subnet() == null
+                ? "subnet"
+                : PolicyJson.firstNonBlank(context.subnet().getSubnetId(), "subnet"));
         // "create" 가 아니라 "apply" 입니다 — 목록 전체를 주고 장치가 맞추게
         // 하는 선언적 명령입니다.
         rule.putArray("command").add("apply");
@@ -247,17 +255,45 @@ public class SwitchPolicy implements DevicePolicy {
             if (connection.sourceCidr() == null || connection.destinationCidr() == null) {
                 continue;
             }
+            // 관리 대역을 끊으면 프로버가 서버에 보고하지 못합니다.
+            if (isManagementPlane(connection)) {
+                continue;
+            }
             final ObjectNode match = entries.addObject();
             final ObjectNode criteria = match.putObject("match_criteria");
             criteria.putArray("ip_saddr").add(connection.sourceCidr());
             criteria.putArray("ip_daddr").add(connection.destinationCidr());
             criteria.putArray("protocol").add("ip");
+            // OVS 플로우는 VLAN 을 지정하지 않으면 <b>무태그 프레임만</b>
+            // 매칭합니다. 그런데 access 포트는 수신 시 내부 VLAN 을 붙이고
+            // 트렁크는 태그를 그대로 흘리므로, 존 간 트래픽은 항상 태그가
+            // 있습니다. VLAN 을 지정하지 않으면 차단 플로우가 <b>한 번도
+            // 매칭되지 않습니다.</b> (실측: Switch-1 uplink eth0 trunks [111,112])
+            if (connection.sourceVlanId() != null) {
+                criteria.putArray("vlan_id").add(connection.sourceVlanId());
+            }
             match.putArray("action").add("deny");
             if (connection.reason() != null) {
                 match.putArray("reason").add(connection.reason());
             }
         }
         return rule;
+    }
+
+    /**
+     * 관리 평면과 겹치는 집행 항목인지 판정합니다.
+     *
+     * <p>자동 집행을 켜면 모든 금지 쌍이 스위치로 내려갑니다. 그 중 관리 대역과
+     * 겹치는 항목은 스위치 자신의 관리 트래픽을 끊어 원격 복구 경로를 없앨 수
+     * 있으므로 집행 목록에서만 제외합니다.
+     *
+     * @param connection 연결
+     * @return 관리 대역과 겹치면 true
+     */
+    private boolean isManagementPlane(PolicyBuildContext.ConnectionView connection) {
+        final String prefix = site.getManagementPrefix();
+        return PolicyJson.overlapsManagementPrefix(connection.sourceCidr(), prefix)
+                || PolicyJson.overlapsManagementPrefix(connection.destinationCidr(), prefix);
     }
 
     /**

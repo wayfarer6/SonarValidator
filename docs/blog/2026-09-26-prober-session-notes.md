@@ -14,7 +14,7 @@ date: 2026-09-26
 
 ## 0. 한 줄 요약
 
-C++23 프로버 에이전트(`SonarValidator_Prober`)에 **ANTLR 기반 CLI 출력 파서 + 수집기 + SQLite 저장** 계층을 추가했고,
+C++23 프로버 에이전트(`Prober`)에 **ANTLR 기반 CLI 출력 파서 + 수집기 + SQLite 저장** 계층을 추가했고,
 실장비(Arista vEOS, Cisco 8000v)에서 **E2E 검증까지 완료**했습니다.
 현재는 **새 PoC 랩(Alpine firewall / Ubuntu VM / OpenVSwitch / FRR)** 으로 배포·검증을 진행 중입니다.
 
@@ -24,7 +24,7 @@ C++23 프로버 에이전트(`SonarValidator_Prober`)에 **ANTLR 기반 CLI 출�
 
 | 항목 | 값 |
 |---|---|
-| 소스 루트 | `/home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Prober` |
+| 소스 루트 | `/home/osboxes/IdeaProjects/SonarValidator/Prober` |
 | 언어/표준 | C++23 (`CMAKE_CXX_STANDARD 23`, extensions OFF) |
 | 빌드 | CMake 3.28.3 + GNU Make 4.3 + g++ 13.3.0 |
 | 테스트 | `ctest --test-dir build --output-on-failure` (8개 테스트) |
@@ -446,4 +446,4 @@ DB가 비어 보입니다. 검증할 때는 최소 35초, 안전하게 **60~70�
 | `docs/Agent_Command.md` | 에이전트 제어 명령어 |
 | `docs/Agent/{Router,Switch,VM,Firewall}_Policy_Design.md` | 장치별 정책 설계 |
 | `PoC용 네트워크 구성하기/네트워크_구성_요약.md` | PoC 랩 토폴로지/IP/포트 |
-| `SonarValidator_Prober/incontext_guide.md` | 프로버 사용 가이드 |
+| `Prober/incontext_guide.md` | 프로버 사용 가이드 |

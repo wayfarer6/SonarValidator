@@ -14,7 +14,7 @@
 // 제거했습니다.
 //
 // 실행 예:
-//   cd Agent_Test/mock_API && npm run envelope     # 별도 터미널
+//   cd Test/agent/mock_API && npm run envelope     # 별도 터미널
 //   ./telemetry_service_test
 //
 // 환경 변수:

@@ -1,5 +1,5 @@
 import subprocess,pathlib,sys,shlex,json
-root=pathlib.Path(__file__).resolve().parents[2];out=root/'astra-e2e-d-ai-pbl-2'
+root=pathlib.Path(__file__).resolve().parents[2];out=root/'Test/e2e/d-ai-pbl-poc'
 name=sys.argv[1];host='ssh1032007@192.168.122.1';remote='/home/ssh1032007/astra-e2e-2'
 env=dict(l.split('=',1) for l in (root/'.env').read_text().splitlines() if '=' in l and not l.startswith('#'))
 conf=pathlib.Path.home()/'.local/share/sonar-e2e-2/vm-default.conf'

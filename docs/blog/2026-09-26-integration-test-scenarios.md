@@ -34,7 +34,7 @@ date: 2026-09-26
 | Backend | `http://<hostname>:3000` | **3000을 권장.** Agent `default.conf` 와 Frontend 기본값이 모두 3000 |
 | Frontend (dev) | `http://localhost:5173` | `npm run dev` (Vite) |
 | H2 Console | `http://localhost:3000/h2-console` | JDBC `jdbc:h2:file:./data/sonarvalidator;AUTO_SERVER=TRUE`, user `sa`, password **빈 값** |
-| Agent → Server | `SERVER_IP` / `SERVER_PORT` (기본 3000) | `SonarValidator_Prober/Installer/default.conf` |
+| Agent → Server | `SERVER_IP` / `SERVER_PORT` (기본 3000) | `Prober/Installer/default.conf` |
 
 - Frontend 는 `.env` 가 없으면 API 주소를 `http://<window.location.hostname>:3000` 으로 잡습니다.
   → **Backend 를 3000 에 띄워야 Frontend 수정 없이 붙습니다.**
@@ -43,25 +43,25 @@ date: 2026-09-26
 
 ### 2.2 Docker 정리 (⚠️ 3000 포트 충돌)
 
-`docker compose up` 상태라면 `sonar-backend` 컨테이너가 **3000 을 점유**합니다.
+`docker compose -f docker/compose/compose.yaml up` 상태라면 `sonar-backend` 컨테이너가 **3000 을 점유**합니다.
 이때 IDE/터미널에서 띄운 백엔드는 포트를 못 잡고, 브라우저는 **조용히 컨테이너와 대화**합니다.
 
 ```bash
 cd /home/osboxes/IdeaProjects/SonarValidator
-docker compose down          # 볼륨은 유지 (데이터 보존)
-docker compose ps            # 아무것도 없어야 함
+docker compose -f docker/compose/compose.yaml down          # 볼륨은 유지 (데이터 보존)
+docker compose -f docker/compose/compose.yaml ps            # 아무것도 없어야 함
 ```
 
 ### 2.3 Backend 기동
 
 ```bash
-cd /home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Backend
+cd /home/osboxes/IdeaProjects/SonarValidator/Backend
 export JAVA_HOME=/home/osboxes/.sdkman/candidates/java/26.0.2-oracle
 export PATH="$JAVA_HOME/bin:$PATH"
 ./mvnw -B -q spring-boot:run          # 기본 3000 (application.properties)
 ```
 
-- 반드시 `SonarValidator_Backend/` 에서 실행합니다. H2 파일 경로가 JVM cwd 기준이라
+- 반드시 `Backend/` 에서 실행합니다. H2 파일 경로가 JVM cwd 기준이라
   `data/sonarvalidator.mv.db` 가 이 디렉터리에 생깁니다.
 - 기동 후 **약 10초** 기다립니다. devtools 재시작 직후에는 포트가 LISTEN 인데도
   브라우저가 `ERR_CONNECTION_REFUSED` 를 받는 구간이 있습니다.
@@ -75,7 +75,7 @@ curl -fsS http://localhost:3000/actuator/health && echo OK
 ### 2.4 Frontend 기동
 
 ```bash
-cd /home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Frontend
+cd /home/osboxes/IdeaProjects/SonarValidator/Frontend
 npm install
 npm run dev            # http://localhost:5173
 ```
@@ -86,7 +86,7 @@ npm run dev            # http://localhost:5173
 ### 2.5 Agent(Prober) 기동
 
 ```bash
-cd /home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Prober
+cd /home/osboxes/IdeaProjects/SonarValidator/Prober
 # 툴체인 경로가 기본값과 다르면 환경변수로 지정
 ANTLR4_JAR=$HOME/tools/antlr.jar \
 ANTLR4_RUNTIME_ROOT=$HOME/tools/antlr4-install \
@@ -603,7 +603,7 @@ curl -s -b /tmp/c.txt -X POST localhost:3000/api/v1/logs/ingest \
 ### 6-B. 스키마·데이터 덤프 (백엔드를 멈추지 않고)
 
 ```bash
-cd /home/osboxes/IdeaProjects/SonarValidator/SonarValidator_Backend
+cd /home/osboxes/IdeaProjects/SonarValidator/Backend
 java -cp ~/.m2/repository/com/h2database/h2/2.4.240/h2-2.4.240.jar org.h2.tools.Script \
   -url 'jdbc:h2:file:./data/sonarvalidator;AUTO_SERVER=TRUE' \
   -user sa -password '' -script /tmp/full.ddl -options DROP
@@ -630,12 +630,12 @@ curl -s -c /tmp/c.txt -X POST localhost:3000/api/v1/auth/login \
 | --- | --- |
 | 로그인 후 무한 스피너 | CORS 4개 origin (§2.7), `@Value` 기본값 중괄호 |
 | 로그인은 되는데 이후 전부 401 | 브라우저 주소가 `127.0.0.1:5173` 인지 / API 가 `:3000` 인지 (쿠키 SameSite) |
-| 브라우저만 이상하고 curl 은 정상 | **Docker 컨테이너가 3000 을 점유** → `docker compose down` |
+| 브라우저만 이상하고 curl 은 정상 | **Docker 컨테이너가 3000 을 점유** → `docker compose -f docker/compose/compose.yaml down` |
 | 기동 직후 `ERR_CONNECTION_REFUSED` | devtools 재시작 직후 → 10초 대기 |
 | `/agents` 가 0건 | 정상일 수 있음 → `/agents/overview` 로 확인 |
 | 프로젝트 편집 마법사에서 `draft` 배너가 안 나옴 | `ProjectView.forEditing()` 은 현재 미사용 경로 → 기대 동작 |
 | 목록엔 있는데 푸시 대상 0건 | Agent 등록 이름 ≠ 서브넷 `agent_id` |
-| H2 콘솔 접속 실패 | URL/계정 (§6-A), 백엔드 cwd 가 `SonarValidator_Backend/` 인지 |
+| H2 콘솔 접속 실패 | URL/계정 (§6-A), 백엔드 cwd 가 `Backend/` 인지 |
 | Agent 재기동 실패 (`Runtime initialization failed`) | hot journal → SIGTERM 사용, DB 헤더 확인 (§2.5) |
 
 ---

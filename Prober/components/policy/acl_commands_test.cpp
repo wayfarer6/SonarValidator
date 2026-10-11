@@ -216,31 +216,54 @@ namespace
     }
 
     // ------------------------------------------------------------------
-    //  FRR 명령 생성
+    //  FRR 명령 생성 (iptables)
     // ------------------------------------------------------------------
+    //
+    // ⚠️ 왜 access-list 가 아니라 iptables 인가
+    //   FRR 8.2.2 zebra 에는 인터페이스 ACL 을 거는 `ip access-group` 이
+    //   없습니다(실측: `% Unknown command`). 즉 access-list 를 만들어도
+    //   트래픽 판정에 쓰이지 않습니다. 라우터는 ip_forward=1 로 커널이
+    //   전달하므로 iptables FORWARD 체인에서 막아야 실제로 차단됩니다.
 
-    void TestFrrAlwaysPermitsTheRest()
+    bool ScriptContains(const std::string& script, const std::string& text)
     {
-        const auto lines = acl::BuildFrrAclCommands(
-            "SONAR-CSO", "eth0",
-            {acl::Entry{"10.0.8.0", "0.0.0.255", "10.0.9.0", "0.0.0.255", "등급 건너뜀"}});
-
-        // IOS 와 같은 이유로 반드시 필요합니다. (암묵적 deny any)
-        Expect(Contains(lines, "access-list SONAR-CSO permit ip any any"),
-               "차단 목록 뒤에 permit ip any any 를 넣는다");
-        Expect(Contains(lines, "access-list SONAR-CSO deny ip 10.0.8.0 0.0.0.255 10.0.9.0 0.0.0.255"),
-               "차단 줄을 만든다");
-        Expect(Contains(lines, "no access-list SONAR-CSO"), "이전 목록을 지운다");
-        Expect(Contains(lines, "ip access-group SONAR-CSO in"), "인터페이스에 건다");
+        return script.find(text) != std::string::npos;
     }
 
-    void TestFrrEmptyListClearsAcl()
+    void TestFrrIptablesDropsListedPairs()
     {
-        const auto lines = acl::BuildFrrAclCommands("SONAR-CSO", "eth0", {});
-        Expect(Contains(lines, "no access-list SONAR-CSO"), "ACL 을 지운다");
-        Expect(CountPrefix(lines, "access-list SONAR-CSO deny") == 0, "빈 목록에는 deny 가 없다");
-        Expect(!Contains(lines, "access-list SONAR-CSO permit ip any any"),
-               "빈 목록에는 permit 도 없다");
+        const std::string script = acl::BuildFrrIptablesScript(
+            "SONAR-CSO",
+            {acl::Entry{"10.0.8.0", "0.0.0.255", "10.0.9.0", "0.0.0.255", "등급 건너뜀"}});
+
+        // 역마스크에서 CIDR 을 역산해 iptables 규칙을 만듭니다.
+        Expect(ScriptContains(script, "iptables -A SONAR-CSO -s 10.0.8.0/24 -d 10.0.9.0/24"),
+               "차단 쌍을 CIDR 로 만든다");
+        Expect(ScriptContains(script, "-j DROP"), "DROP 으로 막는다");
+        Expect(ScriptContains(script, "iptables -A SONAR-CSO -j RETURN"),
+               "체인 끝에 RETURN 을 둔다 (나머지 트래픽은 계속 흐른다)");
+        Expect(ScriptContains(script, "iptables -C FORWARD -j SONAR-CSO"),
+               "FORWARD 에 점프를 건다");
+        Expect(ScriptContains(script, "iptables -F SONAR-CSO"), "갱신 전에 체인을 비운다");
+    }
+
+    void TestFrrIptablesEmptyListClearsDrops()
+    {
+        const std::string script = acl::BuildFrrIptablesScript("SONAR-CSO", {});
+        Expect(ScriptContains(script, "iptables -F SONAR-CSO"), "체인을 비운다");
+        Expect(!ScriptContains(script, "-j DROP"), "빈 목록에는 DROP 이 없다 (차단이 풀린다)");
+        Expect(ScriptContains(script, "iptables -A SONAR-CSO -j RETURN"), "RETURN 은 남는다");
+    }
+
+    void TestFrrIptablesUsesExplicitCidr()
+    {
+        // 서버가 CIDR 을 함께 보내면 역마스크 역산 없이 그 값을 씁니다.
+        acl::Entry entry{"10.20.111.0", "0.0.0.255", "10.30.141.0", "0.0.0.255", "등급 건너뜀"};
+        entry.source_cidr = "10.20.111.0/24";
+        entry.destination_cidr = "10.30.141.0/24";
+        const std::string script = acl::BuildFrrIptablesScript("SONAR-CSO", {entry});
+        Expect(ScriptContains(script, "-s 10.20.111.0/24 -d 10.30.141.0/24"),
+               "명시 CIDR 을 그대로 쓴다");
     }
 }
 
@@ -258,8 +281,9 @@ int main()
     TestIosEmptyListClearsAcl();
     TestIosWithoutInterfaceStillCreatesAcl();
 
-    TestFrrAlwaysPermitsTheRest();
-    TestFrrEmptyListClearsAcl();
+    TestFrrIptablesDropsListedPairs();
+    TestFrrIptablesEmptyListClearsDrops();
+    TestFrrIptablesUsesExplicitCidr();
 
     if (failures == 0)
     {

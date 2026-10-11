@@ -24,12 +24,15 @@ public class ProjectDiscoveryService {
     private final ProjectService projects;
     private final ExpectedAgentRepository expected;
     private final AgentMessageRouterService router;
+    private final ProjectVlanNameService vlanNames;
 
     public ProjectDiscoveryService(ProjectService projects, ExpectedAgentRepository expected,
-                                   AgentMessageRouterService router) {
+                                   AgentMessageRouterService router,
+                                   ProjectVlanNameService vlanNames) {
         this.projects = projects;
         this.expected = expected;
         this.router = router;
+        this.vlanNames = vlanNames;
     }
 
     @Transactional(readOnly = true)
@@ -39,7 +42,37 @@ public class ProjectDiscoveryService {
         expected.findByProjectKeyOrderByCreatedAtDesc(projectId).forEach(agent -> {
             if (all.containsKey(agent.getAgentId())) configs.put(agent.getAgentId(), all.get(agent.getAgentId()));
         });
-        return editingView(projects.getByKey(projectId), configs);
+        final Map<String, Object> view = editingView(projects.getByKey(projectId), configs);
+
+        // ⚠️ 운영자가 붙인 VLAN 이름을 초안 행에 반영합니다.
+        //    자동 이름("VLAN131")은 장비 숫자에서 만든 기계적 값이라, 저장된
+        //    이름이 있으면 그것이 화면에 보여야 합니다. 없으면 운영자가 이름을
+        //    붙여도 다시 "VLAN131" 로 보여 저장이 안 된 것처럼 오해합니다.
+        final Map<String, String> names = vlanNames.namesOf(projectId);
+        final Object subnets = view.get("subnets");
+        if (subnets instanceof List<?> rows) {
+            for (final Object item : rows) {
+                if (!(item instanceof Map<?, ?> row)) {
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
+                final Map<String, Object> entry = (Map<String, Object>) row;
+                final Integer vlanId = entry.get("vlan_id") instanceof Integer value ? value : null;
+                if (vlanId == null) {
+                    continue;
+                }
+                final String saved = names.get(ProjectVlanNameService.key(
+                        entry.get("agent_id") == null ? null : entry.get("agent_id").toString(), vlanId));
+                if (saved != null && !saved.isBlank()) {
+                    entry.put("name", saved);
+                    entry.put("name_edited", true);
+                }
+            }
+        }
+        // L2 전용 VLAN 은 서브넷 행이 없어 이 표에만 이름을 붙일 수 있습니다.
+        // 그래서 이름 맵을 응답에 함께 실어 화면이 곧바로 편집할 수 있게 합니다.
+        view.put("vlan_names", vlanNames.list(projectId));
+        return view;
     }
 
     public static Map<String, Object> editingView(Project project, Map<String, NeutralDeviceConfig> configs) {

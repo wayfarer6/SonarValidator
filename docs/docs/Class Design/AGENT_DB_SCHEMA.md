@@ -1,6 +1,6 @@
-# Agent (SonarValidator_Prober) DB 스키마
+# Agent (Prober) DB 스키마
 
-`SonarValidator_Prober`가 사용하는 **로컬 SQLite 데이터베이스** 스키마 문서입니다.
+`Prober`가 사용하는 **로컬 SQLite 데이터베이스** 스키마 문서입니다.
 런타임 DDL은 `database/schema.cpp`, 설치 시 복사되는 기본 DB는
 `Installer/default_template.sqlite`를 기준으로 작성했습니다.
 

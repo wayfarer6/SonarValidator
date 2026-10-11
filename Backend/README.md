@@ -21,7 +21,7 @@
 
 ```bash
 export JAVA_HOME=/path/to/jdk-26
-cd SonarValidator_Backend
+cd Backend
 ./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=3300
 ```
 

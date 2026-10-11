@@ -26,7 +26,7 @@
 가장 간단한 방법은 `build.sh` 입니다. 툴체인 위치를 자동으로 찾고 구성 → 빌드 → 테스트 → 실행까지 합니다.
 
 ```bash
-cd SonarValidator_Prober
+cd Prober
 ./build.sh
 ```
 
@@ -41,7 +41,7 @@ ANTLR4_RUNTIME_ROOT=$HOME/tools/antlr4-install \
 수동으로:
 
 ```bash
-cd SonarValidator_Prober
+cd Prober
 cmake -S . -B build \
       -DANTLR4_JAR=$HOME/tools/antlr.jar \
       -DANTLR4_RUNTIME_ROOT=$HOME/tools/antlr4-install
@@ -77,7 +77,7 @@ Agent의 systemd 서비스 환경에 각각 주입합니다. 양쪽에서 서로
 ## 디렉터리 구조
 
 ```
-SonarValidator_Prober/
+Prober/
 ├── components/              # 재사용 가능한 부품
 │   ├── backend_communication/   # 서버 전송 (envelope 규격)
 │   ├── device/                  # device_type + router/switch/firewall/vm
@@ -152,7 +152,7 @@ nlohmann::json ParseQueryOutput(Vendor vendor,
 동작이 안 바뀜)
 
 ```bash
-cd SonarValidator_Prober
+cd Prober
 cmake --build build --target regenerate_parser
 # 또는
 sh components/parser/cmake/regenerate_parser.sh
@@ -249,7 +249,7 @@ fib INTEGER, connected INTEGER, distance INTEGER, metric_raw TEXT
 ## 테스트
 
 ```bash
-cd SonarValidator_Prober
+cd Prober
 ctest --test-dir build --output-on-failure          # 전체
 ctest --test-dir build -R cli_output_parser_test    # 특정 테스트
 ```
@@ -294,5 +294,5 @@ stdbuf -o0 -e0 ./build/cli_output_parser_test
 ## 참고
 
 - CLI 파서 JSON 계약의 원본은 `components/parser/cli_output_parser.hpp` 주석입니다.
-- 백엔드 쪽 대응 구현은 `SonarValidator_Backend/src/main/java/.../Service/cli/` 입니다.
+- 백엔드 쪽 대응 구현은 `Backend/src/main/java/.../Service/cli/` 입니다.
 - LLM 을 사용한다면 파싱 규칙을 바꿀 때 `cli_output_parser_test.cpp` 의 회귀 테스트를 먼저 확인하세요.

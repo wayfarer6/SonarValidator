@@ -3,7 +3,7 @@ import path from 'node:path';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/home/osboxes/.local/share/sonar-e2e-2/browser/node_modules/playwright');
-export const dir=path.resolve('astra-e2e-d-ai-pbl-2');
+export const dir=path.resolve('Test/e2e/d-ai-pbl-poc');
 export const base='http://172.16.255.245';
 const env=Object.fromEntries(fs.readFileSync('.env','utf8').split('\n').filter(l=>l.includes('=')&&!l.startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i),l.slice(i+1).replace(/^['"]|['"]$/g,'')]}));
 export const browser=await chromium.launch({headless:true,args:['--disable-dev-shm-usage']});

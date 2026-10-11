@@ -36,6 +36,8 @@ function sviVlan(name: string): number | null {
 export interface ObservedVlan {
   agent: string;
   vlan: number;
+  /** 장비가 보고한 이름(보통 {@code VLAN131} 같은 자동 이름). 없으면 null. */
+  name: string | null;
   access: string[];
   trunk: string[];
   cidrs: string[];
@@ -57,7 +59,11 @@ export function observedVlans(devices: ApiDiscoveredDevice[]): ObservedVlan[] {
     return [...ids].sort((a,b) => a-b).map(vlan => {
       const members = device.interfaces.filter(i => interfaceVlans(device,i.name).includes(vlan));
       return {
-        agent: device.agent_id, vlan,
+        agent: device.agent_id,
+        vlan,
+        // 장비가 준 이름을 기본값으로 씁니다. 운영자가 저장한 이름이 있으면
+        // 화면이 그것으로 덮어씁니다(저장 이름이 항상 우선).
+        name: (device.vlans ?? []).find(v => v.vlan_id === vlan)?.name ?? null,
         access: members.map(i => i.name),
         trunk: device.interfaces.filter(i => i.trunk_vlans?.includes(vlan)).map(i => i.name),
         cidrs: [...new Set(members.flatMap(i => i.addresses.map(networkCidr).filter((x): x is string => x !== null)))],

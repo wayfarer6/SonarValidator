@@ -18,7 +18,7 @@ Docker Compose 한 벌로 띄우는 방법입니다.
 
 아이디 `admin` 은 코드에 하드코딩되어 있습니다.
 
-`SonarValidator_Backend/src/main/java/.../Service/UserService.java`
+`Backend/src/main/java/.../Service/UserService.java`
 
 ```java
 @Transactional
@@ -34,7 +34,7 @@ public boolean ensureDefaultAdmin(String defaultPassword) {
 `AccountInitializer` 가 기동 시 이 메서드를 호출하고, 비밀번호는
 `sonar.admin.password` 프로퍼티로 주입됩니다.
 
-`SonarValidator_Backend/src/main/resources/application.properties`
+`Backend/src/main/resources/application.properties`
 
 ```properties
 sonar.admin.password=${SONAR_ADMIN_PASSWORD:admin}
@@ -49,7 +49,7 @@ sonar.admin.password=${SONAR_ADMIN_PASSWORD:admin}
 ```bash
 cp .env.example .env
 # .env 에서 SONAR_ADMIN_PASSWORD=원하는비밀번호 로 수정
-docker compose up -d
+docker compose -f docker/compose/compose.yaml up -d
 ```
 
 **방법 2 — 이미 기동한 뒤 변경**
@@ -60,8 +60,8 @@ docker compose up -d
 **방법 3 — DB 를 초기화하고 다시 만들기**
 
 ```bash
-docker compose down -v      # ⚠️ 볼륨 삭제 = 모든 데이터 삭제
-docker compose up -d
+docker compose -f docker/compose/compose.yaml down -v      # ⚠️ 볼륨 삭제 = 모든 데이터 삭제
+docker compose -f docker/compose/compose.yaml up -d
 ```
 
 > ⚠️ `SONAR_ADMIN_PASSWORD` 를 바꿔도 **기존 계정의 비밀번호는 바뀌지 않습니다.**
@@ -75,7 +75,7 @@ docker compose up -d
 잠금을 즉시 해제하려면:
 
 ```bash
-docker compose exec postgres psql -U sonarvalidator -d sonarvalidator \
+docker compose -f docker/compose/compose.yaml exec postgres psql -U sonarvalidator -d sonarvalidator \
   -c "UPDATE app_user SET failed_attempts=0, locked_until=NULL WHERE username='admin';"
 ```
 
@@ -83,7 +83,7 @@ docker compose exec postgres psql -U sonarvalidator -d sonarvalidator \
 
 | 항목 | 값 | 설정 위치 |
 | --- | --- | --- |
-| 호스트 (컨테이너 내부) | `postgres` (compose 서비스 이름) | `docker-compose.yml` |
+| 호스트 (컨테이너 내부) | `postgres` (compose 서비스 이름) | `docker/compose/compose.yaml` |
 | 포트 | `5432` | |
 | DB 이름 | `sonarvalidator` | `.env` 의 `DB_NAME` |
 | 사용자 | `sonarvalidator` | `.env` 의 `DB_USER` |
@@ -114,7 +114,7 @@ docker compose exec postgres psql -U sonarvalidator -d sonarvalidator \
 graph TB
     subgraph host["호스트 (Ubuntu)"]
         B["브라우저"]
-        P["C++ Prober<br/>SonarValidator_Prober"]
+        P["C++ Prober<br/>Prober"]
     end
 
     subgraph compose["Docker Compose 네트워크: sonarvalidator_sonar-net"]
@@ -171,7 +171,7 @@ graph TB
 
 > ⚠️ `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` 는 **컨테이너를 처음
 > 만들 때만** 적용됩니다. 볼륨이 이미 있으면 무시되므로, 값을 바꾸려면
-> `docker compose down -v` 로 볼륨을 지워야 합니다.
+> `docker compose -f docker/compose/compose.yaml down -v` 로 볼륨을 지워야 합니다.
 
 ### 4.2 `sonar-backend`
 
@@ -235,28 +235,28 @@ mvn: 없음
 cp .env.example .env
 #    필요하면 SONAR_ADMIN_PASSWORD, SONAR_SECRET_KEY 를 수정
 
-# 2) 이미지 3개 빌드 (JDK 베이스 → 백엔드 → 프론트엔드 순서)
+# 2) 이미지 빌드 (JDK 베이스 → Prober compiler → 백엔드 → 프론트엔드)
 ./docker/scripts/build-all.sh
 
 # 3) 기동
-docker compose up -d
+docker compose -f docker/compose/compose.yaml up -d
 ```
 
-> ⚠️ **순서가 중요합니다.** 백엔드 이미지가 `docker/base` 로 구운 베이스
-> 이미지를 `FROM` 으로 참조하기 때문에, 베이스가 없으면 백엔드 빌드가
-> `pull access denied` 로 실패합니다.
+> Backend 이미지는 `base-image`와 `prober-compiler`를 빌드 컨텍스트로
+> 참조합니다. Compose가 의존 관계를 자동 처리하므로 별도 선행 빌드는 필요 없습니다.
+> 두 서비스는 실행 복제 수가 0이라 기본 기동 시 컨테이너로 실행되지 않습니다.
 >
 > 한 번에 하려면:
 > ```bash
-> docker compose --profile bootstrap build   # 베이스 + 백엔드 + 프론트
-> docker compose up -d
+> docker compose -f docker/compose/compose.yaml build   # 베이스 + Prober compiler + 백엔드 + 프론트
+> docker compose -f docker/compose/compose.yaml up -d
 > ```
 
 ### 상태 확인
 
 ```bash
-docker compose ps                # 3개 모두 healthy 여야 함
-docker compose logs -f backend   # 기동 로그
+docker compose -f docker/compose/compose.yaml ps                # postgres/backend/frontend가 healthy여야 함
+docker compose -f docker/compose/compose.yaml logs -f backend   # 기동 로그
 ```
 
 기동 성공 시 로그에 다음이 보입니다.
@@ -273,9 +273,9 @@ user created: username=admin role=ADMIN
 ### 종료
 
 ```bash
-docker compose down        # 컨테이너만 종료 (DB 데이터 유지)
-docker compose down -v     # ⚠️ 볼륨까지 삭제 (DB 데이터 소실)
-docker compose stop        # 재시작이 빠름
+docker compose -f docker/compose/compose.yaml down        # 컨테이너만 종료 (DB 데이터 유지)
+docker compose -f docker/compose/compose.yaml down -v     # ⚠️ 볼륨까지 삭제 (DB 데이터 소실)
+docker compose -f docker/compose/compose.yaml stop        # 재시작이 빠름
 ```
 
 ---
@@ -284,29 +284,29 @@ docker compose stop        # 재시작이 빠름
 
 ```bash
 # 로그 (특정 서비스, 실시간)
-docker compose logs -f backend
-docker compose logs -f frontend
+docker compose -f docker/compose/compose.yaml logs -f backend
+docker compose -f docker/compose/compose.yaml logs -f frontend
 
 # 컨테이너 안에서 셸
-docker compose exec backend sh
-docker compose exec frontend sh
-docker compose exec postgres psql -U sonarvalidator -d sonarvalidator
+docker compose -f docker/compose/compose.yaml exec backend sh
+docker compose -f docker/compose/compose.yaml exec frontend sh
+docker compose -f docker/compose/compose.yaml exec postgres psql -U sonarvalidator -d sonarvalidator
 
 # 재빌드 후 재기동 (코드 변경 반영)
-docker compose build backend && docker compose up -d backend
+docker compose -f docker/compose/compose.yaml build backend && docker compose -f docker/compose/compose.yaml up -d backend
 
 # 이미지까지 다시 굽기
-./docker/scripts/build-all.sh && docker compose up -d
+./docker/scripts/build-all.sh && docker compose -f docker/compose/compose.yaml up -d
 
 # 설정 검증 (문법 오류 확인)
-docker compose config --quiet && echo OK
-docker compose exec frontend nginx -t
+docker compose -f docker/compose/compose.yaml config --quiet && echo OK
+docker compose -f docker/compose/compose.yaml exec frontend nginx -t
 
 # DB 테이블 목록
-docker compose exec postgres psql -U sonarvalidator -d sonarvalidator -c "\dt"
+docker compose -f docker/compose/compose.yaml exec postgres psql -U sonarvalidator -d sonarvalidator -c "\dt"
 
 # 사용자 목록
-docker compose exec postgres psql -U sonarvalidator -d sonarvalidator \
+docker compose -f docker/compose/compose.yaml exec postgres psql -U sonarvalidator -d sonarvalidator \
   -c "SELECT username, role, enabled, failed_attempts FROM app_user;"
 
 # 자원 사용량
@@ -332,6 +332,7 @@ docker stats --no-stream
 | `VITE_API_BASE_URL` | (빈 값) | 빈 값이면 상대 경로 → nginx 프록시 |
 | `JAVA_OPTS` | `-XX:MaxRAMPercentage=75 ...` | JVM 옵션 |
 | `SKIP_TESTS` | `true` | 이미지 빌드 시 테스트 실행 여부 |
+| `PROBER_COMPILER_IMAGE` | `sonar-validator/prober-compiler:latest` | CMake/ANTLR4 Prober 빌드 산출 이미지 |
 
 > ⚠️ `SONAR_SECRET_KEY` 를 바꾸면 기존에 저장된 OPNsense Secret 을
 > 복호화할 수 없습니다. 운영에서는 고정된 값을 쓰세요.
@@ -345,7 +346,7 @@ docker stats --no-stream
 | 항목 | 결과 |
 | --- | --- |
 | 컨테이너 상태 | 3/3 **healthy** |
-| `docker compose config` | 통과 |
+| `docker compose -f docker/compose/compose.yaml config` | 통과 |
 | `nginx -t` | 통과 |
 | 웹 UI (`GET /`) | 200 |
 | SPA fallback (`/project/editor/1` 등) | 200 |
@@ -379,12 +380,12 @@ curl -s -c /tmp/c.txt -X POST http://localhost/api/v1/auth/login \
 curl -s -b /tmp/c.txt http://localhost/api/v1/auth/me
 
 # 3) nginx 설정 문법
-docker compose exec frontend nginx -t
+docker compose -f docker/compose/compose.yaml exec frontend nginx -t
 ```
 
 ### telemetry 파싱 상세
 
-실제 C++ Prober payload 형식(`SonarValidator_Prober/database/telemetry_store.cpp`
+실제 C++ Prober payload 형식(`Prober/database/telemetry_store.cpp`
 기준)으로 전송한 결과입니다.
 
 ```json
@@ -415,14 +416,14 @@ docker compose exec frontend nginx -t
 ### 백엔드가 기동하지 않음 (`Restarting`)
 
 ```bash
-docker compose logs backend | grep -iE "error|caused by" | head -20
+docker compose -f docker/compose/compose.yaml logs backend | grep -iE "error|caused by" | head -20
 ```
 
 | 증상 | 원인 | 해결 |
 | --- | --- | --- |
 | `Failed to determine a suitable driver class` | `SPRING_PROFILES_ACTIVE` 누락 | compose 가 주입하지만, 수동 실행이면 `-Dspring.profiles.active=postgres` |
 | `Schema-validation: missing table` | `JPA_DDL_AUTO=validate` + 빈 DB | compose 는 `update` 로 설정함. 확인 필요 |
-| `Connection refused` (postgres) | DB 가 healthy 아님 | `docker compose ps` 로 확인, `start_period` 대기 |
+| `Connection refused` (postgres) | DB 가 healthy 아님 | `docker compose -f docker/compose/compose.yaml ps` 로 확인, `start_period` 대기 |
 
 ### 프론트가 502 Bad Gateway
 
@@ -430,19 +431,19 @@ docker compose logs backend | grep -iE "error|caused by" | head -20
 순서는 보장되지만, 백엔드가 기동 중 재시작하면 이 상태가 됩니다.
 
 ```bash
-docker compose ps
-docker compose logs --tail=50 backend
+docker compose -f docker/compose/compose.yaml ps
+docker compose -f docker/compose/compose.yaml logs --tail=50 backend
 ```
 
 ### 로그인이 안 됨
 
 ```bash
 # 계정이 있는지 확인
-docker compose exec postgres psql -U sonarvalidator -d sonarvalidator \
+docker compose -f docker/compose/compose.yaml exec postgres psql -U sonarvalidator -d sonarvalidator \
   -c "SELECT username, enabled, failed_attempts, locked_until FROM app_user;"
 
 # 잠금 해제
-docker compose exec postgres psql -U sonarvalidator -d sonarvalidator \
+docker compose -f docker/compose/compose.yaml exec postgres psql -U sonarvalidator -d sonarvalidator \
   -c "UPDATE app_user SET failed_attempts=0, locked_until=NULL WHERE username='admin';"
 ```
 
@@ -452,7 +453,7 @@ docker compose exec postgres psql -U sonarvalidator -d sonarvalidator \
 
 ```bash
 # 백엔드 직접
-docker compose exec backend sh -c "curl -s localhost:3000/actuator/health"
+docker compose -f docker/compose/compose.yaml exec backend sh -c "curl -s localhost:3000/actuator/health"
 
 # 호스트에서 포트 확인
 ss -tlnp | grep -E ':(80|3000) '
@@ -495,16 +496,21 @@ docker system prune -a    # ⚠️ 미사용 이미지 전부 삭제
 
 ```
 SonarValidator/
-├── docker-compose.yml              # 통합 스택 정의
 ├── .env                            # 실제 환경변수 (git 무시)
 ├── .env.example                    # 템플릿
 ├── .dockerignore                   # 빌드 컨텍스트 제외
 └── docker/
+    ├── compose/
+    │   ├── compose.yaml            # 통합 스택 정의
+    │   └── README.md
     ├── base/
     │   ├── Dockerfile              # Ubuntu 24.04 + JDK 26 + Maven 3.9.16
     │   └── README.md
+    ├── compiler/prober/
+    │   ├── Dockerfile              # C++23/CMake/ANTLR4 전용 빌드
+    │   └── README.md
     ├── backend/
-    │   └── Dockerfile              # 3단계: builder → runtime (JDK only)
+    │   └── Dockerfile              # compiler 산출물 + Java builder → runtime
     ├── frontend/
     │   ├── Dockerfile              # node build → nginx
     │   └── nginx.conf              # SPA fallback + /api 프록시 + gzip

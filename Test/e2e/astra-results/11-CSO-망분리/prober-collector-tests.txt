@@ -1,5 +1,5 @@
-Internal ctest changing into directory: /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
-Test project /home/osboxes/SonarValidator/SonarValidator_Prober/build-debug
+Internal ctest changing into directory: /home/osboxes/SonarValidator/Prober/build-debug
+Test project /home/osboxes/SonarValidator/Prober/build-debug
     Start 19: command_collector_test
 1/1 Test #19: command_collector_test ...........   Passed    1.86 sec
 

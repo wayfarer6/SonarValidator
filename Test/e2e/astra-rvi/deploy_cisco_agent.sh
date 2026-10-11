@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Cisco guestshell Agent 재배포 (RVI).
 #
-# - 백엔드 터미널 키를 SonarValidator_Backend/config/application-local.properties 에서
+# - 백엔드 터미널 키를 Backend/config/application-local.properties 에서
 #   읽어 default.conf 를 생성합니다. 키 값은 화면에 출력하지 않습니다.
 # - 정적 Release 바이너리(build-rvi)를 guestshell 에 올리고 Cisco 프로필로 설치합니다.
 #
 # 사용:
-#   bash 'astra e2e-RVI/deploy_cisco_agent.sh' [--host 10.20.0.1] [--server 10.20.0.3]
+#   bash 'Test/e2e/astra-rvi/deploy_cisco_agent.sh' [--host 10.20.0.1] [--server 10.20.0.3]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,8 +26,8 @@ HOST="10.20.0.1"
 #    (고정하려면 192.168.122.0/24 에서 정적 할당)
 SERVER_IP="192.168.122.32"
 PORT="2222"
-BIN="$ROOT/SonarValidator_Prober/build-rvi/sonar_validator_prober"
-PROPS="$ROOT/SonarValidator_Backend/config/application-local.properties"
+BIN="$ROOT/Prober/build-rvi/sonar_validator_prober"
+PROPS="$ROOT/Backend/config/application-local.properties"
 REMOTE_USER="guestshell"
 REMOTE_DIR="/home/guestshell/Installer"
 
@@ -57,12 +57,12 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
 cp "$BIN" "$STAGE/sonar_validator_prober"
-cp "$ROOT/SonarValidator_Prober/Installer/Installer.sh" "$STAGE/Installer.sh"
-cp "$ROOT/SonarValidator_Prober/Installer/default_template.sqlite" "$STAGE/default_template.sqlite"
+cp "$ROOT/Prober/Installer/Installer.sh" "$STAGE/Installer.sh"
+cp "$ROOT/Prober/Installer/default_template.sqlite" "$STAGE/default_template.sqlite"
 mkdir -p "$STAGE/systemd" "$STAGE/rc-service"
-cp "$ROOT/SonarValidator_Prober/Installer/systemd/sonar_validator_prober-cisco.service" "$STAGE/systemd/"
-cp "$ROOT/SonarValidator_Prober/Installer/systemd/sonar_validator_prober.service" "$STAGE/systemd/"
-cp "$ROOT/SonarValidator_Prober/Installer/rc-service/sonar_validator_prober" "$STAGE/rc-service/" 2>/dev/null || true
+cp "$ROOT/Prober/Installer/systemd/sonar_validator_prober-cisco.service" "$STAGE/systemd/"
+cp "$ROOT/Prober/Installer/systemd/sonar_validator_prober.service" "$STAGE/systemd/"
+cp "$ROOT/Prober/Installer/rc-service/sonar_validator_prober" "$STAGE/rc-service/" 2>/dev/null || true
 
 cat > "$STAGE/default.conf" <<EOF
 # agent 생성시 서버측에서 ip, port 인증서 등을 지정함
