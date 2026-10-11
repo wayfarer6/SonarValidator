@@ -1,0 +1,45 @@
+{
+  "run_date_kst": "2026-10-11",
+  "command": "./Test/test.sh --all --no-install",
+  "overall_exit_code": 0,
+  "backend": {
+    "command": "Backend/./mvnw -B clean test",
+    "tests": 441,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "result": "PASS"
+  },
+  "frontend": {
+    "typecheck": "PASS",
+    "lint": {
+      "result": "PASS_WITH_WARNINGS",
+      "errors": 0,
+      "warnings": 7,
+      "rule": "react-refresh/only-export-components"
+    },
+    "build": {
+      "result": "PASS_WITH_WARNINGS",
+      "css_minify_warnings": 3,
+      "large_chunk_warning": true,
+      "largest_main_chunk_kb": 2342.89,
+      "largest_main_chunk_gzip_kb": 633.75
+    },
+    "node_tests": {
+      "command": "npm test",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "result": "PASS"
+    }
+  },
+  "prober": {
+    "ctest_total": 23,
+    "passed": 23,
+    "failed": 0,
+    "result": "PASS"
+  },
+  "docker_compose_config": "PASS",
+  "agent_bundle_assets": "PASS",
+  "env_loader_regression": "PASS"
+}

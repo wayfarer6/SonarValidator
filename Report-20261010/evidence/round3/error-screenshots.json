@@ -1,0 +1,16 @@
+{
+  "base": "http://172.16.255.245:5173",
+  "started_at": "2026-10-11T12:58:11.490Z",
+  "screenshots": [
+    "01-frontend-running-dashboard.png",
+    "02-invalid-cidr-input.png",
+    "03-invalid-cidr-validation-response.png",
+    "04-invalid-cidr-response-detail.png"
+  ],
+  "errors": [],
+  "response_status": 200,
+  "response_contains_invalid_input": true,
+  "input_error_visible": false,
+  "completed": true,
+  "completed_at": "2026-10-11T12:58:15.628Z"
+}

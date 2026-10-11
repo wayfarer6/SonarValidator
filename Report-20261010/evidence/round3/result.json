@@ -1,0 +1,94 @@
+{
+  "run_name": "round3-regression",
+  "started_at": "2026-10-11T12:44:21.956Z",
+  "frontend": "http://172.16.255.245:5173",
+  "backend": "http://172.16.255.245:3000",
+  "checks": {
+    "health": {
+      "status": 200,
+      "body_status": "UP",
+      "pass": true
+    },
+    "cors": {
+      "status": 200,
+      "allow_origin": "http://172.16.255.245:5173",
+      "pass": true
+    },
+    "auth_guard": {
+      "final_path": "/signin",
+      "pass": true
+    },
+    "login": {
+      "status": 200,
+      "authenticated": true,
+      "role": "ADMIN",
+      "pass": true
+    },
+    "persistence_preserved": {
+      "expected": "10.10.131.0/24",
+      "actual": "10.10.131.0/24",
+      "pass": true
+    },
+    "final_safety": {
+      "quarantine_status": 200,
+      "active_quarantine_total": 0,
+      "pass": true
+    }
+  },
+  "invalid_cidr_matrix": [
+    {
+      "name": "octet-overflow",
+      "submitted": "10.10.131.999/24",
+      "response_status": 200,
+      "invalid_flagged": false,
+      "echoed_in_response": true,
+      "violation_count": 3,
+      "pass": false
+    },
+    {
+      "name": "prefix-overflow",
+      "submitted": "10.10.131.0/33",
+      "response_status": 200,
+      "invalid_flagged": false,
+      "echoed_in_response": true,
+      "violation_count": 3,
+      "pass": false
+    },
+    {
+      "name": "missing-octet",
+      "submitted": "10.10.131/24",
+      "response_status": 200,
+      "invalid_flagged": false,
+      "echoed_in_response": true,
+      "violation_count": 3,
+      "pass": false
+    },
+    {
+      "name": "non-numeric",
+      "submitted": "not-an-ip/24",
+      "response_status": 200,
+      "invalid_flagged": false,
+      "echoed_in_response": true,
+      "violation_count": 3,
+      "pass": false
+    }
+  ],
+  "known_issues": [
+    {
+      "id": "BUG-CIDR-VALIDATION-001",
+      "severity": "HIGH",
+      "title": "초안 검증이 유효하지 않은 IPv4 CIDR을 명시적으로 거부하지 않음",
+      "reproduced_cases": 4
+    }
+  ],
+  "runtime_errors": [],
+  "project_id": "PRJ-AADE1BC3",
+  "target_subnet": {
+    "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+    "vlan_id": 131,
+    "persisted_cidr_before": "10.10.131.0/24"
+  },
+  "execution_completed": true,
+  "pass": false,
+  "completed_at": "2026-10-11T12:44:28.158Z"
+}
