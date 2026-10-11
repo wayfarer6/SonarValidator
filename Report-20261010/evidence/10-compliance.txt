@@ -1,0 +1,141 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Compliance
+Home
+Compliance
+Project Name
+test
+5 subnet
+test 변경 내역
+
+Project test · 변경 18건
+
+프로젝트 단위
+Agent List
+Switch-0
+Switch-0 · 127.0.0.1/8
+Switch
+Switch-1
+Switch-1 · 127.0.0.1/8
+Switch
+Switch-2
+Switch-2 · 127.0.0.1/8
+Switch
+Switch-3
+Switch-3 · 127.0.0.1/8
+Switch
+VDI-Router
+VDI-Router · 127.0.0.1/8
+Router
+Switch-4
+Switch-4 · 127.0.0.1/8
+Switch
+C4I-Network-Router
+C4I-Network-Router · 127.0.0.1/8
+Router
+VDI-1
+VDI-1 · 127.0.0.1/8
+VM
+Firewall
+Firewall · 127.0.0.1/8
+Firewall
+VDI-2
+VDI-2 · 127.0.0.1/8
+VM
+Survillance-Network-Router
+Survillance-Network-Router · 127.0.0.1/8
+Router
+DMZ-Router
+DMZ-Router · 127.0.0.1/8
+Router
+UAV
+UAV · 127.0.0.1/8
+VM
+TOD-Cam
+TOD-Cam · 127.0.0.1/8
+VM
+Management-Console
+Management-Console · 127.0.0.1/8
+VM
+Gateway-Router
+Gateway-Router · 127.0.0.1/8
+Router
+ID	구분	유형	변경 요약	요청자	일시	상태
+CHG-809B39FE	Firewall	QuarantineRelease	
+Agent Firewall 격리 해제 (⚠️ 명령 미전달 — 장치 미연결)
+	operator	2026-10-10 23:27	Applied
+CHG-A50C8BA5	Firewall	Quarantine	
+Agent Firewall 격리 (⚠️ 명령 미전달 — 장치 미연결) [대상 10.10.131.0/24]
+	operator	2026-10-10 23:26	Applied
+CHG-69085220	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 23:26	Applied
+CHG-6F9E2C47	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 23:24	Applied
+CHG-516DC1CB	Firewall	QuarantineRelease	
+Agent Firewall 격리 해제 (⚠️ 명령 미전달 — 장치 미연결)
+	operator	2026-10-10 23:06	Applied
+CHG-C3F84A34	Firewall	Quarantine	
+Agent Firewall 격리 (⚠️ 명령 미전달 — 장치 미연결) [대상 10.10.131.0/24]
+	operator	2026-10-10 23:06	Applied
+CHG-07C10242	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 23:06	Applied
+CHG-8B2F3314	Firewall	QuarantineRelease	
+Agent Firewall 격리 해제 (⚠️ 명령 미전달 — 장치 미연결)
+	operator	2026-10-10 23:05	Applied
+CHG-1AE1F11F	Firewall	Quarantine	
+Agent Firewall 격리 (⚠️ 명령 미전달 — 장치 미연결) [대상 10.10.131.0/24]
+	operator	2026-10-10 23:05	Applied
+CHG-E2FA8D7D	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 23:05	Applied
+CHG-9B521CB9	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 23:04	Applied
+CHG-BC69D3EF	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 23:03	Applied
+CHG-67F33903	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 23:02	Applied
+CHG-E02A34A2	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 22:28	Applied
+CHG-60823445	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 6건, 규칙 1건)
+	system	2026-10-10 22:28	Applied
+CHG-9F364CAA	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 5건, 규칙 0건)
+	system	2026-10-10 22:02	Applied
+CHG-8354EAFA	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 6건, 규칙 1건)
+	system	2026-10-10 22:02	Applied
+CHG-77D3101B	Project	Policy Update	
+프로젝트 정책 수정 (서브넷 0건, 규칙 0건)
+	system	2026-10-09 14:32	Applied
+이전
+PDF 내보내기

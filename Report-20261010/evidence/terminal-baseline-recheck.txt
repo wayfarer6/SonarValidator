@@ -1,0 +1,5 @@
+Firewall:~# nft list table inet sonar_quarantine >/dev/null 2>&1 && echo TABLE_PRESENT || echo TABLE_ABSENT; ping -c 2 -W 1 10.10.131.10 >/dev/nul l; r131=$?; ping -c 2 -W 1 10.10.132.10 >/dev/null; r132=$?; echo BASELINE_131=$r131 BASELINE_132=$r132; printf 'BASE_DONE_%s\n' $((600+6))
+TABLE_ABSENT
+BASELINE_131=0 BASELINE_132=0
+BASE_DONE_606
+Firewall:~# 

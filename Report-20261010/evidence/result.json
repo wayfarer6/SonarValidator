@@ -1,0 +1,238 @@
+{
+  "run": "Report-20261010",
+  "frontend": "http://localhost:5173",
+  "backend": "http://localhost:3000",
+  "started_at": "2026-10-11T02:44:38.306Z",
+  "steps": [
+    {
+      "name": "A-login",
+      "ok": true,
+      "data": {
+        "authenticated": true,
+        "username": "admin",
+        "display_name": "Default Administrator",
+        "role": "ADMIN",
+        "last_login_at": "2026-10-11T02:44:51.044Z"
+      }
+    },
+    {
+      "name": "B-screen-regression",
+      "ok": true,
+      "data": [
+        {
+          "name": "01-dashboard",
+          "route": "/",
+          "title": "SonarValidator Dashboard"
+        },
+        {
+          "name": "02-project-list",
+          "route": "/project",
+          "title": ""
+        },
+        {
+          "name": "03-agent",
+          "route": "/agent",
+          "title": "Agent List | SonarValidator"
+        },
+        {
+          "name": "04-api-nodes",
+          "route": "/api-nodes",
+          "title": "API 연결 노드 | SonarValidator"
+        },
+        {
+          "name": "05-project-editor",
+          "route": "/project/editor/PRJ-AADE1BC3",
+          "title": "Project Editor | SonarValidator"
+        },
+        {
+          "name": "06-subnet-advance",
+          "route": "/project/create/subnet?project_id=PRJ-AADE1BC3",
+          "title": "Subnet Advance Configuration | TailAdmin - React.js Admin Dashboard Template"
+        },
+        {
+          "name": "07-segmentation",
+          "route": "/project/create/segmentation?project_id=PRJ-AADE1BC3",
+          "title": "Add Network Segmentation Rule | TailAdmin"
+        },
+        {
+          "name": "08-preview",
+          "route": "/project/create/preview?project_id=PRJ-AADE1BC3",
+          "title": "Network Topology and Rule Preview | SonarValidator"
+        },
+        {
+          "name": "09-view-nodes",
+          "route": "/project/create/ViewNodes?project_id=PRJ-AADE1BC3",
+          "title": "View Detected Network Nodes | SonarValidator"
+        },
+        {
+          "name": "10-compliance",
+          "route": "/compliance",
+          "title": "Compliance | SonarValidator"
+        },
+        {
+          "name": "11-policy",
+          "route": "/policy",
+          "title": "Policy Management | SonarValidator"
+        },
+        {
+          "name": "12-log",
+          "route": "/log",
+          "title": "Log Management | SonarValidator"
+        },
+        {
+          "name": "13-network",
+          "route": "/network",
+          "title": "Network Management | SonarValidator"
+        },
+        {
+          "name": "14-notification",
+          "route": "/notification",
+          "title": "Notification | SonarValidator"
+        },
+        {
+          "name": "15-profile",
+          "route": "/profile",
+          "title": "React.js Profile Dashboard | TailAdmin - Next.js Admin Dashboard Template"
+        }
+      ]
+    },
+    {
+      "name": "C-vlan-persist",
+      "ok": true,
+      "data": {
+        "saveStatus": 200,
+        "persisted": [
+          {
+            "id": "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+            "vlan": 131,
+            "cls": "Confidential"
+          },
+          {
+            "id": "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+            "vlan": 132,
+            "cls": "Confidential"
+          },
+          {
+            "id": "VLAN133-df34c21e-1fdd-31e8-81ce-8e37c300823e",
+            "vlan": 133,
+            "cls": "Confidential"
+          }
+        ]
+      }
+    },
+    {
+      "name": "C2-policy-push-guard",
+      "ok": true,
+      "data": {
+        "disabled": true,
+        "title": "위반이 있어 전송할 수 없습니다"
+      }
+    },
+    {
+      "name": "D-baseline-reachability",
+      "ok": false,
+      "error": "locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('li').filter({ has: getByText('Firewall', { exact: true }) }).getByText('연결됨', { exact: true }) to be visible\u001b[22m\n"
+    },
+    {
+      "name": "D2-quarantine-131",
+      "ok": true,
+      "data": {
+        "requestStatus": 200,
+        "applied": {
+          "agent_id": "Firewall",
+          "node_id": 12,
+          "scope": "CONNECTION",
+          "target_cidr": "10.10.131.0/24",
+          "project_id": "PRJ-AADE1BC3",
+          "reason": null,
+          "requested_by": "operator",
+          "command_delivered": false,
+          "quarantined_at": "2026-10-11T02:46:41.610Z",
+          "released_at": null,
+          "released_by": null,
+          "active": true,
+          "applied": true,
+          "applied_detail": "nft IPv4 subnet quarantine reconciled"
+        }
+      }
+    },
+    {
+      "name": "D3-isolation-proof",
+      "ok": true,
+      "data": "ISOLATED_131=1 UNAFFECTED_132=0"
+    },
+    {
+      "name": "D4-release",
+      "ok": true,
+      "data": {
+        "requestStatus": 200
+      }
+    },
+    {
+      "name": "D5-recovery-proof",
+      "ok": true,
+      "data": {
+        "table": "REMOVED",
+        "reachability": "RECOVERED_131=0 RECOVERED_132=0"
+      }
+    },
+    {
+      "name": "E-final-state",
+      "ok": true,
+      "data": {
+        "vlans": [
+          "131:Confidential",
+          "132:Confidential",
+          "133:Confidential"
+        ],
+        "activeQuarantine": 0,
+        "agentsConnected": 16,
+        "agentsTotal": 17
+      }
+    }
+  ],
+  "screenshots": [
+    "00-after-login",
+    "01-dashboard",
+    "02-project-list",
+    "03-agent",
+    "04-api-nodes",
+    "05-project-editor",
+    "06-subnet-advance",
+    "07-segmentation",
+    "08-preview",
+    "09-view-nodes",
+    "10-compliance",
+    "11-policy",
+    "12-log",
+    "13-network",
+    "14-notification",
+    "15-profile",
+    "16-three-vlans-confidential-draft",
+    "17-confidential-saved-validation",
+    "18-policy-push",
+    "99-fail-D-baseline-reachability",
+    "19-agent-before-quarantine",
+    "20-quarantine-modal-selected",
+    "21-quarantine-applied",
+    "terminal-isolation-proof",
+    "22-quarantine-released",
+    "terminal-recovery-proof",
+    "23-final-subnet-state"
+  ],
+  "project_id": "PRJ-AADE1BC3",
+  "browser_errors": [
+    {
+      "type": "http",
+      "status": 401,
+      "url": "http://localhost:3000/api/v1/auth/me"
+    },
+    {
+      "type": "http",
+      "status": 401,
+      "url": "http://localhost:3000/api/v1/auth/me"
+    }
+  ],
+  "completed_at": "2026-10-11T02:47:03.303Z",
+  "pass": false
+}

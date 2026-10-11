@@ -1,0 +1,5 @@
+[?2004hFirewall:~# nft list table inet sonar_quarantine >/dev/null 2>&1 && echo T_PRESENT || echo T_ABSENT; ping -c2 -W1 10.10.131.10 >/dev/null; r131=$? ; ping -c2 -W1 10.10.132.10 >/dev/null; r132=$?; echo BASE_131=$r131 BASE_132=$r132; printf 'READY_%s\n' $((500+5))
+[?2004lT_ABSENT
+BASE_131=0 BASE_132=0
+READY_505
+[?2004hFirewall:~# 

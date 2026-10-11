@@ -19,6 +19,10 @@
 # 환경변수로 포트 변경:
 #   BACKEND_PORT=3300 FRONTEND_PORT=5174 DEBUG_PORT=5006 ./Test/dev.sh
 #
+# 루트의 .env 가 있으면 자동으로 로드합니다(CORS·시크릿·정책 적용 플래그 등).
+# 이미 설정된 환경변수와 dev.sh 가 직접 관리하는 포트 값은 .env 로 덮어쓰지 않습니다.
+#   ./Test/dev.sh --no-env        # .env 로드를 건너뛰기
+#
 # Ctrl+C 한 번으로 두 프로세스가 함께 종료됩니다.
 #
 set -euo pipefail
@@ -37,6 +41,7 @@ RUN_FRONTEND=1
 DO_INSTALL=1
 DEBUG=1
 PREPARE_AGENT_BUNDLE=1
+LOAD_ENV=1
 
 c_reset=$'\033[0m'; c_dim=$'\033[2m'; c_cyan=$'\033[36m'
 c_green=$'\033[32m'; c_yellow=$'\033[33m'; c_red=$'\033[31m'
@@ -50,6 +55,7 @@ for arg in "$@"; do
     --no-install)    DO_INSTALL=0 ;;
     --no-debug)      DEBUG=0 ;;
     --no-agent-bundle) PREPARE_AGENT_BUNDLE=0 ;;
+    --no-env)        LOAD_ENV=0 ;;
     -h|--help)       usage; exit 0 ;;
     *) printf '%s알 수 없는 옵션: %s%s\n' "$c_red" "$arg" "$c_reset" >&2; usage; exit 2 ;;
   esac
@@ -60,6 +66,47 @@ warn() { printf '%s[dev]%s %s\n' "$c_yellow" "$c_reset" "$*"; }
 die()  { printf '%s[dev]%s %s\n' "$c_red" "$c_reset" "$*" >&2; exit 1; }
 
 port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
+
+# 루트 .env 를 환경변수로 로드한다.
+#   - 같은 이름의 환경변수가 이미 있으면 그대로 둔다(명령줄 override 우선).
+#   - dev.sh 가 직접 관리하는 포트/디버그 값은 .env 로 덮어쓰지 않는다.
+#     (.env 의 FRONTEND_PORT=80 과 BACKEND_PORT=3000 은 docker compose 용이라
+#      개발 서버 포트와 충돌한다)
+load_env_file() {
+  local file="$1" line key value
+  local loaded=()
+  [ -f "$file" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    case "$line" in '' | \#*) continue ;; esac
+    line="${line#export }"
+    case "$line" in *=*) ;; *) continue ;; esac
+    key="${line%%=*}"
+    value="${line#*=}"
+    case "$key" in [A-Za-z_]*) ;; *) continue ;; esac
+    # 값 양끝의 따옴표 제거
+    value="${value%\"}"; value="${value#\"}"
+    value="${value%\'}"; value="${value#\'}"
+    # dev.sh 가 직접 관리하는 포트/디버그 값은 .env(docker 용 80/3000)로 덮어쓰지 않는다.
+    # VITE_* 도 제외한다: .env 의 VITE_API_BASE_URL= (빈 값)은 nginx 프록시용이라,
+    # dev(Vite :5173)에서는 상대경로 요청이 되어 404 가 난다. 프론트는 기본값
+    # (http://<host>:3000)을 쓰게 둔다.
+    case "$key" in
+      BACKEND_PORT | FRONTEND_PORT | DEBUG_PORT | VITE_*) continue ;;
+    esac
+    if [ -z "${!key+x}" ]; then
+      export "$key=$value"
+      loaded+=("$key")
+    fi
+  done < "$file"
+  if [ "${#loaded[@]}" -gt 0 ]; then
+    log ".env 로드: ${loaded[*]}"
+  fi
+}
+
+if [ "$LOAD_ENV" = 1 ]; then
+  load_env_file "$ROOT/.env"
+fi
 
 resolve_antlr_runtime() {
   local candidate

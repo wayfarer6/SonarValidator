@@ -1,0 +1,5 @@
+[?2004hFirewall:~# id; hostname; printf 'TERM_FW_%s\n' $((111+111))
+[?2004luid=0(root) gid=0(root) groups=0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)
+Firewall
+TERM_FW_222
+[?2004hFirewall:~# 

@@ -1,0 +1,37 @@
+
+Hello, this is FRRouting (version 8.2.2).
+Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+[?1h=[K[?1l>frr# terminal length 0
+frr# show ip route
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* 0.0.0.0/0 [0/1] via 192.168.122.1, eth0, 00:31:38
+O>* 10.10.128.0/21 [110/20] via 10.99.10.4, eth1, weight 1, 00:30:44
+O>* 10.20.111.0/24 [110/200] via 10.99.10.5, eth1, weight 1, 00:30:44
+O>* 10.20.112.0/24 [110/200] via 10.99.10.5, eth1, weight 1, 00:30:44
+O>* 10.30.141.0/24 [110/200] via 10.99.10.3, eth1, weight 1, 00:30:44
+O>* 10.40.121.0/24 [110/200] via 10.99.10.6, eth1, weight 1, 00:30:44
+O>* 10.40.122.0/24 [110/200] via 10.99.10.6, eth1, weight 1, 00:30:44
+O   10.99.10.0/24 [110/100] is directly connected, eth1, weight 1, 00:30:44
+C>* 10.99.10.0/24 is directly connected, eth1, 00:31:38
+O>* 10.99.143.0/24 [110/200] via 10.99.10.4, eth1, weight 1, 00:30:44
+O   10.255.255.1/32 [110/0] is directly connected, lo, weight 1, 00:31:37
+C>* 10.255.255.1/32 is directly connected, lo, 00:31:38
+O>* 10.255.255.3/32 [110/100] via 10.99.10.3, eth1, weight 1, 00:30:44
+O>* 10.255.255.4/32 [110/100] via 10.99.10.4, eth1, weight 1, 00:30:44
+O>* 10.255.255.5/32 [110/100] via 10.99.10.5, eth1, weight 1, 00:30:44
+O>* 10.255.255.6/32 [110/100] via 10.99.10.6, eth1, weight 1, 00:30:44
+C>* 172.16.255.0/24 is directly connected, eth7, 00:31:38
+C>* 192.168.122.0/24 is directly connected, eth0, 00:31:38
+frr# exit
+[?2004hfrr:/# echo $((1234567+7654321))
+[?2004l8888888
+[?2004hfrr:/# printf 'TERM_RT_%s\n' $((222+222))
+[?2004lTERM_RT_444
+[?2004hfrr:/# 

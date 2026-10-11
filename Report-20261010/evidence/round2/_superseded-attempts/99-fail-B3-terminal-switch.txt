@@ -1,0 +1,81 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Project
+Home
+Project
+Project
+1개
+Create Project
+PRJ-AADE1BC3
+test
+
+설명 없음
+
+서브넷 5건 · 규칙 0건
+
+Planning
+Add Agent
+Manage
+Delete
+Project Agents
+4
+
+Firewall
+
+FIREWALL · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+Switch-3
+
+SWITCH · 온라인
+
+터미널 열기
+프로젝트에서 제거
+
+test-vm
+
+VM · 오프라인
+
+터미널 열기
+프로젝트에서 제거
+
+Gateway-Router
+
+ROUTER · 온라인
+
+터미널 열기
+프로젝트에서 제거
+API 연결 장치
+0건
+
+프로버 없이 REST API 로 직접 연결되는 장비입니다(예: OPNsense). Agent 목록에는 나타나지 않으며, 각 행에 소속 프로젝트를 함께 표시합니다.
+
+새로고침
+새 연결 추가
+
+등록된 API 연결 장치가 없습니다.
+OPNsense 처럼 프로버를 올릴 수 없는 장비는 “새 연결 추가”로 주소와 API Key 를 등록하세요.

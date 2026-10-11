@@ -1,0 +1,154 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+API 연결 노드
+Home
+API 연결 노드
+API 연결 노드
+0건
+
+프로버 없이 REST API 로 직접 연결되는 장비입니다. 여기서 등록·편집·연결 확인을 모두 처리하며, Agent 목록과는 별개입니다.
+
+새로고침
+새 연결 추가
+
+등록됨
+
+0
+
+연결됨
+
+0
+
+연결 실패
+
+0
+
+미확인
+
+0
+
+등록된 API 연결 장치가 없습니다.
+OPNsense 처럼 프로버를 올릴 수 없는 장비는 “새 연결 추가”로 주소와 API Key 를 등록하세요.
+
+연결이 필요한 OPNsense 후보
+16건
+
+수집된 설정에서 OPNsense 로 보이지만 서버에 접속 정보가 없습니다. 주소와 API Key 를 등록하면 연결 확인을 할 수 있습니다.
+
+Management-Console
+
+Management-Console
+
+연결 등록
+
+VDI-1
+
+VDI-1
+
+연결 등록
+
+Survillance-Network-Router
+
+Survillance-Network-Router
+
+연결 등록
+
+TOD-Cam
+
+TOD-Cam
+
+연결 등록
+
+Gateway-Router
+
+Gateway-Router
+
+연결 등록
+
+C4I-Network-Router
+
+C4I-Network-Router
+
+연결 등록
+
+UAV
+
+UAV
+
+연결 등록
+
+Firewall
+
+Firewall
+
+연결 등록
+
+Switch-0
+
+Switch-0
+
+연결 등록
+
+VDI-Router
+
+VDI-Router
+
+연결 등록
+
+VDI-2
+
+VDI-2
+
+연결 등록
+
+Switch-2
+
+Switch-2
+
+연결 등록
+
+Switch-1
+
+Switch-1
+
+연결 등록
+
+Switch-4
+
+Switch-4
+
+연결 등록
+
+DMZ-Router
+
+DMZ-Router
+
+연결 등록
+
+Switch-3
+
+Switch-3
+
+연결 등록

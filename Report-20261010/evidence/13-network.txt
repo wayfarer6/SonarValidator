@@ -1,0 +1,155 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Networks
+Home
+Networks
+View Network
+test
+Network Topology (CSO Security Zones)
+Confidential — 기밀망
+Sensitive — 내부 업무망
+Open — 공개망
+−
+100%
++
+
+Open Zone
+
+Confidential Zone
+
+라우팅
+
+라우팅
+
+라우팅
+
+라우팅
+
+인터넷
+
+인터넷
+
+인터넷
+
+인터넷
+
+인터넷
+
+VLAN131
+
+VLAN132
+
+VLAN133
+
+Gateway-Router / eth0
+
+Gateway-Router / eth1
+
+Internet
+
+빨간 굵은 화살표는 등급을 건너뛰는 직접 연결입니다. 프로젝트 편집 화면에서 해당 규칙을 수정하세요.편집으로 이동
+
+정책 규칙
+장치가 실제로 라우팅하는 연결 (수집된 라우팅 테이블)
+인터넷 연결 (원형 = Internet)
+
+서브넷
+
+6
+
+연결 규칙
+
+0
+
+수집된 연결
+
+9
+
+금지 연결
+
+3
+
+수집된 IP 대역
+39건 수집 · 10건 반영 · 12건 관리망
+이름·등급 편집
+새로고침
+
+장치에서 수집한 대역은 자동으로 프로젝트 서브넷에 반영됩니다(등급 Open). 관리망과 주소 없는 VLAN 은 제외되며, 등급은 편집 화면에서 올리세요.
+
+17건이 아직 반영되지 않았습니다. 텔레메트리 수신 주기(최대 30초)가 지나면 자동 반영됩니다. 계속 그대로면 프로버가 실행 중인지 확인하세요.
+
+장치	인터페이스	VLAN	대역	반영
+Switch-0	eth11	—	172.16.255.0/24	관리망 (제외)
+Switch-1	eth11	—	172.16.255.0/24	관리망 (제외)
+Switch-2	eth11	—	172.16.255.0/24	관리망 (제외)
+Switch-3	eth11	—	172.16.255.0/24	관리망 (제외)
+VDI-Router	lo	—	10.255.255.6/32	대기
+VDI-Router	eth0	—	10.99.10.0/24	반영됨
+VDI-Router	eth2	—	172.16.255.0/24	관리망 (제외)
+VDI-Router	eth1.121	—	10.40.121.0/24	대기
+VDI-Router	eth1.122	—	10.40.122.0/24	대기
+Switch-4	eth11	—	172.16.255.0/24	관리망 (제외)
+C4I-Network-Router	lo	—	10.255.255.4/32	대기
+C4I-Network-Router	eth0	—	10.99.10.0/24	반영됨
+C4I-Network-Router	eth1	—	10.99.143.0/24	대기
+C4I-Network-Router	eth7	—	172.16.255.0/24	관리망 (제외)
+VDI-1	eth0	—	10.40.121.0/24	대기
+Firewall	eth1.131	—	10.10.131.0/24	반영됨
+Firewall	eth1.132	—	10.10.132.0/24	반영됨
+Firewall	eth1.133	—	10.10.133.0/24	반영됨
+Firewall	eth0	—	10.99.143.0/24	대기
+Firewall	eth4	—	172.16.255.0/24	관리망 (제외)
+VDI-2	eth0	—	10.40.122.0/24	대기
+Survillance-Network-Router	lo	—	10.255.255.5/32	대기
+Survillance-Network-Router	eth1	—	10.99.10.0/24	반영됨
+Survillance-Network-Router	eth2	—	172.16.255.0/24	관리망 (제외)
+Survillance-Network-Router	eth0.111	—	10.20.111.0/24	대기
+Survillance-Network-Router	eth0.112	—	10.20.112.0/24	대기
+DMZ-Router	lo	—	10.255.255.3/32	대기
+DMZ-Router	eth0	—	10.99.10.0/24	반영됨
+DMZ-Router	eth7	—	172.16.255.0/24	관리망 (제외)
+DMZ-Router	eth1.141	—	10.30.141.0/24	대기
+UAV	eth0	—	10.20.112.0/24	대기
+TOD-Cam	eth0	—	10.20.111.0/24	대기
+Management-Console	ens3	—	172.16.255.0/24	관리망 (제외)
+Management-Console	ens3	—	172.17.0.0/16	대기
+Management-Console	ens4	—	192.168.122.0/24	반영됨
+Gateway-Router	lo	—	10.255.255.1/32	대기
+Gateway-Router	eth0	—	192.168.122.0/24	반영됨
+Gateway-Router	eth1	—	10.99.10.0/24	반영됨
+Gateway-Router	eth7	—	172.16.255.0/24	관리망 (제외)
+라우팅 테이블 (수집된 장치)
+새로고침
+VDI-RouterFRR · 경로 14건
+C4I-Network-RouterFRR · 경로 14건
+VDI-1Ubuntu · 경로 2건
+Firewallnftables · 경로 6건
+VDI-2Ubuntu · 경로 2건
+Survillance-Network-RouterFRR · 경로 14건
+DMZ-RouterFRR · 경로 14건
+UAVUbuntu · 경로 2건
+TOD-CamUbuntu · 경로 2건
+Management-ConsoleUbuntu · 경로 5건
+Gateway-RouterFRR · 경로 15건

@@ -1,0 +1,146 @@
+[
+  {
+    "name": "A-login",
+    "ok": true,
+    "data": {
+      "authenticated": true,
+      "username": "admin",
+      "display_name": "Default Administrator",
+      "role": "ADMIN",
+      "last_login_at": "2026-10-11T03:06:32.529Z"
+    }
+  },
+  {
+    "name": "B-project-select",
+    "ok": true,
+    "data": {
+      "projectId": "PRJ-AADE1BC3",
+      "vlans": [
+        "131",
+        "132",
+        "133"
+      ]
+    }
+  },
+  {
+    "name": "B1-terminal-firewall",
+    "ok": true,
+    "data": "root ok"
+  },
+  {
+    "name": "B2-terminal-router",
+    "ok": true,
+    "data": "root-seen=false"
+  },
+  {
+    "name": "B3-terminal-switch",
+    "ok": true,
+    "data": "root-seen=false"
+  },
+  {
+    "name": "C1-baseline-ping",
+    "ok": true,
+    "data": "BASE_131=0 BASE_132=0"
+  },
+  {
+    "name": "C2-quarantine",
+    "ok": true,
+    "data": {
+      "status": 200,
+      "applied": true,
+      "detail": "nft IPv4 subnet quarantine reconciled"
+    }
+  },
+  {
+    "name": "C3-isolation-proof",
+    "ok": true,
+    "data": "ISO_131=1 UNAFF_132=0"
+  },
+  {
+    "name": "C4-release",
+    "ok": true,
+    "data": {
+      "status": 200
+    }
+  },
+  {
+    "name": "C5-recovery-proof",
+    "ok": true,
+    "data": "REC_131=0 REC_132=0"
+  },
+  {
+    "name": "D0-cleanup-rules",
+    "ok": true,
+    "data": {
+      "removed": 0,
+      "remainingRules": []
+    }
+  },
+  {
+    "name": "D-grades-set",
+    "ok": true,
+    "data": {
+      "saveStatus": 200,
+      "grades": [
+        "131:Confidential",
+        "132:Open",
+        "133:Sensitive"
+      ]
+    }
+  },
+  {
+    "name": "E-forbidden-rule",
+    "ok": true,
+    "data": {
+      "saveStatus": 200,
+      "violationCount": 3,
+      "ruleViolations": [
+        "CRITICAL:VLAN131 (10.10.131.0/24) -> VLAN132 (10.10.132.0/24) 연결은 허용되지 않습니다. (Confidential ↔ Open — 등급 2단계 차이)"
+      ]
+    }
+  },
+  {
+    "name": "F-resolve-via-sensitive",
+    "ok": true,
+    "data": {
+      "saveStatus": 200,
+      "violationCount": 2,
+      "eRuleViolations": 1,
+      "fRuleViolations": 0,
+      "unrelatedViolations": [
+        "CRITICAL:기밀망(Confidential) 10.10.131.0/24 을 가진 장치 Firewall 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 기밀망이 인터넷으로 나갈 수 있으므로 망분리 위반입니다.",
+        "MAJOR:민감망(Sensitive) 10.10.133.0/24 을 가진 장치 Firewall 에 인터넷 기본 경로(0.0.0.0/0)가 수집되었습니다. 업무망에서 인터넷으로 직접 나갈 수 있는지 확인이 필요합니다."
+      ],
+      "forbiddenPairsTotal": 6,
+      "forbiddenPairs": [
+        "Subnet-fe651580-07ec-3796-8347-db2778c86aa8↔VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+        "Subnet-17876749-32f9-36bf-aa72-79a4aaf2fb9d↔VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae",
+        "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae↔Subnet-fe651580-07ec-3796-8347-db2778c86aa8",
+        "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae↔Subnet-17876749-32f9-36bf-aa72-79a4aaf2fb9d",
+        "VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae↔VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9",
+        "VLAN132-28a32e86-c9a5-373e-a748-b14fa52444d9↔VLAN131-9602cc2c-e756-3649-b78c-b7de99d486ae"
+      ]
+    }
+  },
+  {
+    "name": "G-restore",
+    "ok": true,
+    "data": {
+      "grades": [
+        "131:Confidential",
+        "132:Confidential",
+        "133:Confidential"
+      ],
+      "rules": []
+    }
+  },
+  {
+    "name": "H-final",
+    "ok": true,
+    "data": {
+      "activeQuarantine": 0,
+      "agentsConnected": 16,
+      "agentsTotal": 17
+    }
+  }
+]

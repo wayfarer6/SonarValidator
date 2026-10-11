@@ -1,0 +1,3 @@
+[?2004hSwitch-3:~# printf 'TERM_SW_%s\n' $((333+333))
+[?2004lTERM_SW_666
+[?2004hSwitch-3:~# 

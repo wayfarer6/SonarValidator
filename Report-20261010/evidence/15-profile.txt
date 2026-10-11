@@ -1,0 +1,59 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Profile
+Home
+Profile
+Profile
+Default Administrator
+Edit
+계정 정보
+
+First Name
+
+Default
+
+Last Name
+
+Administrator
+
+Edit
+Account Management
+아이디
+
+아이디는 변경할 수 없습니다. 변경이 필요하면 관리자에게 새 계정을 요청하세요.
+
+비밀번호 변경
+
+계정 보호를 위해 주기적으로 비밀번호를 변경하는 것을 권장합니다.
+
+현재 비밀번호
+새 비밀번호
+새 비밀번호 확인
+비밀번호 변경
+계정 삭제
+
+계정을 삭제하면 되돌릴 수 없습니다. 마지막 관리자 계정은 삭제할 수 없습니다.
+
+계정 삭제

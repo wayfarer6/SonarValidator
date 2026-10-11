@@ -1,0 +1,5 @@
+[?2004hFirewall:~# [KFirewall:~# nft list table inet sonar_quarantine >/dev/null 2>&1 && echo TABLE_PRESENT || echo TABLE_REMOVED; ping -c 2 -W 1 10.10.131.10 >/dev/nu ll; r131=$?; ping -c 2 -W 1 10.10.132.10 >/dev/null; r132=$?; echo RECOVERED_131=$r131 RECOVERED_132=$r132; printf 'REC_DONE_%s\n' $((900+9))
+[?2004lTABLE_REMOVED
+RECOVERED_131=0 RECOVERED_132=0
+REC_DONE_909
+[?2004hFirewall:~# 

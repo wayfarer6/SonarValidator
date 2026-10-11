@@ -1,0 +1,1834 @@
+MENU
+Dashboard
+Project List
+Agent List
+API 연결 노드
+User Profile
+Compliance
+View Compliance
+Export Report
+Policy Management
+View Policy
+Export Policy
+Log Management
+View Logs
+AI Provider
+Network Management
+View Network
+Notification
+View Notification
+Export Logs
+⌘
+K
+99+
+Default Administrator
+Notification
+Home
+Notification
+Notification
+안읽음 154
+154건 표시
+모두 읽음
+새로고침
+전체
+정책12
+Agent137
+프로젝트1
+보안4
+시스템
+Severity
+전체
+Critical
+Warning
+Info
+Read
+전체
+안읽음만
+읽음만
+Project
+전체
+test
+Search
+초기화
+조회
+
+표시 중
+
+154
+
+안읽음 (전체)
+
+154
+
+Critical
+
+0
+
+Warning
+
+4
+
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: TOD-Cam
+Agent
+
+프로버 TOD-Cam 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+TOD-Cam
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-1
+Agent
+
+프로버 VDI-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+VDI-1
+agent
+열기
+삭제
+Info
+Agent 연결: Management-Console
+Agent
+
+프로버 Management-Console 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Management-Console
+agent
+열기
+삭제
+Info
+Agent 연결: Firewall
+Agent
+
+프로버 Firewall 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Firewall
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-1
+Agent
+
+프로버 Switch-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Switch-1
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-0
+Agent
+
+프로버 Switch-0 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Switch-0
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-4
+Agent
+
+프로버 Switch-4 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Switch-4
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-2
+Agent
+
+프로버 Switch-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Switch-2
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-3
+Agent
+
+프로버 Switch-3 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+Switch-3
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-2
+Agent
+
+프로버 VDI-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+VDI-2
+agent
+열기
+삭제
+Info
+Agent 연결: UAV
+Agent
+
+프로버 UAV 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+UAV
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+2분 전
+C4I-Network-Router
+agent
+열기
+삭제
+Warning
+Agent 격리 해제: Firewall
+보안
+
+장치 Firewall 의 격리를 해제했으나 명령이 전달되지 않았습니다. 장치가 연결되면 정상 정책이 적용됩니다.
+
+12시간 전
+PRJ-AADE1BC3
+Firewall
+quarantine
+열기
+삭제
+Warning
+Agent 격리: Firewall
+보안
+
+위반 장치 Firewall 의 연결 10.10.131.0/24 을(를) 차단했습니다. (방화벽 규칙 — 인터페이스는 유지) ⚠️ 방화벽은 인터페이스가 아니라 규칙으로 격리합니다. 대상 대역 10.10.131.0/24 으로 가는 연결만 차단됩니다. 제어평면(172.16.255.0/24) 은 차단 대상에서 제외되어야 합니다. 차단 규칙이 관리 대역을 포함하면 해제 경로가 끊깁니다.
+
+12시간 전
+PRJ-AADE1BC3
+Firewall
+quarantine
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+12시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+Agent 연결: integration-vm-01
+Agent
+
+프로버 integration-vm-01 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+integration-vm-01
+agent
+열기
+삭제
+Info
+Agent 연결: telemetry-test-vm-01
+Agent
+
+프로버 telemetry-test-vm-01 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+telemetry-test-vm-01
+agent
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+12시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Warning
+Agent 격리 해제: Firewall
+보안
+2회 반복
+
+장치 Firewall 의 격리를 해제했으나 명령이 전달되지 않았습니다. 장치가 연결되면 정상 정책이 적용됩니다.
+
+12시간 전
+PRJ-AADE1BC3
+Firewall
+quarantine
+열기
+삭제
+Warning
+Agent 격리: Firewall
+보안
+2회 반복
+
+위반 장치 Firewall 의 연결 10.10.131.0/24 을(를) 차단했습니다. (방화벽 규칙 — 인터페이스는 유지) ⚠️ 방화벽은 인터페이스가 아니라 규칙으로 격리합니다. 대상 대역 10.10.131.0/24 으로 가는 연결만 차단됩니다. 제어평면(172.16.255.0/24) 은 차단 대상에서 제외되어야 합니다. 차단 규칙이 관리 대역을 포함하면 해제 경로가 끊깁니다.
+
+12시간 전
+PRJ-AADE1BC3
+Firewall
+quarantine
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+12시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+12시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+12시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+12시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+12시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+4회 반복
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+C4I-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+4회 반복
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+4회 반복
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Management-Console
+Agent
+4회 반복
+
+프로버 Management-Console 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Management-Console
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+4회 반복
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+4회 반복
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Firewall
+Agent
+4회 반복
+
+프로버 Firewall 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Firewall
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-1
+Agent
+4회 반복
+
+프로버 VDI-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+VDI-1
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-2
+Agent
+4회 반복
+
+프로버 VDI-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+VDI-2
+agent
+열기
+삭제
+Info
+Agent 연결: TOD-Cam
+Agent
+4회 반복
+
+프로버 TOD-Cam 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+TOD-Cam
+agent
+열기
+삭제
+Info
+Agent 연결: UAV
+Agent
+4회 반복
+
+프로버 UAV 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+UAV
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-0
+Agent
+4회 반복
+
+프로버 Switch-0 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Switch-0
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-3
+Agent
+4회 반복
+
+프로버 Switch-3 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Switch-3
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-4
+Agent
+4회 반복
+
+프로버 Switch-4 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Switch-4
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-1
+Agent
+4회 반복
+
+프로버 Switch-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Switch-1
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-2
+Agent
+4회 반복
+
+프로버 Switch-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+12시간 전
+Switch-2
+agent
+열기
+삭제
+Info
+Agent 연결: integration-vm-01
+Agent
+
+프로버 integration-vm-01 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+integration-vm-01
+agent
+열기
+삭제
+Info
+Agent 연결: telemetry-test-vm-01
+Agent
+
+프로버 telemetry-test-vm-01 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+telemetry-test-vm-01
+agent
+열기
+삭제
+Info
+Agent 연결: Management-Console
+Agent
+2회 반복
+
+프로버 Management-Console 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Management-Console
+agent
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+2회 반복
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+C4I-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+2회 반복
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-1
+Agent
+2회 반복
+
+프로버 VDI-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-1
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+2회 반복
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-4
+Agent
+2회 반복
+
+프로버 Switch-4 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-4
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-3
+Agent
+2회 반복
+
+프로버 Switch-3 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-3
+agent
+열기
+삭제
+Info
+Agent 연결: TOD-Cam
+Agent
+2회 반복
+
+프로버 TOD-Cam 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+TOD-Cam
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-2
+Agent
+2회 반복
+
+프로버 VDI-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-2
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-2
+Agent
+2회 반복
+
+프로버 Switch-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-2
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-0
+Agent
+2회 반복
+
+프로버 Switch-0 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-0
+agent
+열기
+삭제
+Info
+Agent 연결: Firewall
+Agent
+2회 반복
+
+프로버 Firewall 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Firewall
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+2회 반복
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+2회 반복
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: UAV
+Agent
+2회 반복
+
+프로버 UAV 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+UAV
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-1
+Agent
+2회 반복
+
+프로버 Switch-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-1
+agent
+열기
+삭제
+Info
+Agent 연결: integration-vm-01
+Agent
+
+프로버 integration-vm-01 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+integration-vm-01
+agent
+열기
+삭제
+Info
+Agent 연결: telemetry-test-vm-01
+Agent
+
+프로버 telemetry-test-vm-01 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+telemetry-test-vm-01
+agent
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+13시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 6건, 규칙 1건으로 갱신되었습니다.
+
+13시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+Agent 연결: Switch-1
+Agent
+4회 반복
+
+프로버 Switch-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-1
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-0
+Agent
+4회 반복
+
+프로버 Switch-0 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-0
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-4
+Agent
+4회 반복
+
+프로버 Switch-4 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-4
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+4회 반복
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+4회 반복
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+C4I-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+4회 반복
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: UAV
+Agent
+4회 반복
+
+프로버 UAV 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+UAV
+agent
+열기
+삭제
+Info
+Agent 연결: Firewall
+Agent
+4회 반복
+
+프로버 Firewall 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Firewall
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-1
+Agent
+4회 반복
+
+프로버 VDI-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-1
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+4회 반복
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+4회 반복
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-3
+Agent
+4회 반복
+
+프로버 Switch-3 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-3
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-2
+Agent
+4회 반복
+
+프로버 Switch-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-2
+agent
+열기
+삭제
+Info
+Agent 연결: Management-Console
+Agent
+4회 반복
+
+프로버 Management-Console 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Management-Console
+agent
+열기
+삭제
+Info
+Agent 연결: TOD-Cam
+Agent
+4회 반복
+
+프로버 TOD-Cam 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+TOD-Cam
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-2
+Agent
+4회 반복
+
+프로버 VDI-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-2
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+6회 반복
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-1
+Agent
+8회 반복
+
+프로버 Switch-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-1
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-2
+Agent
+7회 반복
+
+프로버 VDI-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-2
+agent
+열기
+삭제
+Info
+Agent 연결: TOD-Cam
+Agent
+7회 반복
+
+프로버 TOD-Cam 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+TOD-Cam
+agent
+열기
+삭제
+Info
+Agent 연결: Firewall
+Agent
+7회 반복
+
+프로버 Firewall 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Firewall
+agent
+열기
+삭제
+Info
+Agent 연결: UAV
+Agent
+6회 반복
+
+프로버 UAV 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+UAV
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-3
+Agent
+8회 반복
+
+프로버 Switch-3 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-3
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-2
+Agent
+8회 반복
+
+프로버 Switch-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-2
+agent
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+6회 반복
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+C4I-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+6회 반복
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+6회 반복
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Management-Console
+Agent
+7회 반복
+
+프로버 Management-Console 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Management-Console
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+7회 반복
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-1
+Agent
+8회 반복
+
+프로버 VDI-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-1
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-0
+Agent
+6회 반복
+
+프로버 Switch-0 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-0
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-4
+Agent
+7회 반복
+
+프로버 Switch-4 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-4
+agent
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 5건, 규칙 0건으로 갱신되었습니다.
+
+13시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 6건, 규칙 1건으로 갱신되었습니다.
+
+13시간 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+Agent 연결: Management-Console
+Agent
+
+프로버 Management-Console 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Management-Console
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-4
+Agent
+
+프로버 Switch-4 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-4
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-3
+Agent
+
+프로버 Switch-3 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-3
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+C4I-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-2
+Agent
+
+프로버 Switch-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-2
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-1
+Agent
+
+프로버 Switch-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-1
+agent
+열기
+삭제
+Info
+Agent 연결: Firewall
+Agent
+
+프로버 Firewall 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Firewall
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-2
+Agent
+
+프로버 VDI-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-2
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-0
+Agent
+
+프로버 Switch-0 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+Switch-0
+agent
+열기
+삭제
+Info
+Agent 연결: TOD-Cam
+Agent
+
+프로버 TOD-Cam 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+TOD-Cam
+agent
+열기
+삭제
+Info
+Agent 연결: UAV
+Agent
+
+프로버 UAV 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+UAV
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-1
+Agent
+
+프로버 VDI-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+13시간 전
+VDI-1
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-1
+Agent
+
+프로버 VDI-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+VDI-1
+agent
+열기
+삭제
+Info
+Agent 연결: TOD-Cam
+Agent
+
+프로버 TOD-Cam 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+TOD-Cam
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-4
+Agent
+
+프로버 Switch-4 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Switch-4
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-3
+Agent
+
+프로버 Switch-3 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Switch-3
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+C4I-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Firewall
+Agent
+
+프로버 Firewall 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Firewall
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-2
+Agent
+
+프로버 Switch-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Switch-2
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-1
+Agent
+
+프로버 Switch-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Switch-1
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-0
+Agent
+
+프로버 Switch-0 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Switch-0
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-2
+Agent
+
+프로버 VDI-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+VDI-2
+agent
+열기
+삭제
+Info
+Agent 연결: UAV
+Agent
+
+프로버 UAV 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+UAV
+agent
+열기
+삭제
+Info
+Agent 연결: Management-Console
+Agent
+
+프로버 Management-Console 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+14시간 전
+Management-Console
+agent
+열기
+삭제
+Info
+Agent 연결: Survillance-Network-Router
+Agent
+
+프로버 Survillance-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Survillance-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-2
+Agent
+
+프로버 VDI-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+VDI-2
+agent
+열기
+삭제
+Info
+Agent 연결: Firewall
+Agent
+
+프로버 Firewall 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Firewall
+agent
+열기
+삭제
+Info
+Agent 연결: Management-Console
+Agent
+
+프로버 Management-Console 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Management-Console
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-1
+Agent
+
+프로버 VDI-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+VDI-1
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-2
+Agent
+
+프로버 Switch-2 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Switch-2
+agent
+열기
+삭제
+Info
+Agent 연결: UAV
+Agent
+
+프로버 UAV 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+UAV
+agent
+열기
+삭제
+Info
+Agent 연결: TOD-Cam
+Agent
+
+프로버 TOD-Cam 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+TOD-Cam
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-0
+Agent
+
+프로버 Switch-0 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Switch-0
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-3
+Agent
+
+프로버 Switch-3 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Switch-3
+agent
+열기
+삭제
+Info
+Agent 연결: ATICS
+Agent
+
+프로버 ATICS 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+ATICS
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-1
+Agent
+
+프로버 Switch-1 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Switch-1
+agent
+열기
+삭제
+Info
+Agent 연결: Switch-4
+Agent
+
+프로버 Switch-4 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Switch-4
+agent
+열기
+삭제
+Info
+Agent 연결: Gateway-Router
+Agent
+
+프로버 Gateway-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+Gateway-Router
+agent
+열기
+삭제
+Info
+Agent 연결: C4I-Network-Router
+Agent
+
+프로버 C4I-Network-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+C4I-Network-Router
+agent
+열기
+삭제
+Info
+Agent 연결: VDI-Router
+Agent
+
+프로버 VDI-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+VDI-Router
+agent
+열기
+삭제
+Info
+Agent 연결: DMZ-Router
+Agent
+
+프로버 DMZ-Router 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+15시간 전
+DMZ-Router
+agent
+열기
+삭제
+Info
+Agent 연결: test-vm
+Agent
+
+프로버 test-vm 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+1일 전
+test-vm
+agent
+열기
+삭제
+Info
+정책 수정: test
+정책
+
+서브넷 0건, 규칙 0건으로 갱신되었습니다.
+
+1일 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+프로젝트 생성: test
+프로젝트
+
+카테고리 , 상태 Planning
+
+1일 전
+PRJ-AADE1BC3
+system
+열기
+삭제
+Info
+Agent 연결: test-vm
+Agent
+
+프로버 test-vm 가 연결되었습니다. 잠시 뒤 텔레메트리가 수집됩니다.
+
+1일 전
+test-vm
+agent
+열기
+삭제
