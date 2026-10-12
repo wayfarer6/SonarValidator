@@ -58,6 +58,19 @@ export default function NetworkTopologyMermaid({
 
   const chart = useMemo(() => topologyToMermaid(topology.data), [topology.data]);
 
+  const topologyCounts = useMemo(() => {
+    const networkNodes = (topology.data?.nodes ?? []).filter(
+      (node) => node.kind == null || node.kind === "subnet",
+    );
+    return {
+      vlan: networkNodes.filter((node) => node.vlan_id != null).length,
+      subnet: networkNodes.filter((node) => node.vlan_id == null).length,
+      rules: (topology.data?.edges ?? []).filter(
+        (edge) => edge.origin === "MANUAL" || edge.edge_type === "policy",
+      ).length,
+    };
+  }, [topology.data]);
+
   /**
    * 격리 중인 서브넷 개수입니다.
    *
@@ -65,7 +78,10 @@ export default function NetworkTopologyMermaid({
    * 매번 읽어야 하고, 진짜 격리가 생겼을 때 눈에 띄지 않습니다.
    */
   const quarantinedCount = useMemo(
-    () => (topology.data?.nodes ?? []).filter((node) => node.quarantined).length,
+    () =>
+      (topology.data?.nodes ?? []).filter(
+        (node) => node.kind !== "device" && node.kind !== "internet" && node.quarantined,
+      ).length,
     [topology.data],
   );
 
@@ -94,7 +110,7 @@ export default function NetworkTopologyMermaid({
         ) : (
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {topology.data
-              ? `${topology.data.project_name} · 서브넷 ${topology.data.nodes.length}개 · 규칙 ${topology.data.edges.length}개`
+              ? `${topology.data.project_name} · VLAN ${topologyCounts.vlan}개 · Subnet ${topologyCounts.subnet}개 · 규칙 ${topologyCounts.rules}개`
               : ""}
           </span>
         )}

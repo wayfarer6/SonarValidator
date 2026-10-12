@@ -1,0 +1,1 @@
+## vlan간에 연결도 확인해서 표시해야함. 없으면 표시안해도 되는데 Confidential 에 속하는 vlan이 sensitiv로 연결된 topology도 나올텐데 이상함. 확인필요

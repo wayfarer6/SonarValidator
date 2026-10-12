@@ -64,6 +64,19 @@ class ObservedConnectivityTest {
         config.getRoutes().add(entry);
     }
 
+    private static void mac(NeutralDeviceConfig config, String interfaceName, String value) {
+        config.interfaceOrCreate(interfaceName).setMacAddress(value);
+    }
+
+    private static void neighbor(NeutralDeviceConfig config, String interfaceName,
+                                 String address, String mac) {
+        final NeutralDeviceConfig.ArpEntry entry = new NeutralDeviceConfig.ArpEntry();
+        entry.setInterfaceName(interfaceName);
+        entry.setAddress(address);
+        entry.setMac(mac);
+        config.getArpEntries().add(entry);
+    }
+
     @Test
     @DisplayName("라우팅 테이블이 비어 있어도 SVI 주소가 있으면 VLAN 간 연결을 찾는다")
     void detectsInterVlanFromInterfaceAddresses() {
@@ -222,6 +235,115 @@ class ObservedConnectivityTest {
         assertThat(ObservedConnectivity.hasDefaultRoute(null)).isFalse();
     }
 
+    @Test
+    @DisplayName("기본 경로 nextHop 소유자를 찾아 방화벽-라우터-게이트웨이 홉을 보존한다")
+    void resolvesDefaultRouteNextHopOwners() {
+        final NeutralDeviceConfig firewall = config("wan=10.99.143.2/24");
+        route(firewall, "static", "0.0.0.0/0", "10.99.143.1");
+
+        final NeutralDeviceConfig c4iRouter = config(
+                "inside=10.99.143.1/24", "outside=10.99.10.4/24");
+        route(c4iRouter, "static", "0.0.0.0/0", "10.99.10.1");
+
+        final NeutralDeviceConfig gateway = config(
+                "inside=10.99.10.1/24", "outside=192.168.122.10/24");
+        route(gateway, "static", "0.0.0.0/0", "192.168.122.1");
+
+        final List<ObservedConnectivity.DefaultRouteHop> hops =
+                ObservedConnectivity.defaultRouteHops(Map.of(
+                        "Firewall", firewall,
+                        "C4I-Network-Router", c4iRouter,
+                        "Gateway-Router", gateway));
+
+        assertThat(hops).anySatisfy(hop -> {
+            assertThat(hop.sourceAgentId()).isEqualTo("Firewall");
+            assertThat(hop.targetAgentId()).isEqualTo("C4I-Network-Router");
+            assertThat(hop.nextHop()).isEqualTo("10.99.143.1");
+            assertThat(hop.targetInterface()).isEqualTo("inside");
+        }).anySatisfy(hop -> {
+            assertThat(hop.sourceAgentId()).isEqualTo("C4I-Network-Router");
+            assertThat(hop.targetAgentId()).isEqualTo("Gateway-Router");
+            assertThat(hop.nextHop()).isEqualTo("10.99.10.1");
+        }).anySatisfy(hop -> {
+            assertThat(hop.sourceAgentId()).isEqualTo("Gateway-Router");
+            assertThat(hop.targetAgentId()).isNull();
+            assertThat(hop.nextHop()).isEqualTo("192.168.122.1");
+        });
+    }
+
+    @Test
+    @DisplayName("비활성 기본 경로는 실제 홉으로 그리지 않는다")
+    void ignoresUnselectedDefaultRouteHops() {
+        final NeutralDeviceConfig router = config("wan=192.0.2.2/24");
+        final NeutralDeviceConfig.RouteConfig route = new NeutralDeviceConfig.RouteConfig();
+        route.setPrefix("0.0.0.0/0");
+        route.setNextHop("192.0.2.1");
+        route.setSelected(false);
+        router.getRoutes().add(route);
+
+        assertThat(ObservedConnectivity.defaultRouteHops(Map.of("Router", router))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("link-local 이웃 MAC으로 스위치와 상위 라우터의 물리 연결을 찾는다")
+    void detectsPhysicalLinkFromNeighborMac() {
+        final NeutralDeviceConfig router = config("eth1=10.99.10.1/24");
+        mac(router, "eth1", "02:42:81:2b:10:01");
+        neighbor(router, "eth1", "fe80::42:81ff:fe2b:1100", "02:42:81:2b:11:00");
+
+        final NeutralDeviceConfig upstreamSwitch = config();
+        upstreamSwitch.setDeviceType("SWITCH");
+        mac(upstreamSwitch, "eth0", "02-42-81-2B-11-00");
+
+        final Project project = project();
+        project.setManagementPrefix("172.16.255.0/24");
+
+        assertThat(ObservedConnectivity.physicalLinks(project, Map.of(
+                "Gateway-Router", router, "Switch-0", upstreamSwitch)))
+                .singleElement()
+                .satisfies(link -> {
+                    assertThat(link.sourceAgentId()).isEqualTo("Gateway-Router");
+                    assertThat(link.sourceInterface()).isEqualTo("eth1");
+                    assertThat(link.targetAgentId()).isEqualTo("Switch-0");
+                    assertThat(link.targetInterface()).isEqualTo("eth0");
+                });
+    }
+
+    @Test
+    @DisplayName("관리 인터페이스에서 관측한 이웃은 물리 업무망 연결에서 제외한다")
+    void excludesManagementNeighborLink() {
+        final NeutralDeviceConfig router = config("eth7=172.16.255.10/24");
+        mac(router, "eth7", "02:42:81:2b:10:07");
+        neighbor(router, "eth7", "fe80::42:81ff:fe2b:110b", "02:42:81:2b:11:0b");
+
+        final NeutralDeviceConfig managementSwitch = config("eth11=172.16.255.20/24");
+        mac(managementSwitch, "eth11", "02:42:81:2b:11:0b");
+
+        final Project project = project();
+        project.setManagementPrefix("172.16.255.0/24");
+
+        assertThat(ObservedConnectivity.physicalLinks(project, Map.of(
+                "Router", router, "Switch", managementSwitch))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("마지막 Gateway 외부 홉까지 이어진 모든 상위 장비를 인터넷 도달 가능으로 본다")
+    void resolvesInternetReachabilityAcrossRouteChain() {
+        final List<ObservedConnectivity.DefaultRouteHop> hops = List.of(
+                new ObservedConnectivity.DefaultRouteHop(
+                        "Firewall", "10.99.143.1", "wan", "C4I-Router", "inside"),
+                new ObservedConnectivity.DefaultRouteHop(
+                        "C4I-Router", "10.99.10.1", "outside", "Gateway-Router", "inside"),
+                new ObservedConnectivity.DefaultRouteHop(
+                        "Gateway-Router", "192.168.122.1", "outside", null, null),
+                new ObservedConnectivity.DefaultRouteHop(
+                        "Isolated-Router", "10.0.0.1", "wan", "Unknown-Router", "inside"));
+
+        assertThat(ObservedConnectivity.internetReachableAgents(hops))
+                .containsExactlyInAnyOrder("Firewall", "C4I-Router", "Gateway-Router")
+                .doesNotContain("Isolated-Router", "Unknown-Router");
+    }
+
     // ------------------------------------------------------------------
     //  방화벽(강제 장비) 제외 — SVI 보유는 "연결" 이 아니라 "존 분리" 의 증거
     // ------------------------------------------------------------------
@@ -240,6 +362,41 @@ class ObservedConnectivityTest {
                 .betweenSubnetsOfEachDevice(project, Map.of("Firewall", firewall));
 
         assertThat(links).isEmpty();
+    }
+
+    @Test
+    @DisplayName("방화벽이 같은 등급 VLAN 통신을 명시적으로 허용하면 VLAN 간선을 만든다")
+    void firewallCreatesLinksForExplicitlyAcceptedZonePair() {
+        final NeutralDeviceConfig firewall =
+                config("eth1.131=10.10.131.1/24", "eth1.132=10.10.132.1/24");
+        firewall.setDeviceType("FIREWALL");
+        firewall.getFirewallRules().add(
+                "nft rule {\"comment\":\"CSO-C-to-C\",\"accept\":null}");
+        final Project project = project(
+                subnet("VLAN131", "10.10.131.0/24", ZoneClass.CONFIDENTIAL, "Firewall"),
+                subnet("VLAN132", "10.10.132.0/24", ZoneClass.CONFIDENTIAL, "Firewall"));
+
+        assertThat(ObservedConnectivity.betweenSubnetsOfEachDevice(
+                project, Map.of("Firewall", firewall)))
+                .singleElement()
+                .satisfies(link -> {
+                    assertThat(link.sourceId()).isEqualTo("VLAN131");
+                    assertThat(link.targetId()).isEqualTo("VLAN132");
+                });
+    }
+
+    @Test
+    @DisplayName("방화벽의 존-인터넷 차단 규칙은 기본 경로가 있어도 인터넷 가능 표시를 막는다")
+    void firewallInternetDenyOverridesDefaultRouteReachability() {
+        final NeutralDeviceConfig firewall = config("wan=10.99.143.2/24");
+        firewall.setDeviceType("FIREWALL");
+        firewall.getFirewallRules().add(
+                "nft rule {\"comment\":\"CSO-C-to-Open-Internet-deny\",\"drop\":null}");
+
+        assertThat(ObservedConnectivity.internetAllowed(
+                "Firewall", firewall, ZoneClass.CONFIDENTIAL)).isFalse();
+        assertThat(ObservedConnectivity.internetAllowed(
+                "Firewall", firewall, ZoneClass.SENSITIVE)).isTrue();
     }
 
     @Test

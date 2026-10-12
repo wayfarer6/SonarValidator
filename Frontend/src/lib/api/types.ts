@@ -165,7 +165,9 @@ export interface ApiForbiddenPairs {
 export interface ApiTopologyNode {
   id: string;
   label: string;
-  cidr: string;
+  cidr: string | null;
+  /** VLAN이면 IEEE 802.1Q VLAN ID, 일반 인터페이스 대역/장비/인터넷이면 null. */
+  vlan_id?: number | null;
   subnet_class: SubnetClass | null;
   level: number | null;
   agent_id: string | null;
@@ -182,16 +184,19 @@ export interface ApiTopologyNode {
   /**
    * 노드 종류.
    *
-   * <p>{@code internet} 은 외부(인터넷) 노드로, 서브넷과 달리 대역이 없고
-   * 화면에서 **원형(지구본)** 으로 그립니다. 라벨 문자열로 판단하지 않는 이유는
-   * 표시 이름을 바꾸는 순간 도형이 깨지기 때문입니다.
+   * <p>{@code device} 는 기본 경로의 실제 경유 장비, {@code internet} 은
+   * 외부 노드입니다. 라벨 문자열로 판단하지 않아 장비 이름 변경에도 안전합니다.
    */
-  kind?: "subnet" | "internet";
+  kind?: "subnet" | "device" | "internet";
+  /** 장비 노드일 때 수집된 장비 유형. */
+  device_type?: string | null;
+  /** 기본 경로 홉을 따라 외부 Gateway까지 도달할 수 있는 서브넷/VLAN인가. */
+  internet_reachable?: boolean;
 }
 
 /** 토폴로지 간선 (연결 규칙). */
 export interface ApiTopologyEdge {
-  rule_id: string;
+  rule_id: string | null;
   /**
    * 출발 **노드 id** (`Subnet-0001`).
    *
@@ -223,6 +228,20 @@ export interface ApiTopologyEdge {
    * 그리고, 라벨도 "인터넷" 으로 씁니다.
    */
   internet?: boolean;
+  /** 간선 의미. 물리 링크/VLAN 연결/기본 경로를 일반 관측 간선과 구분합니다. */
+  edge_type?:
+    | "policy"
+    | "routed_subnets"
+    | "attachment"
+    | "vlan_membership"
+    | "physical_link"
+    | "default_route"
+    | "internet_egress";
+  /** 기본 경로에서 수집한 다음 홉 주소. */
+  next_hop?: string | null;
+  next_hop_interface?: string | null;
+  source_interface?: string | null;
+  target_interface?: string | null;
   /** 관측 간선을 만들어 내는 장치 식별자 (정책 규칙에는 없습니다). */
   agent_id?: string | null;
   port: number | null;

@@ -47,7 +47,24 @@ export function topologyToMermaid(data: ApiTopology | null): string {
   // ⚠️ 인터넷은 프로젝트의 "대역" 이 아니라 경계 바깥입니다. 존 서브그래프에
   //    넣으면 "Open Zone 안에 인터넷" 처럼 보여 의미가 뒤바뀝니다.
   const internetNodes = data.nodes.filter(isInternet);
-  const zoneNodes = data.nodes.filter((node) => !isInternet(node));
+  // VLAN은 편집 여부와 관계없이 논리 네트워크입니다. vlan_id가 없는 자동 수집
+  // 인터페이스 대역과 라우팅 장비만 Physical View에 둡니다.
+  const physicalNodes = data.nodes.filter(isPhysicalSource);
+  const zoneNodes = data.nodes.filter(
+    (node) => !isInternet(node) && !isPhysicalSource(node),
+  );
+
+  // 실제 장비와 VLAN이 아닌 인터페이스 대역입니다.
+  if (physicalNodes.length > 0) {
+    lines.push('  subgraph PhysicalView["Physical View"]');
+    lines.push("    direction LR");
+    for (const node of physicalNodes) {
+      lines.push(
+        `    ${sanitizeMermaidId(node.id)}${nodeShape(node, nodeLabel(node, true))}`,
+      );
+    }
+    lines.push("  end");
+  }
 
   // 등급별 서브그래프로 묶어 존 경계를 시각화합니다.
   const byLevel = new Map<number | null, typeof data.nodes>();
@@ -62,14 +79,19 @@ export function topologyToMermaid(data: ApiTopology | null): string {
     (a, b) => (b[0] ?? 0) - (a[0] ?? 0),
   );
 
-  for (const [level, nodes] of ordered) {
-    const groupId = `Zone${level ?? "unknown"}`;
-    const groupLabel = level ? LEVEL_LABEL[level] ?? `Level ${level}` : "미지정";
-    lines.push(`  subgraph ${groupId}["${groupLabel}"]`);
-    for (const node of nodes) {
-      // 등급별로 노드 모양을 다르게 해 색 없이도 구분되게 합니다.
-      const label = nodeLabel(node, false);
-      lines.push(`    ${sanitizeMermaidId(node.id)}${nodeShape(node, label)}`);
+  if (ordered.length > 0) {
+    lines.push('  subgraph LogicalView["Logical View"]');
+    lines.push("    direction TD");
+    for (const [level, nodes] of ordered) {
+      const groupId = `Zone${level ?? "unknown"}`;
+      const groupLabel = level ? LEVEL_LABEL[level] ?? `Level ${level}` : "미지정";
+      lines.push(`    subgraph ${groupId}["${groupLabel}"]`);
+      for (const node of nodes) {
+        // 등급별로 노드 모양을 다르게 해 색 없이도 구분되게 합니다.
+        const label = nodeLabel(node, false);
+        lines.push(`      ${sanitizeMermaidId(node.id)}${nodeShape(node, label)}`);
+      }
+      lines.push("    end");
     }
     lines.push("  end");
   }
@@ -103,21 +125,8 @@ export function topologyToMermaid(data: ApiTopology | null): string {
     // 인터넷 간선은 방향이 있습니다(안에서 밖으로 나감) → 점선 화살표.
     // 대역 간 라우팅은 양방향입니다 → 점선 무방향.
     const observed = edge.observed === true || edge.origin === "DISCOVERED";
-    const arrow = edge.internet
-      ? "-.->"
-      : observed
-        ? "---"
-        : edge.forbidden
-          ? "==>"
-          : "-->";
-    const label = edge.internet
-      ? "인터넷"
-      : observed
-        ? "라우팅"
-        : edge.port
-          ? `:${edge.port}`
-          : "전체";
-    lines.push(`  ${sourceId} ${arrow}|${label}| ${targetId}`);
+    const { arrow, label } = edgePresentation(edge);
+    lines.push(edgeLine(sourceId, arrow, label, targetId));
     if (edge.forbidden) {
       linkStyles.push(
         `  linkStyle ${linkIndex} stroke:#dc2626,stroke-width:3px;`,
@@ -125,6 +134,11 @@ export function topologyToMermaid(data: ApiTopology | null): string {
     } else if (edge.internet) {
       linkStyles.push(
         `  linkStyle ${linkIndex} stroke:#2563eb,stroke-width:2px,stroke-dasharray:5 4;`,
+      );
+    } else if (edge.edge_type === "physical_link" || edge.edge_type === "vlan_membership"
+        || edge.edge_type === "attachment") {
+      linkStyles.push(
+        `  linkStyle ${linkIndex} stroke:#475569,stroke-width:2px;`,
       );
     } else if (observed) {
       linkStyles.push(
@@ -136,6 +150,16 @@ export function topologyToMermaid(data: ApiTopology | null): string {
 
   // 스타일
   lines.push(...CLASS_DEFS);
+  if (physicalNodes.length > 0) {
+    lines.push(
+      "  style PhysicalView fill:#f8fafc,stroke:#64748b,stroke-width:1px,stroke-dasharray:4 4;",
+    );
+  }
+  if (ordered.length > 0) {
+    lines.push(
+      "  style LogicalView fill:transparent,stroke:#94a3b8,stroke-width:1px,stroke-dasharray:4 4;",
+    );
+  }
   for (const node of data.nodes) {
     lines.push(`  class ${sanitizeMermaidId(node.id)} ${nodeClass(node)};`);
   }
@@ -168,9 +192,36 @@ const QUARANTINE_CLASS_DEF =
 const INTERNET_CLASS_DEF =
   "  classDef internet fill:#dbeafe,stroke:#2563eb,stroke-width:3px,color:#1e3a8a;";
 
+/** 자동 수집됐지만 운영자가 아직 논리 등급을 확정하지 않은 노드 스타일입니다. */
+const PHYSICAL_CLASS_DEF =
+  "  classDef physical fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#334155;";
+
+/** 기본 경로에서 식별된 라우터/방화벽 장비 스타일입니다. */
+const DEVICE_CLASS_DEF =
+  "  classDef device fill:#e0f2fe,stroke:#0369a1,stroke-width:2px,color:#0c4a6e;";
+
 /** 노드가 인터넷(외부) 노드인지 확인합니다. */
 function isInternet(node: ApiTopology["nodes"][number]): boolean {
   return node.kind === "internet";
+}
+
+function isDevice(node: ApiTopology["nodes"][number]): boolean {
+  return node.kind === "device";
+}
+
+/**
+ * Physical View에 들어갈 장비/인터페이스 출처인지 확인합니다.
+ *
+ * VLAN은 자동 수집 직후({@code manually_edited=false})라도 논리 네트워크이므로
+ * 반드시 Logical View에 둡니다. VLAN ID가 없는 자동 수집 대역만 물리 출처입니다.
+ */
+function isPhysicalSource(node: ApiTopology["nodes"][number]): boolean {
+  if (isDevice(node)) return true;
+  return (
+    !isInternet(node) &&
+    node.vlan_id == null &&
+    node.manually_edited !== true
+  );
 }
 
 /**
@@ -186,6 +237,9 @@ function isInternet(node: ApiTopology["nodes"][number]): boolean {
 function nodeShape(node: ApiTopology["nodes"][number], label: string): string {
   if (isInternet(node)) {
     return `((("${label}")))`;
+  }
+  if (isDevice(node)) {
+    return `[["${label}"]]`;
   }
   return node.level === 3
     ? `{{"${label}"}}`
@@ -204,6 +258,8 @@ function nodeShape(node: ApiTopology["nodes"][number], label: string): string {
 function nodeClass(node: ApiTopology["nodes"][number]): string {
   if (node.quarantined) return "quarantined";
   if (isInternet(node)) return "internet";
+  if (isDevice(node)) return "device";
+  if (isPhysicalSource(node)) return "physical";
   return levelClass(node.level);
 }
 
@@ -224,16 +280,57 @@ function nodeLabel(
   // 인터넷은 대역이 없으므로 CIDR 줄을 만들지 않습니다.
   const name =
     includeCidr && node.cidr ? `${node.label}<br/>${node.cidr}` : node.label;
-  return node.quarantined ? `${QUARANTINE_MARK}${name}` : name;
+  const reachable = node.internet_reachable ? `${name}<br/>🌐 Internet 연결` : name;
+  return node.quarantined ? `${QUARANTINE_MARK}${reachable}` : reachable;
 }
 
 const CLASS_DEFS = [
   "  classDef confidential fill:#fee2e2,stroke:#dc2626,stroke-width:2px;",
   "  classDef sensitive fill:#f3e8ff,stroke:#9333ea,stroke-width:2px;",
   "  classDef open fill:#dcfce7,stroke:#16a34a,stroke-width:2px;",
+  PHYSICAL_CLASS_DEF,
+  DEVICE_CLASS_DEF,
   QUARANTINE_CLASS_DEF,
   INTERNET_CLASS_DEF,
 ];
+
+/** 간선의 의미에 맞는 방향과 짧은 라벨을 반환합니다. */
+function edgePresentation(edge: ApiTopology["edges"][number]): {
+  arrow: string;
+  label: string;
+} {
+  if (edge.edge_type === "attachment" || edge.edge_type === "vlan_membership"
+      || edge.edge_type === "physical_link") {
+    return { arrow: "---", label: "" };
+  }
+  if (edge.edge_type === "default_route") {
+    return {
+      arrow: "-.->",
+      label: edge.next_hop ? `기본 경로 ${edge.next_hop}` : "기본 경로",
+    };
+  }
+  if (edge.internet || edge.edge_type === "internet_egress") {
+    return {
+      arrow: "-.->",
+      label: edge.next_hop ? `외부 GW ${edge.next_hop}` : "인터넷",
+    };
+  }
+  const observed = edge.observed === true || edge.origin === "DISCOVERED";
+  if (observed) {
+    return { arrow: "---", label: "라우팅" };
+  }
+  if (edge.forbidden) {
+    return { arrow: "==>", label: edge.port ? `:${edge.port}` : "전체" };
+  }
+  return { arrow: "-->", label: edge.port ? `:${edge.port}` : "전체" };
+}
+
+/** 라벨이 없는 연결선에 빈 Mermaid 라벨 상자를 만들지 않습니다. */
+function edgeLine(source: string, arrow: string, label: string, target: string): string {
+  return label
+    ? `  ${source} ${arrow}|${label}| ${target}`
+    : `  ${source} ${arrow} ${target}`;
+}
 
 /**
  * 상세 뷰: 서브넷 CIDR 까지 라벨에 포함해 그립니다.
@@ -267,21 +364,8 @@ export function topologyToDetailedMermaid(data: ApiTopology | null): string {
     }
     // 상세 뷰도 기본 뷰와 같은 규칙으로 관측 간선을 점선으로 그립니다.
     const observed = edge.observed === true || edge.origin === "DISCOVERED";
-    const arrow = edge.internet
-      ? "-.->"
-      : observed
-        ? "---"
-        : edge.forbidden
-          ? "==>"
-          : "-->";
-    const label = edge.internet
-      ? "인터넷"
-      : observed
-        ? "라우팅"
-        : edge.port
-          ? `:${edge.port}`
-          : "전체";
-    lines.push(`  ${sourceId} ${arrow}|${label}| ${targetId}`);
+    const { arrow, label } = edgePresentation(edge);
+    lines.push(edgeLine(sourceId, arrow, label, targetId));
     if (edge.forbidden) {
       linkStyles.push(
         `  linkStyle ${linkIndex} stroke:#dc2626,stroke-width:3px;`,
@@ -289,6 +373,11 @@ export function topologyToDetailedMermaid(data: ApiTopology | null): string {
     } else if (edge.internet) {
       linkStyles.push(
         `  linkStyle ${linkIndex} stroke:#2563eb,stroke-width:2px,stroke-dasharray:5 4;`,
+      );
+    } else if (edge.edge_type === "physical_link" || edge.edge_type === "vlan_membership"
+        || edge.edge_type === "attachment") {
+      linkStyles.push(
+        `  linkStyle ${linkIndex} stroke:#475569,stroke-width:2px;`,
       );
     } else if (observed) {
       linkStyles.push(
@@ -324,7 +413,11 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
   //    "Open Zone 4개(인터넷 포함)" 처럼 실제 대역 수가 틀어집니다.
   //    id/라벨은 응답의 노드에서 가져옵니다 — 하드코딩하면 서버가 바뀔 때 깨집니다.
   const internetNode = data.nodes.find(isInternet);
-  const zoneSource = data.nodes.filter((node) => !isInternet(node));
+  // 자동 수집 기본값(Open)은 논리 Open Zone 확정이 아닙니다. 운영자가 등급을
+  // 확인한 노드만 존 단위 Logical View 집계에 포함합니다.
+  const zoneSource = data.nodes.filter(
+    (node) => !isInternet(node) && !isPhysicalSource(node),
+  );
 
   // 노드 id → 등급 레벨 (존 간선 유도용 — 인터넷은 별도 처리)
   const levelOf = new Map<string, number | null>();
@@ -346,7 +439,12 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
     }
   }
 
-  const lines: string[] = ["flowchart TD"];
+  const lines: string[] = [
+    "flowchart TD",
+    // 등급 존을 장비 배선도가 아닌 논리 뷰로 명시합니다.
+    '  subgraph LogicalView["Logical View"]',
+    "    direction TD",
+  ];
   for (const [level, count] of [...countByLevel.entries()].sort(
     (a, b) => (b[0] ?? 0) - (a[0] ?? 0),
   )) {
@@ -361,8 +459,9 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
         : `${count}개`;
     const label = `${name}<br/>${detail}`;
     const shape = level === 3 ? `{{"${label}"}}` : `["${label}"]`;
-    lines.push(`  ${id}${shape}`);
+    lines.push(`    ${id}${shape}`);
   }
+  lines.push("  end");
 
   // 인터넷은 존 밖에 원형(지구본)으로 둡니다.
   if (internetNode) {
@@ -377,6 +476,12 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
   const zoneForbidden = new Set<string>();
   const internetFromZones = new Set<string>();
   const internetForbidden = new Set<string>();
+  for (const node of zoneSource) {
+    if (node.internet_reachable) {
+      internetFromZones.add(String(node.level));
+      if (node.level === 3) internetForbidden.add(String(node.level));
+    }
+  }
   for (const edge of data.edges) {
     if (edge.internet) {
       // 노출된 서브넷의 존을 찾아 그 존에서 인터넷으로 잇습니다.
@@ -433,6 +538,9 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
   }
 
   lines.push(...CLASS_DEFS);
+  lines.push(
+    "  style LogicalView fill:transparent,stroke:#94a3b8,stroke-width:1px,stroke-dasharray:4 4;",
+  );
   for (const level of countByLevel.keys()) {
     // 존 안에 격리된 서브넷이 하나라도 있으면 그 존을 격리 색으로 칠합니다.
     // 어느 서브넷인지는 상세 뷰에서 확인합니다 — 존 뷰는 "어디를 봐야 하나"

@@ -1,18 +1,23 @@
 package org.sonar.sonarvalidator_backend.Controller;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
+import org.sonar.sonarvalidator_backend.Model.DeviceType;
+import org.sonar.sonarvalidator_backend.Model.entity.ExpectedAgent;
 import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Model.entity.ProjectSubnet;
 import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
 import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService;
 import org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry;
+import org.sonar.sonarvalidator_backend.Service.ExpectedAgentService;
 import org.sonar.sonarvalidator_backend.Service.ObservedConnectivity;
 import org.sonar.sonarvalidator_backend.Service.ProjectService;
 import org.sonar.sonarvalidator_backend.Service.QuarantineService;
@@ -52,6 +57,7 @@ public class NetworkTopologyController {
     private final ProjectService projectService;
     private final AgentMessageRouterService router;
     private final AgentSessionRegistry registry;
+    private final ExpectedAgentService expectedAgentService;
 
     /**
      * 격리 상태 통로입니다.
@@ -71,10 +77,12 @@ public class NetworkTopologyController {
     public NetworkTopologyController(ProjectService projectService,
                                      AgentMessageRouterService router,
                                      AgentSessionRegistry registry,
+                                     ExpectedAgentService expectedAgentService,
                                      QuarantineService quarantineService) {
         this.projectService = projectService;
         this.router = router;
         this.registry = registry;
+        this.expectedAgentService = expectedAgentService;
         this.quarantineService = quarantineService;
     }
 
@@ -90,6 +98,7 @@ public class NetworkTopologyController {
     @GetMapping("/topology/{projectId}")
     public Map<String, Object> topology(@PathVariable String projectId) {
         final Project project = projectService.getByKey(projectId);
+        final Map<String, NeutralDeviceConfig> configs = router.allConfigs();
 
         final Map<String, ProjectSubnet> byId = new LinkedHashMap<>();
         for (final ProjectSubnet subnet : project.getSubnets()) {
@@ -133,6 +142,7 @@ public class NetworkTopologyController {
             node.put("id", subnet.getId());
             node.put("label", subnet.getName() == null ? subnet.getId() : subnet.getName());
             node.put("cidr", subnet.getCidr());
+            node.put("vlan_id", subnet.getVlanId());
             node.put("subnet_class", subnet.getZoneClass() == null ? null : subnet.getZoneClass().label());
             node.put("level", subnet.getZoneClass() == null ? null : subnet.getZoneClass().level());
             node.put("agent_id", agentId);
@@ -178,6 +188,7 @@ public class NetworkTopologyController {
             edge.put("severity", forbidden ? "CRITICAL" : (rule.hasPort() ? "OK" : "MAJOR"));
             edge.put("origin", "MANUAL");
             edge.put("observed", false);
+            edge.put("edge_type", "policy");
             edges.add(edge);
         }
 
@@ -192,7 +203,7 @@ public class NetworkTopologyController {
          * 바뀌면 화면에서도 함께 사라져야 합니다.
          */
         for (final ObservedConnectivity.Link link
-                : ObservedConnectivity.betweenSubnetsOfEachDevice(project, router.allConfigs())) {
+                : ObservedConnectivity.betweenSubnetsOfEachDevice(project, configs)) {
             final Map<String, Object> edge = new LinkedHashMap<>();
             edge.put("rule_id", null);
             edge.put("source", link.sourceId());
@@ -207,25 +218,156 @@ public class NetworkTopologyController {
             edge.put("severity", link.forbidden() ? "CRITICAL" : "OBSERVED");
             edge.put("origin", "DISCOVERED");
             edge.put("observed", true);
+            edge.put("edge_type", "routed_subnets");
             edges.add(edge);
         }
 
         /*
-         * --- 3) 인터넷 노드와 연결 ---------------------------------------
+         * --- 3) 장비와 기본 경로의 실제 다음 홉 ---------------------------
          *
-         * 기본 경로가 수집된 장치의 대역은 인터넷으로 나갈 수 있습니다.
-         * 그 사실을 화면에서 **원형(지구본) 노드**로 보여 주기 위해,
-         * 인터넷을 노드 하나로 만들고 노출된 대역에서 간선을 붙입니다.
+         * VLAN/서브넷을 기본 경로가 있다는 이유만으로 Internet에 직접 붙이면
+         * Firewall/C4I Router/Gateway Router를 모두 건너뛴 것처럼 보입니다.
+         * 그래서 프로젝트의 대역은 먼저 실제 VLAN 스위치/장비에 붙이고, 기본 경로
+         * nextHop 주소의 장비를 찾아 장비 간 홉을 만듭니다. 내부 장비를 찾을 수
+         * 없는 마지막 홉만 Internet에 연결합니다.
          *
-         * 노출이 0건이면 노드를 만들지 않습니다 — "인터넷" 이 떠 있는데
-         * 연결된 것이 없으면 오히려 잘못된 안심을 줍니다.
+         * 예: VLAN131 → Firewall → C4I Router → Gateway Router → Internet
          */
-        final Set<String> exposedAgents = ObservedConnectivity.internetExposedAgents(router.allConfigs());
-        if (!exposedAgents.isEmpty()) {
+        final Set<String> projectAgents = new LinkedHashSet<>();
+        for (final ExpectedAgent expected : expectedAgentService.list(projectId)) {
+            if (expected.getAgentId() != null && !expected.getAgentId().isBlank()) {
+                projectAgents.add(expected.getAgentId());
+            }
+        }
+        for (final ProjectSubnet subnet : project.getSubnets()) {
+            if (subnet.getAgentId() != null && !subnet.getAgentId().isBlank()) {
+                projectAgents.add(subnet.getAgentId());
+            }
+        }
+
+        // 장비 노드는 Physical View의 라우팅 경유점을 나타냅니다.
+        for (final String agentId : projectAgents) {
+            final NeutralDeviceConfig config = findConfig(configs, agentId);
+            if (config == null) {
+                continue;
+            }
+            final Map<String, Object> deviceNode = new LinkedHashMap<>();
+            deviceNode.put("id", deviceNodeId(agentId));
+            deviceNode.put("label", config.getHostname() == null || config.getHostname().isBlank()
+                    ? agentId : config.getHostname());
+            deviceNode.put("cidr", null);
+            deviceNode.put("vlan_id", null);
+            deviceNode.put("subnet_class", null);
+            deviceNode.put("level", null);
+            deviceNode.put("agent_id", agentId);
+            deviceNode.put("manually_edited", false);
+            deviceNode.put("kind", ObservedConnectivity.KIND_DEVICE);
+            deviceNode.put("device_type", config.getDeviceType());
+            deviceNode.put("quarantined", containsIgnoreCase(quarantinedAgents, agentId));
+            deviceNode.put("connected", containsIgnoreCase(registry.connectedAgentIds(), agentId));
+            nodes.add(deviceNode);
+        }
+
+        final List<ObservedConnectivity.PhysicalLink> projectPhysicalLinks = new ArrayList<>();
+        for (final ObservedConnectivity.PhysicalLink link
+                : ObservedConnectivity.physicalLinks(project, configs)) {
+            final String sourceAgent = canonicalAgent(projectAgents, link.sourceAgentId());
+            final String targetAgent = canonicalAgent(projectAgents, link.targetAgentId());
+            if (sourceAgent == null || targetAgent == null) {
+                continue;
+            }
+            final ObservedConnectivity.PhysicalLink projectLink =
+                    new ObservedConnectivity.PhysicalLink(
+                            sourceAgent, link.sourceInterface(),
+                            targetAgent, link.targetInterface());
+            projectPhysicalLinks.add(projectLink);
+
+            final Map<String, Object> edge = discoveredEdge(
+                    deviceNodeId(sourceAgent), deviceNodeId(targetAgent), sourceAgent);
+            edge.put("edge_type", "physical_link");
+            edge.put("source_interface", link.sourceInterface());
+            edge.put("target_interface", link.targetInterface());
+            edges.add(edge);
+        }
+
+        // VLAN은 그 VLAN을 실제 보유한 스위치에 먼저 붙입니다. 스위치 수집 정보가
+        // 없을 때만 L3 인터페이스를 가진 장비에 붙여 연결선이 끊기지 않게 합니다.
+        for (final ProjectSubnet subnet : project.getSubnets()) {
+            final String agentId = canonicalAgent(projectAgents, subnet.getAgentId());
+            if (agentId == null || findConfig(configs, agentId) == null) {
+                continue;
+            }
+            boolean attachedToSwitch = false;
+            if (subnet.getVlanId() != null) {
+                for (final String switchAgent : projectAgents) {
+                    final NeutralDeviceConfig switchConfig = findConfig(configs, switchAgent);
+                    if (switchConfig == null || !isSwitch(switchAgent, switchConfig)
+                            || !switchConfig.getVlans().containsKey(subnet.getVlanId())) {
+                        continue;
+                    }
+                    final Map<String, Object> vlanEdge = discoveredEdge(
+                            subnet.getSubnetId(), deviceNodeId(switchAgent), switchAgent);
+                    vlanEdge.put("source_cidr", subnet.getCidr());
+                    vlanEdge.put("edge_type", "vlan_membership");
+                    edges.add(vlanEdge);
+                    attachedToSwitch = true;
+
+                    // 일부 L2 스위치는 ARP 테이블을 보고하지 않습니다. 그래도 같은
+                    // VLAN이 스위치와 L3 게이트웨이 양쪽에서 확인되면 그 업링크는
+                    // 끊기면 안 됩니다. MAC 기반 링크가 없을 때만 보완선을 만듭니다.
+                    if (!switchAgent.equalsIgnoreCase(agentId)
+                            && !hasPhysicalPath(switchAgent, agentId, projectPhysicalLinks)) {
+                        projectPhysicalLinks.add(new ObservedConnectivity.PhysicalLink(
+                                switchAgent, null, agentId, null));
+                        final Map<String, Object> uplinkEdge = discoveredEdge(
+                                deviceNodeId(switchAgent), deviceNodeId(agentId), switchAgent);
+                        uplinkEdge.put("edge_type", "physical_link");
+                        uplinkEdge.put("evidence", "vlan_membership");
+                        edges.add(uplinkEdge);
+                    }
+                }
+            }
+            if (attachedToSwitch) {
+                continue;
+            }
+            final Map<String, Object> edge = discoveredEdge(
+                    subnet.getSubnetId(), deviceNodeId(agentId), agentId);
+            edge.put("source_cidr", subnet.getCidr());
+            edge.put("edge_type", "attachment");
+            edges.add(edge);
+        }
+
+        final List<ObservedConnectivity.DefaultRouteHop> projectRouteHops = new ArrayList<>();
+        boolean hasInternetEgress = false;
+        for (final ObservedConnectivity.DefaultRouteHop hop
+                : ObservedConnectivity.defaultRouteHops(configs)) {
+            final String sourceAgent = canonicalAgent(projectAgents, hop.sourceAgentId());
+            if (sourceAgent == null) {
+                continue;
+            }
+            final String targetAgent = canonicalAgent(projectAgents, hop.targetAgentId());
+            // VM/서버의 관리용 기본 경로가 외부 NAT를 직접 가리키더라도 업무망의
+            // 인터넷 출구로 그리지 않습니다. 토폴로지 경계는 라우터/방화벽이
+            // 실제로 외부로 내보내는 마지막 홉만 나타냅니다.
+            if (targetAgent == null
+                    && !isInternetBoundaryDevice(
+                            sourceAgent, findConfig(configs, sourceAgent), hop.nextHop())) {
+                continue;
+            }
+            projectRouteHops.add(new ObservedConnectivity.DefaultRouteHop(
+                    sourceAgent, hop.nextHop(), hop.nextHopInterface(),
+                    targetAgent, hop.targetInterface()));
+            if (targetAgent == null) {
+                hasInternetEgress = true;
+            }
+        }
+
+        if (hasInternetEgress) {
             final Map<String, Object> internetNode = new LinkedHashMap<>();
             internetNode.put("id", ObservedConnectivity.INTERNET_NODE_ID);
             internetNode.put("label", ObservedConnectivity.INTERNET_NODE_LABEL);
             internetNode.put("cidr", null);
+            internetNode.put("vlan_id", null);
             // 인터넷은 공개망 성질이므로 Open 색을 씁니다.
             internetNode.put("subnet_class", ZoneClass.OPEN.label());
             internetNode.put("level", ZoneClass.OPEN.level());
@@ -235,32 +377,48 @@ public class NetworkTopologyController {
             internetNode.put("connected", true);
             internetNode.put("kind", ObservedConnectivity.KIND_INTERNET);
             nodes.add(internetNode);
+        }
 
-            for (final ProjectSubnet subnet : project.getSubnets()) {
-                final String agentId = subnet.getAgentId();
-                if (agentId == null || !exposedAgents.contains(agentId)) {
-                    continue;
-                }
-                final ZoneClass zone = subnet.getZoneClass();
-                final boolean confidential = zone == ZoneClass.CONFIDENTIAL;
-                final Map<String, Object> edge = new LinkedHashMap<>();
-                edge.put("rule_id", null);
-                edge.put("source", subnet.getSubnetId());
-                edge.put("target", ObservedConnectivity.INTERNET_NODE_ID);
-                edge.put("source_cidr", subnet.getCidr());
-                edge.put("target_cidr", null);
-                edge.put("port", null);
-                edge.put("protocol", null);
-                edge.put("agent_id", agentId);
-                // 기밀망이 인터넷으로 나가면 등급을 건너뛰는 직접 연결입니다.
-                edge.put("forbidden", confidential);
-                edge.put("severity", confidential ? "CRITICAL"
-                        : (zone == ZoneClass.SENSITIVE ? "MAJOR" : "OBSERVED"));
-                edge.put("origin", "DISCOVERED");
-                edge.put("observed", true);
-                edge.put("internet", true);
-                edges.add(edge);
+        for (final ObservedConnectivity.DefaultRouteHop hop : projectRouteHops) {
+            if (hop.targetAgentId() != null
+                    && hasPhysicalPath(hop.sourceAgentId(), hop.targetAgentId(),
+                            projectPhysicalLinks)) {
+                // 같은 두 장비 사이의 실제 스위치 경로가 이미 선으로 이어져 있으면
+                // 직결처럼 보이는 nextHop 지름길 선은 만들지 않습니다.
+                continue;
             }
+            final String target = hop.targetAgentId() == null
+                    ? ObservedConnectivity.INTERNET_NODE_ID
+                    : deviceNodeId(hop.targetAgentId());
+            final Map<String, Object> edge = discoveredEdge(
+                    deviceNodeId(hop.sourceAgentId()), target, hop.sourceAgentId());
+            edge.put("next_hop", hop.nextHop());
+            edge.put("next_hop_interface", hop.nextHopInterface());
+            edge.put("target_interface", hop.targetInterface());
+            if (hop.targetAgentId() == null) {
+                edge.put("edge_type", "internet_egress");
+                edge.put("internet", true);
+            } else {
+                edge.put("edge_type", "default_route");
+            }
+            edges.add(edge);
+        }
+
+        final Set<String> internetReachable =
+                ObservedConnectivity.internetReachableAgents(projectRouteHops);
+        for (final Map<String, Object> node : nodes) {
+            if (!ObservedConnectivity.KIND_SUBNET.equals(node.get("kind"))) {
+                continue;
+            }
+            final String agentId = canonicalAgent(projectAgents, (String) node.get("agent_id"));
+            final ProjectSubnet subnet = byId.get((String) node.get("id"));
+            node.put("internet_reachable",
+                    subnet != null && subnet.getVlanId() != null
+                            && agentId != null
+                            && containsIgnoreCase(internetReachable, agentId)
+                            && ObservedConnectivity.internetAllowed(
+                                    agentId, findConfig(configs, agentId),
+                                    subnet == null ? null : subnet.getZoneClass()));
         }
 
         final Map<String, Object> body = new LinkedHashMap<>();
@@ -276,8 +434,161 @@ public class NetworkTopologyController {
         // 구분해 그릴 수 있도록 범례도 함께 싣습니다.
         body.put("edge_legend", List.of(
                 Map.of("kind", "policy", "label", "정책 규칙", "dashed", false),
-                Map.of("kind", "observed", "label", "수집된 실제 연결(라우팅)", "dashed", true)));
+                Map.of("kind", "physical_link", "label", "장비 간 물리 연결", "dashed", false),
+                Map.of("kind", "vlan_membership", "label", "VLAN 연결", "dashed", false),
+                Map.of("kind", "default_route", "label", "기본 경로 다음 홉", "dashed", true),
+                Map.of("kind", "internet_egress", "label", "외부 게이트웨이", "dashed", true)));
         return body;
+    }
+
+    private static Map<String, Object> discoveredEdge(String source, String target, String agentId) {
+        final Map<String, Object> edge = new LinkedHashMap<>();
+        edge.put("rule_id", null);
+        edge.put("source", source);
+        edge.put("target", target);
+        edge.put("source_cidr", null);
+        edge.put("target_cidr", null);
+        edge.put("port", null);
+        edge.put("protocol", null);
+        edge.put("agent_id", agentId);
+        edge.put("forbidden", false);
+        edge.put("severity", "OBSERVED");
+        edge.put("origin", "DISCOVERED");
+        edge.put("observed", true);
+        return edge;
+    }
+
+    private static String deviceNodeId(String agentId) {
+        return "device:" + agentId;
+    }
+
+    private static NeutralDeviceConfig findConfig(Map<String, NeutralDeviceConfig> configs,
+                                                  String agentId) {
+        if (configs == null || agentId == null) {
+            return null;
+        }
+        final NeutralDeviceConfig exact = configs.get(agentId);
+        if (exact != null) {
+            return exact;
+        }
+        for (final Map.Entry<String, NeutralDeviceConfig> entry : configs.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(agentId)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static String canonicalAgent(Set<String> projectAgents, String candidate) {
+        if (candidate == null) {
+            return null;
+        }
+        for (final String agentId : projectAgents) {
+            if (agentId.equalsIgnoreCase(candidate)) {
+                return agentId;
+            }
+        }
+        return null;
+    }
+
+    private static boolean containsIgnoreCase(Collection<String> values, String candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        for (final String value : values) {
+            if (value != null && value.equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isSwitch(String agentId, NeutralDeviceConfig config) {
+        final DeviceType reported = DeviceType.fromString(
+                config == null ? null : config.getDeviceType());
+        final DeviceType resolved = reported != null
+                ? reported
+                : DeviceType.inferFromDeviceId(agentId);
+        return resolved == DeviceType.SWITCH;
+    }
+
+    private static boolean hasPhysicalPath(
+            String sourceAgent, String targetAgent,
+            List<ObservedConnectivity.PhysicalLink> links) {
+        if (sourceAgent == null || targetAgent == null) {
+            return false;
+        }
+        final Set<String> visited = new LinkedHashSet<>();
+        final List<String> pending = new ArrayList<>();
+        pending.add(sourceAgent);
+        while (!pending.isEmpty()) {
+            final String current = pending.removeFirst();
+            if (!visited.add(current.toLowerCase())) {
+                continue;
+            }
+            if (current.equalsIgnoreCase(targetAgent)) {
+                return true;
+            }
+            for (final ObservedConnectivity.PhysicalLink link : links) {
+                if (link.sourceAgentId().equalsIgnoreCase(current)
+                        && !containsIgnoreCase(visited, link.targetAgentId())) {
+                    pending.add(link.targetAgentId());
+                } else if (link.targetAgentId().equalsIgnoreCase(current)
+                        && !containsIgnoreCase(visited, link.sourceAgentId())) {
+                    pending.add(link.sourceAgentId());
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isInternetBoundaryDevice(String agentId,
+                                                    NeutralDeviceConfig config,
+                                                    String nextHop) {
+        final DeviceType reported = DeviceType.fromString(
+                config == null ? null : config.getDeviceType());
+        final DeviceType resolved = reported != null
+                ? reported
+                : DeviceType.inferFromDeviceId(agentId);
+        if (resolved != DeviceType.ROUTER && resolved != DeviceType.FIREWALL) {
+            return false;
+        }
+
+        // 수집이 잠시 끊긴 내부 nextHop을 곧바로 Internet으로 오판하지 않습니다.
+        // 명시적인 경계 역할 이름이거나 공인 nextHop인 경우에만 외부 출구입니다.
+        final String role = ((agentId == null ? "" : agentId) + " "
+                + (config == null || config.getHostname() == null ? "" : config.getHostname()))
+                .toLowerCase();
+        return role.contains("gateway") || role.contains("border")
+                || role.contains("edge-router") || isPublicIpv4(nextHop);
+    }
+
+    private static boolean isPublicIpv4(String address) {
+        if (address == null) {
+            return false;
+        }
+        final String[] parts = address.trim().split("\\.");
+        if (parts.length != 4) {
+            return false;
+        }
+        try {
+            final int first = Integer.parseInt(parts[0]);
+            final int second = Integer.parseInt(parts[1]);
+            for (final String part : parts) {
+                final int octet = Integer.parseInt(part);
+                if (octet < 0 || octet > 255) {
+                    return false;
+                }
+            }
+            return first != 10
+                    && !(first == 172 && second >= 16 && second <= 31)
+                    && !(first == 192 && second == 168)
+                    && first != 127
+                    && !(first == 169 && second == 254)
+                    && first > 0 && first < 224;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
     }
 
     /**

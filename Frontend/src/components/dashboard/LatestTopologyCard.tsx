@@ -54,7 +54,7 @@ export default function LatestTopologyCard() {
           </div>
           <div>
             <h4 className="text-base font-semibold text-gray-800 dark:text-white/90">
-              Latest Project Topology
+              Latest Project Network Views
             </h4>
             <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
           </div>

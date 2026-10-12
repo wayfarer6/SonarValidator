@@ -59,6 +59,250 @@ public final class ObservedConnectivity {
     /** 서브넷(내부 대역) 노드 종류입니다. */
     public static final String KIND_SUBNET = "subnet";
 
+    /** 실제 라우팅 홉을 표시하는 장비 노드 종류입니다. */
+    public static final String KIND_DEVICE = "device";
+
+    /**
+     * 기본 경로 한 건과 다음 홉 장비의 해석 결과입니다.
+     *
+     * @param sourceAgentId 기본 경로를 가진 장비
+     * @param nextHop 기본 경로의 다음 홉 주소
+     * @param nextHopInterface 기본 경로가 나가는 인터페이스
+     * @param targetAgentId 다음 홉 주소를 인터페이스로 가진 내부 장비. 없으면 외부 경계
+     * @param targetInterface 다음 홉 주소가 발견된 내부 장비 인터페이스
+     */
+    public record DefaultRouteHop(String sourceAgentId,
+                                  String nextHop,
+                                  String nextHopInterface,
+                                  String targetAgentId,
+                                  String targetInterface) {
+    }
+
+    /**
+     * ARP/IPv6 이웃의 MAC 주소로 확인한 실제 장비 간 링크입니다.
+     *
+     * @param sourceAgentId 이웃을 관측한 장비
+     * @param sourceInterface 이웃을 관측한 로컬 인터페이스
+     * @param targetAgentId 이웃 MAC을 가진 장비
+     * @param targetInterface 이웃 MAC을 가진 인터페이스
+     */
+    public record PhysicalLink(String sourceAgentId,
+                               String sourceInterface,
+                               String targetAgentId,
+                               String targetInterface) {
+    }
+
+    private record InterfaceOwner(String agentId, String interfaceName) {
+    }
+
+    /**
+     * 수집된 이웃 테이블과 인터페이스 MAC을 맞춰 장비 간 물리 링크를 찾습니다.
+     *
+     * <p>IPv4 ARP는 같은 브로드캐스트 도메인의 종단 장비까지 보여 주므로 중간
+     * 스위치를 건너뛴 직결선처럼 보일 수 있습니다. 여기서는 로컬 링크 이웃인
+     * IPv6 link-local 항목만 쓰고, 프로젝트 관리망 인터페이스는 제외합니다.
+     *
+     * @param project 관리망 범위를 가진 프로젝트
+     * @param configs 장비별 수집 설정
+     * @return 중복을 제거한 물리 링크
+     */
+    public static List<PhysicalLink> physicalLinks(
+            Project project, Map<String, NeutralDeviceConfig> configs) {
+        final List<PhysicalLink> result = new ArrayList<>();
+        if (project == null || configs == null || configs.isEmpty()) {
+            return result;
+        }
+
+        final Set<String> management = ProjectSubnetAutoSyncService.managementNetworks(project);
+        final Map<String, InterfaceOwner> ownerByMac = new LinkedHashMap<>();
+        for (final Map.Entry<String, NeutralDeviceConfig> entry : configs.entrySet()) {
+            final String agentId = entry.getKey();
+            final NeutralDeviceConfig config = entry.getValue();
+            if (agentId == null || config == null) {
+                continue;
+            }
+            config.getInterfaces().forEach((interfaceName, iface) -> {
+                if (iface == null || isManagementInterface(iface, management)) {
+                    return;
+                }
+                final String mac = normalizeMac(iface.getMacAddress());
+                if (!mac.isEmpty()) {
+                    ownerByMac.putIfAbsent(mac, new InterfaceOwner(agentId, interfaceName));
+                }
+            });
+        }
+
+        final Set<String> seen = new LinkedHashSet<>();
+        for (final Map.Entry<String, NeutralDeviceConfig> entry : configs.entrySet()) {
+            final String sourceAgent = entry.getKey();
+            final NeutralDeviceConfig config = entry.getValue();
+            if (sourceAgent == null || config == null) {
+                continue;
+            }
+            for (final NeutralDeviceConfig.ArpEntry neighbor : config.getArpEntries()) {
+                if (neighbor == null || neighbor.getAddress() == null
+                        || !neighbor.getAddress().toLowerCase().startsWith("fe80:")) {
+                    continue;
+                }
+                final NeutralDeviceConfig.InterfaceConfig sourceInterface =
+                        config.getInterfaces().get(neighbor.getInterfaceName());
+                if (sourceInterface == null
+                        || isManagementInterface(sourceInterface, management)) {
+                    continue;
+                }
+                final InterfaceOwner target = ownerByMac.get(normalizeMac(neighbor.getMac()));
+                if (target == null || target.agentId().equalsIgnoreCase(sourceAgent)) {
+                    continue;
+                }
+                final String first = sourceAgent.compareToIgnoreCase(target.agentId()) <= 0
+                        ? sourceAgent : target.agentId();
+                final String second = first.equals(sourceAgent) ? target.agentId() : sourceAgent;
+                final String key = first.toLowerCase() + "|" + second.toLowerCase();
+                if (seen.add(key)) {
+                    result.add(new PhysicalLink(sourceAgent, neighbor.getInterfaceName(),
+                            target.agentId(), target.interfaceName()));
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 기본 경로 홉을 거슬러 올라가 최종 외부 경계까지 도달하는 장비를 찾습니다.
+     *
+     * @param hops 프로젝트 내부 기본 경로와 마지막 외부 홉
+     * @return 인터넷에 도달 가능한 장비 식별자
+     */
+    public static Set<String> internetReachableAgents(List<DefaultRouteHop> hops) {
+        final Set<String> reachable = new LinkedHashSet<>();
+        if (hops == null || hops.isEmpty()) {
+            return reachable;
+        }
+        for (final DefaultRouteHop hop : hops) {
+            if (hop != null && hop.targetAgentId() == null) {
+                reachable.add(hop.sourceAgentId());
+            }
+        }
+        boolean changed;
+        do {
+            changed = false;
+            for (final DefaultRouteHop hop : hops) {
+                if (hop != null && hop.targetAgentId() != null
+                        && containsIgnoreCase(reachable, hop.targetAgentId())
+                        && !containsIgnoreCase(reachable, hop.sourceAgentId())) {
+                    reachable.add(hop.sourceAgentId());
+                    changed = true;
+                }
+            }
+        } while (changed);
+        return reachable;
+    }
+
+    private static boolean isManagementInterface(
+            NeutralDeviceConfig.InterfaceConfig iface, Set<String> management) {
+        if (iface == null || management == null || management.isEmpty()) {
+            return false;
+        }
+        for (final String address : iface.getAddresses()) {
+            final String network = normalizedNetworkOf(address);
+            if (network != null && ProjectSubnetAutoSyncService.isManagement(network, management)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String normalizeMac(String mac) {
+        return mac == null ? "" : mac.replaceAll("[^0-9A-Fa-f]", "").toLowerCase();
+    }
+
+    private static boolean containsIgnoreCase(Set<String> values, String candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        for (final String value : values) {
+            if (value != null && value.equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 장비별 기본 경로를 실제 다음 홉 장비에 연결합니다.
+     *
+     * <p>기본 경로가 있다는 사실만으로 그 장비의 모든 VLAN을 인터넷에 직접
+     * 연결하면 방화벽과 게이트웨이를 건너뛴 그림이 됩니다. 먼저 모든 인터페이스
+     * 주소의 소유자를 색인하고, 기본 경로의 {@code nextHop}이 내부 장비 주소면
+     * 장비 간 홉으로, 찾을 수 없으면 외부 경계로 판정합니다.
+     *
+     * @param configs 장비별 수집 설정
+     * @return 수집 순서를 유지한 기본 경로 홉 목록
+     */
+    public static List<DefaultRouteHop> defaultRouteHops(
+            Map<String, NeutralDeviceConfig> configs) {
+        final List<DefaultRouteHop> result = new ArrayList<>();
+        if (configs == null || configs.isEmpty()) {
+            return result;
+        }
+
+        final Map<String, InterfaceOwner> ownerByAddress = new LinkedHashMap<>();
+        for (final Map.Entry<String, NeutralDeviceConfig> entry : configs.entrySet()) {
+            final String agentId = entry.getKey();
+            final NeutralDeviceConfig config = entry.getValue();
+            if (agentId == null || config == null) {
+                continue;
+            }
+            config.getInterfaces().forEach((interfaceName, iface) -> {
+                if (iface == null) {
+                    return;
+                }
+                for (final String address : iface.getAddresses()) {
+                    final String host = hostAddress(address);
+                    if (host != null) {
+                        ownerByAddress.putIfAbsent(host,
+                                new InterfaceOwner(agentId, interfaceName));
+                    }
+                }
+            });
+        }
+
+        final Set<String> seen = new LinkedHashSet<>();
+        for (final Map.Entry<String, NeutralDeviceConfig> entry : configs.entrySet()) {
+            final String sourceAgentId = entry.getKey();
+            final NeutralDeviceConfig config = entry.getValue();
+            if (sourceAgentId == null || config == null) {
+                continue;
+            }
+            for (final NeutralDeviceConfig.RouteConfig route : config.getRoutes()) {
+                if (!isDefaultRoute(route) || Boolean.FALSE.equals(route.getSelected())) {
+                    continue;
+                }
+                final String nextHop = hostAddress(route.getNextHop());
+                final InterfaceOwner owner = nextHop == null ? null : ownerByAddress.get(nextHop);
+                final String targetAgentId = owner != null
+                        && !owner.agentId().equalsIgnoreCase(sourceAgentId)
+                        ? owner.agentId()
+                        : null;
+                final String targetInterface = targetAgentId == null
+                        ? null
+                        : owner.interfaceName();
+                final String key = sourceAgentId.toLowerCase() + "|"
+                        + String.valueOf(nextHop) + "|"
+                        + String.valueOf(targetAgentId).toLowerCase();
+                if (seen.add(key)) {
+                    result.add(new DefaultRouteHop(
+                            sourceAgentId,
+                            nextHop,
+                            route.getNextHopInterface(),
+                            targetAgentId,
+                            targetInterface));
+                }
+            }
+        }
+        return result;
+    }
+
     /**
      * 인터넷 기본 경로({@code 0.0.0.0/0})를 가진 장치 식별자를 모읍니다.
      *
@@ -96,12 +340,27 @@ public final class ObservedConnectivity {
             if (route == null) {
                 continue;
             }
-            if (Boolean.TRUE.equals(route.getDefaultRoute())
-                    || "0.0.0.0/0".equals(route.getPrefix())) {
+            if (isDefaultRoute(route)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static boolean isDefaultRoute(NeutralDeviceConfig.RouteConfig route) {
+        return route != null && (Boolean.TRUE.equals(route.getDefaultRoute())
+                || "0.0.0.0/0".equals(route.getPrefix()));
+    }
+
+    /** IPv4/CIDR에서 호스트 주소 부분만 반환합니다. 특수 next-hop 표기는 제외합니다. */
+    private static String hostAddress(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        final String trimmed = value.trim();
+        final int slash = trimmed.indexOf('/');
+        final String host = slash < 0 ? trimmed : trimmed.substring(0, slash);
+        return parseNetwork(host) == null ? null : host;
     }
 
     /**
@@ -161,9 +420,7 @@ public final class ObservedConnectivity {
             //    존 간 허용은 규칙(policy rule)으로 표현되고, 방화벽 규칙 수집이
             //    그 근거입니다. 라우터·스위치는 실제로 VLAN 간 포워딩을 하므로
             //    기존 추론(SVI/connected 경로)을 유지합니다.
-            if (isEnforcementDevice(agentId, config)) {
-                continue;
-            }
+            final boolean enforcementDevice = isEnforcementDevice(agentId, config);
             final Set<String> routed = routedNetworks(config);
             if (routed.isEmpty()) {
                 continue;
@@ -196,6 +453,10 @@ public final class ObservedConnectivity {
                     final ProjectSubnet second = unique.get(j);
                     final ZoneClass firstZone = first.getZoneClass();
                     final ZoneClass secondZone = second.getZoneClass();
+                    if (enforcementDevice
+                            && !firewallAllowsPair(config, firstZone, secondZone)) {
+                        continue;
+                    }
                     result.add(new Link(
                             agentId,
                             first.getSubnetId(),
@@ -207,6 +468,68 @@ public final class ObservedConnectivity {
             }
         }
         return result;
+    }
+
+    /**
+     * 방화벽 정책까지 고려해 해당 존이 외부 기본 경로를 사용할 수 있는지 봅니다.
+     *
+     * <p>기본 경로가 있어도 방화벽에 {@code C-to-Open-Internet deny} 같은 명시적
+     * 차단 규칙이 있으면 그 VLAN을 인터넷 가능으로 표시해서는 안 됩니다.
+     */
+    public static boolean internetAllowed(String agentId,
+                                          NeutralDeviceConfig config,
+                                          ZoneClass zone) {
+        if (!isEnforcementDevice(agentId, config)) {
+            return true;
+        }
+        final String token = zoneToken(zone);
+        final String full = zone == null ? "" : zone.label().toLowerCase();
+        for (final String rule : config.getFirewallRules()) {
+            final String normalized = rule == null ? "" : rule.toLowerCase();
+            if (!hasDropAction(normalized)) {
+                continue;
+            }
+            if (normalized.contains(token + "-to-open")
+                    || normalized.contains(token + "-to-internet")
+                    || (!full.isEmpty() && normalized.contains(full + "-to-open"))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** 방화벽에서 두 존 사이를 명시적으로 accept한 경우만 VLAN 간선을 만듭니다. */
+    private static boolean firewallAllowsPair(NeutralDeviceConfig config,
+                                              ZoneClass first,
+                                              ZoneClass second) {
+        final String forward = zoneToken(first) + "-to-" + zoneToken(second);
+        final String reverse = zoneToken(second) + "-to-" + zoneToken(first);
+        for (final String rule : config.getFirewallRules()) {
+            final String normalized = rule == null ? "" : rule.toLowerCase();
+            if (hasAcceptAction(normalized)
+                    && (normalized.contains(forward) || normalized.contains(reverse))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String zoneToken(ZoneClass zone) {
+        if (zone == ZoneClass.CONFIDENTIAL) {
+            return "c";
+        }
+        if (zone == ZoneClass.SENSITIVE) {
+            return "s";
+        }
+        return "open";
+    }
+
+    private static boolean hasAcceptAction(String rule) {
+        return rule.contains("\"accept\"") || rule.contains(" accept");
+    }
+
+    private static boolean hasDropAction(String rule) {
+        return rule.contains("\"drop\"") || rule.contains(" drop");
     }
 
     /**

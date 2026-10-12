@@ -59,6 +59,18 @@ export default function NetworkManagement() {
   /** 토폴로지를 Mermaid flowchart 소스로 변환합니다. (공용 모듈) */
   const chart = useMemo(() => topologyToMermaid(topology.data), [topology.data]);
 
+  /** 인터넷/장비 노드를 제외하고 VLAN과 일반 서브넷을 따로 집계합니다. */
+  const topologyCounts = useMemo(() => {
+    const networkNodes = (topology.data?.nodes ?? []).filter(
+      (node) => node.kind == null || node.kind === "subnet",
+    );
+    return {
+      vlan: networkNodes.filter((node) => node.vlan_id != null).length,
+      subnet: networkNodes.filter((node) => node.vlan_id == null).length,
+      total: networkNodes.length,
+    };
+  }, [topology.data]);
+
   const deviceRoutes = routes.data?.devices ?? [];
 
   return (
@@ -101,7 +113,7 @@ export default function NetworkManagement() {
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">
-              Network Topology (CSO Security Zones)
+              Network Views (Physical + Logical)
             </h4>
             {topology.data && (
               <div className="flex flex-wrap gap-2 text-[11px]">
@@ -145,13 +157,19 @@ export default function NetworkManagement() {
                 <MermaidDiagram chart={chart} />
               </div>
 
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                실제 장비와 인터페이스 연결은 Physical View에, VLAN과 운영자가
+                확정한 서브넷은 Logical View에 표시합니다. 연결선은 VLAN에서 스위치와
+                상위 라우터, Gateway를 거쳐 Internet까지 이어집니다.
+              </p>
+
               {/*
                 서브넷이 0건이면 다이어그램이 빈 상자로 보입니다.
                 "장치를 안 붙였나" 와 "붙였는데 반영이 안 됐나" 는 다른
                 문제이고 대처도 다르므로, 아래 수집 패널과 함께 읽도록
                 이유와 다음 행동을 적습니다.
               */}
-              {topology.data.nodes.length === 0 && (
+              {topologyCounts.total === 0 && (
                 <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2.5 text-xs text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
                   이 프로젝트에 등록된 <b>서브넷이 없어</b> 그릴 것이 없습니다. 서브넷은 장치에서
                   수집된 대역이 자동으로 반영되거나, 아래 편집 화면에서 직접 추가합니다.
@@ -193,19 +211,20 @@ export default function NetworkManagement() {
                   <svg width="34" height="8" aria-hidden="true">
                     <line x1="0" y1="4" x2="34" y2="4" stroke="#64748b" strokeWidth="2" strokeDasharray="5 4" />
                   </svg>
-                  장치가 실제로 라우팅하는 연결 (수집된 라우팅 테이블)
+                  VLAN·장비 연결 및 기본 경로 nextHop
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <svg width="34" height="8" aria-hidden="true">
                     <line x1="0" y1="4" x2="34" y2="4" stroke="#2563eb" strokeWidth="2" strokeDasharray="5 4" />
                   </svg>
-                  인터넷 연결 (원형 = Internet)
+                  Gateway의 외부 연결 (원형 = Internet)
                 </span>
               </p>
 
               {/* 노드/간선 요약 */}
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Stat label="서브넷" value={topology.data.nodes.length} />
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                <Stat label="VLAN" value={topologyCounts.vlan} />
+                <Stat label="Subnet" value={topologyCounts.subnet} />
                 <Stat
                   label="연결 규칙"
                   value={topology.data.edges.filter((edge) => edge.observed !== true).length}

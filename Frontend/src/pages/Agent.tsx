@@ -96,7 +96,9 @@ export default function Agent() {
 
   const [quarantining, setQuarantining] = useState<string | null>(null);
   const [isolationRow, setIsolationRow] = useState<Row | null>(null);
-  const [isolationSubnets, setIsolationSubnets] = useState<ApiTopologyNode[]>([]);
+  const [isolationSubnets, setIsolationSubnets] = useState<
+    (ApiTopologyNode & { cidr: string })[]
+  >([]);
   const [selectedCidr, setSelectedCidr] = useState("");
   const [loadingIsolationSubnets, setLoadingIsolationSubnets] = useState(false);
   /**
@@ -424,7 +426,10 @@ export default function Agent() {
       const topology = await getTopology(row.projectId);
       const ownedSubnets = topology.nodes
         .filter((node) => node.agent_id?.toLowerCase() === row.agentId.toLowerCase())
-        .filter((node) => node.cidr?.trim());
+        .filter(
+          (node): node is ApiTopologyNode & { cidr: string } =>
+            Boolean(node.cidr?.trim()),
+        );
       setIsolationSubnets(ownedSubnets);
     } catch (err) {
       setQuarantineError(err instanceof Error ? err.message : "프로젝트 서브넷을 불러오지 못했습니다.");

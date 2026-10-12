@@ -284,7 +284,7 @@ export default function NetworkSegmentationRule() {
           <div className="flex-1 rounded-xl border border-gray-200 bg-gray-50/50 p-5 dark:border-gray-700 dark:bg-gray-800/40">
             <div className="mb-3 flex items-center justify-between">
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Network Topology (CSO Security Zones)
+                Network Views (Physical + Logical)
               </h4>
               <div className="flex gap-2 text-[11px]">
                 <span className="rounded bg-blue-100 px-2 py-0.5 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">Open</span>

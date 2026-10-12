@@ -98,6 +98,18 @@ export default function TopologyRulePreview() {
     () => topologyToMermaid(topology.data),
     [topology.data],
   );
+  const topologyCounts = useMemo(() => {
+    const networkNodes = (topology.data?.nodes ?? []).filter(
+      (node) => node.kind == null || node.kind === "subnet",
+    );
+    return {
+      vlan: networkNodes.filter((node) => node.vlan_id != null).length,
+      subnet: networkNodes.filter((node) => node.vlan_id == null).length,
+      rules: (topology.data?.edges ?? []).filter(
+        (edge) => edge.origin === "MANUAL" || edge.edge_type === "policy",
+      ).length,
+    };
+  }, [topology.data]);
 
   /** 서버가 판정한 결과를 한 줄로 요약합니다. */
   const verdict = violations.data
@@ -130,8 +142,8 @@ export default function TopologyRulePreview() {
           </span>
           {topology.data && (
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              {topology.data.project_name} · 서브넷 {topology.data.nodes.length}개 · 규칙{" "}
-              {topology.data.edges.length}개
+              {topology.data.project_name} · VLAN {topologyCounts.vlan}개 · Subnet{" "}
+              {topologyCounts.subnet}개 · 규칙 {topologyCounts.rules}개
             </span>
           )}
         </div>
