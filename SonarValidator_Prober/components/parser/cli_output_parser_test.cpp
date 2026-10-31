@@ -1,12 +1,3 @@
-// =============================================================================
-//  cli_output_parser_test — ANTLR 기반 CLI 출력 파서 검증
-//
-//  docs/Agent_Command.md 의 "조회 명령어" 섹션에 실린 실제 출력 샘플을
-//  그대로 넣고, JSON 으로 기대한 필드가 나오는지 확인한다.
-//
-//  네트워크/장비가 없어도 동작하도록 모든 입력은 문자열 리터럴이다.
-//  실패 시 종료 코드가 0이 아니게 되어 ctest 가 실패를 감지한다.
-// =============================================================================
 
 #include <iostream>
 #include <string>
@@ -41,9 +32,7 @@ void CheckEq(const std::string& actual, const std::string& expected, const std::
 
 using cli_parser::Vendor;
 
-// ---------------------------------------------------------------------------
 //  ip a  (docs/Agent_Command.md 방화벽 샘플)
-// ---------------------------------------------------------------------------
 const char* kIpAddrSample =
     "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000\n"
     "    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00\n"
@@ -105,9 +94,7 @@ void TestIpAddr()
     Check(json["parsed"].get<bool>(), "문법 오류 없음");
 }
 
-// ---------------------------------------------------------------------------
 //  ovs-vsctl show  (docs/Agent_Command.md OpenvSwitch 샘플)
-// ---------------------------------------------------------------------------
 const char* kOvsShowSample =
     "3945208f-1a6d-418c-8909-ff1701a5b643\n"
     "    Bridge br0\n"
@@ -149,9 +136,7 @@ void TestOvsShow()
     Check(json["parsed"].get<bool>(), "OVS 문법 오류 없음");
 }
 
-// ---------------------------------------------------------------------------
 //  ovs-vsctl list port  (docs/Agent_Command.md 샘플)
-// ---------------------------------------------------------------------------
 const char* kOvsListPortSample =
     "name                : br0\n"
     "tag                 : []\n"
@@ -186,9 +171,7 @@ void TestOvsListPort()
           "레코드2 trunks=[141]");
 }
 
-// ---------------------------------------------------------------------------
 //  show ip route  (FRR 샘플 — docs/Agent_Command.md)
-// ---------------------------------------------------------------------------
 const char* kFrrRouteSample =
     "Codes: K - kernel route, C - connected, S - static, R - RIP,\n"
     "       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,\n"
@@ -238,14 +221,6 @@ void TestFrrRoute()
     Check(json["parsed"].get<bool>(), "FRR 라우팅 문법 오류 없음");
 }
 
-// ---------------------------------------------------------------------------
-//  ip route show  (FRR 호스트 커널 샘플)
-//
-//  FRR 라우터는 라우팅 정보를 두 형식으로 낼 수 있다.
-//    (A) 호스트 커널 `ip route show`  → 라우트 코드 없음, `nhid` 토큰 존재
-//    (B) vtysh `show ip route`        → 라우트 코드(O>*, C ...) 존재
-//  같은 Vendor::kFrr 이므로 파서가 내용을 보고 문법을 골라야 한다.
-// ---------------------------------------------------------------------------
 const char* kFrrKernelRouteSample =
     "default via 192.168.122.1 dev eth0 metric 1 \n"
     "10.10.128.0/21 nhid 30 via 10.99.10.4 dev eth1 proto ospf metric 20 \n"
@@ -304,9 +279,7 @@ void TestFrrKernelRoute()
     CheckEq(routes[9]["via"].get<std::string>(), "10.99.10.3", "커널 라우트9 via");
 }
 
-// ---------------------------------------------------------------------------
 //  show ip route  (Cisco 샘플 — docs/Agent_Command.md)
-// ---------------------------------------------------------------------------
 const char* kCiscoRouteSample =
     "Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP\n"
     "       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area\n"
@@ -345,13 +318,6 @@ void TestCiscoRoute()
     Check(json["parsed"].get<bool>(), "Cisco 라우팅 문법 오류 없음");
 }
 
-// ---------------------------------------------------------------------------
-//  show ip route  (Arista vEOS 샘플 — 2026-10-10 실장비 10.20.0.4 출력)
-//
-//  ⚠️ 이 수집이 빠져 있어 "이 스위치는 인터넷으로 나가지 않는다" 로 잘못
-//     판정했습니다. vEOS 는 기본 경로를 가질 수 있고(아래 S 0.0.0.0/0),
-//     그 사실이 수집되어야 기밀망 인터넷 노출을 검사할 수 있습니다.
-// ---------------------------------------------------------------------------
 const char* kAristaRouteSample =
     "VRF: default\n"
     "Codes: C - connected, S - static, K - kernel, \n"
@@ -401,9 +367,7 @@ void TestAristaRoute()
     Check(json["parsed"].get<bool>(), "Arista 라우팅 문법 오류 없음");
 }
 
-// ---------------------------------------------------------------------------
 //  show ip interface brief  (Cisco 샘플)
-// ---------------------------------------------------------------------------
 const char* kCiscoIfaceBriefSample =
     "Interface              IP-Address      OK? Method Status                Protocol\n"
     "GigabitEthernet1       192.168.122.254 YES NVRAM  up                    up      \n"
@@ -434,9 +398,7 @@ void TestIfaceBrief()
     Check(json["parsed"].get<bool>(), "interface brief 문법 오류 없음");
 }
 
-// ---------------------------------------------------------------------------
 //  nft list ruleset  (docs/Agent_Command.md 방화벽 샘플)
-// ---------------------------------------------------------------------------
 const char* kNftSample =
     "table ip filter {\n"
     "\tchain input {\n"
@@ -495,9 +457,7 @@ void TestNftRuleset()
     Check(json["parsed"].get<bool>(), "nftables 문법 오류 없음");
 }
 
-// ---------------------------------------------------------------------------
 //  nft 규칙 차단 (ACL) 샘플 — 문서의 정책 예시가 만든 결과
-// ---------------------------------------------------------------------------
 const char* kNftDropSample =
     "table inet filter {\n"
     "\tchain forward {\n"
@@ -530,9 +490,7 @@ void TestNftDropRule()
     Check(rule["bytes"].get<long long>() == 300, "bytes=300");
 }
 
-// ---------------------------------------------------------------------------
 //  show vlan brief (Arista 샘플)
-// ---------------------------------------------------------------------------
 const char* kAristaVlanSample =
     "VLAN  Name                             Status    Ports\n"
     "----- -------------------------------- --------- -------------------------------\n"
@@ -575,9 +533,7 @@ void TestAristaVlan()
     Check(json["parsed"].get<bool>(), "vlan 문법 오류 없음");
 }
 
-// ---------------------------------------------------------------------------
 //  ARP / 이웃 테이블 — 세 벤더 형식
-// ---------------------------------------------------------------------------
 const char* kArpLinuxSample =
     "10.0.9.1 dev ens3 lladdr 0c:2d:07:65:99:f3 REACHABLE\n"
     "10.0.9.100 dev ens3 lladdr 0c:ae:dc:fd:00:00 STALE\n";
@@ -646,9 +602,7 @@ void TestArpTables()
     }
 }
 
-// ---------------------------------------------------------------------------
 //  Par브 — 빈 입력 / 이상 입력에서도 크래시하지 않아야 한다
-// ---------------------------------------------------------------------------
 void TestRobustness()
 {
     std::cout << "\n--- 견고성 (빈 입력/이상 입력) ---\n";
@@ -670,15 +624,6 @@ void TestRobustness()
           "중괄호 불일치 입력도 결과 반환");
 }
 
-// ---------------------------------------------------------------------------
-//  라우트 오탐 — 주소가 아닌 텍스트는 라우트로 삼키지 않아야 한다
-//
-//  예전 문법은 routeHead 에 IFNAME 을 허용해 아무 단어나 목적지로 받았다.
-//  그래서 `hello world` 가 라우트 2건으로 파싱됐고(parsed:true), 소비자는
-//  "조회했는데 경로 없음" 대신 "경로 2건" 으로 읽었다. 목적지 자리를 커널이
-//  실제로 내는 토큰(DEFAULT | ROUTETYPE ADDR | ADDR)으로 좁혀 이 오탐을
-//  문법 수준에서 제거했다. Java(IpAddr.g4) 와 같은 계약이다.
-// ---------------------------------------------------------------------------
 void TestRouteNoiseIsRejected()
 {
     std::cout << "\n--- 라우트 오탐 (주소 아닌 텍스트) ---\n";

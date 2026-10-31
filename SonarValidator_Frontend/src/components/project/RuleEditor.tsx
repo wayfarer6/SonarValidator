@@ -5,42 +5,15 @@ import type { ApiRule, ApiSubnet, ApiViolation } from "../../lib/api/types";
 import { isForbiddenPair, zoneInfo } from "../../lib/policy/zones";
 
 interface RuleEditorProps {
-  /** 편집 중인 규칙 목록. */
   rules: ApiRule[];
-  /** 서브넷 목록 (드롭다운 선택지). */
   subnets: ApiSubnet[];
-  /** 규칙 필드 변경 콜백. */
   onChange: (ruleId: string, patch: Partial<ApiRule>) => void;
-  /** 규칙 삭제 콜백. */
   onRemove: (ruleId: string) => void;
-  /** 규칙 추가 콜백. */
   onAdd: () => void;
-  /** 서버 검증 결과 (규칙별 위반 표시). */
   violations?: ApiViolation[];
-  /** 읽기 전용 여부. */
   readOnly?: boolean;
 }
 
-/**
- * 연결 규칙 편집 표입니다.
- *
- * <h2>기존 UI 를 재사용한 방식</h2>
- * {@code NetworkSegmentationRule.tsx} 의 "정책 설정" 표 구조(SRC/DST 드롭다운,
- * Port 입력, Add Rule / Save 버튼)를 그대로 이어받았습니다. 다만 두 가지를
- * 추가했습니다.
- *
- * <ol>
- *   <li><b>금지 조합 즉시 경고</b>: SRC/DST 를 고르는 순간 등급을 건너뛰는
- *       조합이면 행을 빨갛게 칠하고 안내합니다. 저장 후에 알려주면 이미
- *       잘못된 규칙을 만들고 난 뒤가 됩니다.</li>
- *   <li><b>활성/비활성 토글</b>: 자동 수집된 규칙을 지우지 않고 검증에서
- *       제외할 수 있습니다. 삭제하면 재수집 시 되살아나므로, "무시" 를
- *       명시적으로 관리하는 편이 안전합니다.</li>
- * </ol>
- *
- * <p>서버 위반 결과가 있으면 해당 행에 사유와 반례 패킷을 함께 보여줍니다.
- * (BDD 가 계산한 재현 가능한 예시)
- */
 export default function RuleEditor({
   rules,
   subnets,
@@ -55,7 +28,6 @@ export default function RuleEditor({
   const inputClass =
     "w-full rounded-lg border border-gray-300 bg-transparent px-2 py-1.5 text-xs text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white";
 
-  /** 규칙 식별자 → 위반 목록 */
   const violationsByRule = new Map<string, ApiViolation[]>();
   for (const violation of violations) {
     const existing = violationsByRule.get(violation.rule_id);

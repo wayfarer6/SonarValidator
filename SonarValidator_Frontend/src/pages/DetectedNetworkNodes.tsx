@@ -8,20 +8,6 @@ import { useApi } from "../hooks/useApi";
 import { getAllDiscoveredDevices } from "../lib/api";
 import type { ApiDiscoveredDevice } from "../lib/api/types";
 
-/**
- * 탐지된 네트워크 노드 화면입니다.
- *
- * <h2>더미 데이터에서 서버 연동으로</h2>
- * 이 화면은 이전에 {@code Record<"routers"|"switches"|...>} 로 하드코딩된
- * 8건을 보여줬습니다. 이제 {@code GET /api/v1/network/discovered} 를 호출해
- * <b>Agent 가 실제로 보고한 장치</b>를 보여줍니다.
- *
- * <h2>벤더가 아니라 계열로 묶는 이유</h2>
- * 기존 화면은 "Cisco Router / Arista Switch / OPNsense Firewall / Linux VM"
- * 4개 고정 카드였습니다. 하지만 랩에는 FRR 라우터, Alpine 방화벽, Open vSwitch
- * 도 있어서 고정 카드로는 담기지 않습니다. 그래서 <b>설정 형식(format)</b>
- * 기준으로 묶어 어떤 벤더가 늘어나도 자동으로 표시되게 했습니다.
- */
 export default function DetectedNetworkNodes() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("project_id");
@@ -32,7 +18,6 @@ export default function DetectedNetworkNodes() {
     [],
   );
 
-  /** 장치를 설정 형식별로 묶습니다. */
   const grouped = useMemo(() => {
     const map = new Map<string, ApiDiscoveredDevice[]>();
     for (const device of data?.devices ?? []) {
@@ -44,7 +29,6 @@ export default function DetectedNetworkNodes() {
     return [...map.entries()].sort((a, b) => b[1].length - a[1].length);
   }, [data]);
 
-  /** 카드 접기/펼치기 상태. */
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const toggle = (format: string) =>

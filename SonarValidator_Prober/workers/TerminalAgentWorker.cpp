@@ -183,8 +183,10 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
                                 const std::string data = message.value("data", std::string{});
                                 if (data.size() > 8192 || !shell.WriteRaw(data))
                                 {
+                                    shell.Close();
                                     send({{"type", "terminal-error"},
                                           {"message", "Could not write terminal input"}});
+                                    send({{"type", "terminal-exit"}});
                                 }
                             }
                             else if (type == "terminal-resize" && shell.IsOpen())
@@ -218,12 +220,6 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
 
             while (!stop_token.stop_requested() && !disconnected)
             {
-                // io_context 는 stop() 된 뒤에는 restart() 없이는 run_for() 가
-                // 즉시 0 을 돌려줍니다. 핸드셰이크/쓰기 helper
-                // (RunWebSocketOperation)가 제한 시간 초과 시 context.stop() 을
-                // 호출하므로, 여기서 restart() 하지 않으면 이 루프가 busy-loop 이
-                // 되어 CPU 를 태우면서 터미널 메시지(terminal-open)를 영영 처리하지
-                // 못합니다. 다른 워커(timed_websocket_reader)와 동일한 패턴입니다.
                 ioc.restart();
                 ioc.run_for(std::chrono::milliseconds(20));
                 if (shell.IsOpen())
@@ -233,6 +229,11 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
                     {
                         send({{"type", "terminal-output"},
                               {"data_base64", Base64Encode(output)}});
+                    }
+                    if (!shell.IsOpen())
+                    {
+                        shell.Close();
+                        send({{"type", "terminal-exit"}});
                     }
                 }
             }

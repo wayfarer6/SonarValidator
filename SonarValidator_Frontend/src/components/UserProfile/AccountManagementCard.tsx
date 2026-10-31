@@ -50,7 +50,6 @@ export default function AccountManagementCard() {
   const [deleteFeedback, setDeleteFeedback] = useState<Feedback>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
-  /** 비밀번호를 변경합니다. */
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     setPwFeedback(null);
@@ -85,7 +84,6 @@ export default function AccountManagementCard() {
     }
   };
 
-  /** 계정을 삭제합니다. */
   const handleDeleteAccount = async () => {
     setDeleteFeedback(null);
     if (!deletePw) {
@@ -251,7 +249,6 @@ export default function AccountManagementCard() {
   );
 }
 
-/** 피드백 메시지를 렌더링합니다. */
 function FeedbackText({ feedback }: { feedback: Feedback }) {
   if (!feedback) return null;
   return (

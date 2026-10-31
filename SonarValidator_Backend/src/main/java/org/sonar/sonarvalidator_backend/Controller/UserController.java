@@ -20,22 +20,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 사용자 관리 API 입니다.
- *
- * <h2>왜 인증 컨트롤러와 분리했는가</h2>
- * <p>{@code AuthController} 는 "로그인 자체" 를 다루고, 이 컨트롤러는
- * <b>로그인한 뒤의 계정 관리</b>를 다룹니다. 관심사가 달라 파일을 나눴습니다.
- *
- * <h2>비밀번호 변경 시 현재 비밀번호를 요구하는 이유</h2>
- * <p>세션만 있으면 비밀번호를 바꿀 수 있게 하면, 세션 탈취 시 곧바로 계정
- * 전체를 빼앗깁니다. 현재 비밀번호를 한 번 더 확인하면 그 위험이 줄어듭니다.
- *
- * <h2>권한 확인</h2>
- * <p>사용자 목록 조회와 계정 생성은 {@code ADMIN} 만 가능합니다. 권한 확인을
- * 애노테이션이 아니라 <b>코드로</b> 하는 이유는, 지금 규모에서 설정이 한눈에
- * 보이는 편이 실수를 줄이기 때문입니다.
- */
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
@@ -44,42 +28,19 @@ public class UserController {
 
     private final UserService userService;
 
-    /**
-     * @param userService 사용자 서비스
-     */
     public UserController(UserService userService) {
         this.userService = userService;
     }
 
-    /**
-     * 비밀번호 변경 요청 본문입니다.
-     *
-     * @param currentPassword 현재 비밀번호
-     * @param newPassword     새 비밀번호
-     */
     public record PasswordChangeRequest(String currentPassword, String newPassword) {
     }
 
-    /**
-     * 계정 생성 요청 본문입니다.
-     *
-     * @param username    아이디
-     * @param password    평문 비밀번호
-     * @param displayName 표시 이름
-     * @param role        권한 (ADMIN / OPERATOR / VIEWER)
-     */
     public record CreateUserRequest(String username,
                                     String password,
                                     String displayName,
                                     String role) {
     }
 
-    /**
-     * 현재 로그인한 사용자의 정보를 반환합니다.
-     *
-     * @param authentication 현재 인증
-     * @return 사용자 정보
-     */
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me(Authentication authentication) {
         final User user = userService.findByUsername(authentication.getName());
@@ -90,13 +51,6 @@ public class UserController {
         return ResponseEntity.ok(UserService.toResponse(user));
     }
 
-    /**
-     * 본인 비밀번호를 변경합니다.
-     *
-     * @param authentication 현재 인증
-     * @param body           변경 요청
-     * @return 결과 메시지
-     */
     @PostMapping("/me/password")
     public ResponseEntity<Map<String, Object>> changeMyPassword(
             Authentication authentication,
@@ -126,12 +80,6 @@ public class UserController {
         return ResponseEntity.ok(Map.of("message", "비밀번호가 변경되었습니다."));
     }
 
-    /**
-     * 전체 사용자 목록을 반환합니다. (ADMIN 전용)
-     *
-     * @param authentication 현재 인증
-     * @return {@code {"total": n, "users": [...]}}
-     */
     @GetMapping
     public ResponseEntity<Map<String, Object>> list(Authentication authentication) {
         if (!isAdmin(authentication)) {
@@ -148,13 +96,6 @@ public class UserController {
         return ResponseEntity.ok(body);
     }
 
-    /**
-     * 사용자를 생성합니다. (ADMIN 전용)
-     *
-     * @param authentication 현재 인증
-     * @param body           생성 요청
-     * @return 생성된 사용자
-     */
     @PostMapping
     public ResponseEntity<Map<String, Object>> create(Authentication authentication,
                                                       @RequestBody(required = false) CreateUserRequest body) {
@@ -181,14 +122,6 @@ public class UserController {
         }
     }
 
-    /**
-     * 계정 활성 여부를 바꿉니다. (ADMIN 전용)
-     *
-     * @param authentication 현재 인증
-     * @param username       대상 아이디
-     * @param enabled        사용 여부
-     * @return 결과
-     */
     @PutMapping("/{username}/enabled")
     public ResponseEntity<Map<String, Object>> setEnabled(
             Authentication authentication,
@@ -211,22 +144,6 @@ public class UserController {
         return ResponseEntity.ok(Map.of("username", username, "enabled", enabled));
     }
 
-    /**
-     * 본인 계정을 삭제합니다.
-     *
-     * <h2>왜 비밀번호를 다시 요구하는가</h2>
-     * <p>삭제는 되돌릴 수 없습니다. 세션만 탈취한 공격자가 계정을 지워버리는
-     * 것을 막으려면, 비밀번호 확인이 필요합니다. (비밀번호 변경과 같은 이유)
-     *
-     * <h2>마지막 관리자는 지울 수 없습니다</h2>
-     * <p>관리자가 하나뿐인데 지우면 아무도 시스템에 들어갈 수 없습니다.
-     * 그래서 마지막 ADMIN 은 삭제를 거부합니다.
-     *
-     * @param authentication 현재 인증
-     * @param body           비밀번호 확인 본문
-     * @param request        HTTP 요청 (세션 무효화용)
-     * @return 결과 메시지
-     */
     @org.springframework.web.bind.annotation.DeleteMapping("/me")
     public ResponseEntity<Map<String, Object>> deleteMe(
             Authentication authentication,
@@ -263,12 +180,6 @@ public class UserController {
         return ResponseEntity.ok(Map.of("message", "계정이 삭제되었습니다."));
     }
 
-    /**
-     * 현재 사용자가 ADMIN 인지 확인합니다.
-     *
-     * @param authentication 현재 인증
-     * @return 관리자면 {@code true}
-     */
     private boolean isAdmin(Authentication authentication) {
         if (authentication == null) {
             return false;
@@ -277,12 +188,6 @@ public class UserController {
                 .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 
-    /**
-     * 역할 문자열을 enum 으로 바꿉니다.
-     *
-     * @param role 역할 문자열 (null 허용)
-     * @return 역할 (알 수 없으면 OPERATOR)
-     */
     private User.Role parseRole(String role) {
         if (role == null || role.isBlank()) {
             return User.Role.OPERATOR;

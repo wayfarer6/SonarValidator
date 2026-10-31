@@ -30,37 +30,16 @@ import org.sonar.sonarvalidator_backend.Model.entity.Notification;
 
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * 격리된 장치의 <b>정책 반영</b>을 검증합니다.
- *
- * <h2>⚠️ 이 테스트가 겨냥하는 최악의 실패 모드</h2>
- * <p>방화벽을 <b>연결 단위</b>로 격리했는데 정책이 "전부 차단" 으로 나가면,
- * 트렁크에 붙은 무관한 존이 함께 죽습니다. 그러면 방화벽을 노드 격리하지
- * 않는 이유(무관한 존 보호)가 무너지고, 격리 한 번에 랩 전체가 끊깁니다.
- *
- * <p>반대로 노드 격리인데 "전부 차단" 이 안 나가면, 장치가 인터페이스는
- * 내렸지만 재부팅 후 정책만으로 복구될 때 격리가 풀립니다.
- * 그래서 <b>두 방식이 서로 다른 정책을 만들어야</b> 합니다.
- */
 class QuarantinePolicyOverrideTest {
 
     private final List<QuarantineState> rows = new ArrayList<>();
     private QuarantineService quarantineService;
     private PolicyProbe policyUnderTest;
 
-    /** {@code PolicyRegistryService} 를 스텁 저장소와 함께 만드는 최소 배선입니다. */
     private static final class PolicyProbe {
         private final org.sonar.sonarvalidator_backend.Service.PolicyRegistryService delegate =
                 new org.sonar.sonarvalidator_backend.Service.PolicyRegistryService();
 
-        /**
-         * {@code forAgent} 경로를 씁니다.
-         *
-         * <p>⚠️ {@code forDevice} 는 격리 오버라이드를 타지 않습니다. 오버라이드는
-         * 프로젝트/폴백 정책을 만든 뒤 {@code forAgent} 가 적용합니다. 테스트가
-         * {@code forDevice} 를 부르면 "오버라이드가 안 먹는다" 는 잘못된 결론에
-         * 이릅니다.
-         */
         ObjectNode forAgent(DeviceType type, String id) {
             return delegate.forAgent(id, type, id, null, null);
         }
@@ -129,7 +108,6 @@ class QuarantinePolicyOverrideTest {
                 policyUnderTest.delegate, "quarantineService", quarantineService);
     }
 
-    /** 명령 전송이 필요 없는 경로만 검증하므로 빈 레지스트리를 씁니다. */
     private static AgentSessionRegistry noopRegistry() {
         return new AgentSessionRegistry(tools.jackson.databind.json.JsonMapper.builder().build());
     }
@@ -205,14 +183,6 @@ class QuarantinePolicyOverrideTest {
         assertEquals(0, released.path("subnet_quarantine").size());
     }
 
-    /**
-     * 격리 상태 한 건을 저장합니다.
-     *
-     * @param agentId Agent 식별자 (없으면 null)
-     * @param nodeId  노드 번호 (없으면 null)
-     * @param scope   격리 범위
-     * @param target  대상 대역 (없으면 null)
-     */
     private void seedQuarantine(String agentId, Integer nodeId,
                                 QuarantineState.Scope scope, String target) {
         final QuarantineState state = new QuarantineState();

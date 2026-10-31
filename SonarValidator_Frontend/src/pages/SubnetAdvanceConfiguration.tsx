@@ -214,11 +214,6 @@ export default function SubnetAdvanceConfiguration() {
 
           {/* 우측: Import Offline Prober Data */}
           <div>
-            {/* Import Offline Prober Data 카드 (드래그앤드롭 → 서버 업로드)
-                이전에는 파일 이름만 화면에 쌓고 서버로 보내지 않아서,
-                "올렸는데 반영이 안 된다" 는 상태였습니다.
-                이제 선택/드롭 → 사전 검사 → 업로드 → 결과 표시까지 한 카드에서
-                처리하고, 반영된 장치는 아래 목록에 즉시 나타납니다. */}
             <OfflineImportCard />
           </div>
         </div>

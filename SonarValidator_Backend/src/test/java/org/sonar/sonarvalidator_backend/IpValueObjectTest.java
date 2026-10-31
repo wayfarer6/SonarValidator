@@ -18,22 +18,6 @@ import org.sonar.sonarvalidator_backend.Model.Ip;
 import org.sonar.sonarvalidator_backend.Model.Ip6;
 import org.sonar.sonarvalidator_backend.Model.Prefix;
 
-/**
- * 값 객체 {@link Ip}, {@link Ip6}, {@link Prefix} 의 동작을 고정합니다.
- *
- * <h2>왜 회귀 테스트가 필요한가</h2>
- * <p>이전 구현에는 <b>예외 없이 조용히 틀린 값을 돌려주는</b> 결함이 있었습니다.
- * 대표적으로:
- * <ul>
- *   <li>{@code Prefix.contains()} 가 포함 판정이 아니라 주소 동일 비교라
- *       {@code 10.99.10.0/24} 가 {@code 10.99.10.255} 를 부정했습니다.</li>
- *   <li>{@code Prefix.getEndIp()} 가 {@code /0} 에서 시프트 {@code mod 64} 로
- *       엉뚱한 마스크를 썼습니다.</li>
- *   <li>{@code Prefix.parse()} 가 항상 빈 객체를 돌려주는 스텁이었습니다.</li>
- * </ul>
- * 이런 오류는 예외를 던지지 않아서 <b>테스트로만</b> 잡힙니다. 아래 각 테스트는
- * 실제 랩 주소(10.99.10.x, 172.16.255.x, 192.168.122.x)를 씁니다.
- */
 class IpValueObjectTest {
 
     // 랩 실측 값 (주소는 그대로 쓰고, long 은 검산해서 고정합니다)
@@ -41,10 +25,8 @@ class IpValueObjectTest {
     private static final String DMZ_ROUTER = "10.99.10.3";
     private static final String HOST_ENS4 = "192.168.122.58";
 
-    /** 10.99.10.1 = 0x0A630A01 */
     private static final long GATEWAY_ROUTER_LONG = 0x0A630A01L;
 
-    /** 192.168.122.58 = 0xC0A87A3A */
     private static final long HOST_ENS4_LONG = 0xC0A87A3AL;
 
     @Nested

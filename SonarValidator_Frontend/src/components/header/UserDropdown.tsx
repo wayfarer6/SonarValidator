@@ -6,7 +6,6 @@ import { useNavigate } from "react-router";
 import { useDisplayName, useUserEmail, useUserRole } from "../../lib/userInfo";
 import { useAuth } from "../../context/AuthContext";
 
-/** 역할 코드를 화면 문구로 바꿉니다. */
 function roleLabel(role: string | null): string {
   if (role === "ADMIN") return "관리자";
   if (role === "OPERATOR") return "운영자";
@@ -22,12 +21,6 @@ export default function UserDropdown() {
   const role = useUserRole();
   const { logout } = useAuth();
 
-  /**
-   * 로그아웃합니다.
-   *
-   * <p>서버 세션을 무효화해야 합니다. 이전 구현은 쿠키만 지웠는데, 서버
-   * 세션이 살아 있으면 새로고침이나 재요청으로 다시 로그인 상태가 됩니다.
-   */
   const handleSignOut = async (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     closeDropdown();

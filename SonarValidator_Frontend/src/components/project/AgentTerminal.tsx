@@ -24,6 +24,7 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
   const [status, setStatus] = useState("연결 중");
 
   useEffect(() => {
+    const connect = () => {
     const container = containerRef.current;
     if (!container) return;
 
@@ -118,6 +119,10 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
       }
       terminal.dispose();
     };
+    };
+    let cleanup: (() => void) | undefined;
+    const start = setTimeout(() => { cleanup = connect(); }, 0);
+    return () => { clearTimeout(start); cleanup?.(); };
   }, [agentId, connectionAttempt, projectId]);
 
   return (

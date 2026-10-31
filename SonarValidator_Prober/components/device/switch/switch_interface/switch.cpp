@@ -12,10 +12,6 @@ void Switch::setName(const std::string& name)
     name_ = name;
 }
 
-// 벤더별 토폴로지 파서 구현은 각 벤더 디렉터리로 분리했습니다.
-//   - components/device/switch/vendor/openvswitch/openvswitch.cpp
-//   - components/device/switch/vendor/arista/aristavEOS.cpp
-// 공통 파싱은 components/parser 의 ANTLR 문법이 담당합니다.
 
 void Switch::loadTopology(const std::string& raw_output, SwitchVendor vendor)
 {

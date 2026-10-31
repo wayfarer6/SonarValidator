@@ -13,13 +13,6 @@ import org.sonar.sonarvalidator_backend.Policy.PolicyViolation;
 import org.sonar.sonarvalidator_backend.Policy.SegmentationBddEngine;
 import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 
-/**
- * 망분리 검증 엔진(BDD) 테스트입니다.
- *
- * <p>BDD 자체의 정확성과 함께, <b>실제 랩 대역</b>
- * ({@code docs/Agent_Command.md} 의 검증된 주소)을 써서 프론트엔드가 보내는
- * 형태의 규칙이 올바르게 판정되는지 확인합니다.
- */
 class SegmentationBddEngineTest {
 
     private final SegmentationBddEngine engine = new SegmentationBddEngine();
@@ -53,7 +46,6 @@ class SegmentationBddEngineTest {
         assertThat(engine.validate(subnets, List.of(new PolicyRule("ok", "S", "O", 443))).isCompliant()).isTrue();
     }
 
-    /** 랩 실제 대역을 흉내 낸 서브넷 3개 (Confidential / Sensitive / Open). */
     private static List<PolicySubnet> labSubnets() {
         return List.of(
                 PolicySubnet.of("Subnet-0001", "192.168.0.0/24", ZoneClass.OPEN),
@@ -275,7 +267,7 @@ class SegmentationBddEngineTest {
                 "bdd_variables", "bdd_nodes_allowed", "bdd_nodes_forbidden",
                 "bdd_nodes_violating", "allowed_combinations");
 
-        // 변수 80개(2^80 공간)를 다루면서도 노드 수는 규칙 수준에 머물러야 합니다.
+        // 변수 88개(2^88 공간)를 다루면서도 노드 수는 규칙 수준에 머물러야 합니다.
         final int allowedNodes = (int) report.getMetrics().get("bdd_nodes_allowed");
         assertThat(allowedNodes).isLessThan(500);
     }
@@ -293,12 +285,7 @@ class SegmentationBddEngineTest {
         assertThat(allowed).isEqualTo(java.math.BigInteger.valueOf(256L * 256L));
     }
 
-    // ------------------------------------------------------------------
-    //  관측 기반 인터넷 노출 검사
-    //  규칙이 하나도 없어도, 장치에 기본 경로가 수집되어 있으면 위반입니다.
-    // ------------------------------------------------------------------
 
-    /** 등급을 지정한 서브넷 하나를 만듭니다. */
     private static PolicySubnet subnetOf(String id, String cidr, ZoneClass zone, String agentId) {
         final PolicySubnet subnet = PolicySubnet.of(id, cidr, zone);
         subnet.setAgentId(agentId);
@@ -320,8 +307,11 @@ class SegmentationBddEngineTest {
             assertThat(violation.severity()).isEqualTo(PolicyViolation.Severity.CRITICAL);
             assertThat(violation.sourceZone()).isEqualTo(ZoneClass.CONFIDENTIAL);
             assertThat(violation.targetZone()).isEqualTo(ZoneClass.OPEN);
-            assertThat(violation.sampledSourceIp()).isEqualTo("10.0.8.0");
-            assertThat(violation.sampledTargetIp()).isEqualTo(SegmentationBddEngine.INTERNET_PROBE_IP);
+            assertThat(violation.sampledSourceIp()).isEqualTo("-");
+            assertThat(violation.sampledTargetIp()).isEqualTo("-");
+            assertThat(violation.sampledPacket()).isNull();
+            assertThat(violation.evidenceType()).isEqualTo("DEFAULT_ROUTE_OBSERVATION");
+            assertThat(violation.reason()).contains("잠재", "도달성");
         });
         assertThat(report.getMessages()).anyMatch(message -> message.contains("인터넷 노출"));
     }

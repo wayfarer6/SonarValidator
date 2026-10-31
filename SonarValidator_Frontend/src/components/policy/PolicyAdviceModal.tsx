@@ -14,29 +14,6 @@ import {
 } from "../../lib/api/policyAdvice";
 import PolicyAdviceCard from "./PolicyAdviceCard";
 
-/**
- * 위반 한 건에 대한 AI 정책 조언 모달입니다. (SONAR-43)
- *
- * <h2>흐름 — "열면 이력, 누르면 새 조언"</h2>
- * <ol>
- *   <li>모달이 열리면 <b>먼저 이력</b>({@code GET /policy/advice/{projectId}?rule_id=…})을
- *       부릅니다. AI 호출은 <b>돈과 시간</b>이 들므로, 이미 물어본 위반이면
- *       그 결과를 그대로 보여줍니다.</li>
- *   <li>운영자가 <b>"다시 물어보기"</b> 를 누르면 그때만 POST 합니다.</li>
- * </ol>
- * <p>이 순서를 지키지 않으면 카드를 누를 때마다 과금이 발생합니다.
- *
- * <h2>⚠️ 공급자를 화면에서 고르게 하는 이유</h2>
- * <p>프로젝트마다 민감도가 다릅니다. 로그 분석과 같은 원칙으로, 기본
- * 공급자를 쓰되 필요하면 고를 수 있게 합니다. 공급자가 하나도 없으면
- * <b>버튼을 누르기 전에</b> 알려 줍니다 — 눌러 놓고 실패를 보면 원인을
- * 설정에서 찾아야 하는데, 그 안내가 늦습니다.
- *
- * <h2>⚠️ 닫아도 이력은 남는다</h2>
- * <p>조언은 서버에 저장되므로 모달을 닫아도 사라지지 않습니다. 그래서
- * 모달에는 "이 결과는 저장됩니다" 를 명시해, 운영자가 <b>메모하지 않아도
- * 된다</b>는 것을 알게 합니다.
- */
 export default function PolicyAdviceModal({
   isOpen,
   onClose,
@@ -44,7 +21,6 @@ export default function PolicyAdviceModal({
   ruleId,
   srcSubnet,
   dstSubnet,
-  /** 위반 카드에서 보여줄 요약 (모달 헤더용) */
   violationLabel,
 }: {
   isOpen: boolean;
@@ -63,7 +39,6 @@ export default function PolicyAdviceModal({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
-  /** 새로 받은 조언 (이력 맨 위에 옵니다). */
   const [fresh, setFresh] = useState<ApiPolicyAdvice | null>(null);
   const [asking, setAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
@@ -117,13 +92,6 @@ export default function PolicyAdviceModal({
     };
   }, [isOpen, projectId, ruleId]);
 
-  /**
-   * 새 조언을 요청합니다.
-   *
-   * <p>⚠️ 서버는 실패도 200 으로 돌려줍니다({@code succeeded=false}).
-   * 그래서 여기서 다시 확인해야 합니다. HTTP 상태만 보면 실패를 성공으로
-   * 표시하게 됩니다.
-   */
   const ask = async () => {
     if (asking) return;
     setAsking(true);

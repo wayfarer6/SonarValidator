@@ -6,9 +6,9 @@
 
 #include <nlohmann/json.hpp>
 
-// 정책 JSON의 필드가 배열/스칼라 형태로 섞여 있어서
-// (예: "vendor": ["Arista"], "vlan_id": "10")
-// 두 형태를 모두 안전하게 읽을 수 있도록 돕는 헬퍼입니다.
+
+
+
 namespace policy_json
 {
 

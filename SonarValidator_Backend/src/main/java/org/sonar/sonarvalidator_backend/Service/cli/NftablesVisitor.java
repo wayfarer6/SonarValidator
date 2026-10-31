@@ -15,37 +15,6 @@ import org.sonar.sonarvalidator_backend.grammar.NftablesRuleParser;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * {@code nft list ruleset} / {@code nft -a list chain ...} 출력을 JSON 으로 옮기는 방문자.
- *
- * <h2>문법이 이미 해 준 일</h2>
- * nft 표기는 {@code ip saddr 1.2.3.0/24} 처럼 <b>두 토큰이 하나의 키</b>를 이룬다.
- * 예전 구현은 문자열 목록을 훑으며 "ip" 다음에 "saddr" 이 오면 합치는 식으로
- * 단어를 비교해야 했다.
- *
- * <p>이제 문법이 그 단어들을 전용 토큰으로 확정해 둔다.
- * <pre>
- *   PREFIX   : ip | ip6 | tcp | udp | ct | meta | icmp | icmpv6
- *   SUBKEY   : saddr | daddr | state | dport | sport | ...
- *   IFACEKEY : iif | oif | iifname | oifname
- *   RULEKEY  : handle | comment | prefix
- *   MODIFIER : counter | log
- *   METRICKEY: packets | bytes
- *   ACTION   : accept | drop | reject | return | jump | goto | ...
- *   HASH     : '#'
- * </pre>
- * 따라서 이 방문자는 {@code rulePiece} 의 <b>토큰 타입</b>만 보고 분기하며,
- * 단어 비교는 전혀 하지 않는다.
- *
- * <h2>출력 계약</h2>
- * {@code tables[].family}, {@code tables[].name},
- * {@code tables[].chains[].name}, {@code tables[].chains[].policy},
- * {@code tables[].chains[].rules[].expression}, {@code …rules[].action}
- *
- * <p>순회는 ANTLR 이 자동 생성한 {@code NftablesRuleBaseVisitor} 를 그대로
- * 씁니다. C++ 기준 구현({@code cli_output_parser.cpp})도 같은 방식으로
- * 생성된 {@code visitChainBlock}/{@code visitChainDocument} 를 덮어씁니다.
- */
 public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
 
     private final ParseSession<NftablesRuleLexer, NftablesRuleParser> session;
@@ -122,10 +91,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
 
     /* ============= nft -a list chain <family> <table> <chain> ============= */
 
-    /**
-     * 테이블 블록 없이 체인만 오는 출력 형태.
-     * family/table 을 알 수 없으므로 {@code unknown} 으로 채운다(소비자는 그대로 통과시킨다).
-     */
     @Override
     public Void visitChainDocument(NftablesRuleParser.ChainDocumentContext ctx) {
         ObjectNode table = CliJson.object();
@@ -143,14 +108,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
 
     /* ==================== 체인 속성 ==================== */
 
-    /**
-     * {@code type filter hook forward priority filter; policy accept;}
-     *
-     * <p>한 줄에 {@code key value} 쌍이 세미콜론으로 이어진다.
-     * 문법에서 키({@code type}, {@code hook}, {@code priority}, {@code policy},
-     * {@code device}, {@code comment})는 모두 {@code ATTRKEY} 토큰이므로,
-     * "ATTRKEY 를 만나면 다음 조각이 값" 이라는 규칙만으로 정확히 쌍을 뽑는다.
-     */
     public void applyChainAttr(NftablesRuleParser.ChainAttrContext ctx, ObjectNode chain) {
         List<Piece> pieces = piecesOf(ctx);
 
@@ -199,16 +156,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
         chain.withArray("rules").add(rule);
     }
 
-    /**
-     * 규칙 조각을 <b>토큰 타입</b>으로 분류한다.
-     *
-     * <pre>
-     *   ip saddr 1.2.3.0/24  counter log prefix "NFT: "  drop
-     *   └ PREFIX └ SUBKEY    └ MODIFIER └ MODIFIER └ RULEKEY └ QUOTED  └ ACTION
-     * </pre>
-     *
-     * <p>해석하지 못한 조각도 버리지 않고 {@code modifiers} 에 남긴다(정보 보존).
-     */
     private void applyRulePieces(NftablesRuleParser.RuleLineContext ctx, ObjectNode rule) {
         TokenCursor<NftablesRuleParser.RulePieceContext> cursor =
                 TokenCursor.of(ctx, NftablesRuleParser.RulePieceContext.class);
@@ -222,7 +169,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
             int type = cursor.type();
             String text = cursor.text();
 
-            // ---- handle 주석: `#` `handle` `5` ----
             if (type == NftablesRuleLexer.HASH) {
                 cursor.skip(1);
                 if (cursor.is(NftablesRuleLexer.RULEKEY)
@@ -234,7 +180,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
                 continue;
             }
 
-            // ---- 동작 ----
             if (type == NftablesRuleLexer.ACTION) {
                 String action = CliText.trimPunct(text);
                 rule.put("action", action);
@@ -246,7 +191,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
                 continue;
             }
 
-            // ---- 수식어 ----
             if (type == NftablesRuleLexer.MODIFIER) {
                 if ("counter".equals(text)) {
                     counterSeen = true;
@@ -266,7 +210,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
                 continue;
             }
 
-            // ---- 카운터 값 ----
             if (type == NftablesRuleLexer.METRICKEY
                     && cursor.type(1) == NftablesRuleLexer.NUMBER) {
                 rule.put(text, Integer.parseInt(cursor.text(1)));
@@ -274,7 +217,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
                 continue;
             }
 
-            // ---- `ip saddr <값>` : 접두어 + 하위키 ----
             if (type == NftablesRuleLexer.PREFIX
                     && cursor.type(1) == NftablesRuleLexer.SUBKEY
                     && cursor.type(2) != org.antlr.v4.runtime.Token.EOF) {
@@ -285,7 +227,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
                 continue;
             }
 
-            // ---- 단독 키 (`iifname "eth0"`, `handle 5`, `comment "..."`) ----
             if ((type == NftablesRuleLexer.IFACEKEY
                     || type == NftablesRuleLexer.SUBKEY
                     || type == NftablesRuleLexer.RULEKEY)
@@ -297,7 +238,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
                 continue;
             }
 
-            // ---- 그 밖의 조각은 보존 ----
             modifiers.add(CliText.trimPunct(text));
             cursor.skip(1);
         }
@@ -325,7 +265,6 @@ public final class NftablesVisitor extends NftablesRuleBaseVisitor<Void> {
 
     /* ==================== 도우미 ==================== */
 
-    /** 컨텍스트의 직계 자식을 (토큰 타입, 텍스트) 조각 목록으로 평탄화한다. */
     private static List<Piece> piecesOf(org.antlr.v4.runtime.ParserRuleContext ctx) {
         List<Piece> pieces = new ArrayList<>();
         for (int i = 0; i < ctx.getChildCount(); i++) {

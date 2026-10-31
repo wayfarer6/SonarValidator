@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.JsonNode;
 
-/** Stores OPNsense credentials attached to the canonical configuration node. */
 @Service
 public class OPNsenseCredentialService {
 
@@ -37,7 +36,6 @@ public class OPNsenseCredentialService {
     private final SecretCipher secretCipher;
     private final OPNsenseApiClient apiClient;
     private final OPNsenseTransportPolicy transportPolicy;
-    /** 프로젝트 키를 사람이 읽는 이름으로 바꾸기 위해 씁니다. */
     private final ProjectRepository projectRepository;
 
     public OPNsenseCredentialService(OPNsenseCredentialRepository repository,
@@ -90,7 +88,6 @@ public class OPNsenseCredentialService {
         return findCredential(nodeIdentifier).map(this::toResponse).orElse(null);
     }
 
-    /** Resolves either a canonical numeric node_id or the legacy Agent-ID API alias. */
     @Transactional(readOnly = true)
     public Optional<OPNsenseCredential> findCredential(String nodeIdentifier) {
         final Configuration node = findNode(nodeIdentifier);
@@ -107,10 +104,6 @@ public class OPNsenseCredentialService {
         return node != null && repository.existsByNodeId(node.getNodeId());
     }
 
-    /**
-     * Saves credentials in the same transaction as node resolution. Registration
-     * failures propagate before credential persistence, so no orphan is possible.
-     */
     @Transactional
     public Map<String, Object> save(String nodeIdentifier,
                                     String displayName,
@@ -123,12 +116,6 @@ public class OPNsenseCredentialService {
                 allowInsecureTls, verifyNow, null);
     }
 
-    /**
-     * Saves credentials in the same transaction as node resolution.
-     *
-     * @param projectKey 이 장치가 속한 프로젝트 키. {@code null}/빈 값이면 미지정
-     *                   (기존 값을 지우지 않고 유지합니다)
-     */
     @Transactional
     public Map<String, Object> save(String nodeIdentifier,
                                     String displayName,
@@ -150,9 +137,9 @@ public class OPNsenseCredentialService {
                     + "(sonar.opnsense.allow-http=false) 허용 목록에 없습니다"
                     + "(sonar.opnsense.http-origins). HTTPS 를 쓰거나 서버 설정을 확인하세요.");
         }
-        // ⚠️ 프로젝트 검증은 노드 생성(<resolveNodeForSave>)보다 <b>먼저</b>
-        //    해야 합니다. 뒤에 두면 잘못된 프로젝트 키로 저장을 시도했을 때
-        //    실패하기 전에 configuration 노드 행이 이미 만들어집니다.
+
+
+
         final String validatedProjectKey = validateProjectKey(projectKey);
 
         final Configuration node = resolveNodeForSave(normalized);
@@ -172,10 +159,6 @@ public class OPNsenseCredentialService {
                 ? displayNameFor(node)
                 : displayName.trim());
         credential.setAllowInsecureTls(allowInsecureTls);
-        // 프로젝트 소속. 규칙을 명확히 둡니다(validateProjectKey 참고):
-        //   null (필드 생략) → 기존 값 유지
-        //   ""   (빈 문자열)  → 지정 해제
-        //   값               → 지정
         if (validatedProjectKey != null) {
             credential.setProjectKey(validatedProjectKey.isEmpty() ? null : validatedProjectKey);
         }
@@ -224,24 +207,6 @@ public class OPNsenseCredentialService {
         return result;
     }
 
-    /**
-     * 프로젝트 키를 검증하고 정규화합니다.
-     *
-     * <p>반환값의 의미가 호출부의 저장 규칙을 결정합니다.
-     * <ul>
-     *   <li>{@code null} — 입력이 아예 없음(필드 생략). <b>기존 값 유지</b></li>
-     *   <li>{@code ""}   — 빈 값 입력. <b>지정 해제</b></li>
-     *   <li>그 외        — 존재하는 프로젝트. <b>지정</b></li>
-     * </ul>
-     * "생략"과 "해제"를 구분하지 않으면 프로젝트를 바꿀 수는 있어도 지울 수
-     * 없어, 잘못 지정한 값이 영원히 남습니다.
-     *
-     * <p>노드를 만들기 <b>전에</b> 호출해야 합니다 — 그래야 잘못된 키로
-     * 실패했을 때 쓸모없는 노드 행이 남지 않습니다.
-     *
-     * @param projectKey 요청 값 (null 허용)
-     * @return 위 의미에 따른 값
-     */
     private String validateProjectKey(String projectKey) {
         if (projectKey == null) {
             return null;
@@ -370,15 +335,6 @@ public class OPNsenseCredentialService {
         return body;
     }
 
-    /**
-     * 프로젝트 키를 사람이 읽는 이름으로 바꿉니다.
-     *
-     * <p>숫자/키만 보여 주면 운영자는 목록에서 어느 프로젝트인지 알 수 없습니다.
-     * 프로젝트가 지워졌거나 저장소가 없으면(단위 테스트) 키를 그대로 돌려줍니다.
-     *
-     * @param projectKey 프로젝트 키 (null 허용)
-     * @return 프로젝트 이름, 없으면 키, 둘 다 없으면 null
-     */
     private String projectName(String projectKey) {
         if (projectKey == null || projectKey.isBlank()) {
             return null;

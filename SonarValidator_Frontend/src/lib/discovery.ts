@@ -17,17 +17,11 @@ function interfaceVlans(device: ApiDiscoveredDevice, name: string): number[] {
   const svi = sviVlan(name);
   return [...new Set([
     ...(iface?.access_vlan != null ? [iface.access_vlan] : []),
-    // SVI(예: `Vlan8`)는 그 자체가 VLAN 8 의 구성원입니다.
-    // ⚠️ 장비가 내려주는 `vlans[].members` 에는 SVI 가 없는 경우가 많아
-    //    (실측 Arista: VLAN8 members=[Cpu, Et2]) 이름을 보지 않으면
-    //    SVI 주소(10.0.8.1/24)가 VLAN 8 과 연결되지 않아
-    //    "IP 대역 미수집"으로 잘못 표시됩니다.
     ...(svi != null ? [svi] : []),
     ...(device.vlans ?? []).filter(v => v.members.includes(name)).map(v => v.vlan_id),
   ])];
 }
 
-/** SVI 인터페이스 이름에서 VLAN 번호를 얻습니다. (예: {@code Vlan8} → 8) */
 function sviVlan(name: string): number | null {
   const match = /^vlan(\d+)$/i.exec(name ?? "");
   return match ? Number(match[1]) : null;
@@ -41,12 +35,6 @@ export interface ObservedVlan {
   cidrs: string[];
 }
 
-/**
- * 장비에서 수집한 VLAN 목록입니다.
- *
- * 주소가 없는 L2 VLAN도 access/trunk 수집 결과로 표시합니다.
- * CIDR은 해당 장비에서 관측한 주소만 사용하며 다른 장비에서 복사하지 않습니다.
- */
 export function observedVlans(devices: ApiDiscoveredDevice[]): ObservedVlan[] {
   return devices.flatMap(device => {
     const ids = new Set((device.vlans ?? []).map(v => v.vlan_id));

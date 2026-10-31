@@ -16,55 +16,29 @@ import type {
   NotificationSeverity,
 } from "../lib/api/types";
 
-/**
- * 운영 캘린더입니다.
- *
- * <h2>왜 서버 데이터를 쓰는가</h2>
- * 이전에는 "Event Conf." / "Meeting" / "Workshop" 이라는 <b>가짜 일정</b>을
- * 화면에 심어 두었습니다. 그 상태로는 "오늘 무슨 일이 있었나" 를 물었을 때
- * 캘린더가 실제 사건 대신 데모 데이터를 보여 주므로 운영에 쓸 수 없습니다.
- *
- * 이제 두 종류의 실제 사건을 서버에서 받아 달력에 올립니다.
- * <ul>
- *   <li>알림({@code /api/v1/notifications}) — 심각도에 따라 색이 달라집니다.</li>
- *   <li>변경 이력({@code /api/v1/compliance/changes}) — 적용/보류/거부 상태가
- *       색으로 드러납니다.</li>
- * </ul>
- *
- * 사용자가 직접 추가한 일정은 서버에 저장하는 API 가 없으므로 <b>이 브라우저
- * 세션에서만</b> 남습니다. 서버 사건과 섞이지 않도록 별도 상태로 관리합니다.
- */
 interface CalendarEvent extends EventInput {
   extendedProps: {
     calendar: string;
-    /** 출처 구분: 서버 알림 / 변경 이력 / 사용자가 직접 추가 */
     origin?: "notification" | "compliance" | "local";
-    /** 알림이면 분류, 변경이력이면 유형입니다. (툴팁/디버깅용) */
     detail?: string;
-    /** 관련 프로젝트 키. */
     projectId?: string | null;
-    /** 관련 장치 식별자. */
     agentId?: string | null;
-    /** 반복 횟수(알림 전용). 1보다 크면 진행 중인 문제입니다. */
     repeatCount?: number;
   };
 }
 
-/** 알림 심각도 → 달력 색상 키 */
 const SEVERITY_COLOR: Record<NotificationSeverity, string> = {
   critical: "Danger",
   warning: "Warning",
   info: "Primary",
 };
 
-/** 변경 이력 상태 → 달력 색상 키 */
 const CHANGE_COLOR: Record<ApiComplianceChange["status"], string> = {
   Applied: "Success",
   Rejected: "Danger",
   Pending: "Warning",
 };
 
-/** ISO 시각 문자열을 달력이 요구하는 형태로 그대로 넘깁니다. */
 function toNotificationEvent(item: ApiNotification): CalendarEvent {
   return {
     id: `ntf-${item.id}`,
@@ -106,7 +80,6 @@ const Calendar: React.FC = () => {
   const [eventStartDate, setEventStartDate] = useState("");
   const [eventEndDate, setEventEndDate] = useState("");
   const [eventLevel, setEventLevel] = useState("");
-  /** 사용자가 직접 추가한 일정 (서버 저장 API 없음) */
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
@@ -130,7 +103,6 @@ const Calendar: React.FC = () => {
     [changesResult.data]
   );
 
-  /** 서버 사건 + 사용자가 추가한 일정 */
   const events = useMemo(
     () => [...notificationEvents, ...complianceEvents, ...localEvents],
     [notificationEvents, complianceEvents, localEvents]
@@ -211,13 +183,6 @@ const Calendar: React.FC = () => {
     setSelectedEvent(null);
   };
 
-  /**
-   * 지금 열린 모달이 <b>읽기 전용</b>인지 판단합니다.
-   *
-   * <p>서버에서 온 알림/변경 이력은 서버가 원본이므로 이 화면에서 고칠 수
-   * 없습니다. 수정 버튼을 보여 주고 눌렀을 때 조용히 무시하면 사용자는
-   * "저장이 안 된다" 고만 느낍니다. 그래서 버튼 자체를 숨기고 안내합니다.
-   */
   const isReadOnly =
     selectedEvent?.extendedProps.origin === "notification" ||
     selectedEvent?.extendedProps.origin === "compliance";

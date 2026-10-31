@@ -1,129 +1,90 @@
-#include <cassert>
-#include <exception>
+#include "database/database_service.hpp"
+#include <atomic>
 #include <filesystem>
 #include <future>
+#include <iostream>
 #include <stdexcept>
-#include <string>
 #include <thread>
+#include <unistd.h>
 
-#include <sqlite3.h>
-
-#include "database/database_service.hpp"
-
-namespace fs = std::filesystem;
+void Check(bool value, const char* message)
+{
+    if (!value) throw std::runtime_error(message);
+}
 
 int main()
 {
-    const fs::path installer_path =
-        fs::path(SONAR_VALIDATOR_PROBER_SOURCE_DIR) / "Installer";
-    const fs::path template_path = installer_path / "default_template.sqlite";
-    const fs::path test_database_path =
-        installer_path / "default_template_test.sqlite";
-
-    std::error_code copy_error;
-    fs::copy_file(
-        template_path,
-        test_database_path,
-        fs::copy_options::overwrite_existing,
-        copy_error);
-    assert(!copy_error);
-
-    sqlite3 *raw_database = nullptr;
-    const int db_result =
-        sqlite3_open(test_database_path.c_str(), &raw_database);
-    assert(db_result == SQLITE_OK);
-    DbHandle database(raw_database);
-
-    DatabaseQueue database_queue;
-    std::jthread database_worker(
-        [&database, &database_queue](std::stop_token stop_token)
-        {
-            DatabaseTask task;
-            while (database_queue.Pop(stop_token, task))
-            {
-                try
-                {
-                    task.result.set_value(task.execute(database));
-                }
-                catch (...)
-                {
-                    task.result.set_exception(std::current_exception());
-                }
-            }
-        });
-
-    DatabaseTask task;
-    task.execute = [](DbHandle& handle)
+    char path[] = "/tmp/sonar-db-events-XXXXXX";
+    const int file = mkstemp(path);
+    Check(file >= 0, "temporary database");
+    close(file);
+    try
     {
-        sqlite3* database = handle.get();
-        if (database == nullptr)
-        {
+        sqlite3* raw = nullptr;
+        Check(sqlite3_open(path, &raw) == SQLITE_OK, "open database");
+        DbHandle handle(raw);
+        Check(sqlite3_exec(raw, "CREATE TABLE settings(key TEXT PRIMARY KEY,value TEXT)",
+            nullptr,nullptr,nullptr) == SQLITE_OK, "create schema");
+        const auto count_threads = [] {
+            return std::distance(std::filesystem::directory_iterator("/proc/self/task"),
+                                 std::filesystem::directory_iterator{});
+        };
+        const auto before = count_threads();
+        DatabaseService database(handle);
+        Check(count_threads() == before, "database created a worker thread");
+        const auto caller = std::this_thread::get_id();
+        database.Execute([&](DbHandle&) {
+            Check(std::this_thread::get_id() == caller, "event ran on another thread");
             return DatabaseResult{};
-        }
-        /*
-        참고로 포인터 변수 자체만 고정하고 싶을 때는 constexpr char*를 쓰면 
-        포인터 변수 자체가 상수(char* const)가 되지만, 문자열 리터럴의 
-        내용 변경을 막기 위해 대다수는 가리키는 대상까지 const를 붙여 
-        constexpr const char* 형태로 사용합니다
-        
-        */
-        constexpr const char *agent_id = "test-agent-id";
-        constexpr const char *agent_name = "test-agent";
-        constexpr const char *os_name = "Debian GNU/Linux";
-        constexpr const char *sql =
-            "INSERT INTO Agent_info (agent_id, agent_name, os_name) "
-            "VALUES (?, ?, ?);";
-
-        sqlite3_stmt *statement = nullptr;
-        if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK)
+        });
+        std::atomic<int> failures{0};
         {
-            throw std::runtime_error(sqlite3_errmsg(database));
+            std::vector<std::jthread> producers;
+            for (int i=0;i<4;++i) producers.emplace_back([&,i] {
+                for(int j=0;j<20;++j)
+                {
+                    const std::string key=std::to_string(i)+":"+std::to_string(j);
+                    if (!SaveSetting(database,key,"committed")) ++failures;
+                }
+            });
         }
-
-        int bind_result = sqlite3_bind_text(
-            statement, 1, agent_id, -1, SQLITE_STATIC);
-        if (bind_result == SQLITE_OK)
-        {
-            bind_result = sqlite3_bind_text(
-                statement, 2, agent_name, -1, SQLITE_STATIC);
-        }
-        if (bind_result == SQLITE_OK)
-        {
-            bind_result = sqlite3_bind_text(
-                statement, 3, os_name, -1, SQLITE_STATIC);
-        }
-        const int step_result =
-            bind_result == SQLITE_OK ? sqlite3_step(statement) : bind_result;
-        sqlite3_finalize(statement);
-
-        if (step_result != SQLITE_DONE)
-        {
-            throw std::runtime_error(sqlite3_errmsg(database));
-        }
-
-        DatabaseResult result;
-        result.sql_task = sql;
-        result.db_task_result.emplace_back(os_name);
-        return result;
-    };
-
-    std::future<DatabaseResult> result = task.result.get_future();
-
-    // 주의: assert(...) 안에 부작용이 있는 호출을 넣으면 안 된다.
-    // Release 빌드(-DNDEBUG)에서 assert 가 통째로 제거되어 Push 가 실행되지 않고,
-    // result.get() 이 영원히 대기한다(테스트가 타임아웃까지 멈춤).
-    const bool pushed = database_queue.Push(std::move(task));
-    assert(pushed);
-    if (!pushed)
-    {
-        throw std::runtime_error("failed to push task into database queue");
+        Check(failures == 0, "concurrent events lost writes");
+        Check(LoadSetting(database,"3:19") == "committed", "last write not visible");
+        std::promise<void> entered, release;
+        auto released = release.get_future().share();
+        auto writer = std::async(std::launch::async, [&] {
+            return database.Execute([&](DbHandle& db) {
+                Check(sqlite3_exec(db.get(), "BEGIN; INSERT INTO settings VALUES('inflight','committed');",
+                    nullptr,nullptr,nullptr) == SQLITE_OK,"inflight begin");
+                entered.set_value();
+                released.wait();
+                Check(sqlite3_exec(db.get(),"COMMIT",nullptr,nullptr,nullptr)==SQLITE_OK,"inflight commit");
+                return DatabaseResult{{"ok"},"COMMIT"};
+            });
+        });
+        entered.get_future().wait();
+        auto closer = std::async(std::launch::async, [&] { database.Close(); });
+        const bool waited = closer.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout;
+        release.set_value();
+        writer.get(); closer.get();
+        Check(waited,"close skipped an active transaction");
+        Check(!SaveSetting(database,"after-close","rejected"), "write accepted after close");
+        handle.reset();
+        Check(sqlite3_open(path,&raw) == SQLITE_OK, "reopen database");
+        handle.reset(raw);
+        sqlite3_stmt* stmt=nullptr;
+        Check(sqlite3_prepare_v2(raw,"SELECT count(*) FROM settings",-1,&stmt,nullptr)==SQLITE_OK,"count prepare");
+        Check(sqlite3_step(stmt)==SQLITE_ROW && sqlite3_column_int(stmt,0)==81,"commits not durable after reopen");
+        sqlite3_finalize(stmt);
+        handle.reset();
+        unlink(path);
+        std::cout << "[ok] no DB thread; 80 concurrent writes + in-flight commit durable; close waits and rejects writes\n";
+        return 0;
     }
-
-    const DatabaseResult insert_result = result.get();
-    assert(insert_result.db_task_result.size() == 1);
-    assert(insert_result.db_task_result.front() == "Debian GNU/Linux");
-
-    database_queue.Close();
-    database_worker.request_stop();
-    return 0;
+    catch(const std::exception& error)
+    {
+        unlink(path);
+        std::cerr << "[FAIL] " << error.what() << '\n';
+        return 1;
+    }
 }

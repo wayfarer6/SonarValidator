@@ -18,71 +18,33 @@ import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import org.sonar.sonarvalidator_backend.Repository.ExpectedAgentRepository;
 import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.core.annotation.Order;
+import org.sonar.sonarvalidator_backend.Service.telemetry.TelemetryObserver;
+import org.sonar.sonarvalidator_backend.Service.telemetry.TelemetrySnapshot;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 수집된 텔레메트리에서 프로젝트 서브넷을 <b>자동으로</b> 만들어 넣습니다.
- *
- * <h2>⚠️ 왜 필요한가</h2>
- * <p>프로버가 VLAN·SVI 를 수집해도 그것이 프로젝트 서브넷이 되지 않으면
- * 토폴로지가 <b>빈 화면</b>입니다. 운영자는 "장비를 붙였는데 아무것도 안 보인다"
- * 로 읽고, 화면 어디에도 다음 행동이 적혀 있지 않습니다. 그래서 장비가 붙는
- * 순간 대역을 만들어 둡니다.
- *
- * <h2>등급(CSO)은 Open 으로 둡니다</h2>
- * <p>등급은 <b>정책 판단</b>이라 기계가 정할 수 없습니다. 다만 등급이 비어 있으면
- * 검증 엔진이 그 서브넷을 규칙에 쓸 수 없으므로, 안전한 쪽(가장 덜 제한적인
- * {@link ZoneClass#OPEN})으로 채워 두고 운영자가 올리도록 합니다.
- * (막아야 할 대상을 열어 두는 것보다, 열어 둔 대상을 좁히는 편이 안전합니다)
- *
- * <h2>손대지 않는 것</h2>
- * <ul>
- *   <li>{@code manually_edited=true} 인 서브넷 — 운영자가 이름·등급·대역을
- *       고친 결과이므로 덮어쓰지 않습니다.</li>
- *   <li>다른 장치가 만든 서브넷 — 소유권을 {@code agent_id} 로 구분합니다.</li>
- *   <li>관리망 대역 — 제어평면 주소는 정책 대상이 아닙니다.</li>
- * </ul>
- *
- * <h2>수집에서 사라진 대역</h2>
- * <p>이 장치가 만들었고 수동 편집되지 않은 서브넷은 <b>함께 지웁니다.</b>
- * 장치에서 VLAN 을 지웠는데 정책에는 남아 있으면, 없는 대역에 대한 위반
- * 판정이 계속 나옵니다.
- *
- * <h2>⚠️ 호출 규칙</h2>
- * <p>{@link #syncForAgent} 는 <b>예외를 밖으로 던지지 않습니다.</b> 텔레메트리
- * 수신 경로에서 불리므로, 여기서 실패가 수신을 막으면 장치가 통째로
- * "무응답" 이 됩니다. 실패는 로그로만 남깁니다.
- */
 @Service
-public class ProjectSubnetAutoSyncService {
+@Order(200)
+public class ProjectSubnetAutoSyncService implements TelemetryObserver {
+
+    @Override
+    @Transactional
+    public void onTelemetry(TelemetrySnapshot snapshot) {
+        syncForAgent(snapshot.agentId(), snapshot.config());
+    }
 
     private static final Logger log = LoggerFactory.getLogger(ProjectSubnetAutoSyncService.class);
 
-    /** 관리 서버 자신의 주소를 관리망으로 볼 때 쓰는 기본 프리픽스 길이입니다. */
     private static final int DEFAULT_MANAGEMENT_PREFIX_LEN = 24;
 
     private final ProjectRepository projects;
     private final ExpectedAgentRepository expected;
 
-    /**
-     * @param projects 프로젝트 저장소
-     * @param expected 배포 예정(에이전트 ↔ 프로젝트) 저장소
-     */
     public ProjectSubnetAutoSyncService(ProjectRepository projects, ExpectedAgentRepository expected) {
         this.projects = projects;
         this.expected = expected;
     }
 
-    /**
-     * 장치 하나의 수집 결과를 프로젝트 서브넷에 반영합니다.
-     *
-     * <p>프로젝트에 귀속되지 않은 장치는 조용히 건너뜁니다 — 어느 프로젝트의
-     * 정책에 넣을지 알 수 없기 때문입니다.
-     *
-     * @param agentId 장치 식별자
-     * @param config  수집된 중립 설정
-     * @return 서브넷이 바뀌어 저장했으면 {@code true}
-     */
     @Transactional
     public boolean syncForAgent(String agentId, NeutralDeviceConfig config) {
         if (agentId == null || agentId.isBlank() || config == null) {
@@ -143,29 +105,23 @@ public class ProjectSubnetAutoSyncService {
             final PolicySubnet previous = previousAuto.get(cidr);
             if (previous != null) {
                 // 운영자가 지정한 등급과 이름은 유지합니다.
-                draft.setZoneClass(previous.getZoneClass());
+                draft.setZoneClass(previous.getZoneClass() == ZoneClass.OPEN ? null : previous.getZoneClass());
+                draft.setNetworkRole(previous.getNetworkRole());
                 if (previous.getName() != null && !previous.getName().isBlank()) {
                     draft.setName(previous.getName());
                 }
-                // ⚠️ 허용 목록도 반드시 유지합니다. 초안에는 이 값이 없으므로
-                //    그대로 저장하면 <b>운영자가 지정한 제한이 30초마다 사라집니다.</b>
-                //    그러면 배포된 차단이 다음 동기화에 함께 풀립니다.
+
+
+
                 draft.setAllowedPeers(previous.getAllowedPeers());
                 draft.setManuallyEdited(previous.isManuallyEdited());
             } else if (draft.getZoneClass() == null) {
                 // 새로 감지된 대역은 안전한 쪽(Open)으로 채웁니다.
-                draft.setZoneClass(ZoneClass.OPEN);
+                draft.setZoneClass(null);
             }
             merged.add(draft);
         }
 
-        // ⚠️ 같은 subnet_id 가 merged 에 두 번 들어갈 수 있습니다.
-        //    운영자가 등급을 바꾼 행은 "자동 소유"가 아니므로 위 루프에서 보존되는데,
-        //    같은 대역이 초안으로 한 번 더 계산되어 뒤에 추가되기 때문입니다.
-        //    그대로 저장하면 자동 증가 PK 만 다른 중복 행이 생겨
-        //    대역 드롭다운에 같은 CIDR 이 두 번 뜨고 정책 검증도 이중으로 돕니다.
-        //    (실측: 10.0.8.0/24 가 Sensitive(편집됨)·Open(자동) 두 행으로 공존)
-        //    먼저 들어온 쪽(= 운영자가 손댄 행)을 남깁니다.
         final Map<String, PolicySubnet> uniqueIdentity = new LinkedHashMap<>();
         for (final PolicySubnet subnet : merged) {
             final String identity = (subnet.getId() == null || subnet.getId().isBlank())
@@ -188,29 +144,12 @@ public class ProjectSubnetAutoSyncService {
         return true;
     }
 
-    /**
-     * 이 서브넷이 해당 장치가 만든 자동 생성분인지 판단합니다.
-     *
-     * @param subnet  서브넷
-     * @param agentId 장치 식별자
-     * @return 자동 생성분이면 {@code true}
-     */
     private static boolean isAutoOwned(PolicySubnet subnet, String agentId) {
         return subnet != null
                 && agentId.equals(subnet.getAgentId())
                 && !subnet.isManuallyEdited();
     }
 
-    /**
-     * 목록이 실질적으로 바뀌었는지 비교합니다. (저장 생략용)
-     *
-     * <p>순서가 아니라 <b>식별자·대역·등급·이름</b>의 집합으로 봅니다.
-     * 순서만 다른 경우까지 저장하면 매 주기마다 쓰기가 발생합니다.
-     *
-     * @param before 이전 목록
-     * @param after  이후 목록
-     * @return 바뀌었으면 {@code true}
-     */
     private static boolean changed(List<PolicySubnet> before, List<PolicySubnet> after) {
         if (before.size() != after.size()) {
             return true;
@@ -245,37 +184,6 @@ public class ProjectSubnetAutoSyncService {
         }
     }
 
-    /**
-     * 정책에서 제외할 관리망 대역을 모읍니다.
-     *
-     * <p>두 가지를 봅니다.
-     * <ol>
-     *   <li>프로젝트에 지정된 {@code management_prefix}</li>
-     *   <li>관리 서버 주소가 속한 대역 — 이 값은 자주 지정되므로, 프리픽스가
-     *       비어 있어도 관리 인터페이스가 정책에 섞여 들어오는 것을 막습니다.</li>
-     * </ol>
-     *
-     * @param project 프로젝트
-     * @return 정규화된 대역 집합
-     */
-    /**
-     * 정책에서 제외할 관리망 대역을 모읍니다.
-     *
-     * <p>편집 화면({@code ProjectDiscoveryService.editingView})도 <b>같은 규칙</b>을
-     * 써야 합니다. 한쪽만 관리망을 거르면 관리망 서브넷이 <b>매 주기 목록에서
-     * 나타났다 사라졌다</b> 하며 저장을 반복합니다. (실측: added/changed 가
-     * 30초마다 2~3건으로 계속 잡혔습니다)
-     *
-     * <p>두 가지를 봅니다.
-     * <ol>
-     *   <li>프로젝트에 지정된 {@code management_prefix}</li>
-     *   <li>관리 서버 주소가 속한 대역 — 이 값은 자주 지정되므로, 프리픽스가
-     *       비어 있어도 관리 인터페이스가 정책에 섞여 들어오는 것을 막습니다.</li>
-     * </ol>
-     *
-     * @param project 프로젝트
-     * @return 정규화된 대역 집합
-     */
     static Set<String> managementNetworks(Project project) {
         final Set<String> result = new LinkedHashSet<>();
         final String declared = normalize(project.getManagementPrefix());
@@ -298,17 +206,6 @@ public class ProjectSubnetAutoSyncService {
         return result;
     }
 
-    /**
-     * 대역이 관리망에 속하는지 확인합니다. (프리픽스가 달라도 포함되면 제외)
-     *
-     * <p>정확히 같은 대역({@code 10.20.0.0/24})뿐 아니라 그 <b>안쪽</b> 대역
-     * ({@code 10.20.0.0/25})도 관리망으로 봅니다. 장치가 관리 인터페이스에
-     * 더 좁은 프리픽스를 주는 경우가 있기 때문입니다.
-     *
-     * @param cidr       검사할 대역
-     * @param management 관리망 대역 집합
-     * @return 관리망이면 {@code true}
-     */
     static boolean isManagement(String cidr, Set<String> management) {
         if (cidr == null || cidr.isBlank()) {
             return true;
@@ -334,12 +231,6 @@ public class ProjectSubnetAutoSyncService {
         return false;
     }
 
-    /**
-     * {@code a.b.c.d/len} 을 네트워크 주소와 프리픽스 길이로 바꿉니다.
-     *
-     * @param cidr 대역 문자열
-     * @return {@code [네트워크 주소, 프리픽스 길이]}, 형식이 아니면 {@code null}
-     */
     private static long[] parseNetwork(String cidr) {
         try {
             final int slash = cidr.indexOf('/');
@@ -365,7 +256,6 @@ public class ProjectSubnetAutoSyncService {
         }
     }
 
-    /** @return 프리픽스 길이에 해당하는 32비트 마스크 */
     private static long maskOf(int length) {
         if (length <= 0) {
             return 0L;
@@ -373,7 +263,6 @@ public class ProjectSubnetAutoSyncService {
         return (0xFFFFFFFFL << (32 - length)) & 0xFFFFFFFFL;
     }
 
-    /** @return 두 주소가 같은 프리픽스에 속하면 {@code true} */
     private static boolean withinPrefix(long a, long b, int length) {
         final long mask = maskOf(length);
         return (a & mask) == (b & mask);

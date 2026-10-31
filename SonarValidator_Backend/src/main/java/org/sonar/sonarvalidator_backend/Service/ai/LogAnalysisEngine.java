@@ -24,84 +24,17 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * AI 로그 분석 엔진입니다.
- *
- * <h2>무엇을 하는가</h2>
- * <p>사용자가 고른 로그(또는 필터 결과)를 프롬프트로 묶어 OpenAI 호환 API 에
- * 보내고, 응답을 <b>구조화</b>해 화면에 돌려줍니다.
- *
- * <pre>
- *   장비 로그 (warning 이상 / 사용자 지정)
- *        │  필터: 기간 · 프로젝트 · agent · 심각도
- *        ▼
- *   LogService.resolveForAnalysis()   ← 시간순 정렬 (인과 파악용)
- *        │
- *        ▼
- *   프롬프트 조립 (시스템 지침 + 로그 본문)
- *        │
- *        ▼
- *   OpenAiCompatibleClient.chat()     ← 공급자/모델은 DB 설정에서
- *        │
- *        ▼
- *   JSON 파싱 → summary / root_cause / recommendations / risk_level
- *        │
- *        ▼
- *   log_analysis 테이블에 저장 (실패도 기록)
- * </pre>
- *
- * <h2>⚠️ 프롬프트 설계에서 중요한 3가지</h2>
- *
- * <h3>1. 입력 크기 상한</h3>
- * <p>로그를 전부 넣으면 컨텍스트 한도를 넘겨 400 이 나거나, 통과해도 비용이
- * 폭증합니다. 그래서 <b>줄 수와 글자 수 둘 다</b> 자릅니다. 줄 수만 제한하면
- * 한 줄이 매우 긴 경우(설정 덤프 등)를 막지 못합니다.
- *
- * <h3>2. 잘렸다는 사실을 모델과 사용자 모두에게 알린다</h3>
- * <p>일부만 보고 "문제 없음" 이라고 답하면 위험합니다. 그래서 (a) 프롬프트에
- * 잘렸다고 명시하고, (b) 응답에 전달/전체 건수를 함께 담아 화면이 표시합니다.
- *
- * <h3>3. 근거 없는 추측 금지</h3>
- * <p>모델은 로그에 없는 원인을 그럴듯하게 지어내는 경향이 있습니다. 그래서
- * "로그에 근거가 없으면 모른다고 답하라" 를 시스템 프롬프트에 명시하고,
- * 응답 스키마에 {@code evidence} (근거가 된 로그 줄)를 요구합니다.
- *
- * <h2>⚠️ 실패도 저장한다</h2>
- * <p>분석 실패(키 만료, 모델명 오타, 서버 미기동)를 저장하지 않으면 화면에
- * 아무 기록이 남지 않아 사용자가 같은 실수를 반복합니다. 그래서
- * {@code succeeded=false} 로 사유를 남깁니다.
- */
 @Service
 public class LogAnalysisEngine {
 
     private static final Logger log = LoggerFactory.getLogger(LogAnalysisEngine.class);
 
-    /**
-     * 프롬프트에 넣을 최대 로그 줄 수입니다.
-     *
-     * <p>너무 크게 잡으면 컨텍스트 한도 초과와 비용 문제가 생기고, 너무 작게
-     * 잡으면 사건의 흐름을 볼 수 없습니다. 로그 한 줄이 평균 150자라면
-     * 300줄 ≈ 45,000자 ≈ 약 12,000 토큰으로, 대부분 모델의 한도 안에 들어갑니다.
-     */
     public static final int MAX_PROMPT_LOGS = 300;
 
-    /**
-     * 프롬프트 본문의 최대 글자 수입니다.
-     *
-     * <p>줄 수 제한만으로는 한 줄이 긴 경우를 막지 못합니다.
-     * 400,000자 ≈ 약 100,000 토큰으로 넉넉한 상한입니다.
-     */
     public static final int MAX_PROMPT_CHARS = 400_000;
 
-    /**
-     * 한 줄이 이보다 길면 잘라서 넣습니다.
-     *
-     * <p>설정 덤프나 스택 트레이스가 한 줄로 들어오는 경우가 있습니다.
-     * 통째로 넣으면 그 한 줄이 전체 예산을 다 써버립니다.
-     */
     private static final int MAX_LINE_CHARS = 2000;
 
-    /** 저장할 원문 응답의 최대 길이입니다. (컬럼 크기와 맞춤) */
     private static final int MAX_STORED_RESPONSE = 30_000;
 
     private final LogService logService;
@@ -110,12 +43,6 @@ public class LogAnalysisEngine {
     private final LogAnalysisRepository analysisRepository;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    /**
-     * @param logService         로그 조회
-     * @param providerService    AI 공급자 선택
-     * @param client             OpenAI 호환 클라이언트
-     * @param analysisRepository 분석 결과 저장소
-     */
     public LogAnalysisEngine(LogService logService,
                              AiProviderService providerService,
                              OpenAiCompatibleClient client,
@@ -126,21 +53,6 @@ public class LogAnalysisEngine {
         this.analysisRepository = analysisRepository;
     }
 
-    /**
-     * 로그를 분석합니다.
-     *
-     * @param logIds      분석할 특정 로그 ID (비어 있으면 필터 조회)
-     * @param agentId     장비 식별자 (null 이면 전체)
-     * @param projectKey  프로젝트 키 (null 이면 전체)
-     * @param from        기간 시작 (null 이면 제한 없음)
-     * @param to          기간 끝 (null 이면 제한 없음)
-     * @param severity    최소 심각도 (예: {@code warning})
-     * @param scope       분석 범위 ({@code selected}/{@code filter}/{@code single})
-     * @param providerId  사용할 AI 공급자 (null 이면 기본 공급자)
-     * @param userPrompt  사용자가 덧붙이는 질문/지시 (선택)
-     * @param requestedBy 요청자
-     * @return 분석 결과 (화면용)
-     */
     @Transactional
     public Map<String, Object> analyze(List<Long> logIds,
                                        String agentId,
@@ -191,14 +103,6 @@ public class LogAnalysisEngine {
             return toView(record);
         }
 
-        // 3) 공급자를 고릅니다.
-        //    ⚠️ 예외 없는 조회(resolveOrEmpty)를 씁니다.
-        //    resolve() 는 "공급자 없음" 예외를 던지는데, 같은 트랜잭션에 참여한
-        //    내부 메서드가 RuntimeException 을 던지면 Spring 이 그 트랜잭션을
-        //    rollback-only 로 마킹합니다. 그러면 아래에서 실패를 기록하려는
-        //    save() 까지 롤백되고, 커밋 시 UnexpectedRollbackException 이 터져
-        //    <b>"공급자를 등록하세요" 라는 안내가 500 으로 나갑니다.</b>
-        //    (실측 E2E 에서 확인한 결함 — 정책 조언 경로와 같은 원인)
         final java.util.Optional<AiProvider> resolved =
                 providerService.resolveOrEmpty(providerId);
 
@@ -230,7 +134,7 @@ public class LogAnalysisEngine {
         record.setRawResponse(truncate(result.text(), MAX_STORED_RESPONSE));
 
         if (!result.ok()) {
-            // 실패도 저장합니다. 사유가 남아야 사용자가 다음에 무엇을 고칠지 압니다.
+
             record.setSucceeded(false);
             record.setErrorMessage(truncate(result.text(), 4000));
             final LogAnalysis saved = analysisRepository.save(record);
@@ -250,14 +154,6 @@ public class LogAnalysisEngine {
         return toView(saved);
     }
 
-    /**
-     * 분석 이력을 조회합니다.
-     *
-     * @param projectKey 프로젝트 키 (null 이면 전체)
-     * @param agentId    장비 식별자 (null 이면 전체)
-     * @param limit      최대 건수
-     * @return 분석 이력 목록
-     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> history(String projectKey, String agentId, Integer limit) {
         final int size = limit == null || limit <= 0 ? 50 : Math.min(200, limit);
@@ -278,12 +174,6 @@ public class LogAnalysisEngine {
         return rows.stream().map(this::toView).toList();
     }
 
-    /**
-     * 분석 한 건을 상세 조회합니다.
-     *
-     * @param analysisId 분석 식별자
-     * @return 분석 결과 (없으면 빈 값)
-     */
     @Transactional(readOnly = true)
     public Map<String, Object> detail(String analysisId) {
         return analysisRepository.findByAnalysisId(analysisId)
@@ -291,19 +181,8 @@ public class LogAnalysisEngine {
                 .orElse(null);
     }
 
-    // ---------------------------------------------------------------------------
     // 프롬프트 조립
-    // ---------------------------------------------------------------------------
 
-    /**
-     * 시스템 지침 + 로그 본문으로 메시지를 만듭니다.
-     *
-     * @param provider     공급자 (추가 시스템 프롬프트가 있으면 반영)
-     * @param logs         로그 목록 (시간순)
-     * @param totalMatching 필터에 걸린 전체 건수
-     * @param userPrompt   사용자 추가 질문
-     * @return 메시지 목록
-     */
     private List<Message> buildMessages(AiProvider provider,
                                         List<DeviceLog> logs,
                                         long totalMatching,
@@ -404,22 +283,8 @@ public class LogAnalysisEngine {
         return messages;
     }
 
-    // ---------------------------------------------------------------------------
     // 응답 파싱
-    // ---------------------------------------------------------------------------
 
-    /**
-     * 모델 응답에서 구조화 필드를 꺼냅니다.
-     *
-     * <p>⚠️ <b>JSON 파싱 실패를 오류로 처리하지 않습니다.</b> 모델이 코드블록
-     * ({@code ```json … ```})으로 감싸거나 앞뒤에 설명을 붙이는 일이 흔합니다.
-     * 그때 분석 자체를 버리면 사용자는 "분석 실패" 만 보게 되는데, 원문에는
-     * 쓸 만한 내용이 들어 있습니다. 그래서 원문은 항상 남기고,
-     * 파싱에 성공하면 보기 좋게 채웁니다.
-     *
-     * @param record 분석 레코드 (여기에 채웁니다)
-     * @param text   모델 응답
-     */
     private void parseStructured(LogAnalysis record, String text) {
         final JsonNode root = tryParseJson(text);
         if (root == null || !root.isObject()) {
@@ -446,15 +311,6 @@ public class LogAnalysisEngine {
         }
     }
 
-    /**
-     * 응답에서 JSON 을 꺼냅니다.
-     *
-     * <p>모델이 코드블록으로 감싸는 경우가 흔하므로 그것을 먼저 벗겨냅니다.
-     * 그다음 첫 {@code &#123;} 부터 마지막 {@code &#125;} 까지를 시도합니다.
-     *
-     * @param text 모델 응답
-     * @return 파싱된 JSON (실패 시 null)
-     */
     private JsonNode tryParseJson(String text) {
         if (text == null || text.isBlank()) {
             return null;
@@ -491,7 +347,6 @@ public class LogAnalysisEngine {
         }
     }
 
-    /** 위험도 문자열을 표준 값으로 정규화합니다. */
     private String normalizeRisk(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -505,11 +360,8 @@ public class LogAnalysisEngine {
         };
     }
 
-    // ---------------------------------------------------------------------------
     // 유틸
-    // ---------------------------------------------------------------------------
 
-    /** 분석 레코드를 화면용 맵으로 바꿉니다. */
     private Map<String, Object> toView(LogAnalysis record) {
         final Map<String, Object> view = new LinkedHashMap<>();
         view.put("analysis_id", record.getAnalysisId());

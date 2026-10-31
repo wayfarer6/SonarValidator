@@ -125,9 +125,9 @@ Result RunWithStatus(const std::string& command,
     const bool timed_out = std::chrono::steady_clock::now() >= deadline;
     if (!child_exited || !output_eof || output_limit_exceeded)
     {
-        // 자식은 시작 직후 setpgid(0,0) 로 자기 그룹의 리더가 됩니다. 그룹
-        // 시그널은 셸이 띄운 손자(dohost 등)까지 함께 정리합니다. 그룹 설정이
-        // 실패했더라도 최소한 자식 자체는 끝나도록 직접 시그널도 보냅니다.
+
+
+
         (void)::kill(-child, SIGTERM);
         (void)::kill(child, SIGTERM);
         const auto terminate_deadline = std::chrono::steady_clock::now() +

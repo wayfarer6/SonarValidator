@@ -14,28 +14,11 @@ import org.sonar.sonarvalidator_backend.Policy.PacketVariables;
 import org.sonar.sonarvalidator_backend.Policy.PolicyViolation;
 import org.sonar.sonarvalidator_backend.Policy.SegmentationBddEngine;
 
-/**
- * 프로젝트를 프론트엔드가 바로 쓸 수 있는 JSON 형태로 바꿉니다.
- *
- * <h2>왜 변환 계층을 따로 두는가</h2>
- * <p>엔티티를 그대로 반환하면 (1) 지연 로딩 프록시가 순환 참조를 만들고,
- * (2) 내부 컬럼명이 API 계약이 되어 스키마 변경이 곧 API 파괴가 됩니다.
- * 변환을 한 곳에 모아 두면 노출 필드를 통제할 수 있습니다.
- *
- * <p>모든 키는 snake_case 이고, 등급은 프론트엔드와 같은
- * {@code Confidential}/{@code Sensitive}/{@code Open} 표기를 씁니다.
- */
 public final class ProjectMapper {
 
     private ProjectMapper() {
     }
 
-    /**
-     * 프로젝트 1건을 API 응답 맵으로 바꿉니다.
-     *
-     * @param project 프로젝트 (null 이면 null 반환)
-     * @return 응답 맵
-     */
     public static Map<String, Object> toResponse(Project project) {
         if (project == null) {
             return null;
@@ -60,12 +43,6 @@ public final class ProjectMapper {
         return body;
     }
 
-    /**
-     * 프로젝트 1건을 목록용 요약으로 바꿉니다. (서브넷/규칙 본문 제외)
-     *
-     * @param project 프로젝트
-     * @return 요약 맵
-     */
     public static Map<String, Object> toSummary(Project project) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("project_id", project.getProjectKey());
@@ -83,12 +60,6 @@ public final class ProjectMapper {
         return body;
     }
 
-    /**
-     * 서브넷 목록을 응답 형태로 바꿉니다.
-     *
-     * @param project 프로젝트
-     * @return 서브넷 맵 목록
-     */
     public static List<Map<String, Object>> toSubnetList(Project project) {
         final List<Map<String, Object>> result = new ArrayList<>();
         // ⚠️ 과거에 같은 subnet_id 로 저장된 행이 남아 있어도 응답에는 한 번만 넣습니다.
@@ -104,6 +75,7 @@ public final class ProjectMapper {
             entry.put("vlan_id", subnet.getVlanId());
             entry.put("subnet_class", subnet.getZoneClass() == null ? null : subnet.getZoneClass().label());
             entry.put("name", subnet.getName());
+            entry.put("network_role", subnet.getNetworkRole());
             entry.put("agent_id", subnet.getAgentId());
             entry.put("manually_edited", subnet.isManuallyEdited());
             // 허용 목록은 화면에서 그대로 편집됩니다. 순서를 유지해 돌려줍니다.
@@ -113,12 +85,6 @@ public final class ProjectMapper {
         return result;
     }
 
-    /**
-     * 규칙 목록을 응답 형태로 바꿉니다.
-     *
-     * @param project 프로젝트
-     * @return 규칙 맵 목록
-     */
     public static List<Map<String, Object>> toRuleList(Project project) {
         final List<Map<String, Object>> result = new ArrayList<>();
         for (final ProjectRule rule : project.getRules()) {
@@ -136,18 +102,13 @@ public final class ProjectMapper {
         return result;
     }
 
-    /**
-     * 검증 보고서를 API 응답 맵으로 바꿉니다.
-     *
-     * <p>{@code violations} 는 UI 가 표로 그릴 수 있게 평평한 목록으로 두고,
-     * {@code violated_rule_ids} 는 규칙 행을 강조하는 데 씁니다.
-     *
-     * @param report 검증 보고서
-     * @return 응답 맵
-     */
     public static Map<String, Object> toValidationResponse(SegmentationBddEngine.Report report) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("compliant", report.isCompliant());
+        body.put("model_valid", report.isModelValid());
+        body.put("input_errors", new ArrayList<>(report.getInputErrors()));
+        body.put("analysis_scope", report.getAnalysisScope());
+        body.put("data_plane_analyzed", report.isDataPlaneAnalyzed());
         body.put("rule_count", report.getRuleCount());
         body.put("subnet_count", report.getSubnetCount());
         body.put("violation_count", report.getViolationCount());
@@ -165,6 +126,7 @@ public final class ProjectMapper {
             entry.put("dst_class", violation.targetZone() == null ? null : violation.targetZone().label());
             entry.put("reason", violation.reason());
             entry.put("severity", violation.severity().name());
+            entry.put("evidence_type", violation.evidenceType());
             entry.put("sampled_protocol", violation.sampledProtocol());
             entry.put("sampled_packet", violation.sampledPacket());
             entry.put("sampled_src_ip", violation.sampledSourceIp());

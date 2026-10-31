@@ -27,11 +27,6 @@ private:
     void initialize(std::string host, int port, std::string target);
 
 public:
-    // connect / handshake 제한 시간입니다.
-    //
-    // ⚠️ 이 값이 없으면(또는 expires_after 만 쓰면) 종료가 막힙니다.
-    //    beast::tcp_stream::expires_after() 는 비동기 오퍼레이션에만
-    //    적용되므로 동기 connect/handshake 에는 효과가 없습니다.
     static constexpr std::chrono::seconds kConnectTimeout{5};
     static constexpr std::chrono::seconds kHandshakeTimeout{5};
 
@@ -41,9 +36,9 @@ public:
 
     bool connect();                                 // 서버에 WebSocket 연결
     bool sendText(const std::string &message);      // 텍스트 전송
-    std::string receiveText();                      // 텍스트 수신(블로킹)
-    // 짧은 시간 동안 서버 지시(제어 메시지)를 수신합니다.
-    // 수신이 없으면 false, 있으면 message에 JSON 문자열을 담고 true를 반환합니다.
+    std::string receiveText();
+
+
     bool tryReceiveText(std::string& message, std::chrono::milliseconds timeout);
     bool sendRequest(const std::string &request, const std::string &target);  // 필요 시 연결 후 전송
 };

@@ -9,46 +9,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * 조회 대상 선택기의 계약을 검증합니다.
- *
- * <h2>⚠️ 이 테스트가 겨냥하는 최악의 실패 모드</h2>
- * <p>"파싱은 성공했는데 화면은 빈" 상태입니다. ANTLR 의 catch-all 규칙은
- * 어떤 텍스트든 통과시키므로, <b>잘못된 문법을 골라도 예외가 나지 않습니다.</b>
- * 대신 항목이 0건인 정상 결과처럼 보입니다.
- *
- * <p>그래서 여기서는 다음을 봅니다.
- * <ul>
- *   <li>대상 이름이 <b>올바른 계약 키</b>로 해석되는가</li>
- *   <li>{@code brief} 가 원문에 따라 <b>다른 문법</b>으로 가는가</li>
- *   <li>대상이 없을 때 벤더 기본 조회로 가는가</li>
- *   <li>모르는 이름이 예외 없이 폴백되는가</li>
- * </ul>
- *
- * <p>이전에는 같은 사실이 세 곳에 흩어져 있었습니다
- * ({@code CliOutputParser} 의 대상 switch, 벤더 switch,
- * {@code CliIngestService.contractKeyOf} 의 키 표). 한 곳만 고치면
- * 조용히 어긋났습니다.
- */
 class CliQueryStrategiesTest {
 
     private final CliQueryStrategies strategies = new CliQueryStrategies();
 
-    /** {@code ip -br addr show} 형태의 짧은 출력. */
     private static final String ADDRESS_BRIEF = """
             lo               UNKNOWN        127.0.0.1/8
             eth0             UP             10.20.111.10/24
             """;
 
-    /** {@code show ip interface brief} 형태의 IOS 출력. */
     private static final String IOS_BRIEF = """
             Interface              IP-Address      OK? Method Status                Protocol
             GigabitEthernet0/0/1   10.10.131.10    YES NVRAM  up                    up
             """;
 
-    // ------------------------------------------------------------------
     //  이름 → 계약 키
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("대상 이름은 소비자가 읽는 계약 키로 해석된다")
@@ -72,9 +47,7 @@ class CliQueryStrategiesTest {
         assertEquals("route_status", strategies.select("ROUTE-TABLE", CliVendor.FRR).contractKey());
     }
 
-    // ------------------------------------------------------------------
     //  brief — 이름 하나가 두 문법을 갖는다
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("brief 는 담당 전략이 하나이고, 그 안에서 원문으로 문법을 고른다")
@@ -123,9 +96,7 @@ class CliQueryStrategiesTest {
                 strategies.select("interface", CliVendor.CISCO).getClass().getSimpleName());
     }
 
-    // ------------------------------------------------------------------
     //  벤더 기본 조회
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("대상이 없으면 벤더별 기본 조회로 간다")
@@ -155,9 +126,7 @@ class CliQueryStrategiesTest {
         assertEquals("route_status", strategies.select(null, CliVendor.FRR).contractKey());
     }
 
-    // ------------------------------------------------------------------
     //  실패 경로
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("모르는 대상 이름은 예외 없이 벤더 기본으로 폴백한다")
@@ -194,9 +163,9 @@ class CliQueryStrategiesTest {
     @Test
     @DisplayName("같은 이름을 두 전략이 담당하지 않는다 (불변식)")
     void noDuplicateOwningNames() {
-        // ⚠️ 이 불변식이 깨지면 <b>등록 순서가 곧 정확성</b>이 됩니다.
-        //    새 전략을 끼워 넣는 사람이 그 사실을 모르면 조용히 깨집니다.
-        //    원문 모양으로 문법이 갈리는 대상(brief)은 전략 <b>안에서</b> 고릅니다.
+
+
+
         final java.util.Map<String, Integer> counts = new java.util.HashMap<>();
         for (final CliQueryStrategy strategy : strategies.strategies()) {
             for (final String name : ALL_KNOWN_NAMES) {
@@ -211,16 +180,13 @@ class CliQueryStrategiesTest {
         }
     }
 
-    /** 저장소에서 쓰는 모든 대상 이름입니다. (중복 검사 대상) */
     private static final java.util.List<String> ALL_KNOWN_NAMES = java.util.List.of(
             "nic", "addr", "brief", "nic-brief", "route", "route-table",
             "interface", "interface-brief", "arp", "neigh", "topology", "ovs",
             "vlan", "vlan-brief", "switchport", "port", "running", "running-config",
             "chain", "ruleset", "nft", "firewall");
 
-    // ------------------------------------------------------------------
     //  파서 연동
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("parseQuery 는 해석된 이름·계약 키·본문을 함께 돌려준다")

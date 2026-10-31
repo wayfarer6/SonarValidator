@@ -6,10 +6,10 @@
 
 #include "components/device/device_type.hpp"
 
-// 프로버의 시스템 정보와 중앙 서버 접속 설정을 보관하는 클래스입니다.
-// - Get*: 설정 값 조회
-// - Set*: 설정 값 변경
-// - Detect*: 로컬 시스템에서 값을 자동 탐지
+
+
+
+
 class ProberConfig
 {
 public:
@@ -36,15 +36,15 @@ public:
     void SetTerminalSharedSecret(std::string terminal_shared_secret);
     void DetectTerminalSharedSecret();
 
-    // 제어평면(관리망) 대역 목록입니다. (쉼표 구분 다중 대역)
-    //
-    // ⚠️ 격리에서 **절대 차단 대상이 되어서는 안 되는** 대역입니다.
-    //    이 대역의 인터페이스를 내리면 서버로 나가는 길이 사라져
-    //    해제 명령조차 도달하지 못합니다.
-    //
-    //    이전에는 quarantine_handler.hpp 의 kManagementPrefix 로
-    //    "172.16.255.0/24" 가 박혀 있었습니다. 랩/프로젝트마다 관리 대역이
-    //    다를 수 있으므로 default.conf 로 옮겼습니다.
+
+
+
+
+
+
+
+
+
     const std::string &GetManagementPrefixes() const;
     void SetManagementPrefixes(std::string management_prefixes);
     void DetectManagementPrefixes();
@@ -70,9 +70,9 @@ public:
     bool DetectDeviceType();
     void DetectProductName();
 
-    // default.conf 의 AGENT_NAME 을 읽습니다. 없으면 빈 문자열을 돌려주고,
-    // 호출자가 자동 생성 이름으로 대체합니다.
-    // 설정 파일은 장치마다 하나뿐이므로 정적 함수로 둡니다.
+
+
+
     static std::string DetectAgentName();
 
 private:

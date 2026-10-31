@@ -8,43 +8,14 @@ import {
 } from "react";
 import { fetchCurrentUser, login as loginApi, logout as logoutApi, type AuthUser } from "../lib/api/auth";
 
-/**
- * 인증 상태를 앱 전체에 공급합니다.
- *
- * <h2>기존 쿠키 방식에서 바뀐 점</h2>
- * 이전에는 `SignInForm` 이 **아무 검증 없이** 쿠키에 이메일을 넣고
- * `App.tsx` 가 그 쿠키 존재 여부로 라우팅을 결정했습니다. 즉 누구나 쿠키를
- * 직접 만들면 통과할 수 있었습니다.
- *
- * <p>이제는 **서버 세션**이 진실의 출처이고, 프론트는 그것을 반영만 합니다.
- * 쿠키(`JSESSIONID`)는 서버가 발급하며 `HttpOnly` 이므로 JS 로 조작할 수
- * 없습니다.
- *
- * <h2>새로고침 시 상태 복원</h2>
- * 세션 쿠키는 남아 있지만 프론트 상태는 사라집니다. 그래서 마운트 시
- * `GET /api/v1/auth/me` 로 확인합니다. 이 호출이 없으면 새로고침할 때마다
- * 로그인 화면으로 튕깁니다.
- *
- * <h2>초기 로딩을 구분하는 이유</h2>
- * `loading` 을 두지 않으면, 확인이 끝나기 전에 `user === null` 이므로
- * 잠깐 로그인 화면이 보였다가 대시보드로 바뀝니다. (깜빡임)
- * 그래서 `initializing` 동안은 라우팅을 미룹니다.
- */
 
 interface AuthContextValue {
-  /** 현재 사용자 (미로그인 시 null). */
   user: AuthUser | null;
-  /** 세션 확인이 끝났는지 여부. false 인 동안은 라우팅을 미룹니다. */
   initializing: boolean;
-  /** 로그인 진행 중 여부. */
   submitting: boolean;
-  /** 마지막 인증 오류 메시지. */
   error: string | null;
-  /** 로그인합니다. 성공하면 true. */
   login: (username: string, password: string) => Promise<boolean>;
-  /** 로그아웃합니다. */
   logout: () => Promise<void>;
-  /** 오류 메시지를 지웁니다. */
   clearError: () => void;
 }
 
@@ -116,12 +87,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * 인증 컨텍스트를 사용합니다.
- *
- * @returns 인증 상태와 동작
- * @throws AuthProvider 밖에서 호출한 경우
- */
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {

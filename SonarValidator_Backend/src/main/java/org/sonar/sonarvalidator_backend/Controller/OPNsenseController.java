@@ -27,34 +27,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * OPNsense 연동 설정 API 입니다.
- *
- * <h2>프론트엔드 흐름과의 대응</h2>
- * <p>Agent 배포 화면({@code ProjectCreation})에서 <b>OPNsense 카드를 누르면</b>
- * 별도 모달이 열리고, 여기서 주소/API Key/Secret 을 입력합니다.
- *
- * <pre>
- *   GET  /api/v1/opnsense/credentials            등록된 설정 목록
- *   GET  /api/v1/opnsense/credentials/{nodeId}  node_id 별 설정 1건
- *   PUT  /api/v1/opnsense/credentials/{nodeId}  저장 (생성/수정)
- *   DELETE /api/v1/opnsense/credentials/{nodeId} 삭제
- *   POST /api/v1/opnsense/credentials/{nodeId}/verify  연결 확인
- *   POST /api/v1/opnsense/verify-all              전체 연결 확인
- *   POST /api/v1/opnsense/credentials/{nodeId}/probe   원문 조회 (진단)
- * </pre>
- *
- * <h2>⚠️ 실장비 테스트 불가</h2>
- * <p>현재 랩에 OPNsense 가 없어 <b>실제 호출 결과는 검증되지 않았습니다.</b>
- * 그래서 {@code /probe} 를 두었습니다. 실장비가 붙으면 이 엔드포인트로
- * 응답 원문을 보고 파서 매핑을 맞출 수 있습니다.
- * (응답 구조를 추측해 코드에 박아 두지 않기 위한 장치입니다.)
- *
- * <h2>시크릿 취급</h2>
- * <p>요청 본문의 {@code api_secret} 은 저장 시 암호화되며, <b>어떤 응답에도
- * 평문으로 나가지 않습니다.</b> 응답에는 {@code has_secret} 플래그와
- * 마스킹된 키만 포함됩니다.
- */
 @RestController
 @RequestMapping("/api/v1/opnsense")
 public class OPNsenseController {
@@ -66,34 +38,10 @@ public class OPNsenseController {
     private final AgentSessionRegistry registry;
     private final AgentMessageRouterService router;
 
-    /**
-     * 전송 계층 허용 정책입니다.
-     *
-     * <p>⚠️ {@code connection.isUsable()} 를 쓰면 안 됩니다. 그것은
-     * <b>HTTPS 만</b> 허용하므로, 서버가 {@code SONAR_OPNSENSE_HTTP_ORIGINS}
-     * 로 명시 허용한 HTTP 랩 장비(예: {@code http://10.20.0.2})를 거부합니다.
-     * 그러면 <b>저장/연결 테스트는 성공하는데 원문 조회만 400</b> 이라는
-     * 모순된 화면이 됩니다. 허용 판단은 API 클라이언트와 같은 정책을 씁니다.
-     */
     private final org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseTransportPolicy transportPolicy;
 
-    /**
-     * 진단 대상 선택기입니다.
-     *
-     * <p>이 컨트롤러가 API 클라이언트의 모든 메서드를 알 필요가 없게 합니다.
-     * 이전에는 {@code probe} 안에 대상 {@code switch} 가 있어서 HTTP 계층이
-     * "인터페이스/규칙/NAT/별칭" 이라는 도메인 개념을 갖고 있었습니다.
-     */
     private final org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategies probeStrategies;
 
-    /**
-     * @param credentialService 자격증명 서비스
-     * @param apiClient         OPNsense API 클라이언트 (probe 용)
-     * @param registry          Agent 세션 레지스트리 (대상 Agent 목록)
-     * @param router            Agent 설정 보관소 (OPNsense 장치 탐지)
-     * @param probeStrategies   진단 대상 선택기
-     * @param transportPolicy   전송 계층 허용 정책
-     */
     public OPNsenseController(OPNsenseCredentialService credentialService,
                               OPNsenseApiClient apiClient,
                               AgentSessionRegistry registry,
@@ -108,32 +56,6 @@ public class OPNsenseController {
         this.transportPolicy = transportPolicy;
     }
 
-    /**
-     * OPNsense 설정 요청 본문입니다.
-     *
-     * <p>{@code api_secret} 을 비워 보내면 <b>기존 값 유지</b>로 해석합니다.
-     * 매번 다시 입력하게 하면 운영자가 평문을 여기저기 붙여 넣게 됩니다.
-     *
-     * <h2>⚠️ 모든 필드에 {@link JsonProperty} 를 명시하는 이유</h2>
-     * <p>프론트엔드({@code lib/api/opnsense.ts})는 <b>snake_case</b> 로 보냅니다
-     * ({@code base_url}, {@code api_key}, {@code api_secret},
-     * {@code allow_insecure_tls}, {@code verify_now}).
-     * record 의 기본 바인딩은 <b>camelCase</b> 이름을 그대로 쓰기 때문에,
-     * 명시하지 않으면 전 필드가 {@code null} 로 들어옵니다 — 그리고
-     * {@code base_url} 이 null 이라 <b>400 "주소는 필수입니다"</b> 로만 보여
-     * 원인을 찾기 어렵습니다. (실제로 실장비 검증에서 이 증상으로 발현)
-     *
-     * <p>이 저장소의 다른 요청 DTO 도 같은 이유로 snake_case 필드에
-     * {@link JsonProperty} 를 명시합니다. ({@code ProjectDto} 참고)
-     *
-     * @param displayName      표시 이름
-     * @param baseUrl          기준 URL (예: {@code https://10.99.143.2})
-     * @param apiKey           API Key (비우면 기존 유지)
-     * @param apiSecret        API Secret (비우면 기존 유지)
-     * @param allowInsecureTls 자체 서명 인증서 허용 여부
-     * @param verifyNow        저장 직후 연결 확인 여부
-     * @param projectKey       이 장치가 속한 프로젝트 키 (선택). 비우면 기존 값 유지
-     */
     public record CredentialRequest(
             @JsonProperty("display_name") String displayName,
             @JsonProperty("base_url") String baseUrl,
@@ -144,11 +66,6 @@ public class OPNsenseController {
             @JsonProperty("project_key") String projectKey) {
     }
 
-    /**
-     * 등록된 OPNsense 설정 목록을 반환합니다.
-     *
-     * @return {@code {"total": n, "credentials": [...]}}
-     */
     @GetMapping("/credentials")
     public Map<String, Object> list() {
         final List<Map<String, Object>> credentials = credentialService.listAll();
@@ -158,13 +75,6 @@ public class OPNsenseController {
         return body;
     }
 
-    /**
-     * Canonical node_id 별 설정 1건을 반환합니다. Legacy Agent-ID aliases are
-     * accepted for compatibility with existing UI requests.
-     *
-     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
-     * @return 설정 또는 404
-     */
     @GetMapping("/credentials/{nodeId}")
     public ResponseEntity<Map<String, Object>> get(@PathVariable("nodeId") String agentId) {
         final Map<String, Object> credential = credentialService.get(agentId);
@@ -175,13 +85,6 @@ public class OPNsenseController {
         return ResponseEntity.ok(credential);
     }
 
-    /**
-     * 설정을 저장합니다. (없으면 생성)
-     *
-     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
-     * @param body    설정 본문
-     * @return 저장 결과 (연결 확인 결과 포함)
-     */
     @PutMapping("/credentials/{nodeId}")
     public ResponseEntity<Map<String, Object>> save(Authentication authentication,
                                                     @PathVariable("nodeId") String agentId,
@@ -209,12 +112,6 @@ public class OPNsenseController {
         }
     }
 
-    /**
-     * 설정을 삭제합니다.
-     *
-     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
-     * @return {@code {"deleted": true}}
-     */
     @DeleteMapping("/credentials/{nodeId}")
     public ResponseEntity<Map<String, Object>> delete(Authentication authentication,
                                                       @PathVariable("nodeId") String agentId) {
@@ -234,12 +131,6 @@ public class OPNsenseController {
         return ResponseEntity.ok(body);
     }
 
-    /**
-     * 연결을 확인합니다. (설정 모달의 "연결 테스트" 버튼)
-     *
-     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
-     * @return 확인 결과
-     */
     @PostMapping("/credentials/{nodeId}/verify")
     public ResponseEntity<Map<String, Object>> verify(Authentication authentication,
                                                       @PathVariable("nodeId") String agentId) {
@@ -254,11 +145,6 @@ public class OPNsenseController {
         }
     }
 
-    /**
-     * 등록된 모든 설정의 연결을 확인합니다.
-     *
-     * @return 항목별 결과
-     */
     @PostMapping("/verify-all")
     public ResponseEntity<Map<String, Object>> verifyAll(Authentication authentication) {
         if (!hasRole(authentication, "ROLE_ADMIN", "ROLE_OPERATOR")) {
@@ -271,19 +157,6 @@ public class OPNsenseController {
         return ResponseEntity.ok(body);
     }
 
-    /**
-     * OPNsense 응답 <b>원문</b>을 조회합니다. (진단 전용)
-     *
-     * <h2>왜 필요한가</h2>
-     * <p>OPNsense 버전마다 응답 구조가 다를 수 있습니다. 구조를 추측해
-     * 파서를 먼저 쓰면 조용히 빈 값이 나옵니다. 이 엔드포인트로 원문을 본
-     * 뒤 매핑을 확정하는 편이 안전합니다.
-     *
-     * @param agentId canonical node_id; legacy Agent-ID aliases remain accepted
-     * @param target  조회 대상 ({@code interfaces}, {@code rules}, {@code nat},
-     *                {@code aliases}, {@code firmware})
-     * @return 상태 코드, 요약, 원문(앞부분)
-     */
     @PostMapping("/credentials/{nodeId}/probe")
     public ResponseEntity<Map<String, Object>> probe(Authentication authentication,
                                                      @PathVariable("nodeId") String agentId,
@@ -299,9 +172,9 @@ public class OPNsenseController {
                     .body(Map.of("message", "OPNsense 설정이 없습니다: " + agentId));
         }
         final OPNsenseConnection connection = credentialService.toConnection(credential);
-        // ⚠️ 실패 사유를 하나로 뭉치지 않습니다. "불완전하거나 복호화 실패" 라고
-        //    쓰면 운영자는 Secret 을 다시 입력하는 헛수고를 합니다. 실제로는
-        //    HTTP 랩 장비가 정책에서 빠진 것뿐일 수 있습니다.
+
+
+
         if (connection == null) {
             return ResponseEntity.badRequest().body(Map.of(
                     "message", "시크릿 복호화에 실패했습니다. (SONAR_SECRET_KEY 가 바뀌었을 수 있습니다) "
@@ -321,7 +194,7 @@ public class OPNsenseController {
         }
 
         // ⚠️ 대상 분기는 전략 선택기가 합니다.
-        //    이 컨트롤러는 "무엇을 조회하는가" 를 모릅니다 — 이름과 결과만
+
         //    다룹니다. 그래서 새 대상을 추가해도 이 파일을 고칠 필요가 없습니다.
         final org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategy strategy =
                 probeStrategies.select(target);
@@ -331,7 +204,7 @@ public class OPNsenseController {
         body.put("node_id", credential.getNode().getNodeId());
         body.put("agent_id", credential.getNode().getAgentId());
         body.put("target", strategy.name());
-        // 운영자가 "이 조회가 무엇을 보는가" 를 숫자만 보고 추측하지 않게 합니다.
+
         body.put("description", strategy.description());
         body.put("base_url", connection.normalizedBaseUrl());
         body.put("ok", result.ok());
@@ -347,27 +220,11 @@ public class OPNsenseController {
         return ResponseEntity.ok(body);
     }
 
-    /**
-     * 사용 가능한 진단 대상을 반환합니다.
-     *
-     * <p>프론트엔드가 대상 목록을 하드코딩하지 않게 합니다. 서버가 대상을
-     * 늘렸을 때 화면이 뒤처지면, 운영자는 새 대상을 쓸 방법을 알 수 없습니다.
-     *
-     * @return 대상 이름·설명 목록
-     */
     @GetMapping("/probe-targets")
     public Map<String, Object> probeTargets() {
         return Map.of("targets", probeStrategies.describe());
     }
 
-    /**
-     * OPNsense 장치로 보이는 Agent 목록을 반환합니다.
-     *
-     * <p>설정 모달이 "어떤 장치에 키를 넣어야 하는지" 를 알려주기 위한
-     * 정보입니다. 수집된 제품명에 {@code opnsense} 가 들어가면 후보로 봅니다.
-     *
-     * @return 후보 Agent 목록 + 설정 여부
-     */
     @GetMapping("/candidates")
     public Map<String, Object> candidates() {
         final List<Map<String, Object>> candidates = new ArrayList<>();
@@ -418,13 +275,6 @@ public class OPNsenseController {
         return body;
     }
 
-    /**
-     * 문자열을 최대 길이로 자릅니다.
-     *
-     * @param value     원본
-     * @param maxLength 최대 길이
-     * @return 잘린 문자열
-     */
     private static String truncate(String value, int maxLength) {
         if (value == null) {
             return null;

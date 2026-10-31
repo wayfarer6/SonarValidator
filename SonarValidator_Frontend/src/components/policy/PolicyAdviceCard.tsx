@@ -2,34 +2,11 @@ import Badge from "../ui/badge/Badge";
 import { adviceRiskColor } from "../../lib/api/policyAdvice";
 import type { ApiPolicyAdvice } from "../../lib/api/policyAdvice";
 
-/**
- * AI 정책 조언 결과 카드입니다. (SONAR-43)
- *
- * <h2>무엇을 보여주는가</h2>
- * <ol>
- *   <li><b>위험도 + 요약</b> — 먼저 상황을 한눈에</li>
- *   <li><b>근본 원인</b> — 왜 이런 위반이 생겼는가</li>
- *   <li><b>해결 선택지</b> — <b>이 카드의 핵심</b>. 각 안의 보안 영향과
- *       운영 부담을 나란히 보여줘 운영자가 트레이드오프를 보고 고릅니다.</li>
- *   <li><b>근거</b> — 모델이 어떤 위반/서브넷을 보고 판단했는가</li>
- * </ol>
- *
- * <h2>⚠️ 파싱 실패를 오류로 만들지 않는다</h2>
- * <p>모델이 JSON 형식을 안 지키면 서버가 {@code structured=false} 로 표시하고
- * 원문을 담아 보냅니다. 화면은 그때 <b>원문을 그대로</b> 보여줍니다.
- * "조언 실패" 만 띄우면 원문에 들어 있는 쓸 만한 내용을 버리게 됩니다.
- *
- * <h2>⚠️ 실패와 빈 응답을 구분한다</h2>
- * <p>{@code succeeded=false} 는 호출 자체가 실패한 것(키 만료 등)이고,
- * {@code structured=false} 는 호출은 됐지만 형식이 어긋난 것입니다. 이 둘을
- * 같이 다루면 운영자가 <b>고칠 대상</b>(설정 vs 프롬프트)을 알 수 없습니다.
- */
 export default function PolicyAdviceCard({
   advice,
 }: {
   advice: ApiPolicyAdvice;
 }) {
-  // --- 1) 호출 실패 -------------------------------------------------------
   if (!advice.succeeded) {
     return (
       <div className="rounded-xl border border-error-200 bg-error-50 p-4 dark:border-error-500/30 dark:bg-error-500/10">

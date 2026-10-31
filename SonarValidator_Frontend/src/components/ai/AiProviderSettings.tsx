@@ -16,28 +16,6 @@ import {
 } from "../../lib/api/aiLogs";
 import { ApiError } from "../../lib/api/client";
 
-/**
- * AI 공급자 설정 화면입니다.
- *
- * <h2>왜 별도 화면인가</h2>
- * 로그 분석을 쓰려면 먼저 공급자를 등록해야 합니다. 분석 화면에 폼을 넣으면
- * 처음 쓰는 사람이 "분석이 왜 안 되지" 를 먼저 겪습니다. 설정을 분리해 두면
- * 로그 분석 화면이 "공급자를 먼저 등록하세요" 라고 안내할 수 있습니다.
- *
- * <h2>⚠️ API Key 를 화면에서 다루는 규칙</h2>
- * <ol>
- *   <li>수정 시 키를 <b>불러오지 않습니다.</b> 서버도 원문을 보내지 않습니다.
- *       대신 {@code has_api_key} 로 "등록돼 있음" 만 표시합니다.</li>
- *   <li>키 입력란을 <b>비워 저장하면 기존 키가 유지</b>됩니다.
- *       이 규칙을 화면에 명시하지 않으면 사용자가 "지워질까 봐" 키를 다시
- *       입력하거나, 반대로 "지워지겠지" 하고 비워 실수로 유지해 버립니다.</li>
- *   <li>저장 성공 후 <b>입력값을 즉시 비웁니다.</b> 상태에 오래 두지 않습니다.</li>
- * </ol>
- *
- * <h2>연결 확인을 저장 직후에 하는 이유</h2>
- * 저장만 하고 끝내면 운영자가 "등록했다" 고 믿고 넘어갔다가 분석 단계에서야
- * 처음 실패(401/404)를 봅니다. 그때는 원인이 설정인지 로그인지 헷갈립니다.
- */
 export default function AiProviderSettings() {
   const providers = useApi(() => listAiProviders(), []);
 
@@ -45,7 +23,6 @@ export default function AiProviderSettings() {
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
 
-  /** 연결 확인 결과를 공급자별로 보관합니다. */
   const [checkResults, setCheckResults] = useState<
     Record<number, { ok: boolean; message: string }>
   >({});
@@ -296,8 +273,8 @@ export default function AiProviderSettings() {
                   </div>
                 </div>
 
-                {/* 연결 확인 결과 — 실패 사유를 그대로 보여줍니다.
-                    "실패" 만 보이면 사용자가 무엇을 고쳐야 할지 알 수 없습니다. */}
+                {
+}
                 {status && (
                   <p
                     className={`mt-3 rounded-lg p-2.5 text-[11px] ${
@@ -341,7 +318,6 @@ export default function AiProviderSettings() {
   );
 }
 
-/** 공급자 생성/수정 폼입니다. */
 function ProviderFormModal({
   isOpen,
   onClose,
@@ -373,9 +349,9 @@ function ProviderFormModal({
   const [enabled, setEnabled] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // 모달이 열릴 때 폼을 채웁니다.
-  // ⚠️ apiKey 는 채우지 않습니다. 서버가 원문을 보내지 않고,
-  //    비워 두면 저장 시 서버가 기존 값을 유지합니다.
+
+
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -653,7 +629,6 @@ function ProviderFormModal({
   );
 }
 
-/** 라벨 + 입력 묶음입니다. */
 function Field({
   label,
   required,

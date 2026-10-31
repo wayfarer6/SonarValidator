@@ -3,28 +3,10 @@
 namespace database_schema
 {
 
-// ---------------------------------------------------------------------------
-//  스키마 버전
-//
-//  DDL 을 바꿀 때는 여기 문자열도 함께 고치고, 아래 표의 "변경 이력"에 남깁니다.
-//
-//  변경 이력
-//  ─────────────────────────────────────────────────────────────────────────
-//  2026-09-25  route_table.metric 을 TEXT → INTEGER 로 바꿨습니다.
-//              `[110/200]` 은 administrative distance(110)와 metric(200)
-//              두 값입니다. Backend(Java) 계약이 정수 필드로 나누어 담기
-//              때문에 파서도 `distance` / `metric` 을 정수로 냅니다.
-//              숫자로 해석할 수 없는 원문만 `metric_raw`(문자열)로 남깁니다.
-//              이 DDL 은 CREATE TABLE IF NOT EXISTS 라서 이미 만들어진 DB 에는
-//              적용되지 않습니다. 구형 route_table 은 distance/metric_raw 컬럼도
-//              없어 현재 INSERT 와 호환되지 않으므로 마이그레이션 또는 DB 재생성이
-//              필요합니다. 기본 설치 템플릿은 최신 정의로 갱신되어 있습니다.
-// ---------------------------------------------------------------------------
 const std::string& CreateTablesSql()
 {
     // clang-format off
     static const std::string kCreateTables =
-        // --- 기존 테이블 ---------------------------------------------------
         // 텔레메트리 원본(JSON 스냅샷)과 key-value 설정입니다.
         // 다른 코드/테스트가 쓰고 있으므로 정의를 바꾸지 않습니다.
         "CREATE TABLE IF NOT EXISTS nic_status ("
@@ -38,12 +20,7 @@ const std::string& CreateTablesSql()
         "value TEXT NOT NULL"
         ");"
 
-        // --- 신규: 수집 네트워크 상태 -------------------------------------
-        // 모두 (agent, collected_at) 로 "어느 장비를 언제 수집했는지" 를 묶습니다.
-        // 같은 시각 값이면 한 번의 수집(스냅샷)에서 나온 행으로 볼 수 있습니다.
-        // 시각은 수집기가 직접 넣는 UTC 문자열(예: 2026-09-18T04:11:22Z)입니다.
 
-        // 1) 라우팅 테이블 — `show ip route` 한 줄 = 한 행
         "CREATE TABLE IF NOT EXISTS route_table ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "agent TEXT NOT NULL,"
@@ -93,11 +70,6 @@ const std::string& CreateTablesSql()
         "CREATE INDEX IF NOT EXISTS idx_nic_address_snapshot "
         "ON nic_address (agent, collected_at);"
 
-        // 4) VLAN 런타임 상태 — `show vlan brief` 한 줄 = 한 행
-        //
-        // 주의: 기존 vlan_table 은 "설계(토폴로지)" 스키마(vlan_id PK + subnet_id)라
-        // 같은 테이블을 재사용하면 설계 데이터를 덮어씁니다. 그래서 이름을 달리해
-        // 런타임 수집 결과를 별도로 쌓습니다.
         "CREATE TABLE IF NOT EXISTS vlan_status ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "agent TEXT NOT NULL,"

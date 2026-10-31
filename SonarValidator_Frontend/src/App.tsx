@@ -57,17 +57,17 @@ export default function App() {
   }
 
   return (
-    <Router> 
+    <Router>
       <ScrollToTop />
       <Routes>
         {/* 1. 로그인/회원가입 페이지는 항상 열어두되, 이미 로그인된 사람이 접근하면 메인으로 보냄 */}
-        <Route 
-          path="/signin" 
-          element={signedIn ? <Navigate to="/" replace /> : <SignIn />} 
+        <Route
+          path="/signin"
+          element={signedIn ? <Navigate to="/" replace /> : <SignIn />}
         />
-        <Route 
-          path="/signup" 
-          element={signedIn ? <Navigate to="/" replace /> : <SignUp />} 
+        <Route
+          path="/signup"
+          element={signedIn ? <Navigate to="/" replace /> : <SignUp />}
         />
 
         {/* 2. 로그인된 사용자만 접근할 수 있는 대시보드 레이아웃 */}
@@ -105,8 +105,8 @@ export default function App() {
             {/* /notification/export 는 별도 화면이 없어 같은 화면으로 보냅니다.
                 (내보내기는 목록에서 필터로 좁힌 뒤 쓰는 흐름이 자연스럽습니다) */}
             <Route path="/notification/export" element={<Notification/>}/>
-            
-            
+
+
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
             <Route path="/form-elements" element={<FormElements />} />
@@ -131,48 +131,3 @@ export default function App() {
     </Router>
   );
 }
-
-  // return (
-  //   <>
-      
-  //     <Router>
-  //       <ScrollToTop />
-  //       <Routes>
-  //         {/* Dashboard Layout */}
-  //         <Route element={<AppLayout />}>
-  //           <Route index path="/" element={<Home />} />
-
-  //           {/* Others Page */}
-  //           <Route path="/profile" element={<UserProfiles />} />
-  //           <Route path="/calendar" element={<Calendar />} />
-  //           <Route path="/blank" element={<Blank />} />
-
-  //           {/* Forms */}
-  //           <Route path="/form-elements" element={<FormElements />} />
-
-  //           {/* Tables */}
-  //           <Route path="/basic-tables" element={<BasicTables />} />
-
-  //           {/* Ui Elements */}
-  //           <Route path="/alerts" element={<Alerts />} />
-  //           <Route path="/avatars" element={<Avatars />} />
-  //           <Route path="/badge" element={<Badges />} />
-  //           <Route path="/buttons" element={<Buttons />} />
-  //           <Route path="/images" element={<Images />} />
-  //           <Route path="/videos" element={<Videos />} />
-
-  //           {/* Charts */}
-  //           <Route path="/line-chart" element={<LineChart />} />
-  //           <Route path="/bar-chart" element={<BarChart />} />
-  //         </Route>
-
-  //         {/* Auth Layout */}
-  //         <Route path="/signin" element={<SignIn />} />
-  //         <Route path="/signup" element={<SignUp />} />
-
-  //         {/* Fallback Route */}
-  //         <Route path="*" element={<NotFound />} />
-  //       </Routes>
-  //     </Router>
-  //   </>
-  // );

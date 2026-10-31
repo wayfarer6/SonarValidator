@@ -1,14 +1,3 @@
-// =============================================================================
-//  cli_output_parser_probe — 수집한 실제 장비 출력을 파서로 검증하는 도구
-//
-//  사용법
-//    cli_output_parser_probe <target> <파일>
-//      target : nic | brief | route | interface | ovs | vlan | switchport | ruleset
-//
-//  node_probe.py 가 저장한 실제 노드 출력을 그대로 넣어
-//  JSON 변환 결과와 파싱 품질(parsed/parse_warnings)을 눈으로 확인한다.
-//  종료 코드 0 = 파싱 성공, 1 = 문법 오류 있음, 2 = 사용법 오류
-// =============================================================================
 
 #include <fstream>
 #include <iostream>
@@ -94,9 +83,9 @@ int main(int argc, char** argv)
     }
     else if (target == "route")
     {
-        // `ip route show`(Linux) 는 라우트 코드가 없으므로 자동 판별한다.
-        //  FRR/Cisco 는 선두에 코드(O, C, S, *)가 오고,
-        //  Linux 는 `default` 또는 CIDR 로 시작한다.
+
+
+
         cli_parser::Vendor vendor = forced;
         if (vendor == cli_parser::Vendor::kUnknown)
         {

@@ -13,11 +13,11 @@
 #include "components/backend_communication/network.hpp"
 namespace
 {
-// 기본 설정 파일 경로.
-//  root 로 설치한 경우 /etc/... 를 쓰지만, root 가 아닌 환경(vEOS bash,
-//  사용자 홈 배포 등)에서는 SONAR_CONFIG_PATH 로 지정할 수 있게 한다.
+
+
+
 constexpr const char* kDefaultConfigPath =
-    "/etc/sonar_validator_prober/default.conf"; // 하드코딩이 위험함 아마 최초 설치시 환경변수에 지정된 경로에 붙게 고처야 
+    "/etc/sonar_validator_prober/default.conf"; // 하드코딩이 위험함 아마 최초 설치시 환경변수에 지정된 경로에 붙게 고처야
 
 const char* ResolveConfigPath()
 {
@@ -31,7 +31,7 @@ const char* ResolveConfigPath()
     return kDefaultConfigPath;
 }
 
-std::string RemoveQuotes(std::string value) // 유틸함수 
+std::string RemoveQuotes(std::string value) // 유틸함수
 {
     if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
     {
@@ -150,11 +150,6 @@ const std::string& ProberConfig::GetManagementPrefixes() const
     return management_prefixes_;
 }
 
-// 제어평면(관리망) 대역을 default.conf 에서 읽습니다.
-//
-// ⚠️ 비어 있으면 안전한 기본값으로 대체합니다. 이 대역을 모르면 격리가
-//    관리 경로를 내려 해제 명령이 도달하지 못할 수 있으므로, 값이 없을 때는
-//    문서의 기본 대역을 씁니다.
 void ProberConfig::DetectManagementPrefixes()
 {
     const std::string value = ReadDefaultValue("MANAGEMENT_PREFIX");
@@ -239,9 +234,9 @@ void ProberConfig::DetectTerminalSharedSecret()
             terminal_shared_secret_.find_last_not_of(" \t\r\n") - first + 1);
 }
 
-// 기본 설정의 AGENT_NAME 을 읽어옵니다.
-// 배포 스크립트가 이름을 써 두면 그 이름을 그대로 쓰고, 없으면 빈 문자열을
-// 돌려줍니다(호출자가 자동 생성 이름으로 대체).
+
+
+
 std::string ProberConfig::DetectAgentName()
 {
     return RemoveQuotes(ReadDefaultValue("AGENT_NAME"));
@@ -303,11 +298,6 @@ void ProberConfig::DetectDistributionName()
     while (std::getline(os_release_file, line))
     {
         constexpr const char *kNamePrefix = "PRETTY_NAME=";
-        /* 참고
-        PRETTY_NAME은 리눅스 운영 체제에서 사용자에게 친숙하게 보여주기 
-        위한 전체 운영 체제 이름과 버전 정보를 담고 있는 os-release 파일의 표준 변수
-        출처 : Freedesktop
-        */
         if (line.rfind(kNamePrefix, 0) == 0)
         {
             distribution_name_ = RemoveQuotes(line.substr(std::strlen(kNamePrefix)));
@@ -315,19 +305,6 @@ void ProberConfig::DetectDistributionName()
         }
     }
 
-    // ⚠️ 배포판 이름을 못 읽어도 <b>치명적이지 않습니다.</b>
-    //
-    // 여기서 값을 비워 두면 PrepareRuntime 의 필수값 검증에 걸려 프로버가
-    // 아예 기동하지 못합니다. 그런데 배포판 이름은 "표시용 정보" 일 뿐이고,
-    // 실제 동작(장치 유형·제품명·서버 접속)은 다른 값으로 결정됩니다.
-    //
-    // 실측: Open vSwitch 스위치 컨테이너에는 /etc/os-release 가 없습니다.
-    //   (Alpine 계열이지만 파일이 없는 이미지)
-    //   그 결과 스위치 5대가 전부
-    //   "Runtime initialization failed" 로 죽어 서버에 나타나지 않았습니다.
-    //
-    // 그래서 커널 이름을 대신 넣습니다. 커널은 uname() 으로 항상 얻을 수 있고,
-    // 화면에서 "이 장치가 무엇인지" 를 구분하는 데 충분합니다.
     if (distribution_name_.empty() && !kernel_name_.empty())
     {
         distribution_name_ = "Unknown (" + kernel_name_ + ")";

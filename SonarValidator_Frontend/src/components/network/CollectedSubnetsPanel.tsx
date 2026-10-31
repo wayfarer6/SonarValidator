@@ -9,15 +9,11 @@ import { networkCidr } from "../../lib/discovery";
 import type { ApiDiscoveredDevice, ApiProject, ApiTopology } from "../../lib/api/types";
 
 interface CollectedSubnetsPanelProps {
-  /** 대상 프로젝트 (없으면 안내만 보여줍니다). */
   projectId: string | null;
-  /** 현재 토폴로지 (등록 여부를 대조하기 위해 씁니다). */
   topology: ApiTopology | null;
-  /** 토폴로지 다시 읽기 — 수집 결과와 함께 갱신합니다. */
   onRefreshTopology: () => void;
 }
 
-/** 장치 한 대에서 수집한 대역 한 줄. */
 interface CollectedRow {
   agentId: string;
   iface: string;
@@ -25,34 +21,8 @@ interface CollectedRow {
   vlan: number | null;
 }
 
-/**
- * 이 대역이 화면에서 어떤 상태인지입니다.
- *
- * <p>⚠️ {@code management} 를 따로 두는 이유: 관리 인터페이스는 수집은 되지만
- * <b>설계상 서브넷이 되지 않습니다.</b> "대기" 로 보이면 운영자가 반영을
- * 기다리며 프로버를 다시 시작하는 헛수고를 합니다.
- */
 type RowState = "registered" | "pending" | "management";
 
-/**
- * 수집된 IP 대역과 그 <b>등록 여부</b>를 보여줍니다.
- *
- * <h2>⚠️ 왜 토폴로지 옆에 필요한가</h2>
- * <p>토폴로지는 <b>등록된 서브넷</b>만 그립니다. 서브넷이 없으면 화면이
- * 비는데, 그때 "장치를 안 붙였나" 와 "붙였는데 반영이 안 됐나" 를 구분할
- * 방법이 화면에 없었습니다. 이 패널이 그 둘을 갈라 보여줍니다.
- *
- * <ul>
- *   <li>수집 0건 → 아직 장치가 붙지 않았거나 프로버가 실행 중이 아닙니다.</li>
- *   <li>수집 N건 · 등록 0건 → 반영 대기 중입니다. (텔레메트리 주기 최대 30초)</li>
- *   <li>수집 N건 · 등록 N건 → 정상입니다.</li>
- * </ul>
- *
- * <h2>관리망을 따로 표시하는 이유</h2>
- * <p>관리 인터페이스(예: {@code Management1})의 주소는 수집되지만 <b>정책
- * 대상이 아니므로</b> 서브넷으로 반영되지 않습니다. 표시하지 않으면
- * "왜 이 대역만 빠졌나" 로 보입니다.
- */
 export default function CollectedSubnetsPanel({
   projectId,
   topology,
@@ -75,7 +45,6 @@ export default function CollectedSubnetsPanel({
     [projectId],
   );
 
-  /** 수집된 대역 목록입니다. (SVI 우선, 같은 대역은 한 번만) */
   const collected = useMemo(() => {
     const rows: CollectedRow[] = [];
     const seen = new Set<string>();
@@ -99,18 +68,11 @@ export default function CollectedSubnetsPanel({
     return rows;
   }, [devices.data]);
 
-  /** 등록된 서브넷 대역입니다. */
   const registered = useMemo(
     () => new Set((topology?.nodes ?? []).map((node) => node.cidr)),
     [topology],
   );
 
-  /**
-   * 정책에서 제외되는 관리망 대역입니다.
-   *
-   * <p>서버({@code ProjectSubnetAutoSyncService})와 <b>같은 규칙</b>으로
-   * 계산합니다 — 다르면 화면의 "대기" 개수와 실제 반영 결과가 어긋납니다.
-   */
   const management = useMemo(() => {
     const networks = new Set<string>();
     const prefix = project.data?.management_prefix;
@@ -269,12 +231,6 @@ export default function CollectedSubnetsPanel({
   );
 }
 
-/**
- * 인터페이스 이름에서 VLAN 번호를 얻습니다. (예: {@code Vlan8} → 8)
- *
- * @param name 인터페이스 이름
- * @returns VLAN 번호, SVI 형태가 아니면 {@code null}
- */
 function vlanOf(name: string): number | null {
   const match = /^vlan(\d+)$/i.exec(name ?? "");
   return match ? Number(match[1]) : null;

@@ -18,35 +18,12 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * 원문 CLI 문자열이 <b>기존 중립 설정 파이프라인까지</b> 도달하는지 검증합니다.
- *
- * <h2>왜 이 테스트가 필요한가</h2>
- * <p>파서 단위 테스트({@link CliOutputParserTest})는 "JSON 이 맞게 나왔다" 까지만
- * 봅니다. 그런데 실제로 화면에 나타나려면 그 JSON 이
- * <i>payload 키 → {@code AbstractDeviceConfigParser} → {@code NeutralDeviceConfig}</i>
- * 경로를 통과해야 합니다. 이 테스트는 그 <b>이음매</b>를 확인합니다.
- *
- * <pre>
- *   payload["nic_status"] = "&lt;원문 ip a 출력&gt;"      (문자열)
- *        │  CliIngestionService.extractParsed
- *        ▼  ANTLR 문법으로 파싱
- *   payload["nic_status"] = {"interfaces":[...]}       (구조화)
- *        │  DeviceConfigService → LinuxVmConfigParser
- *        ▼
- *   NeutralDeviceConfig.interfaces = { lo, eth1.131, eth4 }
- * </pre>
- *
- * <p>즉 <b>Prober 가 파싱하지 않고 원문만 보낸 경우에도</b> 설정이 채워지는지를
- * 봅니다.
- */
 class CliIngestionServiceTest {
 
     private final CliOutputParser parser = new CliOutputParser();
     private final CliIngestionService ingestion = new CliIngestionService(parser);
     private final JsonMapper mapper = JsonMapper.builder().build();
 
-    /** {@code ip a} 원문. (Prober 가 파싱하지 않고 그대로 보낸 형태) */
     private static final String IP_ADDR_RAW = """
             1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN qlen 1000
                 link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
@@ -56,14 +33,12 @@ class CliIngestionServiceTest {
                 inet 10.10.131.1/24 scope global eth0
             """;
 
-    /** {@code ip route show} 원문. (커널 라우팅) */
     private static final String KERNEL_ROUTE_RAW = """
             default via 10.99.10.1 dev eth0 proto static
             10.10.128.0/21 via 10.99.143.2 dev eth1 proto ospf metric 20
             10.99.10.0/24 dev eth0 proto kernel scope link src 10.99.10.2
             """;
 
-    /** {@code ip neigh show} 원문. */
     private static final String ARP_RAW = """
             172.18.10.1 dev eth0 lladdr 0c:ae:21:dd:00:01 REACHABLE
             172.18.10.8 dev eth1 lladdr 0c:ae:21:dd:00:08 STALE

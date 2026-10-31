@@ -25,37 +25,8 @@ import {
 } from "../lib/api/aiLogs";
 import { ApiError } from "../lib/api/client";
 
-/**
- * 로그 관리 + AI 분석 화면입니다.
- *
- * <h2>화면 구성</h2>
- * <pre>
- *   ┌─ 필터 바 ────────────────────────────────────────────┐
- *   │ 프로젝트 · 장비 · 기간(from~to) · 심각도 · 검색어      │
- *   ├─ 요약 ─────────────────────────────────────────────┤
- *   │ 심각도별 건수 · 전체 건수 · 잘림 경고                  │
- *   ├─ 로그 목록 ────────────────────────────────────────┤
- *   │ [선택] 시각 | agent | 심각도 | 메시지                  │
- *   ├─ AI 분석 ─────────────────────────────────────────┤
- *   │ 공급자 선택 · 추가 지시 · [선택 로그 분석] [필터 전체 분석]│
- *   │ → 결과: 위험도 · 요약 · 원인 · 권장조치                │
- *   └────────────────────────────────────────────────────┘
- * </pre>
- *
- * <h2>⚠️ 사용자가 반드시 알아야 하는 3가지</h2>
- * <ol>
- *   <li><b>잘림(truncated)</b> — 로그는 상한이 있어 전부 보이지 않을 수 있습니다.
- *       "일부만 분석했다" 를 표시하지 않으면 사용자가 결론을 과신합니다.</li>
- *   <li><b>분석 실패도 200</b> — 서버가 실패를 200 + {@code succeeded=false} 로
- *       돌려줍니다. HTTP 상태만 보면 실패를 성공으로 오해합니다.</li>
- *   <li><b>공급자 미등록</b> — 분석을 누르기 전에 공급자가 있는지 확인해
- *       안내합니다. (없으면 서버가 사유를 돌려주지만, 미리 아는 편이 낫습니다)</li>
- * </ol>
- */
 export default function LogManagement() {
-  // ---------------------------------------------------------------------------
   // 필터 상태
-  // ---------------------------------------------------------------------------
 
   const [projectId, setProjectId] = useState("");
   const [agentId, setAgentId] = useState("");
@@ -65,7 +36,6 @@ export default function LogManagement() {
   const [search, setSearch] = useState("");
   const [highlightedOnly, setHighlightedOnly] = useState(false);
 
-  /** 실제 조회에 쓰이는 필터입니다. [조회] 를 눌러야 반영됩니다. */
   const [applied, setApplied] = useState<ApiLogQuery>({
     severity: "warning",
     limit: 200,
@@ -77,7 +47,6 @@ export default function LogManagement() {
 
   const logs = useApi(() => listLogs(applied), [applied]);
 
-  /** 선택한 로그 ID 집합입니다. */
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const [providerId, setProviderId] = useState<number | "">("");
@@ -87,7 +56,6 @@ export default function LogManagement() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
-  /** 수집(붙여넣기) 영역. */
   const [showIngest, setShowIngest] = useState(false);
   const [showProviders, setShowProviders] = useState(false);
 
@@ -100,7 +68,6 @@ export default function LogManagement() {
     if (preset) setProviderId(preset.id);
   }, [providers.data, providerId]);
 
-  /** 조회를 실행합니다. */
   const applyFilters = useCallback(() => {
     setSelected(new Set());
     setApplied({
@@ -115,7 +82,6 @@ export default function LogManagement() {
     });
   }, [projectId, agentId, from, to, severity, search, highlightedOnly]);
 
-  /** 필터를 초기화합니다. */
   const resetFilters = useCallback(() => {
     setProjectId("");
     setAgentId("");
@@ -130,7 +96,6 @@ export default function LogManagement() {
 
   const rows = logs.data?.logs ?? [];
 
-  /** 전체 선택/해제 상태입니다. */
   const allSelected = rows.length > 0 && rows.every((log) => selected.has(log.id));
 
   const toggleOne = (id: number) => {
@@ -146,16 +111,8 @@ export default function LogManagement() {
     setSelected(allSelected ? new Set() : new Set(rows.map((log) => log.id)));
   };
 
-  // ---------------------------------------------------------------------------
   // AI 분석
-  // ---------------------------------------------------------------------------
 
-  /**
-   * 분석을 실행합니다.
-   *
-   * <p>⚠️ 서버는 실패도 200 으로 돌려줍니다. 그래서 {@code succeeded} 를
-   * 반드시 확인해야 합니다. 확인하지 않으면 실패를 성공으로 표시하게 됩니다.
-   */
   const runAnalysis = async (scope: "selected" | "filter") => {
     if (providerId === "") {
       setAnalysisError("AI 공급자를 먼저 선택하세요.");
@@ -203,7 +160,6 @@ export default function LogManagement() {
     }
   };
 
-  /** 로그를 표시(highlighted) 상태로 토글합니다. */
   const toggleHighlight = async (log: ApiDeviceLog) => {
     try {
       await updateLogFlags(log.id, { highlighted: !log.highlighted });
@@ -684,7 +640,6 @@ export default function LogManagement() {
   );
 }
 
-/** 분석 결과 카드입니다. */
 function AnalysisResult({ analysis }: { analysis: ApiLogAnalysis }) {
   // 구조화 파싱에 실패하면 원문만 보여줍니다.
   // (파싱 실패를 오류로 처리하지 않는 이유: 원문에도 쓸 만한 내용이 있습니다)
@@ -789,7 +744,6 @@ function AnalysisResult({ analysis }: { analysis: ApiLogAnalysis }) {
   );
 }
 
-/** 분석 이력 목록입니다. */
 function AnalysisHistory({
   projectId,
   agentId,
@@ -899,7 +853,6 @@ function AnalysisHistory({
   );
 }
 
-/** 로그 직접 입력 패널입니다. */
 function IngestPanel({ onDone }: { onDone: () => void }) {
   const [agentId, setAgentId] = useState("");
   const [product, setProduct] = useState("");
@@ -998,7 +951,6 @@ function IngestPanel({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** 필터 입력 한 칸입니다. */
 function FilterField({
   label,
   required,
@@ -1027,21 +979,6 @@ function FilterField({
 const selectClass =
   "w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white";
 
-/**
- * `datetime-local` 값을 서버가 이해하는 ISO-8601 로 바꿉니다.
- *
- * <p>⚠️ {@code new Date(value)} 를 그대로 쓰면 안 되는 이유:
- * {@code datetime-local} 은 타임존이 없는 문자열({@code 2026-09-19T08:00})이라
- * 브라우저가 <b>로컬 시간으로 해석</b>합니다. 그대로 보내면 서버(UTC 저장)와
- * 시간대가 어긋나 조회 결과가 밀립니다.
- *
- * <p>종료 시각은 <b>그 날의 끝</b>으로 올립니다. 사용자가 날짜만 고르면
- * 시각이 00:00 이 되어 하루 전체를 포함하지 못하기 때문입니다.
- *
- * @param value  datetime-local 값
- * @param endOfDay 종료 시각이면 true (23:59:59.999 로 올림)
- * @returns ISO-8601 문자열 (값이 없으면 null)
- */
 function toIso(value: string, endOfDay: boolean): string | null {
   if (!value) return null;
 
@@ -1055,7 +992,6 @@ function toIso(value: string, endOfDay: boolean): string | null {
   return date.toISOString();
 }
 
-/** 시각을 짧게 표시합니다. */
 function formatTime(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);

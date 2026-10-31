@@ -16,23 +16,7 @@ interface RuleRow {
   port: string;
 }
 
-// ---------------------------------------------------------------------------
-// 아래는 서버 연동 이전에 쓰던 더미 규칙입니다.
-// 지우지 않고 남겨 둡니다 — 서버가 내려주는 규칙 형태와 비교하거나,
-// 백엔드 없이 화면만 확인할 때 되살려 쓰기 위해서입니다.
-// (되살릴 때는 InitRULES/useState 초기값을 이 배열로 바꾸면 됩니다)
-//
-// 주의: 아래 src/dst(Subnet-0001..0005)는 서버가 만드는 서브넷 id 와 다를 수
-// 있어서, 그대로 쓰면 validateRules 가 "서브넷을 선택하고 CSO 등급을 지정해야 합니다."
-// 위반으로 보고합니다. 그래서 지금은 빈 목록에서 시작합니다.
-// ---------------------------------------------------------------------------
-// const INITIAL_RULES: RuleRow[] = [
-//   { id: "Rule-0001", src: "Subnet-0004", dst: "Subnet-0002", port: "" },
-// ];
 
-// const INITIAL_AUTO_RULES: RuleRow[] = [
-//   { id: "Rule-9001", src: "Subnet-0001", dst: "Subnet-0005", port: "443" },
-// ];
 
 type MessageType = "error" | "success" | "warning";
 
@@ -140,9 +124,9 @@ export default function NetworkSegmentationRule() {
   const [violations, setViolations] = useState<Violation[]>([]);
   const toastSeq = useRef(0);
 
-  // Prober 가 탐지한 기존 연결에서 서버가 만든 규칙입니다. (읽기 전용)
-  // 검토 전까지 비활성(enabled=false) 으로 오고, src/dst 는 채워지지 않을 수
-  // 있습니다. 근거가 되는 원문 규칙은 note 에 들어 있습니다.
+
+
+
   const autoRules = useMemo(
     () =>
       serverRules

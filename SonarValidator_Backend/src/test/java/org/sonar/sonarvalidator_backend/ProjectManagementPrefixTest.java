@@ -19,15 +19,6 @@ import org.sonar.sonarvalidator_backend.Model.entity.Project;
 import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
 import org.sonar.sonarvalidator_backend.Service.ProjectService;
 
-/**
- * 프로젝트별 <b>제어평면 대역</b> 지정을 검증합니다.
- *
- * <h2>⚠️ 왜 중요한가</h2>
- * <p>제어평면(관리망) 대역은 격리에서 <b>절대 차단 대상이 되어서는 안 됩니다.</b>
- * 그리고 요구사항상 <b>프로젝트마다 다를 수 있습니다.</b> 이 값이 제대로
- * 저장·조회되지 않으면, 격리 경고가 엉뚱한 대역을 인용하거나 전역 기본값으로
- * 조용히 폴백합니다.
- */
 class ProjectManagementPrefixTest {
 
     private final List<Project> rows = new ArrayList<>();
@@ -168,7 +159,6 @@ class ProjectManagementPrefixTest {
         }
     }
 
-    /** 스텁 저장소가 Optional 을 돌려주도록 강제하는지 확인용 (미사용 경고 방지). */
     @SuppressWarnings("unused")
     private static Optional<Project> unused() {
         return Optional.empty();

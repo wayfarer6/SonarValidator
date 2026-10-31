@@ -4,11 +4,6 @@
 
 #include <nlohmann/json.hpp>
 
-// `ovs-vsctl show` 출력 파싱은 components/parser 의 ANTLR 문법(OvsTopology.g4)
-// 이 담당합니다. 이 클래스는 그 JSON 결과를 스위치 모델(BridgeInfo/PortInfo)
-// 로 옮겨주는 얇은 변환 계층입니다.
-//   - 공백 제거/라인 분해/토큰화를 직접 하지 않습니다(ANTLR lexer 가 처리).
-//   - 여기서는 "값을 어떻게 모델에 담을지"만 결정합니다.
 std::vector<BridgeInfo> OpenVSwitchTopologyParser::parse(const std::string& raw_output) const
 {
     std::vector<BridgeInfo> bridges;
@@ -29,7 +24,7 @@ std::vector<BridgeInfo> OpenVSwitchTopologyParser::parse(const std::string& raw_
         {
             for (const auto& port_json : bridge_json["ports"])
             {
-                PortInfo port;
+                Port port;
                 port.name = port_json.value("name", std::string{});
                 port.interface_name = port.name;
 

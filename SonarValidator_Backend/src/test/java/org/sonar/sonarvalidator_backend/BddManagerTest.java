@@ -10,13 +10,6 @@ import org.sonar.sonarvalidator_backend.Policy.BddNode;
 import org.sonar.sonarvalidator_backend.Policy.PacketVariables;
 import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 
-/**
- * BDD 패키지 자체의 정확성 테스트입니다.
- *
- * <p>엔진 테스트가 "정책 판정이 맞는가" 를 본다면, 여기서는 <b>집합 연산이
- * 수학적으로 맞는가</b> 를 봅니다. 이 계층이 틀리면 엔진 결과도 조용히
- * 틀리기 때문에 별도로 검증합니다.
- */
 class BddManagerTest {
 
     @Test
@@ -93,12 +86,12 @@ class BddManagerTest {
     void satCountIsExact() {
         final BddManager manager = PacketVariables.newManager();
 
-        // 변수 0 만 고정하고 나머지 79개는 자유 → 2^79
+        // 변수 0 만 고정하고 나머지 87개는 자유 → 2^87
         final BddNode single = manager.variable(0);
         assertThat(manager.satCount(single))
                 .isEqualTo(java.math.BigInteger.TWO.pow(PacketVariables.TOTAL_BITS - 1));
 
-        // 전체 집합은 2^80
+        // 전체 집합은 2^88
         assertThat(manager.satCount(manager.one()))
                 .isEqualTo(java.math.BigInteger.TWO.pow(PacketVariables.TOTAL_BITS));
         // 공집합은 0
@@ -108,13 +101,13 @@ class BddManagerTest {
     @Test
     @DisplayName("변수를 등록하지 않으면 방문한 변수만 세므로 결과가 달라진다")
     void satCountDependsOnRegisteredVariables() {
-        // 매니저가 아는 변수가 1개뿐이면 전체 공간이 2^1 이므로,
-        // "x0 = 1" 을 만족하는 할당은 1가지로 셉니다.
-        // 이 차이 때문에 검증 엔진은 항상 변수 80개를 미리 등록합니다.
+
+
+
         final BddManager manager = new BddManager();
         assertThat(manager.satCount(manager.variable(0))).isEqualTo(java.math.BigInteger.ONE);
 
-        // 변수 80개 매니저에서 같은 함수는 2^79 가지입니다.
+        // 변수 88개 매니저에서 같은 함수는 2^87 가지입니다.
         final BddManager full = PacketVariables.newManager();
         assertThat(full.satCount(full.variable(0)))
                 .isEqualTo(java.math.BigInteger.TWO.pow(PacketVariables.TOTAL_BITS - 1));
@@ -144,7 +137,7 @@ class BddManagerTest {
     @Test
     @DisplayName("변수 하나만 자유롭게 둔 함수도 정확히 셈해진다")
     void satCountHandlesSingleFreeVariable() {
-        // 80 변수 매니저에서 "나머지 79개를 전부 고정" 한 형태를 만듭니다.
+        // 80 변수 매니저에서 "나머지 87개를 전부 고정" 한 형태를 만듭니다.
         final BddManager manager = PacketVariables.newManager();
         BddNode fixed = manager.one();
         for (int index = 1; index < PacketVariables.TOTAL_BITS; index++) {

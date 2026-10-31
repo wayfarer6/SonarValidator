@@ -1,14 +1,3 @@
-// =============================================================================
-//  command_collector_test — 수집기(collector) 검증
-//
-//  실제 장비/네트워크가 필요 없다. BuildStateFromOutputs() 에
-//  docs/Agent_Command.md 의 실제 조회 출력 샘플을 그대로 넣고
-//  수집 결과(CollectedState)가 기대대로 만들어지는지 확인한다.
-//
-//  주의: 표준 assert() 를 쓰지 않는다. 기본 빌드가 Release(-DNDEBUG) 라서
-//  assert 는 통째로 제거되고 테스트가 아무것도 검사하지 않게 된다.
-//  (repository memory 의 database_service_test / telemetry_store_test 함정)
-// =============================================================================
 
 #include <iostream>
 #include <map>
@@ -52,9 +41,7 @@ std::size_t Count(const Json& object, const char* key)
     return iterator->size();
 }
 
-// ---------------------------------------------------------------------------
 //  docs/Agent_Command.md — Linux VM (Ubuntu) 샘플
-// ---------------------------------------------------------------------------
 const char* kIpAddrSample =
     "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000\n"
     "    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00\n"
@@ -74,9 +61,7 @@ const char* kIpNeighSample =
     "10.0.9.1 dev ens3 lladdr 0c:2d:07:65:99:f3 REACHABLE\n"
     "10.0.9.100 dev ens3 lladdr 0c:ae:dc:fd:00:00 STALE\n";
 
-// ---------------------------------------------------------------------------
 //  docs/Agent_Command.md — Cisco 8000v 샘플
-// ---------------------------------------------------------------------------
 const char* kCiscoIfaceBriefSample =
     "Interface              IP-Address      OK? Method Status                Protocol\n"
     "GigabitEthernet1       192.168.122.254 YES NVRAM  up                    up      \n"
@@ -99,9 +84,7 @@ const char* kCiscoArpSample =
     "Protocol  Address    Age (min)  Hardware Addr   Type   Interface\n"
     "Internet  10.20.0.4  -          0c2d.0765.99f3  ARPA   GigabitEthernet4\n";
 
-// ---------------------------------------------------------------------------
 //  Arista vEOS 샘플 (vlan brief / ip interface brief / switchport / arp)
-// ---------------------------------------------------------------------------
 const char* kAristaVlanSample =
     "VLAN  Name                             Status    Ports\n"
     "----- -------------------------------- --------- -------------------------------\n"
@@ -137,9 +120,7 @@ const char* kAristaArpSample =
     "172.18.10.1       2:31:51  0cae.21dd.0001  Ethernet1\n"
     "10.0.8.100        2:25:33  0c87.2f1f.0000  Vlan8, Ethernet2\n";
 
-// ---------------------------------------------------------------------------
 //  1) Linux VM
-// ---------------------------------------------------------------------------
 void TestLinuxVm()
 {
     std::cout << "\n--- Linux VM (Ubuntu) ---\n";
@@ -179,9 +160,7 @@ void TestLinuxVm()
     assert(eth0["addresses"][0]["prefix_len"].get<int>() == 24);
 }
 
-// ---------------------------------------------------------------------------
 //  2) Linux VM — `ip a` 가 실패하면 `ip -br addr show` 로 폴백
-// ---------------------------------------------------------------------------
 void TestLinuxBriefFallback()
 {
     std::cout << "\n--- Linux VM (ip -br 폴백) ---\n";
@@ -212,9 +191,7 @@ void TestLinuxBriefFallback()
     assert(eth0["addresses"][1]["family"].get<std::string>() == "inet6");
 }
 
-// ---------------------------------------------------------------------------
 //  3) Cisco 8000v
-// ---------------------------------------------------------------------------
 void TestCiscoRouter()
 {
     std::cout << "\n--- Cisco 8000v ---\n";
@@ -254,9 +231,7 @@ void TestCiscoRouter()
     assert(state.trunk.is_null());
 }
 
-// ---------------------------------------------------------------------------
 //  4) Arista vEOS
-// ---------------------------------------------------------------------------
 void TestAristaSwitch()
 {
     std::cout << "\n--- Arista vEOS ---\n";
@@ -303,13 +278,6 @@ void TestAristaSwitch()
     assert(state.route.is_null());
 }
 
-// ---------------------------------------------------------------------------
-//  5) FRR 라우터 (Alpine) — 호스트 커널 `ip ...` 로 수집
-//
-//  FRR 은 라우팅 데몬이고 실제 호스트 OS 는 리눅스(Alpine)다.
-//  따라서 NIC/라우팅/이웃을 `ip ...` 명령으로 그대로 수집해야 한다.
-//  (과거에는 ProductKind::kOther 로 분류되어 수집이 통째로 생략됐다.)
-// ---------------------------------------------------------------------------
 const char* kFrrKernelRoute =
     "default via 192.168.122.1 dev eth0 metric 1 \n"
     "10.10.128.0/21 nhid 30 via 10.99.10.4 dev eth1 proto ospf metric 20 \n"
@@ -354,13 +322,6 @@ void TestFrrRouter()
               << "NIC " << state.nic["interfaces"].size() << "건\n";
 }
 
-// ---------------------------------------------------------------------------
-//  6) nftables 방화벽 (Alpine) — 커널 명령 + nft 규칙
-//
-//  방화벽도 호스트 OS 는 Alpine 리눅스다. NIC/라우팅/이웃은 `ip ...` 로,
-//  필터 규칙은 `nft list ruleset` 으로 수집한다.
-//  (과거에는 ProductKind::kOther 로 분류되어 수집이 통째로 생략됐다.)
-// ---------------------------------------------------------------------------
 const char* kNftRuleset =
     "table inet filter {\n"
     "  chain input {\n"
@@ -424,14 +385,6 @@ void TestNativeFirewallSets()
     assert(state.snapshot["firewall_rules"]["nftables"][1]["rule"]["expr"][2].contains("drop"));
 }
 
-// ---------------------------------------------------------------------------
-//  7) Open vSwitch 스위치 (컨테이너) — ovs-vsctl 로 L2 설정 수집
-//
-//  VSwitch 스위치는 L2 전면이라 관리 IP/라우팅이 없다. 대신 포트의
-//  tag(액세스 VLAN)/trunks(트렁크 허용 VLAN)가 L2 설정의 전부다.
-//  과거에는 ProductKind::kOther 로 분류되어 수집이 통째로 생략됐다.
-//  아래 샘플은 GNS3 랩의 Switch-0/ Switch-1 에서 실제로 캡처한 출력이다.
-// ---------------------------------------------------------------------------
 const char* kOvsShowAccessSwitch =
     "eb51961d-7e75-46bf-9811-fab71eafc5da\n"
     "    Bridge br0\n"
@@ -590,9 +543,7 @@ void TestOpenVSwitchSwitch()
     }
 }
 
-// ---------------------------------------------------------------------------
 //  8) 실패/빈 입력에서도 예외 없이 부분 결과를 돌려준다
-// ---------------------------------------------------------------------------
 void TestRobustness()
 {
     std::cout << "\n--- 견고성 (빈 입력/알 수 없는 제품) ---\n";

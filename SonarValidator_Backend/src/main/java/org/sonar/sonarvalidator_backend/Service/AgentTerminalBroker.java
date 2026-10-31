@@ -83,6 +83,14 @@ public class AgentTerminalBroker {
         }
     }
 
+    public String browserRejectionReason(String agentId) {
+        final WebSocketSession agent = agents.get(agentId);
+        if (agent == null || !agent.isOpen()) return "Agent 터미널 채널에 연결되지 않았습니다. Prober 상태를 확인하세요.";
+        final WebSocketSession browser = browsers.get(agentId);
+        if (browser != null && browser.isOpen()) return "이 장비의 터미널이 다른 브라우저 세션에서 사용 중입니다. 기존 연결을 닫고 다시 연결하세요.";
+        return "터미널 연결을 열지 못했습니다. 잠시 후 다시 연결하세요.";
+    }
+
     public void rejectBrowser(String agentId, WebSocketSession session) {
         browsers.remove(agentId, session);
     }

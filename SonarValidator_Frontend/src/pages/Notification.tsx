@@ -22,37 +22,7 @@ import type {
   NotificationSeverity,
 } from "../lib/api/types";
 
-/**
- * 알림 이력 화면입니다.
- *
- * <h2>왜 화면이 필요한가</h2>
- * 헤더의 종 아이콘(드롭다운)은 <b>최근 5건</b>만 보여줍니다. 운영자가 자리를
- * 비운 사이에 발생한 정책 푸시 거부·Agent 연결·프로젝트 삭제는 거기서
- * 밀려나면 확인할 방법이 없었습니다. 이 화면은 서버에 적재된 알림을
- * <b>필터·검색으로 되짚어 보는</b> 용도입니다.
- *
- * <pre>
- *   ┌─ 필터 바 ────────────────────────────────────────┐
- *   │ 분류 탭 · 심각도 · 프로젝트 · 읽음 상태 · 검색어      │
- *   ├─ 요약 ──────────────────────────────────────────┤
- *   │ 전체 · 안읽음 · Critical/Warning 건수               │
- *   ├─ 목록 ──────────────────────────────────────────┤
- *   │ [읽음] 심각도 | 제목 + 본문 | 분류 | 시각 | 이동/삭제  │
- *   └─────────────────────────────────────────────────┘
- * </pre>
- *
- * <h2>⚠️ 반복 횟수(repeat_count)를 눈에 띄게 표시하는 이유</h2>
- * 서버는 5분 안의 동일 알림을 하나로 합치면서 횟수를 셉니다. 이 숫자가
- * 1보다 크면 "한 번 있었던 일" 이 아니라 <b>진행 중인 문제</b>입니다.
- * 합쳐 놓고 횟수를 숨기면 사용자가 우선순위를 잘못 판단합니다.
- *
- * <h2>⚠️ 읽음 처리 실패를 삼키지 않는 이유</h2>
- * 사용자가 직접 누른 결과이므로 실패하면 알려야 합니다. 화면만 읽음으로
- * 바꾸면 새로 고침 후 되돌아와 "왜 안 읽음이지" 가 됩니다. 그래서 요청이
- * 성공한 뒤에만 로컬 상태를 바꾸고, 실패하면 오류를 표시합니다.
- */
 
-/** 분류 탭 정의입니다. 순서가 화면 탭 순서가 됩니다. */
 const CATEGORY_TABS: { value: NotificationCategory | null; label: string }[] = [
   { value: null, label: "전체" },
   { value: "POLICY", label: "정책" },
@@ -62,21 +32,18 @@ const CATEGORY_TABS: { value: NotificationCategory | null; label: string }[] = [
   { value: "SYSTEM", label: "시스템" },
 ];
 
-/** 심각도별 배지 색입니다. 장비 로그 화면과 같은 기준을 씁니다. */
 const SEVERITY_COLOR: Record<NotificationSeverity, "error" | "warning" | "info"> = {
   critical: "error",
   warning: "warning",
   info: "info",
 };
 
-/** 심각도 한글 라벨. */
 const SEVERITY_LABEL: Record<NotificationSeverity, string> = {
   critical: "Critical",
   warning: "Warning",
   info: "Info",
 };
 
-/** 분류 한글 라벨. */
 const CATEGORY_LABEL: Record<NotificationCategory, string> = {
   POLICY: "정책",
   AGENT: "Agent",
@@ -85,16 +52,6 @@ const CATEGORY_LABEL: Record<NotificationCategory, string> = {
   SYSTEM: "시스템",
 };
 
-/**
- * ISO-8601 시각을 상대 시간으로 바꿉니다.
- *
- * <p>알림 목록은 "언제" 보다 "얼마나 최근" 이 중요합니다. 절대 시각을
- * 그대로 보여주면 매번 현재 시각과 머릿속으로 빼야 합니다.
- * 다만 <b>툴팁에는 원문</b>을 남겨 정확한 시각을 확인할 수 있게 합니다.
- *
- * @param iso ISO-8601 문자열
- * @returns 상대 시간 문자열 (파싱 실패 시 원문)
- */
 function relativeTime(iso: string): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return iso;
@@ -119,28 +76,19 @@ function relativeTime(iso: string): string {
 export default function Notification() {
   const navigate = useNavigate();
 
-  // ---------------------------------------------------------------------------
   // 필터 상태
-  // ---------------------------------------------------------------------------
   const [category, setCategory] = useState<NotificationCategory | null>(null);
   const [severity, setSeverity] = useState<NotificationSeverity | "">("");
   const [projectId, setProjectId] = useState("");
   const [readState, setReadState] = useState<"all" | "unread" | "read">("all");
   const [search, setSearch] = useState("");
 
-  /**
-   * 실제 조회에 쓰이는 필터입니다.
-   *
-   * <p>검색어만 입력할 때마다 요청하면 타이핑 중에 요청이 수십 개 나갑니다.
-   * [조회] 를 눌렀을 때만 반영합니다.
-   */
   const [applied, setApplied] = useState<NotificationQuery>({ limit: 200 });
 
   const projects = useApi(() => listProjects(), []);
   const summary = useApi(() => getNotificationSummary(), []);
   const notifications = useApi(() => listNotifications(applied), [applied]);
 
-  /** 읽음 처리 중인 알림 식별자입니다. 중복 클릭을 막습니다. */
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -151,7 +99,6 @@ export default function Notification() {
 
   const unreadCount = notifications.data?.unread ?? 0;
 
-  /** 심각도별 건수 (요약 카드용) */
   const counts = useMemo(() => {
     let critical = 0;
     let warning = 0;
@@ -164,7 +111,6 @@ export default function Notification() {
     return { critical, warning, info };
   }, [rows]);
 
-  /** 조회를 실행합니다. */
   const applyFilters = useCallback(() => {
     setApplied({
       category,
@@ -176,7 +122,6 @@ export default function Notification() {
     });
   }, [category, severity, projectId, readState, search]);
 
-  /** 필터를 초기화합니다. */
   const resetFilters = useCallback(() => {
     setCategory(null);
     setSeverity("");
@@ -186,12 +131,6 @@ export default function Notification() {
     setApplied({ limit: 200 });
   }, []);
 
-  /**
-   * 읽음 상태를 바꿉니다.
-   *
-   * <p>⚠️ 서버 요청이 <b>성공한 뒤에만</b> 목록을 다시 읽습니다. 먼저 로컬
-   * 상태를 바꾸면 실패했을 때 화면과 서버가 어긋납니다.
-   */
   const toggleRead = useCallback(
     async (notification: ApiNotification) => {
       setBusyId(notification.id);
@@ -215,7 +154,6 @@ export default function Notification() {
     [notifications, summary],
   );
 
-  /** 안읽음 알림을 모두 읽음으로 표시합니다. */
   const markAllRead = useCallback(async () => {
     setActionError(null);
     try {
@@ -229,7 +167,6 @@ export default function Notification() {
     }
   }, [notifications, summary]);
 
-  /** 알림을 삭제합니다. */
   const remove = useCallback(
     async (notification: ApiNotification) => {
       // 삭제는 되돌릴 수 없으므로 한 번 확인합니다.
@@ -251,15 +188,6 @@ export default function Notification() {
     [notifications, summary],
   );
 
-  /**
-   * 알림의 상세 화면으로 이동합니다.
-   *
-   * <p>이동 경로는 <b>서버가 알려 줍니다</b>({@code link}). 프론트가 분류별로
-   * 경로를 만들면 분류가 늘 때마다 화면을 고쳐야 하고, 서버가 가진 문맥
-   * (프로젝트 키 등)을 다시 조립해야 합니다.
-   *
-   * <p>이동할 때 읽음 처리도 함께 합니다. 알림을 눌러 확인했다면 읽은 것입니다.
-   */
   const open = useCallback(
     async (notification: ApiNotification) => {
       if (!notification.read) {

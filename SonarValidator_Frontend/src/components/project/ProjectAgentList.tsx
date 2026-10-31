@@ -1,6 +1,8 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useApi } from "../../hooks/useApi";
 import { deleteExpectedAgent, listAgentOverview } from "../../lib/api";
+
+const NodeConnectionModal = lazy(() => import("./NodeConnectionModal"));
 
 const AgentTerminal = lazy(() => import("./AgentTerminal"));
 
@@ -9,8 +11,13 @@ export default function ProjectAgentList({ projectId }: { projectId: string }) {
     () => listAgentOverview(projectId),
     [projectId],
   );
+  useEffect(() => {
+    const timer = window.setInterval(reload, 15000);
+    return () => window.clearInterval(timer);
+  }, [reload]);
   const [removing, setRemoving] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [connectionAgentId, setConnectionAgentId] = useState<string | null>(null);
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null);
 
   const projectAgents = (data?.agents ?? []).filter(
@@ -80,11 +87,19 @@ export default function ProjectAgentList({ projectId }: { projectId: string }) {
         </p>
       )}
 
+      {connectionAgentId && <Suspense fallback={<p>연결 관리 화면을 여는 중...</p>}>
+        <NodeConnectionModal projectId={projectId} agentId={connectionAgentId}
+          expectedIp={projectAgents.find(agent => agent.agent_id === connectionAgentId)?.expected_ip}
+          connected={Boolean(projectAgents.find(agent => agent.agent_id === connectionAgentId)?.connected)}
+          onClose={() => setConnectionAgentId(null)} />
+      </Suspense>}
+
       {projectAgents.length > 0 && (
         <ul className="divide-y divide-gray-100 dark:divide-gray-800">
           {projectAgents.map((agent) => (
             <li
               key={agent.agent_id}
+              data-testid={`node-${agent.agent_id}`}
               className="py-2"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -98,6 +113,11 @@ export default function ProjectAgentList({ projectId }: { projectId: string }) {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" aria-label={`${agent.agent_id} 연결 관리`}
+                    onClick={() => setConnectionAgentId(agent.agent_id)}
+                    className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-600">
+                    연결 관리
+                  </button>
                   <button
                     type="button"
                     onClick={() => setTerminalAgentId(

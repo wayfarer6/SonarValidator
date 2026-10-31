@@ -37,15 +37,6 @@ export default function AgentTableCard() {
     return [];
   }, [overview.data, devices.data]);
 
-  // ⚠️ 필터 판정에서 <b>정규화된 값</b>을 비교합니다.
-  //
-  //   이전에는 `row.deviceType === filter` 였고, 서버가 대문자 코드(ROUTER)를
-  //   주는데 탭은 Title Case(Router)라 **Router 탭이 항상 빈 표**였습니다.
-  //   All 탭만 보였기 때문에 "다른 탭에 장비가 없는 건가" 로 오해하기 쉽습니다.
-  //
-  //   분류되지 않는 유형("—" 또는 새 장비 유형)은 **모든 탭에 남깁니다.**
-  //   그래야 "필터 때문에 사라진 장비" 가 생기지 않습니다 — 사라진 장비는
-  //   운영자는 없는 장비로 읽습니다.
   const filtered = useMemo(() => {
     if (filter === "All") return rows;
     return rows.filter((row) => {
@@ -125,12 +116,6 @@ export default function AgentTableCard() {
                 <td className="px-4 py-3 font-medium">{agent.hostname}</td>
                 <td className="px-4 py-3 font-mono text-xs">{agent.primaryIp}</td>
                 <td className="px-4 py-3">
-                  {/*
-                    ⚠️ {agent.deviceType} 을 그대로 그리지 않습니다.
-                    서버 코드(ROUTER)가 노출되면 화면과 탭 이름이 달라 보이고,
-                    스타일 표(키가 "Router")도 못 찾아 회색으로 떨어집니다.
-                    정규화한 값을 표시와 색상에 함께 씁니다.
-                  */}
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                       DEVICE_STYLE[normalizeDeviceType(agent.deviceType)] ??

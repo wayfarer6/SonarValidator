@@ -7,33 +7,6 @@ import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
 
-/**
- * 로그인 폼입니다.
- *
- * <h2>자리표시자에서 실제 인증으로</h2>
- * 이전 구현은 이메일만 쿠키에 넣고 통과시켰습니다. 즉 <b>아무 비밀번호나</b>
- * 통과했고, 쿠키를 직접 만들면 인증을 우회할 수 있었습니다.
- *
- * <p>이제 서버(`POST /api/v1/auth/login`)가 검증하고, 서버가 발급한 세션
- * 쿠키(`JSESSIONID`, HttpOnly)가 인증 상태를 나타냅니다. 프론트는 그 결과를
- * 받아 화면만 바꿉니다.
- *
- * <h2>오류 메시지를 서버에서 받아 그대로 보여주는 이유</h2>
- * 서버가 실패 원인을 구분해 줍니다.
- * <ul>
- *   <li>아이디/비밀번호 오류 → 401 (문구를 통일해 계정 존재 여부를 숨김)</li>
- *   <li>계정 잠김 → 423 + 잠금 해제 시각</li>
- *   <li>비활성 계정 → 403</li>
- * </ul>
- * 프론트에서 "로그인 실패" 로 뭉뚱그리면 사용자가 무엇을 해야 할지 알 수
- * 없습니다.
- *
- * <h2>로그인 유지 체크박스</h2>
- * 세션 쿠키는 브라우저를 닫으면 사라집니다. 체크하면 서버가 세션 만료를
- * 늘리도록 표시할 수 있지만, 지금은 안내 문구만 남기고 서버 기본 만료를
- * 따릅니다. (만료 시간은 `application.properties` 의
- * `server.servlet.session.timeout` 으로 조정)
- */
 export default function SignInForm() {
   const navigate = useNavigate();
   const { login, submitting, error, clearError } = useAuth();
@@ -147,12 +120,6 @@ export default function SignInForm() {
                       로그인 상태 유지하기
                     </span>
                   </div>
-                  {/* "비밀번호를 잊으셨습니까?" 링크는 제거했습니다.
-                       /reset-password 라우트가 없어서 404 로 떨어졌을 뿐 아니라,
-                       이 앱은 이메일 기반 재설정(메일 발송)을 하지 않습니다.
-                       비밀번호는 관리자가 변경합니다. (프로필 > 계정 관리에서
-                       본인이 직접 변경하는 API 는 이미 있습니다)
-                       되살리려면 라우트와 재설정 흐름을 먼저 만들어야 합니다. */}
                 </div>
                 <div>
                   <Button className="w-full" size="sm" type="submit" disabled={submitting}>

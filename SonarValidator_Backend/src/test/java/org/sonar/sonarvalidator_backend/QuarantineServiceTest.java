@@ -38,38 +38,12 @@ import org.sonar.sonarvalidator_backend.Service.QuarantineService;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * 격리 서비스의 계약을 DB/WebSocket 없이 검증합니다.
- *
- * <h2>왜 스텁으로 검증하는가</h2>
- * 격리 서비스의 위험한 로직은 <b>저장소 종류와 무관한 부분</b>에 있습니다.
- * <ul>
- *   <li>{@code "quarantine"}/{@code "release"} 문자열이 Agent 와 같은가</li>
- *   <li>명령 전달 실패가 <b>성공으로 보고되지 않는가</b></li>
- *   <li>해제 시 "격리 중이 아님" 을 거짓 성공으로 말하지 않는가</li>
- *   <li>이미 격리된 장치를 다시 격리할 때 행이 중복 생성되지 않는가</li>
- * </ul>
- *
- * <h2>⚠️ 이 테스트가 겨냥하는 최악의 실패 모드</h2>
- * <p>"장치는 살아 있는데 서버는 격리됐다고 믿는" 상태입니다. 이 상태가 되면
- * 운영자는 화면의 빨간 표시를 믿고 실제로는 뚫린 망을 방치합니다.
- * 그래서 여기서는 <b>전달 실패가 반드시 드러나는지</b>를 최우선으로 봅니다.
- *
- * <p>저장소 스텁은 {@link org.sonar.sonarvalidator_backend.support.StubRepository}
- * 로 만듭니다. ({@code JpaRepository} 를 직접 구현하면 120여 개 메서드를
- * 채워야 하고, 그 boilerplate 가 정작 검증할 계약을 가립니다)
- */
 class QuarantineServiceTest {
 
-    /** 저장된 격리 행. 파생 쿼리 의미를 흉내 내는 데 씁니다. */
     private final List<QuarantineState> quarantineRows = new ArrayList<>();
-    /** 저장된 변경 이력. */
     private final List<ComplianceChange> complianceRows = new ArrayList<>();
-    /** 저장된 알림. */
     private final List<Notification> notificationRows = new ArrayList<>();
-    /** 연결된 것으로 취급할 Agent. */
     private final Set<String> connected = new LinkedHashSet<>();
-    /** 실제로 전송된 봉투. */
     private final List<Envelope> sent = new ArrayList<>();
 
     private QuarantineService service;
@@ -197,9 +171,7 @@ class QuarantineServiceTest {
         service.setProjectRepository(projectRepository);
     }
 
-    // ------------------------------------------------------------------
     //  격리
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("연결된 장치를 격리하면 command 봉투가 실제로 전송된다")
@@ -269,9 +241,7 @@ class QuarantineServiceTest {
         assertEquals("QuarantineRetry", complianceRows.get(1).getType());
     }
 
-    // ------------------------------------------------------------------
     //  해제
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("격리 해제는 상태를 닫고 release 명령을 보낸다")
@@ -289,10 +259,6 @@ class QuarantineServiceTest {
         assertEquals("tester2", result.get("released_by"));
         assertNotNull(result.get("released_at"), "해제 시각 기록");
 
-        // ⚠️ 회귀: 성공 응답에도 released 키가 있어야 합니다.
-        //    이 키가 없으면 클라이언트가 undefined 를 "실패" 로 읽어
-        //    성공을 "격리 중이 아니었다" 로 정반대로 표시합니다.
-        //    (최종 E2E 에서 실제로 재현된 버그)
         assertEquals(Boolean.TRUE, result.get("released"),
                 "해제 성공 응답에 released=true 가 명시되어야 함");
 
@@ -325,9 +291,7 @@ class QuarantineServiceTest {
         assertTrue(service.isQuarantined("PWS-agent"));
     }
 
-    // ------------------------------------------------------------------
     //  방화벽 — 연결 단위 격리 (DB Design v1.5)
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("방화벽을 대상 없이 격리하면 거부한다 (전체 차단 방지)")
@@ -338,7 +302,7 @@ class QuarantineServiceTest {
                 service.isolate("GNS3.Firewall", "PRJ-1", "위반", "tester");
 
         // ⚠️ 방화벽은 인터페이스 단위로 격리할 수 없고(트렁크가 무관한 존까지 끊김),
-        //    대상을 지정하지 않으면 "무엇을 막을지" 알 수 없습니다.
+
         //    대상 없이 전부 차단하면 서비스가 마비되므로 거부가 정답입니다.
         assertEquals(Boolean.TRUE, result.get("rejected"), "거부 표시");
         assertEquals(Boolean.FALSE, result.get("quarantined"), "격리되지 않음");
@@ -363,7 +327,7 @@ class QuarantineServiceTest {
         final String hint = String.valueOf(result.get("hint"));
         assertTrue(hint.contains("target_cidr"), "대상 지정 안내: " + hint);
 
-        // 시도 자체는 감사 대상입니다. ("왜 방화벽이 격리 안 되나")
+
         assertEquals(1, complianceRows.size(), "이력 1건");
         assertEquals("QuarantineRejected", complianceRows.get(0).getType());
     }
@@ -441,9 +405,7 @@ class QuarantineServiceTest {
         assertTrue(sent.isEmpty(), "Agent 가 없으므로 명령 없음");
     }
 
-    // ------------------------------------------------------------------
     //  ack (실제 적용 확인)
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("ack 성공은 applied=true 로 노출된다")
@@ -490,9 +452,7 @@ class QuarantineServiceTest {
         assertEquals(before, notificationRows.size(), "알림도 늘지 않음");
     }
 
-    // ------------------------------------------------------------------
     //  조회
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("quarantinedAgentIds 는 프로젝트 필터 없이 전체 격리를 반환한다")
@@ -548,9 +508,9 @@ class QuarantineServiceTest {
         final ExpectedAgent expected = new ExpectedAgent();
         expected.setAgentId("VDI-1-agent");
 
-        // 운영자는 VDI-1-agent / vdi-1-agent 를 섞어 씁니다.
-        // 대소문자를 구분하면 같은 장치가 두 줄로 나타나고 격리 배지가
-        // 엉뚱한 행에 붙습니다.
+
+
+
         assertTrue(QuarantineService.sameAgent(expected, "vdi-1-agent"));
         assertTrue(QuarantineService.sameAgent(expected, "VDI-1-AGENT"));
         assertTrue(QuarantineService.sameAgent(expected, "VDI-1-agent"));
@@ -565,11 +525,8 @@ class QuarantineServiceTest {
         assertFalse(QuarantineService.sameAgent(noId, "VDI-1-agent"));
     }
 
-    // ------------------------------------------------------------------
     //  테스트 도우미
-    // ------------------------------------------------------------------
 
-    /** ack payload 를 실제 Agent 모양으로 만듭니다. */
     private static JsonNode ack(String action, boolean ok, String detail,
                                 List<String> affected, List<String> preserved) {
         final var node = JsonMapper.builder().build().createObjectNode();
@@ -589,13 +546,6 @@ class QuarantineServiceTest {
         return node;
     }
 
-    /**
-     * 연결된 Agent 집합을 직접 들고 있는 세션 레지스트리 스텁입니다.
-     *
-     * <p>{@link AgentSessionRegistry} 를 상속해 {@code sendTo} 만 바꿉니다.
-     * 실제 구현은 WebSocket 세션을 요구하지만, 격리 서비스가 관심 있는 것은
-     * "전달됐는가" 뿐입니다.
-     */
     private static class RecordingRegistry extends AgentSessionRegistry {
 
         private final Set<String> connected;

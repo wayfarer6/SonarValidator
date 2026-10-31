@@ -27,40 +27,6 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * OpenAI 호환 API 클라이언트입니다.
- *
- * <h2>왜 "OpenAI 호환" 하나로 충분한가</h2>
- * <p>{@code POST {baseUrl}/chat/completions} 규격은 사실상 표준이 되어,
- * 아래가 모두 같은 형태로 호출됩니다. 그래서 공급자별 분기 코드가 필요 없습니다.
- *
- * <table border="1">
- *   <caption>호환 공급자 예</caption>
- *   <tr><th>공급자</th><th>baseUrl 예</th></tr>
- *   <tr><td>OpenAI</td><td>{@code https://api.openai.com/v1}</td></tr>
- *   <tr><td>Ollama (로컬)</td><td>{@code http://localhost:11434/v1}</td></tr>
- *   <tr><td>vLLM / LocalAI</td><td>{@code http://host:8000/v1}</td></tr>
- *   <tr><td>Groq / Together / OpenRouter</td><td>각 사의 {@code /v1}</td></tr>
- *   <tr><td>Azure OpenAI</td><td>{@code https://<res>.openai.azure.com/openai/deployments/<model>}</td></tr>
- * </table>
- *
- * <h2>⚠️ baseUrl 정규화 (실제로 자주 틀리는 부분)</h2>
- * <p>사용자는 {@code https://api.openai.com}, {@code .../v1},
- * {@code .../v1/} 을 모두 입력합니다. 그대로 이어 붙이면
- * {@code /v1/v1/chat/completions} 나 {@code //chat/completions} 가 되어
- * 404 가 납니다. 그래서 경로를 합칠 때 아래를 적용합니다.
- * <ul>
- *   <li>끝 슬래시 제거</li>
- *   <li>이미 {@code /chat/completions} 로 끝나면 그대로 사용</li>
- *   <li>그 외에는 {@code /v1} 유무를 보고 중복을 피해 붙임</li>
- * </ul>
- *
- * <h2>에러를 예외 대신 {@link Result} 로 돌려주는 이유</h2>
- * <p>분석 실패는 <b>예상 가능한 결과</b>입니다. (키 만료, 모델명 오타,
- * 로컬 서버 미기동, 컨텍스트 초과) 예외로 던지면 호출측이 매번 try/catch 로
- * 감싸야 하고, 사유를 사용자에게 그대로 보여주기 어렵습니다.
- * 이 클래스는 항상 사유가 담긴 {@link Result} 를 돌려줍니다.
- */
 @Component
 public class OpenAiCompatibleClient {
 
@@ -70,14 +36,6 @@ public class OpenAiCompatibleClient {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
-    /**
-     * OpenAI 호환 채팅 요청을 보냅니다.
-     *
-     * @param connection 접속 정보 (baseUrl/키/모델/타임아웃)
-     * @param messages   역할/내용 쌍 목록 (system, user 순)
-     * @param jsonMode   JSON 응답을 요구할지 여부
-     * @return 성공이면 본문 텍스트, 실패면 사유가 담긴 결과
-     */
     public Result chat(Connection connection, List<Message> messages, boolean jsonMode) {
         if (connection == null || !connection.isUsable()) {
             return Result.failure("AI 공급자 설정이 불완전합니다. (base URL / 모델 확인)");
@@ -138,17 +96,6 @@ public class OpenAiCompatibleClient {
         }
     }
 
-    /**
-     * 가벼운 연결 확인입니다.
-     *
-     * <p>모델 목록({@code GET /models})을 조회합니다. 이 엔드포인트를 지원하지
-     * 않는 공급자도 있으므로, 404 면 <b>실패로 보지 않고</b> "확인 불가" 로
-     * 안내합니다. 실제 분석은 될 수 있는데 "설정 오류" 로 보이면 사용자가
-     * 쓰지 못하게 되기 때문입니다.
-     *
-     * @param connection 접속 정보
-     * @return 확인 결과와 메시지
-     */
     public Result checkConnection(Connection connection) {
         if (connection == null || connection.baseUrl() == null || connection.baseUrl().isBlank()) {
             return Result.failure("base URL 이 비어 있습니다.");
@@ -215,21 +162,8 @@ public class OpenAiCompatibleClient {
         }
     }
 
-    // ---------------------------------------------------------------------------
     // 요청 조립
-    // ---------------------------------------------------------------------------
 
-    /**
-     * 채팅 완료 엔드포인트 URL 을 만듭니다.
-     *
-     * <p>끝 슬래시, {@code /v1} 중복, 이미 완성된 경로를 모두 처리합니다.
-     *
-     * <p>테스트에서 직접 검증할 수 있도록 공개합니다. URL 조립은 이 클래스에서
-     * <b>가장 자주 틀리는 부분</b>이라 회귀 테스트가 필요합니다.
-     *
-     * @param baseUrl 사용자가 입력한 기준 URL
-     * @return 호출할 URL
-     */
     public String buildChatCompletionsUrl(String baseUrl) {
         String base = stripTrailingSlash(baseUrl);
 
@@ -247,7 +181,6 @@ public class OpenAiCompatibleClient {
         return base + "/chat/completions";
     }
 
-    /** 모델 목록 URL 을 만듭니다. 확인용이므로 실패해도 무방합니다. */
     public String buildModelsUrl(String baseUrl) {
         String base = stripTrailingSlash(baseUrl);
 
@@ -266,7 +199,6 @@ public class OpenAiCompatibleClient {
         return base + "/models";
     }
 
-    /** Azure OpenAI 의 API 버전입니다. (URL 로만 지정 가능) */
     private static final String AZURE_API_VERSION = "2024-08-01-preview";
 
     private static String stripTrailingSlash(String value) {
@@ -277,14 +209,6 @@ public class OpenAiCompatibleClient {
         return result;
     }
 
-    /**
-     * 요청 본문을 만듭니다.
-     *
-     * @param connection 접속 정보
-     * @param messages   메시지 목록
-     * @param jsonMode   JSON 응답 요구 여부
-     * @return JSON 문자열
-     */
     private String buildRequestBody(Connection connection, List<Message> messages, boolean jsonMode) {
         final ObjectNode root = JSON.objectNode();
         root.put("model", connection.model());
@@ -311,7 +235,6 @@ public class OpenAiCompatibleClient {
         return root.toString();
     }
 
-    /** 인증 헤더를 붙입니다. 키가 없으면 붙이지 않습니다. (로컬 Ollama 등) */
     private void applyAuth(HttpRequest.Builder builder, Connection connection) {
         final String key = connection.apiKey();
 
@@ -327,12 +250,6 @@ public class OpenAiCompatibleClient {
         }
     }
 
-    /**
-     * HTTP 클라이언트를 만듭니다.
-     *
-     * <p>{@code allowInsecureTls} 가 켜지면 인증서 검증을 건너뜁니다.
-     * 사내 자체 서명 인증서를 쓰는 서버에서만 필요하고, 기본값은 꺼짐입니다.
-     */
     private HttpClient buildHttpClient(boolean allowInsecureTls) {
         final HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(15))
@@ -354,13 +271,6 @@ public class OpenAiCompatibleClient {
         return builder.build();
     }
 
-    /**
-     * 응답 본문에서 모델의 텍스트를 꺼냅니다.
-     *
-     * @param body     응답 JSON
-     * @param elapsed  소요 시간(ms)
-     * @return 본문 텍스트
-     */
     private Result parseResponse(String body, long elapsed) {
         try {
             final JsonNode root = mapper.readTree(body);
@@ -412,13 +322,6 @@ public class OpenAiCompatibleClient {
         }
     }
 
-    /**
-     * HTTP 오류를 사람이 읽을 수 있는 문장으로 바꿉니다.
-     *
-     * <p>상태 코드만 보여주면 사용자가 원인을 알 수 없습니다. 공급자가 보낸
-     * 오류 본문의 {@code error.message} 를 함께 보여주고, 자주 나오는 코드는
-     * 확인할 지점을 안내합니다.
-     */
     private String describeHttpError(int status, String body) {
         String detail = "";
         try {
@@ -448,43 +351,18 @@ public class OpenAiCompatibleClient {
         return value.length() <= limit ? value : value.substring(0, limit) + "…";
     }
 
-    // ---------------------------------------------------------------------------
     // 값 타입
-    // ---------------------------------------------------------------------------
 
-    /**
-     * 채팅 메시지 한 건입니다.
-     *
-     * @param role    {@code system} / {@code user} / {@code assistant}
-     * @param content 내용
-     */
     public record Message(String role, String content) {
-        /** system 메시지를 만듭니다. */
         public static Message system(String content) {
             return new Message("system", content);
         }
 
-        /** user 메시지를 만듭니다. */
         public static Message user(String content) {
             return new Message("user", content);
         }
     }
 
-    /**
-     * 호출에 필요한 접속 정보입니다.
-     *
-     * <p>엔티티를 직접 넘기지 않는 이유: 이 클라이언트가 JPA 에 의존하면
-     * 단위 테스트에서 DB 없이 검증할 수 없습니다.
-     *
-     * @param baseUrl          기준 URL
-     * @param apiKey           API Key (없으면 null — 로컬 모델)
-     * @param model            모델 이름
-     * @param authStyle        {@code bearer} 또는 {@code azure}
-     * @param timeoutSeconds   요청 타임아웃(초)
-     * @param maxTokens        최대 토큰 (null 이면 미지정)
-     * @param temperature      창의성
-     * @param allowInsecureTls TLS 검증 건너뛰기
-     */
     public record Connection(String baseUrl,
                              String apiKey,
                              String model,
@@ -494,35 +372,18 @@ public class OpenAiCompatibleClient {
                              Double temperature,
                              boolean allowInsecureTls) {
 
-        /**
-         * 호출에 쓸 수 있는지 확인합니다.
-         *
-         * <p>API Key 는 필수가 아닙니다. 로컬 Ollama/vLLM 은 키가 없습니다.
-         *
-         * @return baseUrl 과 model 이 채워졌으면 true
-         */
         public boolean isUsable() {
             return baseUrl != null && !baseUrl.isBlank()
                     && model != null && !model.isBlank();
         }
     }
 
-    /**
-     * 호출 결과입니다.
-     *
-     * @param ok       성공 여부
-     * @param text     성공 시 응답 텍스트 / 실패 시 사유
-     * @param elapsedMs 소요 시간(ms)
-     * @param usage    사용량 정보 (있으면)
-     */
     public record Result(boolean ok, String text, long elapsedMs, Map<String, Object> usage) {
 
-        /** 성공 결과를 만듭니다. */
         public static Result success(String text, long elapsedMs) {
             return new Result(true, text, elapsedMs, Map.of());
         }
 
-        /** 사용량 정보와 함께 성공 결과를 만듭니다. */
         public static Result success(String text, long elapsedMs, JsonNode root) {
             final Map<String, Object> usage = new LinkedHashMap<>();
             final JsonNode usageNode = root == null ? null : root.path("usage");
@@ -537,18 +398,15 @@ public class OpenAiCompatibleClient {
             return new Result(true, text, elapsedMs, Map.copyOf(usage));
         }
 
-        /** 실패 결과를 만듭니다. (소요 시간 미상) */
         public static Result failure(String message) {
             return new Result(false, message, 0L, Map.of());
         }
 
-        /** 실패 결과를 만듭니다. */
         public static Result failure(String message, long elapsedMs) {
             return new Result(false, message, elapsedMs, Map.of());
         }
     }
 
-    /** 자체 서명 인증서를 허용하기 위한 TrustManager 입니다. */
     private static final class TrustAllManager implements X509TrustManager {
 
         @Override

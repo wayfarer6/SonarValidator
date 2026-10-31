@@ -31,60 +31,13 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * 망분리 위반에 대한 <b>AI 정책 조언</b>을 만듭니다. (SONAR-43)
- *
- * <h2>무엇을 하는가</h2>
- * <p>운영자가 위반 메시지 카드를 누르면, 그 위반을 <b>정책 관점에서 어떻게
- * 해결할지</b> AI 에게 묻고 결과를 화면에 돌려줍니다.
- *
- * <pre>
- *   위반 카드 클릭 (프론트)
- *        │  POST /api/v1/policy/advice/{projectId}
- *        │  { rule_id, src_subnet, dst_subnet, prompt }
- *        ▼
- *   ProjectService.validateStored()        ← 판정은 항상 서버가 다시 한다
- *        │
- *        ▼
- *   PolicyAdviceContext.of()               ← 등급·서브넷·위반을 프롬프트용으로 정리
- *        │
- *        ▼
- *   PolicyAdvicePromptBuilder.build()      ← 시스템 지침 + 맥락 + 질문
- *        │
- *        ▼
- *   OpenAiCompatibleClient.chat()          ← 공급자/모델은 DB 설정에서
- *        │
- *        ▼
- *   PolicyAdviceParser.parse()             ← JSON 3가지 모양 + 스키마 이탈 흡수
- *        │
- *        ▼
- *   policy_advice 테이블에 저장 (실패도 기록)
- * </pre>
- *
- * <h2>⚠️ 왜 위반 목록을 프론트에서 받지 않고 서버가 다시 판정하는가</h2>
- * <p>프론트가 보낸 위반 텍스트를 그대로 프롬프트에 넣으면, 화면이 조작되거나
- * 낡은 상태일 때 <b>존재하지 않는 위반에 대한 조언</b>이 나옵니다. 조언은
- * 정책 변경의 근거가 되므로, 근거가 되는 판정을 서버가 확정해야 합니다.
- * 프론트가 보내는 것은 <b>"어느 위반을 물었는가"</b>(rule_id/src/dst) 뿐입니다.
- *
- * <h2>⚠️ 실패도 저장한다</h2>
- * <p>{@code LogAnalysisEngine} 과 같은 원칙입니다. 키 만료·모델명 오타·서버
- * 미기동을 저장하지 않으면 화면에 흔적이 없어 운영자가 같은 실수를 반복합니다.
- *
- * <h2>⚠️ 위반이 0건이어도 물어볼 수 있다</h2>
- * <p>"지금 구성이 안전한가 / 더 강화할 점은 없는가" 는 준수 상태에서도 유효한
- * 질문입니다. 그래서 위반 0건을 오류로 만들지 않고, 프롬프트가 <b>평가 요청</b>
- * 으로 바뀝니다. ({@code PolicyAdvicePromptBuilder})
- */
 @Service
 public class ViolationAdvisorService {
 
     private static final Logger log = LoggerFactory.getLogger(ViolationAdvisorService.class);
 
-    /** 저장할 원문 응답의 최대 길이입니다. (컬럼 크기와 맞춤) */
     private static final int MAX_STORED_RESPONSE = 30_000;
 
-    /** 조회 이력의 기본/최대 건수입니다. */
     private static final int DEFAULT_HISTORY = 30;
     private static final int MAX_HISTORY = 200;
 
@@ -95,13 +48,6 @@ public class ViolationAdvisorService {
     private final PolicyAdviceRepository repository;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    /**
-     * @param projectService  프로젝트/판정 접근
-     * @param providerService AI 공급자 선택
-     * @param client          OpenAI 호환 클라이언트
-     * @param parser          응답 파서
-     * @param repository      조언 기록 저장소
-     */
     public ViolationAdvisorService(ProjectService projectService,
                                    AiProviderService providerService,
                                    OpenAiCompatibleClient client,
@@ -114,18 +60,6 @@ public class ViolationAdvisorService {
         this.repository = repository;
     }
 
-    /**
-     * 위반에 대한 정책 조언을 요청합니다.
-     *
-     * @param projectKey  프로젝트 키
-     * @param ruleId      초점 위반의 규칙 식별자 (null 이면 프로젝트 전체)
-     * @param srcSubnet   초점 위반의 출발 서브넷 (선택)
-     * @param dstSubnet   초점 위반의 도착 서브넷 (선택)
-     * @param providerId  사용할 AI 공급자 (null 이면 기본)
-     * @param userPrompt  사용자 추가 질문 (선택)
-     * @param requestedBy 요청자
-     * @return 조언 결과 (화면용)
-     */
     @Transactional
     public Map<String, Object> advise(String projectKey,
                                       String ruleId,
@@ -160,11 +94,6 @@ public class ViolationAdvisorService {
         record.setRequestedBy(requestedBy == null || requestedBy.isBlank() ? "system" : requestedBy);
         record.setCreatedAt(new java.util.Date());
 
-        // 2) 공급자를 고릅니다.
-        //    ⚠️ 예외 없는 조회(resolveOrEmpty)를 씁니다.
-        //    resolve() 를 쓰면 "공급자 없음" 예외가 이 메서드의 트랜잭션을
-        //    rollback-only 로 마킹해, 실패를 기록하려는 save() 까지 롤백되고
-        //    500 이 나갑니다. (실측으로 확인한 결함)
         final java.util.Optional<AiProvider> resolved =
                 providerService.resolveOrEmpty(providerId);
 
@@ -174,7 +103,7 @@ public class ViolationAdvisorService {
                     ? "사용 가능한 AI 공급자가 없습니다. 설정에서 AI 공급자를 등록하고 '사용' 을 켜세요."
                     : "지정한 AI 공급자를 찾을 수 없습니다: " + providerId);
             record.setElapsedMs(System.currentTimeMillis() - startedAt);
-            // 실패도 저장합니다. 사유가 남아야 운영자가 다음에 무엇을 고칠지 압니다.
+
             final PolicyAdvice saved = repository.save(record);
             log.warn("policy advice rejected: id={} reason={}",
                     saved.getAdviceId(), saved.getErrorMessage());
@@ -200,7 +129,7 @@ public class ViolationAdvisorService {
         record.setRawResponse(truncate(result.text(), MAX_STORED_RESPONSE));
 
         if (!result.ok()) {
-            // 실패도 저장합니다. 사유가 남아야 운영자가 다음에 무엇을 고칠지 압니다.
+
             record.setSucceeded(false);
             record.setErrorMessage(truncate(result.text(), 4000));
             final PolicyAdvice saved = repository.save(record);
@@ -229,14 +158,6 @@ public class ViolationAdvisorService {
         return toView(saved);
     }
 
-    /**
-     * 조언 이력을 조회합니다.
-     *
-     * @param projectKey 프로젝트 키 (필수)
-     * @param ruleId     규칙 식별자 (null 이면 프로젝트 전체 이력)
-     * @param limit      최대 건수
-     * @return 조언 이력
-     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> history(String projectKey, String ruleId, Integer limit) {
         final int size = limit == null || limit <= 0
@@ -255,12 +176,6 @@ public class ViolationAdvisorService {
         return rows.stream().map(this::toView).toList();
     }
 
-    /**
-     * 조언 한 건을 상세 조회합니다.
-     *
-     * @param adviceId 조언 식별자
-     * @return 조언 (없으면 null)
-     */
     @Transactional(readOnly = true)
     public Map<String, Object> detail(String adviceId) {
         return repository.findByAdviceId(adviceId)
@@ -268,16 +183,8 @@ public class ViolationAdvisorService {
                 .orElse(null);
     }
 
-    // ---------------------------------------------------------------------------
     // 직렬화 / 유틸
-    // ---------------------------------------------------------------------------
 
-    /**
-     * 조언 레코드를 화면용 맵으로 바꿉니다.
-     *
-     * @param record 조언 레코드
-     * @return 화면용 맵
-     */
     private Map<String, Object> toView(PolicyAdvice record) {
         final PolicyAdviceAnswer answer = new PolicyAdviceAnswer(
                 record.getRiskLevel(),
@@ -312,7 +219,6 @@ public class ViolationAdvisorService {
         return view;
     }
 
-    /** 선택지 목록을 JSON 으로 씁니다. */
     private String writeOptions(List<PolicyAdviceOption> options) {
         final List<Map<String, Object>> rows = new java.util.ArrayList<>();
         for (final PolicyAdviceOption option : options) {
@@ -327,7 +233,6 @@ public class ViolationAdvisorService {
         return writeJson(rows);
     }
 
-    /** 저장된 선택지 JSON 을 다시 읽습니다. */
     private List<PolicyAdviceOption> readOptions(String json) {
         final List<PolicyAdviceOption> options = new java.util.ArrayList<>();
         if (json == null || json.isBlank()) {

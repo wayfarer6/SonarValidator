@@ -8,11 +8,11 @@
 
 #include "components/network_object/network_interface.hpp"
 
-// 스위치/장치의 포트(인터페이스) 하나를 표현하는 공통 네트워크 객체입니다.
-//
-// 공통 계약은 NetworkInterface(추상) 에 정의되어 있고, 이 클래스가 L2 스위치 포트에
-// 맞게 구체화합니다. L3 라우터의 인터페이스나 VM 의 NIC 은 Nic 처럼 별도 클래스를
-// 만들어 같은 NetworkInterface 를 상속받는 식으로 확장합니다.
+
+
+
+
+
 class Port : public NetworkInterface
 {
 public:

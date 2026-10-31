@@ -27,28 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * 정책 관리 화면이 쓰는 조회/적용 API 입니다.
- *
- * <h2>이 컨트롤러가 생긴 배경</h2>
- * <p>기존 {@code PolicyManagement} 는
- * {@code public boolean isPolicyViolated(String device_id)} 만 있는 스텁이었고
- * 판정 로직이 없었습니다. 이제 판정은 {@link SegmentationBddEngine} 이 하므로,
- * 이 클래스는 <b>화면이 필요로 하는 형태로 결과를 가공</b> 하는 역할만 합니다.
- *
- * <h2>제공하는 화면 기능</h2>
- * <ol>
- *   <li><b>위반 현황</b>: 프로젝트별 위반 목록 + 반례 패킷
- *       ({@code GET /api/v1/policy/violations/{projectId}})</li>
- *   <li><b>금지 조합 안내</b>: 등급을 건너뛰는 쌍 목록</li>
- *   <li><b>정책 푸시</b>: 검증을 통과한 정책만 장치로 내려보냄</li>
- * </ol>
- *
- * <h2>푸시가 검증을 통과해야 하는 이유</h2>
- * <p>위반 정책을 장치에 밀어 넣으면 실제로 망분리가 깨집니다. 그래서
- * {@link #push} 는 위반이 하나라도 있으면 <b>거부</b>하고, 어떤 규칙 때문인지
- * 함께 돌려줍니다. ({@code force=true} 로 우회할 수 있지만 경고 로그가 남습니다.)
- */
 @RestController
 @RequestMapping("/api/v1/policy")
 public class PolicyManagement {
@@ -60,39 +38,12 @@ public class PolicyManagement {
     private final ProjectService projectService;
     private final AgentSessionRegistry registry;
 
-    /**
-     * 격리 상태 조회 통로입니다.
-     *
-     * <p>격리된 장치에는 정상 정책을 밀어 넣지 않습니다. 그렇게 하면 격리가
-     * 풀립니다. 대상에서 빼고 이유를 응답/알림에 남깁니다.
-     */
     private final QuarantineService quarantineService;
 
-    /**
-     * 알림 기록기입니다.
-     *
-     * <p>푸시는 "지금 장치에 반영했는가" 를 답하는 작업입니다. 성공/실패 모두
-     * 운영자가 나중에 확인할 가치가 있으므로 알림으로 남깁니다.
-     * 특히 <b>푸시 거부와 전달 0대</b>는 화면을 닫으면 사라지므로 반드시 기록합니다.
-     */
     private final NotificationService notificationService;
 
-    /**
-     * 푸시 결과 분류기입니다.
-     *
-     * <p>이 컨트롤러가 "어떤 결과에 어떤 문구를 남길 것인가" 를 알 필요가
-     * 없게 합니다. 이전에는 이 파일 끝에 세 갈래
-     * {@code if/else if/else} 와 여덟 인자 알림 호출 네 번이 있었습니다.
-     */
     private final org.sonar.sonarvalidator_backend.Service.policy.PolicyPushNotifier pushNotifier;
 
-    /**
-     * @param projectService      프로젝트 서비스 (검증 엔진 접근)
-     * @param registry            Agent 세션 레지스트리 (푸시 대상)
-     * @param quarantineService   격리 상태 서비스 (대상 제외)
-     * @param notificationService 알림 서비스
-     * @param pushNotifier        푸시 결과 분류기
-     */
     public PolicyManagement(ProjectService projectService,
                             AgentSessionRegistry registry,
                             QuarantineService quarantineService,
@@ -105,16 +56,6 @@ public class PolicyManagement {
         this.pushNotifier = pushNotifier;
     }
 
-    /**
-     * 프로젝트의 정책 위반 현황을 반환합니다.
-     *
-     * <p>응답에는 위반 목록, 규칙별 그룹, 반례 패킷, BDD 진단 지표가 들어갑니다.
-     * 프론트엔드는 {@code by_severity} 로 요약 카드를, {@code violations} 로
-     * 표를 그립니다.
-     *
-     * @param projectId 프로젝트 키
-     * @return 위반 현황
-     */
     @GetMapping("/violations/{projectId}")
     public Map<String, Object> violations(@PathVariable String projectId) {
         final Project project = projectService.getByKey(projectId);
@@ -124,6 +65,10 @@ public class PolicyManagement {
         body.put("project_id", projectId);
         body.put("project_name", project.getName());
         body.put("compliant", report.isCompliant());
+        body.put("model_valid", report.isModelValid());
+        body.put("input_errors", new ArrayList<>(report.getInputErrors()));
+        body.put("analysis_scope", report.getAnalysisScope());
+        body.put("data_plane_analyzed", report.isDataPlaneAnalyzed());
         body.put("rule_count", report.getRuleCount());
         body.put("subnet_count", report.getSubnetCount());
         body.put("violation_count", report.getViolationCount());
@@ -158,15 +103,6 @@ public class PolicyManagement {
         return body;
     }
 
-    /**
-     * 프로젝트의 금지 서브넷 쌍 목록을 반환합니다.
-     *
-     * <p>편집기가 규칙을 만들기 <b>전에</b> "이 조합은 애초에 안 됩니다" 를
-     * 안내하는 정적 정보입니다.
-     *
-     * @param projectId 프로젝트 키
-     * @return 금지 쌍 + 등급 설명
-     */
     @GetMapping("/forbidden-pairs/{projectId}")
     public Map<String, Object> forbiddenPairs(@PathVariable String projectId) {
         final Project project = projectService.getByKey(projectId);
@@ -186,16 +122,6 @@ public class PolicyManagement {
         return body;
     }
 
-    /**
-     * 검증을 통과한 정책을 소속 장치로 푸시합니다.
-     *
-     * <p>서브넷을 출발지로 하는 활성 규칙을 모아 장치별 {@code command} 봉투로
-     * 만들어 보냅니다. 어떤 장치에 몇 건이 갔는지 응답에 담아 추적이 가능합니다.
-     *
-     * @param projectId 프로젝트 키
-     * @param force     {@code true} 면 위반이 있어도 강제 전송
-     * @return 전송 결과
-     */
     @PostMapping("/push/{projectId}")
     public Map<String, Object> push(@PathVariable String projectId,
                                     @RequestParam(value = "force", defaultValue = "false") boolean force) {
@@ -205,6 +131,14 @@ public class PolicyManagement {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("project_id", projectId);
 
+        if (!report.isModelValid()) {
+            body.put("pushed", false);
+            body.put("reason", "invalid policy model; force cannot bypass input errors");
+            body.put("model_valid", false);
+            body.put("input_errors", new ArrayList<>(report.getInputErrors()));
+            return body;
+        }
+
         if (!report.isCompliant() && !force) {
             body.put("pushed", false);
             body.put("reason", "policy validation failed; fix violations or pass force=true");
@@ -213,9 +147,9 @@ public class PolicyManagement {
             log.warn("policy push rejected for project={} violations={}",
                     projectId, report.getViolationCount());
 
-            // 거부는 운영자가 즉시 알아야 하는 사건입니다. 그리고 같은 위반이
-            // 반복되면 합쳐야 목록이 의미를 유지합니다. 그래서 dedupeKey 를
-            // 프로젝트+위반건수로 둡니다. (건수가 바뀌면 다른 문제로 봅니다)
+
+
+
             notificationService.notifyQuietly(
                     "POLICY",
                     "critical",
@@ -243,9 +177,9 @@ public class PolicyManagement {
             if (agentId == null || agentId.isBlank()) {
                 continue;
             }
-            // ⚠️ 격리된 장치에 정상 정책을 보내면 격리가 풀립니다.
-            //    차단본은 장치가 스스로 요청할 때(policy-request) 전달되므로,
-            //    서버발 푸시에서는 제외하는 것이 맞습니다.
+
+
+
             if (quarantined.contains(agentId)) {
                 skipped.add(agentId);
                 log.info("policy push skipped quarantined agent={} project={}", agentId, projectId);
@@ -298,10 +232,6 @@ public class PolicyManagement {
         log.info("policy pushed for project={} delivered={}/{} skipped_quarantined={}",
                 projectId, sent, deliveries.size(), skipped.size());
 
-        // ⚠️ 결과 분기와 알림 문구는 PolicyPushNotifier 가 소유합니다.
-        //    이전에는 여기에 if/else if/else 세 갈래와 notifyQuietly 여덟 인자
-        //    호출 네 번이 있었습니다 ("완료" 라고 뭉뚱그리면 대상이 하나도 없던
-        //    경우까지 성공으로 보여 운영자가 오해합니다).
         final org.sonar.sonarvalidator_backend.Service.policy.PushOutcomeStrategy.PushOutcome outcome =
                 new org.sonar.sonarvalidator_backend.Service.policy.PushOutcomeStrategy.PushOutcome(
                         projectId,
@@ -312,7 +242,7 @@ public class PolicyManagement {
                         report.getViolationCount(),
                         force && !report.isCompliant());
 
-        // 결과이름을 응답에 남깁니다. "왜 성공으로 보이는데 알림이 없지" 를
+
         // 응답만 보고 판단할 수 있어야 합니다.
         body.put("outcome", pushNotifier.nameOf(outcome));
 
@@ -331,12 +261,6 @@ public class PolicyManagement {
         return body;
     }
 
-    /**
-     * 위반 한 건을 응답 맵으로 바꿉니다.
-     *
-     * @param violation 위반
-     * @return 응답 맵
-     */
     private Map<String, Object> toViolationMap(PolicyViolation violation) {
         final Map<String, Object> entry = new LinkedHashMap<>();
         entry.put("rule_id", violation.ruleId());
@@ -346,6 +270,7 @@ public class PolicyManagement {
         entry.put("dst_class", violation.targetZone() == null ? null : violation.targetZone().label());
         entry.put("reason", violation.reason());
         entry.put("severity", violation.severity().name());
+        entry.put("evidence_type", violation.evidenceType());
         entry.put("sampled_protocol", violation.sampledProtocol());
         entry.put("sampled_packet", violation.sampledPacket());
         entry.put("sampled_src_ip", violation.sampledSourceIp());

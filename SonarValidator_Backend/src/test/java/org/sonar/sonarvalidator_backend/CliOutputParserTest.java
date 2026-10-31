@@ -12,13 +12,6 @@ import org.sonar.sonarvalidator_backend.Service.cli.CliVendor;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * ANTLR 파서 파이프라인 검증입니다.
- *
- * <p>입력 샘플은 C++ Prober 의 {@code cli_output_parser_test.cpp} 에 있는 실제
- * 장비 출력을 그대로 옮긴 것입니다. Java 쪽 구현이 같은 결과를 내는지,
- * 그리고 순회가 <b>ANTLR 자동 생성 Visitor</b> 로 이뤄지는지 확인합니다.
- */
 class CliOutputParserTest {
 
     private final CliOutputParser parser = new CliOutputParser();
@@ -231,10 +224,6 @@ class CliOutputParserTest {
     @Test
     @DisplayName("ip route show: 주소 아닌 텍스트는 라우트로 삼키지 않는다")
     void kernelRouteIgnoresNonRouteNoise() {
-        // 예전 문법은 routeHead 에 IFNAME 을 허용해 아무 단어나 목적지로 받았다.
-        // 그래서 `hello world` 가 라우트 2건으로 파싱됐고(parsed:true), 소비자는
-        // "조회했는데 경로 없음" 대신 "경로 2건" 으로 읽었다. 목적지 자리를
-        // 커널이 실제로 내는 토큰으로 좁혀 이 오탐을 문법 수준에서 제거했다.
         final ObjectNode body = parser.parseRouteStatus(
                 "hello world\nthis is not a route\n", CliVendor.FRR);
 

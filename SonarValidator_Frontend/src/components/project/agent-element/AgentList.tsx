@@ -3,15 +3,6 @@ import { useApi } from "../../../hooks/useApi";
 import { listAgents } from "../../../lib/api";
 import { listProjects } from "../../../lib/api/projects";
 
-/**
- * 대시보드 상단 지표 카드입니다.
- *
- * <h2>하드코딩 상수를 걷어낸 자리</h2>
- * 이전에는 Projects=3, Connected Agents=30 이 코드에 박혀 있었고
- * "나중에 API 로 교체" 라는 주석만 남아 있었습니다. 이제 서버에서 실제 값을
- * 받아옵니다. 값이 0 이면 0 을 그대로 보여줍니다 — 0 을 가리는 것이 가장
- * 흔한 거짓말입니다.
- */
 export default function AgentList() {
   const projects = useApi(() => listProjects(), []);
   const agents = useApi(() => listAgents(), []);
@@ -49,7 +40,7 @@ export default function AgentList() {
         <div className="flex items-end justify-between mt-5">
           <div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Connected Agents 
+              Connected Agents
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
               {connectedValue}

@@ -5,25 +5,6 @@
 #include "components/policy/quarantine_handler.hpp"
 #include "module/configuration_module/prober_config.hpp"
 
-// 격리 명령의 "수신 판정" 계약만 검증합니다. (네트워크/장치 조작 없음)
-//
-// ─────────────────────────────────────────────────────────────────────────
-//  왜 이 테스트가 필요한가
-//
-//  격리 문자열은 세 곳에 각각 존재합니다.
-//
-//    서버 Java   QuarantineService.ACTION_QUARANTINE = "quarantine"
-//    이쪽 상수   envelope::kActionQuarantine        = "quarantine"
-//    판정 상수   quarantine::kIsolate               = "quarantine"
-//
-//  셋 중 하나만 오타가 나면 컴파일은 통과하고, 격리 버튼은 "명령을 보냈는데
-//  아무 일도 안 일어나는" 상태가 됩니다. 화면은 delivered=true 로 표시되므로
-//  운영자는 격리된 줄 알고, 실제로는 장치가 그대로 살아 있습니다.
-//  **가장 위험한 실패 모드**이므로 여기서 못을 박습니다.
-//
-//  Isolate()/Release() 자체는 실제 `ip link set ... down` 을 실행하므로
-//  테스트에서 호출하지 않습니다. (돌리면 테스트 머신의 인터페이스가 내려갑니다)
-// ─────────────────────────────────────────────────────────────────────────
 
 namespace
 {
@@ -116,10 +97,6 @@ int main()
         Expect(!quarantine::IsQuarantineCommand(numericAction), "non-string action rejected");
     }
 
-    // 5) 관리망 대역은 이제 <b>설정</b>입니다. (하드코딩 상수 아님)
-    //    랩/프로젝트마다 다를 수 있고 서버가 프로젝트별로 지정할 수 있습니다.
-    //    설정이 비어 있을 때만 안전한 기본값으로 폴백합니다 —
-    //    관리 대역을 모르면 격리가 관리 경로를 내려 해제 명령이 도달하지 못합니다.
     {
         Expect(std::string(quarantine::kDefaultManagementPrefix) == "172.16.255.0/24",
                "default management prefix fallback is 172.16.255.0/24");

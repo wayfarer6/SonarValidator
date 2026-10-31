@@ -9,9 +9,9 @@ interface ButtonProps {
   endIcon?: ReactNode; // Icon after text
   onClick?: () => void; // Click handler
   disabled?: boolean; // Disabled state
-  className?: string; // Disabled state
-  // 네이티브 툴팁. 비활성 사유를 설명할 때 씁니다.
-  // (비활성 버튼은 클릭 이벤트가 없어 화면으로 설명할 기회가 없습니다)
+  className?: string;
+
+
   title?: string;
 }
 

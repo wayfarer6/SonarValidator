@@ -128,10 +128,6 @@ namespace
                     config.SetArchitecture(value);
                     has_architecture = !value.empty();
                 }
-                // ⚠️ 제어평면(관리망) 대역입니다. 필수는 아닙니다 —
-                //    비어 있으면 ProberConfig::DetectManagementPrefixes 가
-                //    안전한 기본값으로 폴백합니다. (격리가 관리 경로를 내려
-                //    해제 명령이 도달하지 못하는 것을 막기 위함)
                 else if (key == "MANAGEMENT_PREFIX")
                 {
                     config.SetManagementPrefixes(value);
@@ -274,15 +270,6 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
         return false;
     }
 
-    // 에이전트 이름은 한 번만 생성해 agent_id 와 agent_name 에 함께 넣습니다.
-    //  agent_name 이 비어 있으면 LoadConfig() 가 실패해
-    //  매 기동마다 설정이 새로 생성되고(에이전트 ID 변경),
-    //  텔레메트리/DB 의 agent 컬럼도 빈 값이 됩니다.
-    //
-    //  배포 스크립트가 default.conf 에 AGENT_NAME 을 써 두면 그 값을 우선
-    //  씁니다. 관리 콘솔에서 "배포 예정" 으로 등록한 이름과 실제 접속 이름이
-    //  같아야 목록에서 한 장비로 합쳐지기 때문입니다. 이름을 임의로 만들면
-    //  등록한 장치는 영원히 "무응답" 으로 남고, 별개의 이름으로 또 나타납니다.
     const std::string detected_agent_name = ProberConfig::DetectAgentName();
     const std::string generated_agent_name =
         detected_agent_name.empty() ? GenerateAgentName() : detected_agent_name;
@@ -296,9 +283,9 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     initial_config.DetectServerIpv4();
     initial_config.DetectServerPort();
     initial_config.DetectTerminalSharedSecret();
-    // ⚠️ 제어평면(관리망) 대역을 설정에서 읽습니다. 이 값이 없으면 격리가
-    //    관리 경로를 내려 해제 명령이 도달하지 못하므로 default.conf 에
-    //    MANAGEMENT_PREFIX 를 두게 했습니다. (없으면 안전한 기본값으로 폴백)
+
+
+
     initial_config.DetectManagementPrefixes();
     const bool has_valid_device_type = initial_config.DetectDeviceType();
     initial_config.DetectProductName();
@@ -330,9 +317,9 @@ bool AppInitializer::InitializeDatabase(
         return false;
     }
 
-    // 텔레메트리/NIC 상태, key-value 설정, 수집 네트워크 상태(라우팅/NIC/VLAN/
-    // 트렁크/ARP) 테이블을 보장합니다.
-    // DDL 은 database/schema.cpp 한 곳에만 두고 여기서는 실행만 합니다(멱등).
+
+
+
     const std::string& create_tables_sql = database_schema::CreateTablesSql();
 
     char *error_message = nullptr;

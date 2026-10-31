@@ -6,63 +6,16 @@ import { downloadAgent, registerExpectedAgent } from "../../lib/api";
 import { getProject, updateProject } from "../../lib/api/projects";
 import { useApi } from "../../hooks/useApi";
 
-/**
- * 프로젝트에 Agent(Prober)를 추가하는 카드입니다.
- *
- * <h2>배포 화면(`ProjectCreation.tsx`)의 Agent 다운로드 기능을 재사용한 이유</h2>
- * 장비 카드 목록과 이미지, OPNsense 만 API 자격증명이 필요하다는 사실은
- * 배포 화면과 <b>완전히 같습니다.</b> 화면마다 카드를 다시 쓰면 한쪽만
- * 장비가 늘어나는 불일치가 생깁니다. 그래서 장비 목록을 이 컴포넌트로
- * 옮기고, 배포 화면과 프로젝트 목록이 같은 정의를 씁니다.
- *
- * <h2>프로젝트 목록에서 쓰는 방식</h2>
- * 프로젝트 행의 <b>Add Agent</b> 를 누르면 그 행 아래에 이 카드가 펼쳐집니다.
- * 편집 화면(`ProjectEditor`)은 서브넷/규칙/검증만 다루고 배포는 여기서
- * 하도록 역할을 나눴습니다. (편집 화면에 배포를 섞으면 "지금 무엇을
- * 저장하는가" 가 흐려집니다)
- *
- * <h2>선택한 장비로 설정 미리보기를 보여주는 이유</h2>
- * 프로버는 {@code Installer/default.conf} 의 세 값(SERVER_IP / SERVER_PORT /
- * NODE_TYPE)으로 동작합니다. 장비만 고르고 끝내면 운영자는 그 값을 어디에
- * 어떻게 넣는지 모릅니다. 그래서 장비를 고르면 <b>실제로 넣을 설정 파일
- * 내용</b>을 그대로 만들어 보여줍니다. 복사해서 그대로 쓸 수 있습니다.
- *
- * <h2>⚠️ 서버 등록은 이 카드가 책임집니다</h2>
- * 배포 버튼을 눌러도 프로버가 아직 접속하지 않았다면 서버는 아무것도 모릅니다.
- * 그래서 이 카드는 <b>배포 예정을 서버에 등록</b>
- * ({@code POST /api/v1/agents/expected}) 합니다. 이 호출이 있어야 Agent 목록
- * 화면에 장치가 <b>무응답</b> 상태로 미리 나타나고, 배포 실패와 배포 지연을
- * 구분할 수 있습니다.
- *
- * <p>OPNsense 만 예외로, 프로버가 아니라 REST API 접속이므로 기존
- * 자격증명 API({@code PUT /api/v1/opnsense/credentials/{agentId}}) 를 호출합니다.
- */
 
-/** 배포 가능한 장비 한 종류. */
 export interface AgentDeviceType {
-  /** 화면에 보이는 이름. */
   label: string;
-  /** 로고 이미지 주소. */
   image: string;
-  /** 로고 대체 텍스트. */
   imageAlt: string;
-  /** 프로버 `default.conf` 에 넣을 NODE_TYPE. */
   nodeType: "Router" | "Switch" | "VM" | "Firewall";
-  /** 별도 안내가 필요하면 표시 (OPNsense 의 "API 설정 필요"). */
   note?: string;
-  /** 클릭 시 장비 카드 대신 설정 모달을 여는지. */
   opensCredentialModal?: boolean;
 }
 
-/**
- * 장비 목록입니다.
- *
- * <p>순서는 배포 화면과 동일하게 두었습니다. 화면마다 순서가 다르면 같은
- * 장비를 찾을 때 눈이 다시 훑어야 합니다.
- *
- * <p>`for poc` 가 붙은 항목은 랩 검증용입니다. 실장비(Cisco/Arista/OPNsense/
- * Linux)와 섞이지 않도록 이름에 표시를 유지합니다.
- */
 export const AGENT_DEVICE_TYPES: AgentDeviceType[] = [
   {
     label: "Cisco Router",
@@ -112,34 +65,14 @@ export const AGENT_DEVICE_TYPES: AgentDeviceType[] = [
 ];
 
 export interface AgentDeployCardProps {
-  /**
-   * 카드가 속한 프로젝트 키. 제목 배지와 배포 예정 등록에 사용합니다.
-   *
-   * <p>⚠️ <b>선택</b>입니다. Agent 목록 화면(`/agent`)은 프로젝트를 고르지 않고
-   * 들어올 수 있는데, 그 화면에서도 Agent 다운로드(IP/Port 지정 + tar.gz)를
-   * 쓰려면 카드를 재사용해야 합니다. 프로젝트가 없으면 배포 예정 등록만
-   * 감추고 나머지 기능은 그대로 동작합니다.
-   */
   projectId?: string;
-  /** 카드 접기 콜백. */
   onClose: () => void;
-  /**
-   * Management Server IP 초기값.
-   *
-   * <p>배포 화면은 좌측 입력란에서 받은 값을 넘겨, 운영자가 같은 주소를
-   * 두 번 입력하지 않게 합니다. (두 입력란이 다른 값을 가지면 어느 쪽이
-   * 실제 설정인지 알 수 없습니다)
-   */
   initialServerIp?: string;
-  /** Management Server Port 초기값. 비우면 프로버 기본값 3000 입니다. */
   initialServerPort?: string;
-  /** OPNsense 자격증명 저장 완료 콜백. (부모가 개수를 셀 때 사용) */
   onCredentialSaved?: () => void;
-  /** 오프라인 데이터 가져오기 화면으로 이동. 없으면 버튼을 숨깁니다. */
   onImportOffline?: () => void;
 }
 
-/** 장비 카드 한 장. */
 function DeviceCard({
   device,
   selected,
@@ -203,6 +136,7 @@ export default function AgentDeployCard({
     [projectId],
   );
   // Management Server 접속 정보. 프로버가 텔레메트리를 보낼 대상입니다.
+  const [expectedDeviceIp, setExpectedDeviceIp] = useState("");
   const [managementServerIPAddr, setManagementServerIPAddr] = useState(
     initialServerIp ?? "",
   );
@@ -255,14 +189,6 @@ export default function AgentDeployCard({
   const [opnsenseOpen, setOpnsenseOpen] = useState(false);
   const [opnsenseSavedCount, setOpnsenseSavedCount] = useState(0);
 
-  /**
-   * 프로젝트 지정 여부입니다.
-   *
-   * <p>프로젝트 목록(`/project`)은 자기 키를 넘기지만, Agent 목록(`/agent`)은
-   * 프로젝트를 고르지 않고 들어옵니다. 그때 배포 예정 등록을 그대로 두면
-   * 프로젝트 없이 등록되어 목록에서 프로젝트 필터가 어긋납니다. 그래서
-   * 등록 UI 만 감추고, Agent 다운로드(IP/Port + tar.gz)는 그대로 제공합니다.
-   */
   const hasProject = (projectId ?? "").trim() !== "";
 
   const selected = useMemo(
@@ -270,16 +196,6 @@ export default function AgentDeployCard({
     [selectedLabel],
   );
 
-  /**
-   * 선택한 장비로 `default.conf` 내용을 만듭니다.
-   *
-   * <p>값을 비워 두면 프로버 기본값을 그대로 씁니다. 사용자가 입력하지 않은
-   * 항목을 임의로 채우면 "이 값이 어디서 왔는지" 를 알 수 없게 됩니다.
-   *
-   * <p>{@code AGENT_NAME} 은 프로버가 서버에 보고하는 식별자입니다. 여기 적은
-   * 이름과 서버에 등록한 이름이 <b>같아야</b> 배포 예정과 실제 연결이
-   * 한 줄로 합쳐집니다.
-   */
   const configPreview = useMemo(() => {
     const serverIp = managementServerIPAddr.trim() || "localhost";
     const serverPort = managementServerPort.trim() || "3000";
@@ -328,22 +244,6 @@ export default function AgentDeployCard({
     setEditingServer(false);
   };
 
-  /**
-   * 설정이 미리 채워진 Agent 파일을 내려받습니다.
-   *
-   * <h2>⚠️ 왜 손으로 값을 옮기지 않는가</h2>
-   * <p>위 미리보기의 값을 사람이 복사해 넣으면 {@code AGENT_NAME} 이
-   * "배포 예정" 등록 이름과 어긋나기 쉽습니다. 그러면 같은 장치가 목록에
-   * <b>두 줄</b>로 나타나고, 등록한 장치는 영원히 <b>무응답</b>으로 남습니다.
-   * 서버가 이미 아는 값(장치 유형·서버 주소·이름)을 서버가 채우면
-   * 어긋날 여지가 없습니다.
-   *
-   * <h2>⚠️ 포트도 함께 보내는 이유</h2>
-   * <p>주소만 보내면 서버는 자기 설정값({@code server.port})을 포트로 씁니다.
-   * 그러면 위 미리보기가 보여준 포트와 <b>실제 다운로드 파일의 포트가 달라집니다.</b>
-   * 운영자는 미리보기를 믿고 방화벽을 열었다가 프로버가 연결되지 않는 것을
-   * 봅니다.
-   */
   const handleDownloadBundle = async () => {
     const agentId = agentName.trim();
     if (agentId === "" || bundleState === "downloading") {
@@ -379,14 +279,6 @@ export default function AgentDeployCard({
 
   const handleSelect = (device: AgentDeviceType) => {
     if (device.opensCredentialModal) {
-      // OPNsense 는 프로버 설치가 아니라 REST API 접속이므로 자격증명을 받습니다.
-      //
-      // ⚠️ 예전에는 `managementServerIPAddr` 를 여기에 썼습니다.
-      //    그런데 그것은 "관리 서버 IP" 이지 OPNsense "장치 이름" 이 아닙니다.
-      //    그래서 IP 가 그대로 agent_id 가 되어(예: 10.20.0.3) 목록에 유령 레코드가
-      //    생겼고, 비워 두면 "opnsense-1" 이 되어 실제 이름(OPNsense-Firewall)과
-      //    어긋나 기존 설정을 불러오지 못했습니다(404).
-      //    실제 노드 이름을 입력하도록 이름은 자동 생성하지 않습니다.
       setOpnsenseOpen(true);
       return;
     }
@@ -396,13 +288,6 @@ export default function AgentDeployCard({
     setRegisterError(null);
   };
 
-  /**
-   * 배포 예정을 서버에 기록합니다.
-   *
-   * <p>성공하면 목록 화면에 장치가 보입니다. 실패해도 프로버 배포 자체는
-   * 막지 않습니다 — 등록은 <b>가시성</b>을 위한 것이므로, 그것 때문에
-   * 현장 작업을 멈추는 것은 과합니다. 대신 오류를 그대로 보여줍니다.
-   */
   const handleRegister = async () => {
     const agentId = agentName.trim();
     if (agentId === "" || registerState === "saving") {
@@ -416,7 +301,7 @@ export default function AgentDeployCard({
         projectId,
         deviceType: selected?.nodeType,
         nodeType: selected?.nodeType,
-        expectedIp: managementServerIPAddr.trim() || undefined,
+        expectedIp: expectedDeviceIp.trim() || undefined,
         note: selected?.label,
       });
       setRegistered((current) =>
@@ -590,6 +475,10 @@ export default function AgentDeployCard({
                 placeholder="예: VDI-1-agent"
                 className="min-w-[200px] flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-xs text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
+            <label className="mt-3 block text-xs text-gray-600 dark:text-gray-300">장비 관리 IP (선택)
+              <input aria-label="장비 관리 IP" value={expectedDeviceIp} onChange={event => setExpectedDeviceIp(event.target.value)}
+                placeholder="예: 192.168.148.181" className="mt-1 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-600" />
+            </label>
               {hasProject && (
                 <button
                   type="button"
@@ -611,8 +500,8 @@ export default function AgentDeployCard({
               )}
             </div>
 
-            {/* 프로젝트가 없으면 등록할 수 없는 이유와 해결을 알려 줍니다.
-                (감추기만 하면 "왜 등록 버튼이 없지" 로 보입니다) */}
+            {
+}
             {!hasProject && (
               <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
                 배포 예정 등록은 프로젝트가 있어야 합니다. 프로젝트 목록에서{" "}
@@ -741,7 +630,7 @@ export default function AgentDeployCard({
                 카드에 끌어다 놓으면 서버가 같은 파서로 변환합니다.
               </p>
               <code className="mt-2 block rounded bg-gray-100 px-2 py-1.5 font-mono text-[10px] text-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                ./sonar_validator_prober --export-once
+                ./sonar_validator_prober --export snapshot.json
               </code>
             </div>
           </div>
@@ -758,14 +647,6 @@ export default function AgentDeployCard({
         </div>
       )}
 
-      {/*
-        OPNsense 설정 모달 — 기존 Modal 컴포넌트를 재사용합니다.
-
-        ⚠️ 예전에는 `agentId=""` 를 넘겼습니다. 그러면 요청 경로의 변수가
-           비어 `/credentials/` 가 되고, 서버가 "No static resource
-           api/v1/opnsense/credentials." 라는 404 를 돌려줬습니다.
-           장치 이름은 이제 모달에서 직접 입력합니다.
-      */}
       <OPNsenseConfigModal
         isOpen={opnsenseOpen}
         onClose={() => setOpnsenseOpen(false)}

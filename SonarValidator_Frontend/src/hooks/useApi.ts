@@ -1,22 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../lib/api/client";
 
-/**
- * API 호출의 로딩/오류/데이터 상태를 관리하는 훅입니다.
- *
- * <h2>왜 훅으로 묶는가</h2>
- * 화면마다 {@code useState(loading)}, {@code useState(error)} 를 반복하면
- * (1) 언마운트 후 setState 경고가 생기고, (2) 오류 처리를 빠뜨리기 쉽습니다.
- * 이 훅은 그 두 가지를 한 곳에서 처리합니다.
- *
- * <h2>언마운트 안전성</h2>
- * {@code mountedRef} 로 언마운트 여부를 확인한 뒤 상태를 갱신합니다.
- * 페이지를 빠르게 이동할 때 발생하는 경고를 막습니다.
- *
- * @param fetcher 데이터를 가져오는 함수 (의존성이 바뀌면 다시 호출됨)
- * @param deps    fetcher 를 다시 만들 기준이 되는 값들
- * @returns 데이터/로딩/오류/재시도 함수
- */
 export function useApi<T>(
   fetcher: () => Promise<T>,
   deps: readonly unknown[] = [],
@@ -24,11 +8,10 @@ export function useApi<T>(
   data: T | null;
   loading: boolean;
   error: string | null;
-  /** 서버에 닿지 못한 오류인지 여부 (백엔드 미기동 안내용) */
   offline: boolean;
   reload: () => void;
 } {
-  const [data, setData] = useState<T | null>(null); // 템플릿 관련 문법인가?
+  const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);

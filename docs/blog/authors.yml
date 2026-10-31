@@ -1,8 +1,0 @@
-sonarvalidator:
-  name: SonarValidator Team
-  title: SonarValidator Project
-  url: https://github.com/wayfarer6/SonarValidator
-  image_url: https://github.com/wayfarer6.png
-  page: true
-  socials:
-    github: wayfarer6

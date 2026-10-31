@@ -22,81 +22,30 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 장비 로그의 수집·조회·필터를 담당합니다.
- *
- * <h2>수집 경로</h2>
- * <ol>
- *   <li>프로버(Agent)가 텔레메트리에 로그를 실어 보냄</li>
- *   <li>사용자가 파일로 업로드 (오프라인 장비용)</li>
- *   <li>화면에서 직접 입력 (테스트/소량)</li>
- * </ol>
- * <p>세 경로 모두 {@link #ingest} 로 들어와 <b>같은 정규화</b>를 거칩니다.
- * 경로별로 정규화가 다르면 같은 로그가 다르게 분류되어 필터가 어긋납니다.
- *
- * <h2>왜 반드시 상한이 필요한가</h2>
- * <p>로그는 다른 데이터보다 훨씬 빠르게 늘어납니다. 화면 조회에 상한을 두지
- * 않으면 수만 건을 한 번에 내려보내 브라우저가 멈춥니다. 그래서
- * {@link #MAX_PAGE_SIZE} 를 넘는 요청은 조용히 자릅니다.
- */
 @Service
 public class LogService {
 
     private static final Logger log = LoggerFactory.getLogger(LogService.class);
 
-    /** 한 번에 내려줄 수 있는 최대 로그 건수입니다. */
     public static final int MAX_PAGE_SIZE = 500;
 
-    /** 기본 페이지 크기입니다. */
     public static final int DEFAULT_PAGE_SIZE = 100;
 
     private final DeviceLogRepository repository;
     private final LogNormalizer normalizer;
 
-    /**
-     * 노드 정본 연결 통로입니다. (선택 의존)
-     *
-     * <p>로그는 {@code agent_id} 문자열만으로도 저장할 수 있어야 합니다
-     * (노드가 아직 등록되지 않은 장비의 첫 로그). 노드가 있으면
-     * {@code node_id} 외래키를 함께 채워 <b>로그와 노드 설정을 연결</b>합니다.
-     * (DB Design v1.5 — 이전에는 이 관계가 아예 없었습니다)
-     */
     private NodeRegistryService nodeRegistry;
 
-    /**
-     * @param repository 로그 저장소
-     * @param normalizer 로그 정규화기
-     */
     public LogService(DeviceLogRepository repository, LogNormalizer normalizer) {
         this.repository = repository;
         this.normalizer = normalizer;
     }
 
-    /**
-     * 노드 정본 통로를 주입합니다.
-     *
-     * @param nodeRegistry 노드 등록 서비스 (테스트에서는 생략 가능)
-     */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setNodeRegistry(NodeRegistryService nodeRegistry) {
         this.nodeRegistry = nodeRegistry;
     }
 
-    /**
-     * 로그 여러 줄을 수집합니다.
-     *
-     * <p>각 줄을 정규화해 저장하고, <b>지문이 같은 기존 로그</b>가 있으면
-     * 새 행을 만들지 않고 {@code repeatCount} 만 올립니다. 프로버가 주기적으로
-     * 같은 로그를 다시 보내는 일이 흔한데, 그때마다 새 행을 만들면 같은 내용이
-     * 수십 개 쌓여 화면과 AI 프롬프트가 모두 쓸모없어집니다.
-     *
-     * @param agentId    장비 식별자
-     * @param product    제품명 (심각도 해석 힌트)
-     * @param projectKey 프로젝트 키 (없으면 null)
-     * @param source     출처 ({@code agent}/{@code upload}/{@code manual})
-     * @param lines      로그 원문 목록
-     * @return {@code {received, inserted, duplicated, skipped}}
-     */
     @Transactional
     public Map<String, Object> ingest(String agentId,
                                       String product,
@@ -121,10 +70,6 @@ public class LogService {
         final String collectedAt = Instant.now().toString();
         final List<DeviceLog> toSave = new ArrayList<>();
 
-        // ⚠️ DB Design v1.5 — 로그를 노드(configuration)에 연결합니다.
-        //   이전에는 관계가 아예 없어 "이 로그가 어느 노드의 것인가" 를
-        //   문자열 비교로만 추정했습니다. 노드가 없으면(첫 로그) 만들어
-        //   두고, 실패해도 로그 저장 자체는 계속합니다.
         final org.sonar.sonarvalidator_backend.Model.Configuration node =
                 (nodeRegistry == null)
                         ? null
@@ -192,19 +137,6 @@ public class LogService {
         return result;
     }
 
-    /**
-     * 필터 조합으로 로그를 조회합니다.
-     *
-     * @param agentId       장비 식별자 (null 이면 전체)
-     * @param projectKey    프로젝트 키 (null 이면 전체)
-     * @param from          기간 시작 ISO-8601 (null 이면 제한 없음)
-     * @param to            기간 끝 ISO-8601 (null 이면 제한 없음)
-     * @param severity      최소 심각도 이름 (예: {@code warning}). null 이면 전체
-     * @param search        검색어 (null 이면 전체)
-     * @param highlightedOnly 표시된 로그만
-     * @param limit         페이지 크기 (null 이면 기본값)
-     * @return {@code {total, returned, logs, filters}}
-     */
     @Transactional(readOnly = true)
     public Map<String, Object> query(String agentId,
                                      String projectKey,
@@ -290,22 +222,6 @@ public class LogService {
         return body;
     }
 
-    /**
-     * 분석에 쓸 로그 목록을 가져옵니다. (엔티티 그대로)
-     *
-     * <p>조회 API 와 분리한 이유: 분석은 시간순(오래된 것 먼저)으로 읽어야
-     * 사건의 <b>인과 순서</b>를 AI 가 파악할 수 있습니다. 화면은 최신순이
-     * 자연스럽지만 분석은 반대입니다.
-     *
-     * @param ids 지정한 로그 ID 목록 (비어 있으면 필터 조회)
-     * @param agentId     장비 식별자
-     * @param projectKey  프로젝트 키
-     * @param from        기간 시작
-     * @param to          기간 끝
-     * @param severity    최소 심각도
-     * @param maxCount    최대 건수
-     * @return 시간순(오래된 먼저) 로그 목록
-     */
     @Transactional(readOnly = true)
     public List<DeviceLog> resolveForAnalysis(List<Long> ids,
                                               String agentId,
@@ -364,7 +280,6 @@ public class LogService {
         return ordered;
     }
 
-    /** 필터에 걸린 전체 건수를 셉니다. (분석 시 잘림 여부 판단용) */
     @Transactional(readOnly = true)
     public long countFor(String agentId, String projectKey, String from, String to, String severity) {
         final String normalizedAgentId = blankToNull(agentId);
@@ -397,18 +312,6 @@ public class LogService {
         return repository.count(specification);
     }
 
-    /**
-     * 로그 한 건의 사용자 메모/표시 여부를 바꿉니다.
-     *
-     * <p>"이 로그를 분석해 달라" 는 의도를 남기는 수단입니다. 표시해 둔 로그는
-     * {@code highlighted_only} 필터로 모아 볼 수 있습니다.
-     *
-     * @param id          로그 키
-     * @param highlighted 표시 여부 (null 이면 유지)
-     * @param note        메모 (null 이면 유지)
-     * @return 수정된 로그 (화면용)
-     * @throws IllegalArgumentException 없을 때
-     */
     @Transactional
     public Map<String, Object> updateFlags(Long id, Boolean highlighted, String note) {
         final DeviceLog log = repository.findById(id).orElseThrow(
@@ -424,11 +327,6 @@ public class LogService {
         return toView(repository.save(log));
     }
 
-    /**
-     * 필터 드롭다운에 쓸 선택지 목록을 만듭니다.
-     *
-     * @return {@code {agents, severities, total}}
-     */
     @Transactional(readOnly = true)
     public Map<String, Object> filterOptions() {
         final List<Map<String, Object>> severities = new ArrayList<>();
@@ -449,7 +347,6 @@ public class LogService {
         return body;
     }
 
-    /** 심각도별 건수입니다. (요약 카드용) */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> severitySummary() {
         final List<Map<String, Object>> summary = new ArrayList<>();
@@ -464,7 +361,6 @@ public class LogService {
         return summary;
     }
 
-    /** 로그 한 건을 화면용 맵으로 바꿉니다. */
     public Map<String, Object> toView(DeviceLog log) {
         final Map<String, Object> view = new LinkedHashMap<>();
         view.put("id", log.getId());
@@ -487,12 +383,6 @@ public class LogService {
         return view;
     }
 
-    /**
-     * 로그 지문을 만듭니다.
-     *
-     * <p>SHA-256 의 앞 32자를 씁니다. 전체 해시는 컬럼이 커지고(64자),
-     * 32자(128비트)면 이 규모에서 충돌 가능성이 사실상 없습니다.
-     */
     private String fingerprintOf(String agentId, String raw) {
         try {
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -507,7 +397,6 @@ public class LogService {
         }
     }
 
-    /** 빈 문자열을 null 로 바꿉니다. (쿼리의 조건 무시 판정용) */
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }

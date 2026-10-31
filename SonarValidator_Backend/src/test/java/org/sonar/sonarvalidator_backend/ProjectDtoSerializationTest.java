@@ -10,29 +10,8 @@ import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * {@link ProjectDto} 의 JSON 왕복 계약을 검증합니다.
- *
- * <h2>이 테스트가 필요한 이유 (실제로 겪은 버그)</h2>
- * <p>{@code ProjectDto} 는 {@code record} 라서 컴포넌트 이름이 그대로 JSON 키가
- * 됩니다. 그래서 {@code subnetClass} 라고 선언하면 프론트엔드가 보내는
- * {@code subnet_class} 를 읽지 못합니다.
- *
- * <p>문제는 <b>실패가 조용하다</b> 는 점입니다. 값이 {@code null} 로 들어오면
- * 서비스가 기본 등급 {@code Open} 을 채우고, 검증은 "위반 없음" 이라고
- * 잘못 보고합니다. 예외도, 경고 로그도 없습니다. 실제로 E2E 검증에서
- * Confidential 서브넷이 Open 으로 저장되어 위반이 검출되지 않았습니다.
- *
- * <p>그래서 여기서 <b>snake_case 본문을 실제로 파싱</b> 해 값이 살아 있는지
- * 확인합니다. 필드 이름을 바꾸면 이 테스트가 즉시 깨집니다.
- *
- * <p>Spring 컨텍스트를 띄우지 않습니다. 이 테스트는 매퍼 설정만 검증하면
- * 되는데, 컨텍스트를 올리면 WebSocket 컨테이너 설정까지 함께 필요해져
- * 검증하려는 것과 무관한 이유로 실패할 수 있습니다.
- */
 class ProjectDtoSerializationTest {
 
-    /** Spring Boot 가 주입하는 매퍼와 동일하게 기본 설정으로 만듭니다. */
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @Test

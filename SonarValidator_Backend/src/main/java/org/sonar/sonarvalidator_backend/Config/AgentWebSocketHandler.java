@@ -14,33 +14,13 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * Agent 전용 plain WebSocket 핸들러입니다. (STOMP 대체)
- *
- * <h2>수신 흐름</h2>
- * <ol>
- *   <li>텍스트 프레임을 {@link Envelope} 로 역직렬화</li>
- *   <li>{@link AgentMessageRouterService#handle} 로 분기</li>
- *   <li>응답 투가 있으면 같은 소켓으로 1건 전송</li>
- * </ol>
- *
- * <h2>파싱 실패 처리</h2>
- * <p>JSON 이 아니면 {@code error} 봉투로 응답합니다. 세션을 닫지 않는 이유는
- * Agent 가 재접속 비용을 치르지 않고도 형식 오류를 인지할 수 있게 하기 위함입니다.
- *
- * <h2>동시성</h2>
- * <p>세션을 {@link ConcurrentWebSocketSessionDecorator} 로 감싸 정책 푸시(서버
- * 발신)와 응답(수신 처리 중 발신)이 쳐도 프레임이 이지 않게 합니다.
- */
 @Component
 public class AgentWebSocketHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(AgentWebSocketHandler.class);
 
-    /** 신 버퍼 상한(바이트). 넘으면 전송이 실패합니다. */
     private static final int SEND_BUFFER_LIMIT = 512 * 1024;
 
-    /** 송신 1건의 최대 허용 시간(ms). 느린 Agent 가 서버 스레드를 붙잡지 않게 합니다. */
     private static final int SEND_TIME_LIMIT_MS = 10_000;
 
     private final ObjectMapper objectMapper;
@@ -55,12 +35,6 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         this.registry = registry;
     }
 
-    /**
-     * Agent 가 연결되면 데코레이터로 감싼 세션을 속성에 심어 둡니다.
-     * 이후 모든 수신/발신이 같은 래퍼를 쓰도록 하기 위함입니다.
-     *
-     * @param session 원본 세션
-     */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         session.getAttributes().put("wrapped", toWrapped(session));
@@ -69,12 +43,6 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
                 session.getId(), session.getRemoteAddress());
     }
 
-    /**
-     * 스트 프레임 1건을 처리합니다.
-     *
-     * @param session 수신 세션
-     * @param message 텍스트 프레임 (JSON 봉투 1건)
-     */
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         final String raw = message.getPayload();
@@ -109,35 +77,17 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    /**
-     * 소켓이 닫히면 세션 레지스트리에서 제거합니다.
-     *
-     * @param session 힌 세션
-     * @param status 종료 상태
-     */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         log.info("agent socket closed: session={} status={}", session.getId(), status);
         registry.unregister(session);
     }
 
-    /**
-     * 전송 계층 오류를 로그로 남깁니다. 소켓은 곧 힙니다.
-     *
-     * @param session 세션
-     * @param exception 발생한 예외
-     */
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
         log.warn("transport error on session {}: {}", session.getId(), exception.getMessage());
     }
 
-    /**
-     * 투를 JSON 로 직렬화해 전송합니다.
-     *
-     * @param session 대상 세션
-     * @param envelope 보낼 메시지
-     */
     private void send(WebSocketSession session, Envelope envelope) {
         try {
             final String json = objectMapper.writeValueAsString(envelope);
@@ -153,12 +103,6 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    /**
-     * 데코레이터가 심어져 있으면 그 세션을, 없으면 새로 만들어 반환합니다.
-     *
-     * @param session 원본 세션
-     * @return 감싼 세션
-     */
     private WebSocketSession wrapped(WebSocketSession session) {
         final Object existing = session.getAttributes().get("wrapped");
         if (existing instanceof WebSocketSession wrappedSession) {
@@ -167,12 +111,6 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         return toWrapped(session);
     }
 
-    /**
-     * 새 데코레이터를 만듭니다.
-     *
-     * @param session 원본 세션
-     * @return 감싼 세션
-     */
     private WebSocketSession toWrapped(WebSocketSession session) {
         return new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MS, SEND_BUFFER_LIMIT);
     }

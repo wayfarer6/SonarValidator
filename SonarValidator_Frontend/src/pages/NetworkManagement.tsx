@@ -12,28 +12,6 @@ import type { ApiTopology } from "../lib/api/types";
 import { topologyToMermaid } from "../lib/topology/mermaid";
 import CollectedSubnetsPanel from "../components/network/CollectedSubnetsPanel";
 
-/**
- * 네트워크 관리 화면입니다.
- *
- * <h2>스텁에서 실제 기능으로</h2>
- * 이 화면은 이전에 "View Network" 제목만 있는 25줄 스텁이었습니다. 이제
- * 프로젝트의 서브넷/규칙을 토폴로지로 그리고, 장치별 라우팅 테이블을 함께
- * 보여줍니다.
- *
- * <h2>토폴로지를 Mermaid 로 그리는 이유</h2>
- * 기존 화면들({@code NetworkTopologyMermaid}, {@code TopologyRulePreview})이
- * 이미 Mermaid 를 쓰고 있습니다. 같은 표현 방식을 유지해야 화면 간 인지
- * 부담이 없고, Export 기능도 그대로 쓸 수 있습니다.
- *
- * <h2>노드 모양으로 등급을 구분하는 이유</h2>
- * 색만 다르면 흑백 인쇄나 색각 이상에서 구분이 어렵습니다. 등급별로
- * <b>모양</b>까지 다르게 해서 색 없이도 읽히게 했습니다.
- *
- * <h2>변환 로직을 공용 모듈로 옮긴 이유</h2>
- * 같은 변환이 {@code lib/topology/mermaid.ts} 에도 있습니다. 두 벌을 두면
- * 등급 색/모양 규칙이 조금씩 어긋나 "같은 데이터인데 다른 그림" 이 됩니다.
- * 이제는 공용 함수만 호출합니다.
- */
 export default function NetworkManagement() {
   const [searchParams] = useSearchParams();
   const projects = useApi(() => listProjects(), []);
@@ -56,7 +34,6 @@ export default function NetworkManagement() {
     [activeProjectId],
   );
 
-  /** 토폴로지를 Mermaid flowchart 소스로 변환합니다. (공용 모듈) */
   const chart = useMemo(() => topologyToMermaid(topology.data), [topology.data]);
 
   const deviceRoutes = routes.data?.devices ?? [];
@@ -145,12 +122,6 @@ export default function NetworkManagement() {
                 <MermaidDiagram chart={chart} />
               </div>
 
-              {/*
-                서브넷이 0건이면 다이어그램이 빈 상자로 보입니다.
-                "장치를 안 붙였나" 와 "붙였는데 반영이 안 됐나" 는 다른
-                문제이고 대처도 다르므로, 아래 수집 패널과 함께 읽도록
-                이유와 다음 행동을 적습니다.
-              */}
               {topology.data.nodes.length === 0 && (
                 <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2.5 text-xs text-gray-600 dark:bg-white/[0.03] dark:text-gray-300">
                   이 프로젝트에 등록된 <b>서브넷이 없어</b> 그릴 것이 없습니다. 서브넷은 장치에서
@@ -325,7 +296,6 @@ export default function NetworkManagement() {
   );
 }
 
-/** 작은 통계 표시입니다. */
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3 text-center dark:border-gray-700 dark:bg-gray-800/50">

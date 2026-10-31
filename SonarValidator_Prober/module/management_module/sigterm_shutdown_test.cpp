@@ -1,6 +1,6 @@
-// Live-network shutdown smoke test. It is excluded from default CTest because
-// TEST-NET routing varies by environment; deterministic timeout/cleanup coverage
-// lives in connect_with_timeout_test and command_runner_test.
+
+
+
 
 #include <chrono>
 #include <cstdlib>
@@ -28,21 +28,9 @@ namespace
         ++failures;
     }
 
-    /**
-     * 응답하지 않는 주소입니다. RFC 5737 의 TEST-NET-1 로,
-     * 라우팅되지 않으므로 connect 가 즉시 실패하거나 타임아웃까지 대기합니다.
-     */
     constexpr const char* kBlackholeHost = "192.0.2.1";
     constexpr int kBlackholePort = 9;  // discard — 열려 있지 않음
 
-    /**
-     * fetchPolicy 가 제한 시간 안에 반환하는지 확인합니다.
-     *
-     * 연결과 응답 대기가 모두 제한 시간 안에 끝나는지 확인합니다.
-     *
-     * @param budget 허용 대기 시간 (연결 타임아웃 + 정지 확인 여유)
-     * @return 제한 시간 내 반환했으면 true
-     */
     bool ReturnsWithinBudget(std::chrono::seconds budget)
     {
         ManagementService service(kBlackholeHost, kBlackholePort, "/api/v1/management");
@@ -84,18 +72,10 @@ int main()
 {
     std::cout << "[SIGTERM 종료 회귀 테스트]\n";
 
-    // 1) 연결 타임아웃이 있으면 제한 시간 내 반환합니다.
-    //
-    //    수정 전: connect 에 타임아웃이 없어 이 항목이 실패(hang)했습니다.
-    //    수정 후: kConnectTimeout(5s) 안에 반환합니다.
     const bool returned = ReturnsWithinBudget(std::chrono::seconds(20));
     Expect(returned,
            "응답 없는 서버로의 fetchPolicy 가 제한 시간 내 반환 (connect 타임아웃)");
 
-    // 2) 정지 요청이 대기 루프에서 확인되는지 확인합니다.
-    //
-    //    fetchPolicy 는 stop_token 을 받아 루프마다 stop_requested() 를 봅니다.
-    //    연결이 이미 실패한 뒤이므로 즉시 반환해야 합니다.
     {
         ManagementService service(kBlackholeHost, kBlackholePort, "/api/v1/management");
         service.SetAgentId("stop-token-agent");
@@ -115,9 +95,9 @@ int main()
                "정지 요청 시 fetchPolicy 가 즉시 반환 (stop_token 확인)");
     }
 
-    // 3) 타임아웃 상수가 합리적 범위인지 확인합니다.
-    //
-    //    너무 크면 종료가 느려지고, 너무 작으면 정상 연결을 놓칩니다.
+
+
+
     {
         Expect(ManagementService::kConnectTimeout <= std::chrono::seconds(10),
                "kConnectTimeout 이 10초 이하 (종료 지연 방지)");
@@ -127,9 +107,9 @@ int main()
                "kHandshakeTimeout 이 10초 이하");
     }
 
-    // 4) 텔레메트리 서비스도 같은 보호를 갖는지 확인합니다.
-    //
-    //    두 서비스가 각각 별도 연결을 만들므로 양쪽 다 필요합니다.
+
+
+
     {
         TelemetryService service(kBlackholeHost, kBlackholePort, "/api/v1/telemetry");
         const auto start = std::chrono::steady_clock::now();

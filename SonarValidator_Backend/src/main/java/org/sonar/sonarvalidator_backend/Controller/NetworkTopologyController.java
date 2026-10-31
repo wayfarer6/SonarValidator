@@ -23,26 +23,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * 네트워크 토폴로지 조회 API 입니다.
- *
- * <h2>두 가지 정보를 합쳐 줍니다</h2>
- * <ol>
- *   <li><b>수집된 실제 장치</b>: Agent 가 보고한 중립 설정
- *       ({@link NeutralDeviceConfig}) 의 인터페이스/VLAN 정보</li>
- *   <li><b>프로젝트가 정의한 서브넷</b>: 등급이 지정된 대역</li>
- * </ol>
- *
- * <p>이 둘을 합치는 것이 이 컨트롤러의 존재 이유입니다. 프론트엔드는
- * "실제로 무엇이 연결되어 있는가" 와 "무엇이 허용되어야 하는가" 를 비교해야
- * 망분리 상태를 판단할 수 있습니다.
- *
- * <h2>주소 → 등급 자동 판정</h2>
- * <p>장치 인터페이스 주소가 프로젝트 서브넷 대역에 속하면 그 등급을 붙여
- * 돌려줍니다. 덕분에 UI 가 "이 인터페이스는 Confidential 존" 처럼 색을
- * 칠할 수 있습니다. 어느 대역에도 속하지 않으면 등급은 {@code null} 입니다.
- * (추측하지 않고 비워 두는 것이 원칙입니다 — 잘못된 등급은 잘못된 경보를 만듭니다.)
- */
 @RestController
 @RequestMapping("/api/v1/network")
 public class NetworkTopologyController {
@@ -53,21 +33,8 @@ public class NetworkTopologyController {
     private final AgentMessageRouterService router;
     private final AgentSessionRegistry registry;
 
-    /**
-     * 격리 상태 통로입니다.
-     *
-     * <p>격리된 서브넷을 화면에서 <b>빨간색</b>으로 칠하려면 프론트가 그 사실을
-     * 알아야 합니다. 별도 API 를 한 번 더 부르게 하면 두 응답이 서로 다른
-     * 시점의 상태가 되어 화면이 어긋납니다. 그래서 토폴로지 응답에 함께
-     * 실어 보냅니다.
-     */
     private final QuarantineService quarantineService;
 
-    /**
-     * @param projectService 프로젝트 서비스
-     * @param router         텔레메트리/설정 보관소
-     * @param registry       Agent 세션 레지스트리
-     */
     public NetworkTopologyController(ProjectService projectService,
                                      AgentMessageRouterService router,
                                      AgentSessionRegistry registry,
@@ -78,15 +45,6 @@ public class NetworkTopologyController {
         this.quarantineService = quarantineService;
     }
 
-    /**
-     * 프로젝트 관점의 토폴로지를 반환합니다.
-     *
-     * <p>서브넷을 노드로, 연결 규칙을 간선으로 표현합니다. 프론트엔드의
-     * Mermaid 토폴로지가 이 구조를 그대로 그릴 수 있게 평평한 형태로 둡니다.
-     *
-     * @param projectId 프로젝트 키
-     * @return 노드/간선/등급 범례
-     */
     @GetMapping("/topology/{projectId}")
     public Map<String, Object> topology(@PathVariable String projectId) {
         final Project project = projectService.getByKey(projectId);
@@ -96,18 +54,6 @@ public class NetworkTopologyController {
             byId.put(subnet.getSubnetId(), subnet);
         }
 
-        /*
-         * ⚠️ 간선은 **노드 id** 를 참조해야 합니다.
-         *
-         * 예전에는 규칙의 CIDR(`10.0.8.0/24`)을 그대로 넣었습니다.
-         * 그런데 노드는 `Subnet-0001` 로 선언됩니다. 그래서 Mermaid 가
-         * "없는 노드" 를 자동 생성해 **`10_0_8_0_24` 가 별도 노드로 떠 있었고**,
-         * 서브넷 노드에는 간선이 하나도 안 붙었습니다.
-         *
-         * 또 아래 등급 조회(`byId.get(...)`)가 CIDR 로 조회되어 **항상 null** 이 되고
-         * `forbidden` 이 항상 false 였습니다 — 금지 연결이 강조되지 않았습니다.
-         * 두 증상의 원인이 같습니다.
-         */
         final Map<String, String> idByCidr = new LinkedHashMap<>();
         for (final ProjectSubnet subnet : project.getSubnets()) {
             final String cidr = subnet.getCidr();
@@ -181,16 +127,6 @@ public class NetworkTopologyController {
             edges.add(edge);
         }
 
-        /*
-         * --- 2) 라우팅 테이블에서 읽은 실제 연결 -------------------------
-         *
-         * 규칙만 그리면 "설정된 정책" 만 보이고, 장치가 실제로 VLAN 사이를
-         * 라우팅하고 있어도 화면에는 선이 없습니다. 그래서 수집된 라우팅
-         * 정보(L3 존재)로 만든 간선을 함께 실어 보냅니다.
-         *
-         * 저장하지 않습니다 — 라우팅 테이블은 살아 있는 텔레메트리이고, 장치가
-         * 바뀌면 화면에서도 함께 사라져야 합니다.
-         */
         for (final ObservedConnectivity.Link link
                 : ObservedConnectivity.betweenSubnetsOfEachDevice(project, router.allConfigs())) {
             final Map<String, Object> edge = new LinkedHashMap<>();
@@ -210,16 +146,6 @@ public class NetworkTopologyController {
             edges.add(edge);
         }
 
-        /*
-         * --- 3) 인터넷 노드와 연결 ---------------------------------------
-         *
-         * 기본 경로가 수집된 장치의 대역은 인터넷으로 나갈 수 있습니다.
-         * 그 사실을 화면에서 **원형(지구본) 노드**로 보여 주기 위해,
-         * 인터넷을 노드 하나로 만들고 노출된 대역에서 간선을 붙입니다.
-         *
-         * 노출이 0건이면 노드를 만들지 않습니다 — "인터넷" 이 떠 있는데
-         * 연결된 것이 없으면 오히려 잘못된 안심을 줍니다.
-         */
         final Set<String> exposedAgents = ObservedConnectivity.internetExposedAgents(router.allConfigs());
         if (!exposedAgents.isEmpty()) {
             final Map<String, Object> internetNode = new LinkedHashMap<>();
@@ -280,12 +206,6 @@ public class NetworkTopologyController {
         return body;
     }
 
-    /**
-     * 수집된 실제 장치 정보를 프로젝트 서브넷 등급과 결합해 반환합니다.
-     *
-     * @param projectId 프로젝트 키
-     * @return 장치 목록 (인터페이스에 등급을 붙임)
-     */
     @GetMapping("/discovered/{projectId}")
     public Map<String, Object> discovered(@PathVariable String projectId) {
         final Project project = projectService.getByKey(projectId);
@@ -318,13 +238,6 @@ public class NetworkTopologyController {
         return body;
     }
 
-    /**
-     * 전체 장치의 수집 현황을 반환합니다. (프로젝트 무관)
-     *
-     * <p>{@code /network} 화면의 "탐지된 노드" 카드가 쓰는 요약입니다.
-     *
-     * @return 형식별/장치별 요약
-     */
     @GetMapping("/discovered")
     public Map<String, Object> discoveredAll() {
         final Map<String, Integer> byFormat = new LinkedHashMap<>();
@@ -345,14 +258,6 @@ public class NetworkTopologyController {
         return body;
     }
 
-    /**
-     * 중립 설정 한 건을 화면용 장치 맵으로 바꿉니다.
-     *
-     * @param agentId   장치 식별자
-     * @param config    중립 설정
-     * @param cidrIndex 정규화 CIDR → 등급 색인
-     * @return 장치 맵
-     */
     private Map<String, Object> toDeviceMap(String agentId,
                                             NeutralDeviceConfig config,
                                             Map<String, ZoneClass> cidrIndex) {

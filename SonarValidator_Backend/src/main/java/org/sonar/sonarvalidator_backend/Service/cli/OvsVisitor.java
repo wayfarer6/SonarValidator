@@ -14,44 +14,14 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * {@code ovs-vsctl show} / {@code ovs-vsctl list port} / {@code ovs-ofctl dump-flows}
- * 출력을 JSON 으로 옮기는 방문자.
- *
- * <p>역할 분담은 C++ 기준 구현({@code components/parser/cli_output_parser.cpp})과 같다.
- * 다만 이 클래스는 <b>문자열을 다시 훑지 않는다</b>. 값의 종류(단일 VLAN 번호,
- * VLAN 번호 목록, 문자열)는 이미 문법이 확정해서 내려준다.
- *
- * <pre>
- *   attrLine : attrKey COLON attrValue NEWLINE
- *   attrValue: vlanList | scalarValue?
- * </pre>
- *
- * <p>따라서 이 방문자는
- * <ul>
- *   <li>{@code attrValue().vlanList()} 가 있으면 {@code NUMBER} 토큰을 그대로 번호로 읽고,</li>
- *   <li>{@code attrKey()} 의 <b>토큰 타입</b>으로 어느 필드인지 분기하며,</li>
- *   <li>남은 텍스트 조작은 {@link CliText} 의 순수 포맷 함수만 쓴다.</li>
- * </ul>
- *
- * <h2>계층 복원</h2>
- * {@code ovs-vsctl show} 는 들여쓰기로 계층을 표현한다. 문법이 들여쓰기 깊이를
- * 강제하면 탭/스페이스 혼용에서 깨지므로, 각 줄 <b>첫 토큰의 컬럼</b>을 읽어
- * 깊이를 비교한다. {@code WS} 를 skip 해도 토큰의 {@code charPositionInLine} 은
- * 보존되기 때문에 가능한 방법이다.
- *
- * <p>순회는 ANTLR 이 자동 생성한 {@code OvsTopologyBaseVisitor} 를 그대로 씁니다.
- */
 public final class OvsVisitor extends OvsTopologyBaseVisitor<Void> {
 
-    /** 포트 객체의 초기 {@code tag} 값(배열)과 실제 {@code tag: N} 이 만나는 지점을 맞추기 위한 표식. */
     private final ParseSession<OvsTopologyLexer, OvsTopologyParser> session;
 
     public final ArrayNode bridges = CliJson.array();
     public final ArrayNode ports = CliJson.array();
     public final ArrayNode flows = CliJson.array();
 
-    // --- 들여쓰기 기반 현재 위치 ---
     private ObjectNode currentBridge;
     private ObjectNode currentPort;
     private ObjectNode currentIface;
@@ -59,7 +29,6 @@ public final class OvsVisitor extends OvsTopologyBaseVisitor<Void> {
     private int portIndent;
     private int ifaceIndent;
 
-    // --- list port 레코드 누적 ---
     private ObjectNode currentPortList;
 
     public OvsVisitor(ParseSession<OvsTopologyLexer, OvsTopologyParser> session) {
@@ -133,10 +102,6 @@ public final class OvsVisitor extends OvsTopologyBaseVisitor<Void> {
         ifaceIndent = indent;
     }
 
-    /**
-     * 속성 줄 적용. 대상은 들여쓰기 깊이로 고른다.
-     * 가장 안쪽(인터페이스)부터 검사해 조건에 맞는 첫 대상을 쓴다.
-     */
     private void applyAttr(OvsTopologyParser.AttrLineContext ctx, int indent) {
         ObjectNode target = null;
         if (currentIface != null && indent >= ifaceIndent) {
@@ -185,17 +150,6 @@ public final class OvsVisitor extends OvsTopologyBaseVisitor<Void> {
 
     /* ==================== ovs-vsctl list port ==================== */
 
-    /**
-     * 레코드 경계마다 새 객체를 시작한다.
-     *
-     * <p>{@code ovs-vsctl} 은 두 가지 구분 방식을 쓴다.
-     * <ul>
-     *   <li>{@code --} 로 구분 (구버전/일부 옵션)</li>
-     *   <li><b>빈 줄</b>로 구분 (배포판 기본)</li>
-     * </ul>
-     * 빈 줄을 처리하지 않으면 모든 레코드가 한 객체로 합쳐진다.
-     * 구분자가 아예 없고 {@code _uuid} 가 다시 나오는 출력 형태도 방어한다.
-     */
     @Override
     public Void visitListItem(OvsTopologyParser.ListItemContext ctx) {
         if (ctx.recordSep() != null || ctx.blank() != null) {
@@ -247,14 +201,6 @@ public final class OvsVisitor extends OvsTopologyBaseVisitor<Void> {
 
     /* ==================== ovs-ofctl dump-flows ==================== */
 
-    /**
-     * {@code cookie=0x0, duration=1.2s, table=0, n_packets=0, ..., actions=drop}
-     * 형태의 줄을 파싱한다.
-     *
-     * <p>문법에서 {@code FLOWTOKEN : [a-zA-Z_]+ '=' [^ \t\r\n,]+} 이므로
-     * {@code key=value} 조각은 하나의 토큰이고, 쉼표는 별도 토큰이다.
-     * 따라서 토큰을 순서대로 훑기만 하면 되고, 콤마 분해 문자열 처리가 필요 없다.
-     */
     @Override
     public Void visitFlowItem(OvsTopologyParser.FlowItemContext ctx) {
         OvsTopologyParser.FlowLineContext line = ctx.flowLine();
@@ -328,11 +274,6 @@ public final class OvsVisitor extends OvsTopologyBaseVisitor<Void> {
 
     /* ==================== 값 추출 도우미 ==================== */
 
-    /**
-     * {@code vlanList} 이면 VLAN 번호 목록을, 아니면 {@code null} 을 돌려준다.
-     * {@code null} 과 "빈 목록" 을 구분하는 것이 중요하다.
-     * {@code trunks: []} 는 빈 목록이고, {@code type: internal} 은 목록이 아니다.
-     */
     private static List<Integer> vlanNumbersOf(OvsTopologyParser.AttrValueContext value) {
         if (value == null || value.vlanList() == null) {
             return null;
@@ -344,7 +285,6 @@ public final class OvsVisitor extends OvsTopologyBaseVisitor<Void> {
         return numbers;
     }
 
-    /** 스칼라 값. 토큰 텍스트를 이어 붙인다(사이에 공백 없음). */
     private static String scalarOf(OvsTopologyParser.AttrValueContext value) {
         if (value == null || value.scalarValue() == null) {
             return "";
@@ -366,7 +306,6 @@ public final class OvsVisitor extends OvsTopologyBaseVisitor<Void> {
         return array;
     }
 
-    /** {@code QUOTED} / {@code ATTRWORD} / {@code WORD} 이름 토큰에서 따옴표를 제거한다. */
     private static String nameOf(OvsTopologyParser.NameTokenContext ctx) {
         return ctx == null ? "" : CliText.unquote(ctx.getText());
     }

@@ -20,22 +20,9 @@ import org.sonar.sonarvalidator_backend.Service.opnsense.OPNsenseProbeStrategies
 import org.sonar.sonarvalidator_backend.Service.policy.PolicyPushNotifier;
 import org.sonar.sonarvalidator_backend.Service.policy.PushOutcomeStrategy;
 
-/**
- * 전략 패턴으로 분리한 컴포넌트들의 계약을 검증합니다.
- *
- * <h2>⚠️ 왜 한 파일에 모았는가</h2>
- * <p>각 컴포넌트는 <b>분기 하나</b>를 대신합니다. 개별 파일로 나누면
- * 6개의 작은 테스트 클래스가 생기지만, 여기서 지키려는 계약은 하나입니다 —
- * <b>같은 사실이 두 곳에 있지 않다.</b>
- *
- * <p>리팩토링의 목적이 "변경 지역화" 였으므로, 그 목적이 지켜졌는지를
- * 검증하는 것도 한 곳에 모으는 편이 읽기 쉽습니다.
- */
 class StrategyExtractionTest {
 
-    // ------------------------------------------------------------------
     //  AgentNodeType — 번들의 장치 유형 (switch 2곳을 대신)
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("장치 유형은 표기가 달라도 같은 유형으로 해석된다")
@@ -86,9 +73,7 @@ class StrategyExtractionTest {
         assertTrue(note.contains("eth1"), note);
     }
 
-    // ------------------------------------------------------------------
     //  NotificationCategory / Severity / Filter
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("분류: 기록은 하나로 확정하고, 필터는 모르면 전체로 둔다")
@@ -166,9 +151,7 @@ class StrategyExtractionTest {
         assertEquals(1, NotificationFilter.recent(1).limit());
     }
 
-    // ------------------------------------------------------------------
     //  PolicyPushNotifier — 푸시 결과 분기 (switch/if 대신)
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("푸시 결과: 대상이 없으면 '대상 없음' 알림을 남긴다")
@@ -231,7 +214,7 @@ class StrategyExtractionTest {
 
         final var notices = notifier.classify(outcome);
         assertEquals(2, notices.size(), "제외 알림 + 전달 완료 알림");
-        // "왜 대상 수가 줄었나" 가 결과보다 먼저 와야 읽는 순서가 자연스럽습니다.
+
         assertTrue(notices.get(0).title().contains("격리된 장치 제외"), notices.get(0).title());
         assertTrue(notices.get(0).message().contains("FW-1"));
     }
@@ -248,9 +231,7 @@ class StrategyExtractionTest {
         assertTrue(notifier.classify(outcome).isEmpty());
     }
 
-    // ------------------------------------------------------------------
     //  LogLineReader — 줄 쪼개기 (split 이 두 곳에 있었다)
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("로그 줄: 줄 배열은 그대로 쓴다 (원문 개행을 존중)")
@@ -277,9 +258,9 @@ class StrategyExtractionTest {
     @Test
     @DisplayName("로그 줄: 배열과 text 는 같은 쪼개기를 쓴다 (경로별 차이 없음)")
     void logLinesArePathIndependent() {
-        // ⚠️ 이전에는 ingest 와 upload 에 split("\\R") 이 각각 있었습니다.
-        //    한쪽만 바꾸면 <b>같은 내용을 붙여넣기와 업로드로 넣었을 때
-        //    줄 수가 달라집니다.</b>
+
+
+
         final LogLineReader reader = new LogLineReader();
         final String content = "line1\nline2\nline3";
 
@@ -320,9 +301,7 @@ class StrategyExtractionTest {
         assertEquals("manual", new LogLineReader().sourceLabelOf(Map.of("text", "a"), null));
     }
 
-    // ------------------------------------------------------------------
     //  OPNsenseProbeStrategies — 진단 대상 분기
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("OPNsense 진단: 대상 이름이 올바른 API 로 간다")
@@ -377,9 +356,7 @@ class StrategyExtractionTest {
         }
     }
 
-    // ------------------------------------------------------------------
     //  경계 계약
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("strategy 목록을 외부에서 주입해 확장할 수 있다")

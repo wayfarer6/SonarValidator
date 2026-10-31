@@ -1,3 +1,4 @@
+import PolicyAnalysisScope from "../components/project/PolicyAnalysisScope";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
@@ -8,19 +9,6 @@ import { getPolicyViolations, getPolicyForbiddenPairs } from "../lib/api";
 import { getProject, listProjects } from "../lib/api/projects";
 import type { ViolationSeverity } from "../lib/api/types";
 
-/**
- * 정책 검증 결과 내보내기 화면입니다.
- *
- * <h2>빈 스텁에서 실제 기능으로</h2>
- * 이 화면은 이전에 제목만 있는 껍데기였고, 안에는 "박스 왼쪽 최상단에
- * Create Project" 라는 주석 한 줄뿐이었습니다. 이제 서버가 판정한 위반
- * 내역을 JSON/CSV 로 내려받습니다.
- *
- * <h2>왜 서버 값을 그대로 내보내는가</h2>
- * 프론트에서 다시 계산하면 서버 판정과 어긋날 수 있습니다. 위반 여부와
- * 심각도, 반례 패킷({@code sampled_packet})은 모두 서버 응답을 그대로
- * 옮깁니다.
- */
 
 const SEVERITY_COLOR: Record<ViolationSeverity, "error" | "warning" | "info"> = {
   CRITICAL: "error",
@@ -28,18 +16,8 @@ const SEVERITY_COLOR: Record<ViolationSeverity, "error" | "warning" | "info"> = 
   MINOR: "info",
 };
 
-/** CSV 한 칸을 안전하게 감쌉니다. (쉼표/따옴표/줄바꿈 포함 시 이중 인용부호) */
-function csvCell(value: unknown): string {
-  const text = value === null || value === undefined ? "" : String(value);
-  if (/[",\n\r]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
-
-/** Blob 을 파일로 내려받습니다. */
-function downloadBlob(content: string, mime: string, filename: string): void {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+function exportJsonFile(filename: string, payload: unknown): void {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -47,7 +25,7 @@ function downloadBlob(content: string, mime: string, filename: string): void {
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export default function PolicyExporter() {
@@ -108,14 +86,17 @@ export default function PolicyExporter() {
 
   const fileBase = `policy-${selectedProject?.name ?? selectedProjectId ?? "report"}`;
 
-  /** 서버 응답 전체를 JSON 으로 내보냅니다. (원본 보존) */
-  const handleExportJson = () => {
+  const handleExport = () => {
     if (!report) return;
     const payload = {
       project_id: report.project_id,
       project_name: report.project_name,
       generated_at: new Date().toISOString(),
       compliant: report.compliant,
+      model_valid: report.model_valid,
+      analysis_scope: report.analysis_scope,
+      data_plane_analyzed: report.data_plane_analyzed,
+      input_errors: report.input_errors,
       rule_count: report.rule_count,
       subnet_count: report.subnet_count,
       violation_count: report.violation_count,
@@ -139,60 +120,13 @@ export default function PolicyExporter() {
         reason: v.reason,
         sampled_protocol: v.sampled_protocol,
         sampled_packet: v.sampled_packet,
+        evidence_type: v.evidence_type,
         sampled_src_ip: v.sampled_src_ip,
         sampled_dst_ip: v.sampled_dst_ip,
         sampled_port: v.sampled_port,
       })),
     };
-    downloadBlob(
-      JSON.stringify(payload, null, 2),
-      "application/json",
-      `${fileBase}.json`,
-    );
-  };
-
-  /** 위반 목록을 스프레드시트용 CSV 로 내보냅니다. */
-  const handleExportCsv = () => {
-    if (!report) return;
-    const header = [
-      "rule_id",
-      "severity",
-      "src_subnet",
-      "src_cidr",
-      "src_class",
-      "dst_subnet",
-      "dst_cidr",
-      "dst_class",
-      "sampled_protocol",
-      "source_ip",
-      "destination_ip",
-      "port",
-      "reason",
-      "sampled_packet",
-    ];
-    const rows = violations.map((v) =>
-      [
-        v.rule_id,
-        v.severity,
-        v.src_subnet ?? "",
-        subnetCidr(v.src_subnet) ?? "",
-        v.src_class ?? "",
-        v.dst_subnet ?? "",
-        subnetCidr(v.dst_subnet) ?? "",
-        v.dst_class ?? "",
-        v.sampled_protocol,
-        v.sampled_src_ip ?? "",
-        v.sampled_dst_ip ?? "",
-        v.sampled_port ?? "",
-        v.reason,
-        v.sampled_packet,
-      ]
-        .map(csvCell)
-        .join(","),
-    );
-    // BOM 을 붙여야 Excel 에서 한글이 깨지지 않습니다.
-    const csv = `\uFEFF${[header.join(","), ...rows].join("\r\n")}\r\n`;
-    downloadBlob(csv, "text/csv", `${fileBase}.csv`);
+    exportJsonFile(`${fileBase}.json`, payload);
   };
 
   const isExporting =
@@ -258,19 +192,12 @@ export default function PolicyExporter() {
           </button>
           <button
             type="button"
-            onClick={handleExportCsv}
-            disabled={!report || isExporting}
-            className="rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03]"
-          >
-            CSV 내보내기
-          </button>
-          <button
-            type="button"
-            onClick={handleExportJson}
+            onClick={handleExport}
+            data-testid="export-policy-file"
             disabled={!report || isExporting}
             className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isExporting ? "불러오는 중..." : "JSON 내보내기"}
+            {isExporting ? "불러오는 중..." : "파일로 내보내기"}
           </button>
         </div>
       </div>
@@ -288,11 +215,12 @@ export default function PolicyExporter() {
           </div>
           {report && (
             <Badge color={report.compliant ? "success" : "error"} size="sm">
-              {report.compliant ? "검증 통과" : `위반 ${report.violation_count}건`}
+              {report.compliant ? "정책 모델 검증 통과" : `검토 ${report.violation_count}건`}
             </Badge>
           )}
         </div>
 
+        {report && <PolicyAnalysisScope report={report} />}
         {violationsResult.error || projectDetails.error ? (
           <p className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
             {violationsResult.error ?? projectDetails.error}

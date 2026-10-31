@@ -1,68 +1,72 @@
-#ifndef SONAR_VALIDATOR_PROBER_TELEMETRY_COMMAND_COLLECTOR_HPP_
-#define SONAR_VALIDATOR_PROBER_TELEMETRY_COMMAND_COLLECTOR_HPP_
-
+#ifndef SONAR_COMMAND_COLLECTOR_HPP_
+#define SONAR_COMMAND_COLLECTOR_HPP_
+#include <functional>
 #include <map>
+#include <memory>
 #include <string>
-
+#include <vector>
 #include <nlohmann/json.hpp>
-
+#include "components/device/command_executor.hpp"
 #include "components/device/device_type.hpp"
-#include "module/configuration_module/prober_config.hpp"
+class ProberConfig;
 
-class ManagementService;
-
-// =============================================================================
-//  CommandCollector — 장치에 조회 명령을 실행하고 결과를 파싱해 수집 상태를 만든다
-//
-//  설계 의도
-//    - 프로버는 "수집 전용" 이다. 여기서는 조회(show/ip ...)만 실행하고 설정을 바꾸지 않는다.
-//    - 어떤 명령을 실행할지는 docs/Agent_Command.md 의 "조회 명령어" 섹션이 단일 진실이다.
-//    - 명령 실행은 ManagementService 의 공개 메서드만 사용한다.
-//        · Linux/VM       : RunCommandOutput("ip ...")
-//        · Cisco IOS-XE   : ExecuteIosCli({...})   (guestshell 의 dohost)
-//        · Arista vEOS    : QueryAristaCli("...")  (FastCli 영속 세션)
-//    - 파싱은 parser/cli_output_parser.hpp 의 ANTLR 기반 파서가 담당한다.
-//      파서는 실패해도 예외를 던지지 않고 {"parsed":false,...} 를 돌려준다.
-//
-//  테스트 가능성
-//    - BuildStateFromOutputs() 는 순수 함수다. 명령 원문(문자열)만 주면
-//      CollectedState 를 만들므로 실제 장비 없이 검증할 수 있다.
-//    - CollectState() 는 장치에서 출력을 모아 BuildStateFromOutputs() 에 넘기는 얇은 층이다.
-// =============================================================================
-
-namespace collector
-{
-
-// 한 번의 수집(스냅샷) 결과입니다.
-// snapshot 은 서버로 보낼 전체 묶음이고, 나머지는 DB 저장용 부분 객체입니다.
-// 수집하지 못한 항목은 null(nlohmann::json{}) 로 남습니다.
+namespace collector {
 struct CollectedState
 {
-    nlohmann::json snapshot;    // 서버로 보낼 전체 스냅샷
-    nlohmann::json nic;         // nic_info + nic_address 용 ("interfaces")
-    nlohmann::json route;       // route_table 용 ("routes")
-    nlohmann::json vlan;        // vlan_status 용 ("vlans")
-    nlohmann::json trunk;       // trunk_status 용 ("ports")
-    nlohmann::json arp;         // arp_table 용 ("entries")
-    nlohmann::json rules;       // 방화벽 규칙 (nftables, "chains"/"rules")
-    nlohmann::json topology;    // OpenVSwitch L2 토폴로지 ("bridges")
-    bool any_success = false;   // 수집에 성공한 항목이 하나라도 있는지
+    nlohmann::json snapshot = nlohmann::json::object();
+    nlohmann::json nic;
+    nlohmann::json route;
+    nlohmann::json vlan;
+    nlohmann::json trunk;
+    nlohmann::json arp;
+    nlohmann::json rules;
+    nlohmann::json topology;
+    bool any_success = false;
 };
 
-// 명령 원문(명령 → 출력)만으로 수집 상태를 만드는 순수 함수입니다.
-//   - key 예: "ip a", "ip -br addr show", "ip route show", "ip neigh show",
-//             "show ip interface brief", "show ip route", "show ip arp",
-//             "show vlan brief", "show interfaces switchport"
-//   - 값이 비어 있으면 그 항목은 건너뜁니다.
-//   - 예외를 밖으로 던지지 않습니다.
-CollectedState BuildStateFromOutputs(DeviceType device_type,
-                                     const std::string& product_name,
-                                     const std::map<std::string, std::string>& outputs);
 
-// 장치에서 조회 명령을 실행해 수집 상태를 만듭니다.
-// 명령 실행이 실패해도 예외를 던지지 않고 성공한 항목만 담아 돌려줍니다.
-CollectedState CollectState(const ProberConfig& config, ManagementService& management_service);
+using Outputs = std::map<std::string, std::string>;
+enum class QueryChannel { Shell, Ios, Arista };
+struct DeviceQuery { QueryChannel channel; std::string command; };
 
-} // namespace collector
-
-#endif // SONAR_VALIDATOR_PROBER_TELEMETRY_COMMAND_COLLECTOR_HPP_
+class TelemetryStrategy {
+public:
+    virtual ~TelemetryStrategy() = default;
+    virtual std::string Id() const = 0;
+    virtual int Priority() const { return 0; }
+    virtual bool Supports(DeviceType type, const std::string& product) const = 0;
+    virtual const std::vector<DeviceQuery>& Queries() const = 0;
+    virtual CollectedState Parse(DeviceType type, const std::string& product, const Outputs& outputs) const = 0;
+};
+class FunctionalTelemetryStrategy final : public TelemetryStrategy {
+public:
+    using Match = std::function<bool(DeviceType, const std::string&)>;
+    using Parser = std::function<CollectedState(DeviceType, const std::string&, const Outputs&)>;
+    FunctionalTelemetryStrategy(std::string id, Match match, std::vector<DeviceQuery> queries, Parser parser, int priority = 0)
+        : id_(std::move(id)), match_(std::move(match)), queries_(std::move(queries)), parser_(std::move(parser)), priority_(priority) {}
+    std::string Id() const override { return id_; }
+    int Priority() const override { return priority_; }
+    bool Supports(DeviceType type, const std::string& product) const override { return match_(type, product); }
+    const std::vector<DeviceQuery>& Queries() const override { return queries_; }
+    CollectedState Parse(DeviceType type, const std::string& product, const Outputs& outputs) const override { return parser_(type, product, outputs); }
+private:
+    std::string id_;
+    Match match_;
+    std::vector<DeviceQuery> queries_;
+    Parser parser_;
+    int priority_;
+};
+class TelemetryStrategyRegistry {
+public:
+    void Register(std::shared_ptr<const TelemetryStrategy> strategy);
+    const TelemetryStrategy* Select(DeviceType type, const std::string& product) const;
+private:
+    std::vector<std::shared_ptr<const TelemetryStrategy>> strategies_;
+};
+const TelemetryStrategyRegistry& DefaultTelemetryStrategies();
+CollectedState BuildStateFromOutputs(DeviceType type, const std::string& product, const Outputs& outputs,
+                                    const TelemetryStrategyRegistry& strategies = DefaultTelemetryStrategies());
+CollectedState CollectState(const ProberConfig& config, DeviceCommandExecutor& device,
+                            const TelemetryStrategyRegistry& strategies = DefaultTelemetryStrategies());
+}
+#endif

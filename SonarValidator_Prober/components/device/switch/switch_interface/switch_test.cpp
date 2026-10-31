@@ -104,22 +104,10 @@ int main()
 
 
 
-    /*
-    const std::string cisco_topology = R"(
-    interface GigabitEthernet1/0/1
-        switchport mode trunk
-        switchport trunk allowed vlan 100,110,120,130
-    interface GigabitEthernet1/0/2
-        switchport access vlan 50)";
-    */
-
-    //Switch ciscoSwitch("CAT9000V");
-    //ciscoSwitch.loadTopology(cisco_topology, SwitchVendor::CiscoCatalyst9000v);
-    //assert(ciscoSwitch.getBridges().size() == 1);
-    //assert(ciscoSwitch.getBridges()[0].ports.size() == 2);
 
 
-    
+
+
 
 
     return 0;

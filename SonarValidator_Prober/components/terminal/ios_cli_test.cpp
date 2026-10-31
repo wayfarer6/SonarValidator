@@ -63,9 +63,9 @@ int main()
     Expect(!failed && noise.find("dohost") == std::string::npos && noise.find("show version") != std::string::npos,
            "dohost noise lines are dropped but IOS output is kept", failures);
 
-    // 실장비(10.20.0.1 guestshell) 실측: IOSP 세션이 없으면 dohost 는
-    // "Unexpected Error" 를 출력하고 종료코드 0 을 돌려준다. 이 텍스트를
-    // 텔레메트리 데이터로 오인하면 안 된다.
+
+
+
     {
         const ios_cli::OutputCheck check = ios_cli::CheckOutput("Unexpected Error\n");
         Expect(check.failed, "real-device 'Unexpected Error' is treated as failure", failures);
@@ -86,5 +86,12 @@ int main()
                "IOS parser error is a command failure, not a session failure", failures);
     }
 
+    for (const std::string raw : {"", "  ", "\r\n", "dohost: running\n"})
+    {
+        const auto empty = ios_cli::CheckOutput(raw);
+        Expect(empty.failed && empty.text.empty(), "empty/noise output is never success", failures);
+    }
+    Expect(ios_cli::CheckOutput("% Authorization failed.\n").failed,
+           "authorization failure is rejected", failures);
     return failures == 0 ? 0 : 1;
 }

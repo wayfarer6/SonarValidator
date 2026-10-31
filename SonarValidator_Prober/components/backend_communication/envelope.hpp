@@ -9,18 +9,18 @@
 
 #include "components/device/device_type.hpp"
 
-// 중앙 서버(Spring Boot)와 주고받는 공통 메시지 봉투입니다.
-//
-// STOMP를 쓰지 않고 순수 WebSocket 텍스트 프레임 위에서
-// "type" 필드로 메시지 종류를 구분합니다. 요청-응답 짝은 서버가 아니라
-// 애플리케이션 계층에서 correlation_id로 맞춥니다.
-//
-// 서버 DTO(Envelope.java)와 필드명이 정확히 일치해야 합니다(모두 snake_case):
-//   type, agent_id, device_type, correlation_id, payload, error
-//
-// 예시:
-//   {"type":"policy-request","agent_id":"sw-01","device_type":"SWITCH",
-//    "correlation_id":"c-7","payload":{"device_id":"sw-01"}}
+
+
+
+
+
+
+
+
+
+
+
+
 namespace envelope
 {
 
@@ -33,24 +33,24 @@ inline constexpr const char* kCommand = "command";
 inline constexpr const char* kAck = "ack";
 inline constexpr const char* kError = "error";
 
-// 운영자 격리 명령의 payload.action 값입니다.
-// 서버 QuarantineService.ACTION_QUARANTINE / ACTION_RELEASE 와
-// 문자열이 정확히 일치해야 합니다. 한 글자만 달라도 격리 명령이
-// 조용히 무시되어 "화면은 격리됨, 장치는 정상" 이라는 최악의 상태가 됩니다.
+
+
+
+
 inline constexpr const char* kActionQuarantine = "quarantine";
 inline constexpr const char* kActionRelease = "release";
 
-// 격리 명령의 payload.scope 값입니다. (DB Design v1.5)
-//
-//   node       : Agent 가 관리 경로를 뺀 인터페이스를 내립니다.
-//   connection : 방화벽의 특정 서브넷만 차단합니다 — **서버가 규칙으로** 처리하며
-//                Agent 는 인터페이스를 절대 건드리지 않습니다.
-//
-// ⚠️ connection 인데 Agent 가 인터페이스를 내리면, 트렁크 하나로 여러 VLAN 을
-//    들고 있는 방화벽에서는 격리 대상이 아니라 **무관한 존 전체**가 끊깁니다.
-//    그래서 Prober 는 이 값을 반드시 확인해 인터페이스 조작을 건너뜁니다.
-//    (서버는 애초에 connection 격리에 명령을 보내지 않지만, 구버전 서버나
-//     손으로 만든 봉투를 막는 이중 안전장치입니다)
+
+
+
+
+
+
+
+
+
+
+
 inline constexpr const char* kScopeNode = "node";
 inline constexpr const char* kScopeConnection = "connection";
 

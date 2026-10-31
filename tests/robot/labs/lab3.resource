@@ -1,0 +1,6 @@
+*** Variables ***
+${LAB_TITLE}           Lab 3 · OPNsense / Ubuntu
+${PROJECT_ID}          %{SONAR_LAB3_PROJECT_ID=}
+${MANAGEMENT_SERVER}   192.168.151.10
+@{EXPECTED_AGENTS}
+@{EXPECTED_CIDRS}

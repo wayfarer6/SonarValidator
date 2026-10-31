@@ -12,29 +12,6 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * Ubuntu/Linux VM 의 정책 전략입니다.
- *
- * <h2>이 전략이 아는 것</h2>
- * <ul>
- *   <li>폴백: 인터페이스 up (문서 {@code VM_Policy_Design.md})</li>
- *   <li>선언: netplan 스키마 ({@code config_backend}, {@code network_config})</li>
- *   <li>집행: 없음 — VM 은 라우팅 경로가 아니므로 ACL 지점이 아닙니다</li>
- * </ul>
- *
- * <h2>⚠️ 인터페이스 이름을 고정하지 않는다</h2>
- * <p>문서 예제는 {@code ens33} 이지만 랩 컨테이너 VM 은 {@code eth0}, 다른
- * 배포판은 {@code ens3} / {@code enp0s3} 을 씁니다. 서버는 장치의 인터페이스
- * 이름을 알 수 없으므로 고정하면 <code>Cannot find device "ens33"</code> 로
- * <b>모든 VM 정책이 실패</b>합니다. (실측: TOD-Cam/UAV/VDI-1/VDI-2)
- * 그래서 {@link #PRIMARY_INTERFACE_TOKEN} 을 보내고 Prober 가 실제 이름으로
- * 치환합니다.
- *
- * <h2>⚠️ 주소는 호스트 주소를 넣는다</h2>
- * <p>{@link PolicyJson#hostCidrOf} 로 네트워크 주소를 호스트 주소로 바꿉니다.
- * 네트워크 주소({@code .0})를 인터페이스에 넣으면 대역 판정이 깨져
- * 통신이 두절됩니다.
- */
 @Component
 public class VmPolicy implements DevicePolicy {
 
@@ -42,33 +19,14 @@ public class VmPolicy implements DevicePolicy {
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
-    /**
-     * 장치의 실제 기본 인터페이스로 치환될 자리표시자입니다.
-     *
-     * <p>이 문자열은 Prober 의 {@code ManagementService::ResolveInterfaceName}
-     * 과 <b>정확히 같아야</b> 합니다. 다르면 치환되지 않고
-     * {@code Cannot find device "__primary__"} 로 실패합니다.
-     */
     public static final String PRIMARY_INTERFACE_TOKEN = "__primary__";
 
-    /**
-     * VM 설정 백엔드 이름을 담은 사이트 설정입니다.
-     *
-     * <h2>⚠️ 왜 상수가 아니라 설정인가</h2>
-     * <p>설정 백엔드({@code netplan}, {@code networkd}, {@code ifupdown})는
-     * 배포판·이미지마다 다릅니다. 상수로 두면 다른 이미지를 지원할 때
-     * 이 클래스를 고쳐야 합니다.
-     */
     private final SiteProperties site;
 
-    /**
-     * @param site 사이트 설정 (설정 백엔드 이름)
-     */
     public VmPolicy(SiteProperties site) {
         this.site = site;
     }
 
-    /** @return VM 설정 백엔드 이름 */
     private String configBackend() {
         final String configured = site == null ? null : site.getVmDefaults().getConfigBackend();
         return PolicyJson.firstNonBlank(configured, "netplan");
@@ -96,11 +54,6 @@ public class VmPolicy implements DevicePolicy {
         rule.putArray("product").add("Ubuntu Linux");
         rule.putArray("model").add("Ubuntu VM");
         rule.putArray("command").add("on");
-        // ⚠️ 여기서는 설정값이 아니라 <b>자리표시자</b>를 씁니다.
-        //    VM 의 실제 NIC 이름은 서버가 알 수 없고(ens33/eth0/ens3),
-        //    고정하면 `Cannot find device` 로 모든 VM 정책이 실패합니다.
-        //    Prober 가 실제 이름으로 치환하므로 이 토큰이 곧 확장 지점입니다.
-        //    (설정으로 바꾸면 치환 경로가 끊겨 오히려 정책이 깨집니다)
         rule.putArray("interface").add(PRIMARY_INTERFACE_TOKEN);
         return rule;
     }
@@ -140,12 +93,6 @@ public class VmPolicy implements DevicePolicy {
         return null;
     }
 
-    /**
-     * 공통 머리말(vendor/product/model/subnet_id)을 채웁니다.
-     *
-     * @param context 빌드 컨텍스트
-     * @return 머리말이 채워진 노드
-     */
     private ObjectNode baseRule(PolicyBuildContext context) {
         final ObjectNode rule = JSON.objectNode();
         rule.putArray("vendor").add(context.vendorOr(defaultVendor()));

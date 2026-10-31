@@ -15,30 +15,9 @@ import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.entity.ExpectedAgent;
 import org.sonar.sonarvalidator_backend.Service.ExpectedAgentService;
 
-/**
- * 배포 예정/관측 통합 현황의 계약을 검증합니다.
- *
- * <h2>⚠️ 이 테스트가 잡는 실제 버그 2건</h2>
- * <p>PoC 랩에 라우터 5대를 실제로 배포한 뒤 화면에서 발견했습니다.
- * <ol>
- *   <li><b>이름이 소문자로 바뀜</b> — 예정에 없는 Agent 의 {@code agent_id} 가
- *       내부 매칭 키(소문자)로 덮어써져, 배포 스크립트에 적은
- *       {@code Gateway-Router} 가 {@code gateway-router} 로 보였습니다.
- *       그러면 프로젝트 서브넷의 {@code agent_id} 와 매칭되지 않아
- *       <b>정책이 기본값으로 떨어집니다.</b></li>
- *   <li><b>장치 유형이 null</b> — 예정에 없으면 {@code device_type} 이 비어
- *       화면에 유형을 알 수 없었고, 유형별 정책 분기도 불가능했습니다.</li>
- * </ol>
- *
- * <p>두 번째는 {@link DeviceType#inferFromDeviceId} 가 이름의 <b>끝</b>을
- * 보지 않던 문제와 겹칩니다. 랩 장치는 이름이 역할로 끝납니다
- * ({@code Gateway-Router}, {@code Survillance-Network-Router}).
- */
 class ExpectedAgentOverviewTest {
 
-    // ------------------------------------------------------------------
     //  이름 대소문자 보존
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("예정에 없는 Agent 도 원본 대소문자를 유지한다")
@@ -93,9 +72,7 @@ class ExpectedAgentOverviewTest {
         assertEquals(Boolean.TRUE, entry.get("expected"));
     }
 
-    // ------------------------------------------------------------------
     //  장치 유형
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("예정에 없는 Agent 도 식별자에서 유형을 추론한다")
@@ -139,9 +116,7 @@ class ExpectedAgentOverviewTest {
         assertEquals(DeviceType.VM, DeviceType.inferFromDeviceId("  "));
     }
 
-    // ------------------------------------------------------------------
     //  집계 일관성
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("connected/silent 집계가 행 상태와 일치한다")
@@ -184,7 +159,6 @@ class ExpectedAgentOverviewTest {
         assertEquals(0, body.get("silent"));
     }
 
-    /** @return 해당 식별자의 device_type 값 */
     private static Object typeOf(Map<String, Map<String, Object>> overview, String agentId) {
         return overview.values().stream()
                 .filter(entry -> agentId.equals(entry.get("agent_id")))

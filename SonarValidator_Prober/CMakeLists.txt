@@ -33,33 +33,13 @@ else()
 endif()
 
 # --------------------------------------------------------------- nlohmann/json --
-# 시스템에 설치된 헤더를 우선 쓰고, 없으면 FetchContent 로 받는다.
-# 두 경우 모두 sonar_json 인터페이스 타깃 하나로 감싼다.
-find_package(nlohmann_json 3.11 QUIET)
+# 시스템 패키지 매니저(APT)로 설치된 nlohmann_json 연동
+find_package(nlohmann_json 3.11 REQUIRED)
 
 add_library(sonar_json INTERFACE)
-if(nlohmann_json_FOUND)
-    target_link_libraries(sonar_json INTERFACE nlohmann_json::nlohmann_json)
-else()
-    find_path(SONAR_NLOHMANN_JSON_INCLUDE_DIR nlohmann/json.hpp)
-    if(NOT SONAR_NLOHMANN_JSON_INCLUDE_DIR)
-        include(FetchContent)
-        FetchContent_Declare(
-            nlohmann_json
-            URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-        )
-        FetchContent_MakeAvailable(nlohmann_json)
-        target_link_libraries(sonar_json INTERFACE nlohmann_json::nlohmann_json)
-    else()
-        message(STATUS "nlohmann/json: ${SONAR_NLOHMANN_JSON_INCLUDE_DIR}")
-        target_include_directories(sonar_json INTERFACE
-            ${SONAR_NLOHMANN_JSON_INCLUDE_DIR})
-    endif()
-endif()
+target_link_libraries(sonar_json INTERFACE nlohmann_json::nlohmann_json)
 
 # ---------------------------------------------------------------------- Boost --
-# 관리/텔레메트리 통신은 Boost.Asio + Beast 를 헤더 전용으로 쓴다.
-# (링크할 라이브러리가 없어 boost_system 은 넣지 않는다.)
 find_package(Boost QUIET)
 
 add_library(sonar_boost INTERFACE)
@@ -76,23 +56,35 @@ else()
 endif()
 
 # =============================================================================
-#  ANTLR4 (벤더 CLI 조회 출력 파서)
-#
-#  components/parser/grammar/*.g4 에서 생성한 C++ 파서는
-#  components/parser/generated/grammar 에 커밋되어 있다.
-#  따라서 일반 빌드에는 ANTLR4 "C++ 런타임 라이브러리" 만 있으면 되고,
-#  Java/jar 는 문법을 고칠 때만 쓴다 (components/parser/cmake/regenerate_parser.sh).
-#
-#  문법을 바꿨다면
-#    1) regenerate_parser.sh 로 생성 코드 갱신
-#    2) 빌드는 평소처럼 cmake --build build
+#  ANTLR4 (Homebrew 자동 탐색 및 경로 보정)
 # =============================================================================
+# Homebrew 표준 절대 경로 스캔 및 자동 인지
+if(NOT ANTLR4_HOME)
+    if(EXISTS "/home/linuxbrew/.linuxbrew")
+        set(ANTLR4_HOME "/home/linuxbrew/.linuxbrew")
+    elseif(EXISTS "$ENV{HOME}/.linuxbrew")
+        set(ANTLR4_HOME "$ENV{HOME}/.linuxbrew")
+    elseif(EXISTS "/opt/homebrew")
+        set(ANTLR4_HOME "/opt/homebrew")
+    else()
+        execute_process(
+            COMMAND brew --prefix
+            OUTPUT_VARIABLE BREW_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+        if(BREW_PREFIX)
+            set(ANTLR4_HOME "${BREW_PREFIX}")
+        endif()
+    endif()
+endif()
+
+message(STATUS "ANTLR4 Homebrew 루트 감지: ${ANTLR4_HOME}")
+
 set(SONAR_ANTLR4_GENERATED_DIR
     "${CMAKE_CURRENT_SOURCE_DIR}/components/parser/generated")
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/components/parser/cmake/FindANTLR4Runtime.cmake)
-
-# 커밋된 생성 소스를 그대로 컴파일한다. (재생성은 스크립트로만)
+# 커밋된 생성 소스를 그대로 컴파일한다.
 file(GLOB SONAR_ANTLR4_GENERATED_SOURCES CONFIGURE_DEPENDS
     "${SONAR_ANTLR4_GENERATED_DIR}/grammar/*Lexer.cpp"
     "${SONAR_ANTLR4_GENERATED_DIR}/grammar/*Parser.cpp"
@@ -107,42 +99,28 @@ if(_sonar_generated_count EQUAL 0)
 endif()
 message(STATUS "ANTLR4: 커밋된 생성 소스 ${_sonar_generated_count}개")
 
-# 문법을 고쳤을 때만 실행하는 편의 타깃. (jar 필요)
+# 문법 재생성 타깃 정의
 add_custom_target(regenerate_parser
     COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/components/parser/cmake/regenerate_parser.sh"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     COMMENT "ANTLR4: components/parser/grammar/*.g4 재생성"
     USES_TERMINAL)
 
+# 라이브러리 링크 및 인클루드 패스 바인딩 (antlr4-runtime 헤더 진입 경로 완벽 보정)
+link_directories(${ANTLR4_HOME}/lib)
 set(SONAR_ANTLR4_INCLUDE_DIRS
     ${SONAR_ANTLR4_GENERATED_DIR}
-    ${SONAR_ANTLR4_GENERATED_DIR}/grammar)
-
-if(SONAR_ANTLR4_AVAILABLE)
-    list(APPEND SONAR_ANTLR4_INCLUDE_DIRS
-        ${ANTLR4_RUNTIME_ROOT}/include/antlr4-runtime)
-else()
-    message(FATAL_ERROR
-        "ANTLR4 C++ 런타임을 찾지 못했습니다. (파서 없이는 프로버가 동작하지 않습니다)\n"
-        "  ANTLR4_RUNTIME_ROOT 로 lib/libantlr4-runtime.a 와\n"
-        "  include/antlr4-runtime/ 가 있는 디렉터리를 지정하세요.")
-endif()
+    ${SONAR_ANTLR4_GENERATED_DIR}/grammar
+    ${ANTLR4_HOME}/include
+    ${ANTLR4_HOME}/include/antlr4-runtime)
 
 # =============================================================================
 #  소스 그룹
-#
-#  components/  : 재사용 가능한 부품 (장치/통신/정책/터미널/파서)
-#  module/      : 조립·실행 단위 (설정/초기화/관리/텔레메트리/오프라인)
-#  database/    : SQLite 영속 계층
-#  utils/       : CLI 옵션 / 경로 결정
-#  workers/     : 스레드 진입점 (헤더 전용)
 # =============================================================================
-
 set(SONAR_PARSER_SOURCES
     components/parser/cli_output_parser.cpp
     ${SONAR_ANTLR4_GENERATED_SOURCES})
 
-# 장치 도메인 구현. CLI 텍스트 파싱은 공통 parser 에 위임한다.
 set(SONAR_DEVICE_SOURCES
     components/device/router/router.cpp
     components/device/switch/switch_interface/switch.cpp
@@ -167,6 +145,8 @@ set(SONAR_DATABASE_SOURCES
     database/telemetry_store.cpp)
 
 set(SONAR_SUPPORT_SOURCES
+    components/policy/policy_executor.cpp
+    components/policy/policy_actions.cpp
     components/policy/policy_command.cpp
     components/policy/policy_receiver.cpp
     components/policy/quarantine_handler.cpp
@@ -177,284 +157,62 @@ set(SONAR_SUPPORT_SOURCES
 
 # -----------------------------------------------------------------------------
 #  공통 설정 헬퍼
-#   - include 경로는 "저장소 루트 하나" 만 쓴다. (모든 include 는 root 기준)
-#   - ANTLR 생성 헤더 경로와 런타임 include 를 함께 넣는다.
 # -----------------------------------------------------------------------------
 function(sonar_configure_target target)
-    target_include_directories(${target} PRIVATE
+    target_include_directories(${target} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${SONAR_ANTLR4_INCLUDE_DIRS})
 
-    target_link_libraries(${target} PRIVATE
+    target_link_libraries(${target} PUBLIC
         sonar_json
         sonar_boost
         Threads::Threads
-        ${SONAR_ANTLR4_RUNTIME_LIB})
+        antlr4-runtime)
 
-    target_compile_definitions(${target} PRIVATE SONAR_HAS_ANTLR4=1)
+    target_compile_definitions(${target} PUBLIC SONAR_HAS_ANTLR4=1)
 endfunction()
 
 # =============================================================================
 #  프로버 실행 파일
 # =============================================================================
-add_executable(sonar_validator_prober
-    main.cpp
+add_library(sonar_prober_core STATIC
     workers/TerminalAgentWorker.cpp
     ${SONAR_PARSER_SOURCES}
     ${SONAR_DEVICE_SOURCES}
     ${SONAR_MODULE_SOURCES}
     ${SONAR_DATABASE_SOURCES}
     ${SONAR_SUPPORT_SOURCES})
-
-sonar_configure_target(sonar_validator_prober)
-
+sonar_configure_target(sonar_prober_core)
 if(SONAR_STATIC_LINK)
-    target_link_libraries(sonar_validator_prober PRIVATE
-        SQLite::SQLite3 ${SONAR_OPENSSL_CRYPTO_LIBRARY})
+    target_link_libraries(sonar_prober_core PUBLIC SQLite::SQLite3 ${SONAR_OPENSSL_CRYPTO_LIBRARY})
 else()
-    target_link_libraries(sonar_validator_prober PRIVATE SQLite::SQLite3 OpenSSL::Crypto)
+    target_link_libraries(sonar_prober_core PUBLIC SQLite::SQLite3 OpenSSL::Crypto)
 endif()
-target_compile_definitions(sonar_validator_prober PRIVATE
-    $<$<CONFIG:Debug>:SONAR_DEBUG_BUILD=1>)
+
+add_executable(sonar_validator_prober main.cpp)
+target_link_libraries(sonar_validator_prober PRIVATE sonar_prober_core)
+target_compile_definitions(sonar_validator_prober PRIVATE $<$<CONFIG:Debug>:SONAR_DEBUG_BUILD=1>)
+
+option(SONAR_BUILD_TESTS "Build Prober contract and regression tests" ON)
+if(SONAR_BUILD_TESTS)
+    file(GLOB_RECURSE SONAR_TEST_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/components/*_test.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/module/*_test.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/database/*_test.cpp")
+    foreach(source IN LISTS SONAR_TEST_SOURCES)
+        get_filename_component(name "${source}" NAME_WE)
+        add_executable("sonar_test_${name}" "${source}")
+        target_link_libraries("sonar_test_${name}" PRIVATE sonar_prober_core)
+        target_compile_options("sonar_test_${name}" PRIVATE -UNDEBUG)
+        add_test(NAME "${name}" COMMAND "sonar_test_${name}")
+        set_tests_properties("${name}" PROPERTIES TIMEOUT 120)
+    endforeach()
+    add_test(NAME ios_snapshot_publisher COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/../tests/prober/ios-snapshot-publisher.sh")
+    set_tests_properties(ios_snapshot_publisher PROPERTIES TIMEOUT 30)
+endif()
 
 add_custom_target(installer_bundle
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/Installer/systemd"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/Installer/rc-service"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:sonar_validator_prober>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/sonar_validator_prober"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/components/system_service_registration/systemd/prober.service"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/systemd/sonar_validator_prober.service"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/components/system_service_registration/systemd/prober-cisco.service"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/systemd/sonar_validator_prober-cisco.service"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/components/system_service_registration/rc-service/sonar_validator_prober"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/rc-service/sonar_validator_prober"
-    DEPENDS sonar_validator_prober
-    COMMENT "Stage binary and service scripts in Installer/")
-
-# =============================================================================
-#  도구: 스키마 DDL 덤프
-#   ./build/schema_dump | sqlite3 Installer/default_template.sqlite
-# =============================================================================
-add_executable(schema_dump
-    database/schema_dump.cpp
-    database/schema.cpp)
-
-sonar_configure_target(schema_dump)
-
-# =============================================================================
-#  테스트
-# =============================================================================
-
-# 설정 파싱 (settings.conf <-> ProberConfig)
-add_executable(prober_config_test
-    module/configuration_module/prober_config_test.cpp
-    module/configuration_module/prober_config.cpp)
-sonar_configure_target(prober_config_test)
-target_link_libraries(prober_config_test PRIVATE SQLite::SQLite3)
-add_test(NAME prober_config_test COMMAND prober_config_test)
-
-# DB 큐 / 태스크 (sqlite3 핸들은 DB 스레드만 만진다)
-add_executable(database_service_test
-    database/database_service_test.cpp
-    database/database_service.cpp)
-sonar_configure_target(database_service_test)
-target_link_libraries(database_service_test PRIVATE SQLite::SQLite3)
-target_compile_definitions(database_service_test PRIVATE
-    SONAR_VALIDATOR_PROBER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-add_test(NAME database_service_test COMMAND database_service_test)
-
-# 수집 상태 저장 헬퍼 (라우팅/NIC/VLAN/트렁크/ARP)
-add_executable(telemetry_store_test
-    database/telemetry_store_test.cpp
-    database/telemetry_store.cpp
-    database/schema.cpp
-    database/database_service.cpp)
-sonar_configure_target(telemetry_store_test)
-target_link_libraries(telemetry_store_test PRIVATE SQLite::SQLite3)
-add_test(NAME telemetry_store_test COMMAND telemetry_store_test)
-
-# 통신 프로토콜 봉투 (네트워크 불필요)
-add_executable(envelope_test
-    components/backend_communication/envelope_test.cpp)
-sonar_configure_target(envelope_test)
-add_test(NAME envelope_test COMMAND envelope_test)
-
-# Server-originated policy command DTO validation (no device commands executed)
-add_executable(policy_command_test
-    components/policy/policy_command_test.cpp
-    components/policy/policy_command.cpp)
-sonar_configure_target(policy_command_test)
-add_test(NAME policy_command_test COMMAND policy_command_test)
-
-add_executable(connect_with_timeout_test
-    components/backend_communication/connect_with_timeout_test.cpp)
-sonar_configure_target(connect_with_timeout_test)
-add_test(NAME connect_with_timeout_test COMMAND connect_with_timeout_test)
-
-add_executable(command_runner_test
-    components/terminal/command_runner_test.cpp
-    components/terminal/command_runner.cpp)
-sonar_configure_target(command_runner_test)
-add_test(NAME command_runner_test COMMAND command_runner_test)
-
-# IOS-XE guestshell dohost: 명령 시퀀스 결합과 IOS 오류 판정 회귀 테스트.
-add_executable(ios_cli_test
-    components/terminal/ios_cli_test.cpp)
-sonar_configure_target(ios_cli_test)
-add_test(NAME ios_cli_test COMMAND ios_cli_test)
-
-# 차단 ACL 변환: 서버 노드 -> IOS/FRR 명령.
-# ⚠️ 마지막 `permit ip any any` 가 빠지면 인터페이스가 통째로 죽으므로
-#    (암묵적 deny any) 장치 없이 이 성질을 고정합니다.
-add_executable(acl_commands_test
-    components/policy/acl_commands_test.cpp)
-sonar_configure_target(acl_commands_test)
-add_test(NAME acl_commands_test COMMAND acl_commands_test)
-
-add_executable(terminal_session_test
-    components/terminal/terminal_session_test.cpp
-    components/terminal/terminal_session.cpp)
-sonar_configure_target(terminal_session_test)
-add_test(NAME terminal_session_test COMMAND terminal_session_test)
-
-# 격리 명령 수신 판정 (장치 조작 없음 — 문자열 계약/오인 방지)
-# Isolate()/Release() 는 실제 ip link 를 건드리므로 호출하지 않습니다.
-add_executable(quarantine_handler_test
-    components/policy/quarantine_handler_test.cpp
-    components/policy/quarantine_handler.cpp
-    components/policy/policy_receiver.cpp
-    ${SONAR_MODULE_SOURCES}
-    ${SONAR_DEVICE_SOURCES}
-    ${SONAR_DATABASE_SOURCES}
-    ${SONAR_PARSER_SOURCES}
-    ${SONAR_SUPPORT_SOURCES})
-sonar_configure_target(quarantine_handler_test)
-target_link_libraries(quarantine_handler_test PRIVATE SQLite::SQLite3)
-add_test(NAME quarantine_handler_test COMMAND quarantine_handler_test)
-
-# 라우팅 테이블 (ANTLR ParseRouteStatus 위임 검증)
-add_executable(routing_table_test
-    components/device/router/routing_table/routing_table_test.cpp
-    components/device/router/routing_table/routing_table.cpp
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(routing_table_test)
-add_test(NAME routing_table_test COMMAND routing_table_test)
-
-# Router model (라우터가 라우팅 상태를 소유하는지 검증)
-add_executable(router_test
-    components/device/router/router_test.cpp
-    components/device/router/router.cpp
-    components/device/router/routing_table/routing_table.cpp
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(router_test)
-add_test(NAME router_test COMMAND router_test)
-
-# 스위치 (ANTLR ParseOvsTopology / ParseRunningConfig 위임 검증)
-add_executable(switch_test
-    components/device/switch/switch_interface/switch_test.cpp
-    components/device/switch/switch_interface/switch.cpp
-    components/device/switch/vendor/openvswitch/openvswitch.cpp
-    components/device/switch/vendor/arista/aristavEOS.cpp
-    components/device/router/routing_table/routing_table.cpp
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(switch_test)
-add_test(NAME switch_test COMMAND switch_test)
-
-# 방화벽 (ANTLR ParseFirewallRules 위임 검증)
-add_executable(firewall_test
-    components/device/firewall/firewall_interface/firewall_test.cpp
-    components/device/firewall/firewall_interface/firewall.cpp
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(firewall_test)
-add_test(NAME firewall_test COMMAND firewall_test)
-
-# 텔레메트리 WebSocket 클라이언트 (네트워크 불필요 — 계약만 검증)
-add_executable(telemetry_service_test
-    module/telemetry_module/telemetry_service_test.cpp
-    module/telemetry_module/telemetry_service.cpp)
-sonar_configure_target(telemetry_service_test)
-add_test(NAME telemetry_service_test COMMAND telemetry_service_test)
-
-add_executable(websocket_receive_test
-    components/backend_communication/websocket_receive_test.cpp
-    module/telemetry_module/telemetry_service.cpp)
-sonar_configure_target(websocket_receive_test)
-add_test(NAME websocket_receive_test COMMAND websocket_receive_test)
-set_tests_properties(websocket_receive_test PROPERTIES TIMEOUT 10)
-
-# 오프라인 스냅샷 export (서버/장비 불필요)
-add_executable(offline_export_test
-    module/offline_export_module/offline_export_test.cpp
-    module/offline_export_module/offline_export.cpp)
-sonar_configure_target(offline_export_test)
-add_test(NAME offline_export_test COMMAND offline_export_test)
-
-# 관리 서비스 통합 (mock 서버 없으면 SKIP → 종료코드 0)
-add_executable(management_service_integration_test
-    module/management_module/management_service_integration_test.cpp
-    ${SONAR_MODULE_SOURCES}
-    ${SONAR_DEVICE_SOURCES}
-    ${SONAR_SUPPORT_SOURCES}
-    ${SONAR_DATABASE_SOURCES}
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(management_service_integration_test)
-target_link_libraries(management_service_integration_test PRIVATE SQLite::SQLite3)
-add_test(NAME management_service_integration_test
-    COMMAND management_service_integration_test)
-
-# ANTLR CLI 출력 파서 (docs 의 실제 조회 출력 샘플 169 케이스)
-add_executable(cli_output_parser_test
-    components/parser/cli_output_parser_test.cpp
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(cli_output_parser_test)
-add_test(NAME cli_output_parser_test COMMAND cli_output_parser_test)
-
-# SIGTERM live-network smoke test. Excluded from default build/CTest because
-# TEST-NET routing differs by environment; deterministic unit tests cover the timeouts.
-add_executable(sigterm_shutdown_test EXCLUDE_FROM_ALL
-    module/management_module/sigterm_shutdown_test.cpp
-    ${SONAR_MODULE_SOURCES}
-    ${SONAR_DEVICE_SOURCES}
-    ${SONAR_SUPPORT_SOURCES}
-    ${SONAR_DATABASE_SOURCES}
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(sigterm_shutdown_test)
-target_link_libraries(sigterm_shutdown_test PRIVATE SQLite::SQLite3)
-
-# 실제 장비 출력 검증용 CLI 도구 (probe.py 가 수집한 파일을 먹인다)
-add_executable(cli_output_parser_probe
-    components/parser/cli_output_parser_probe.cpp
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(cli_output_parser_probe)
-
-# 수집기 — 조회 명령 실행 + 파서 호출
-add_executable(command_collector_test
-    module/telemetry_module/command_collector_test.cpp
-    ${SONAR_MODULE_SOURCES}
-    ${SONAR_DEVICE_SOURCES}
-    ${SONAR_SUPPORT_SOURCES}
-    ${SONAR_DATABASE_SOURCES}
-    ${SONAR_PARSER_SOURCES})
-sonar_configure_target(command_collector_test)
-target_link_libraries(command_collector_test PRIVATE SQLite::SQLite3)
-add_test(NAME command_collector_test COMMAND command_collector_test)
-
-add_executable(websocket_timeout_test
-    components/backend_communication/websocket_timeout_test.cpp)
-sonar_configure_target(websocket_timeout_test)
-add_test(NAME websocket_timeout_test COMMAND websocket_timeout_test)
-set_tests_properties(websocket_timeout_test PROPERTIES TIMEOUT 10)
-
-add_executable(config_reload_test
-    module/initializing_module/config_reload_test.cpp
-    module/initializing_module/init.cpp
-    module/configuration_module/prober_config.cpp
-    database/database_service.cpp
-    database/schema.cpp)
-sonar_configure_target(config_reload_test)
-target_link_libraries(config_reload_test PRIVATE SQLite::SQLite3)
-add_test(NAME config_reload_test COMMAND config_reload_test)
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/Installer/bin"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:sonar_validator_prober>" "${CMAKE_CURRENT_SOURCE_DIR}/Installer/sonar_validator_prober"
+    DEPENDS sonar_validator_prober)

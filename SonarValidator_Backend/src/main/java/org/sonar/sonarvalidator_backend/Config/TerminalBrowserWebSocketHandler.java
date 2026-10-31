@@ -35,7 +35,7 @@ public class TerminalBrowserWebSocketHandler extends TextWebSocketHandler {
             try {
                 session.sendMessage(new TextMessage(objectMapper.writeValueAsString(
                         Map.of("type", "terminal-error",
-                                "message", "Agent terminal is offline or not configured with the shared secret"))));
+                                "message", broker.browserRejectionReason(agentId)))));
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason(
                         "Agent terminal is offline or already in use"));
             } catch (java.io.IOException | RuntimeException ex) {

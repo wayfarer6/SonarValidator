@@ -9,61 +9,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
-/**
- * 장비 로그 저장소입니다.
- *
- * <h2>왜 파생 쿼리 대신 {@code @Query} 를 쓰는가</h2>
- * <p>로그 조회는 <b>필터 조합</b>이 많습니다(장비/프로젝트/기간/심각도/검색어).
- * 모든 조합을 파생 쿼리 메서드로 만들면 수십 개가 필요하고, 조합이 하나
- * 늘 때마다 메서드를 추가해야 합니다.
- *
- * <p>그래서 <b>null 허용 파라미터</b>를 받는 한 개의 쿼리로 통일합니다.
- * {@code (:param IS NULL OR ...)} 패턴으로 조건을 선택적으로 적용합니다.
- * 인덱스({@code agent_id, logged_at})를 타도록 조건 순서도 그에 맞춥니다.
- *
- * <h2>⚠️ 심각도 필터의 방향</h2>
- * <p>syslog 는 <b>숫자가 낮을수록 심각</b>합니다. 그래서 "warning 이상" 은
- * {@code severity_num <= 4} 입니다. 부등호 방향을 반대로 쓰면 정반대 결과가
- * 나오는데, 결과가 그럴듯해 보여 알아채기 어렵습니다.
- *
- * <h2>기간 파라미터가 문자열에서 날짜로 바뀐 이유</h2>
- * <p>컬럼이 ISO-8601 문자열이던 시절에는 파라미터도 문자열이었습니다.
- * 이제 컬럼이 날짜 타입이므로 파라미터도 {@link Date} 여야 합니다.
- * 문자열을 그대로 넘기면 비교 시 형 변환이 일어나 인덱스를 타지 못하거나
- * 형식에 따라 결과가 달라집니다. <b>API 경계는 문자열로 유지</b>하고
- * 이 저장소에 들어오기 전에 변환합니다.
- */
 public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long>,
         JpaSpecificationExecutor<DeviceLog> {
 
-    /**
-     * 필터 조합으로 로그를 최신순 조회합니다.
-     *
-     * <p>모든 파라미터는 null 을 허용하며, null 이면 그 조건을 적용하지 않습니다.
-     *
-     * @param agentId       장비 식별자 (null 이면 전체)
-     * @param projectKey    프로젝트 키 (null 이면 전체)
-     * @param from          기간 시작 (null 이면 제한 없음)
-     * @param to            기간 끝 (null 이면 제한 없음)
-     * @param maxSeverity   최대 심각도 번호 (0~7). "warning 이상"이면 4
-     * @param search        본문/원문 부분 일치 검색어 (null 이면 전체)
-     * @param highlightedOnly true 면 사용자가 표시한 로그만
-     * @param pageable      페이지 크기 제한
-     * @return 로그 목록 (최신순)
-     */
-    /**
-     * 지문으로 기존 로그를 찾습니다. (중복 수집 방지)
-     *
-     * @param fingerprint 로그 지문
-     * @return 기존 로그 (없으면 빈 값)
-     */
     Optional<DeviceLog> findByFingerprint(String fingerprint);
 
-    /**
-     * 심각도별 건수를 집계합니다. (대시보드 요약용)
-     *
-     * @return {@code [severityNum, count]} 배열 목록
-     */
     @Query("""
             SELECT l.severityNum, COUNT(l) FROM DeviceLog l
             GROUP BY l.severityNum
@@ -71,11 +21,6 @@ public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long>,
             """)
     List<Object[]> countBySeverity();
 
-    /**
-     * 장비별 로그 건수를 집계합니다. (필터 드롭다운의 건수 표시용)
-     *
-     * @return {@code [agentId, count]} 배열 목록
-     */
     @Query("""
             SELECT l.agentId, COUNT(l) FROM DeviceLog l
             GROUP BY l.agentId
@@ -83,14 +28,8 @@ public interface DeviceLogRepository extends JpaRepository<DeviceLog, Long>,
             """)
     List<Object[]> countByAgent();
 
-    /**
-     * 로그에 등장한 장비 식별자 목록입니다. (필터 드롭다운용)
-     *
-     * @return 장비 식별자
-     */
     @Query("SELECT DISTINCT l.agentId FROM DeviceLog l ORDER BY l.agentId")
     List<String> distinctAgentIds();
 
-    /** 오래된 로그를 정리할 때 씁니다. */
     List<DeviceLog> findByLoggedAtBefore(Date cutoff);
 }

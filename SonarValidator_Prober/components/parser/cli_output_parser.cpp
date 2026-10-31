@@ -37,11 +37,7 @@ using antlr4::CommonTokenStream;
 using antlr4::ParserRuleContext;
 using Json = nlohmann::json;
 
-// ============================================================================
-// 공통 유틸
-// ============================================================================
 
-// CLI 출력은 버전에 따라 마지막 개행이 없을 수 있다. 문법이 NEWLINE 을 요구하므로 보정.
 std::string NormalizeForGrammar(const std::string& raw)
 {
     std::string text = raw;
@@ -92,9 +88,9 @@ std::string Trim(const std::string& text)
     return text.substr(start, end - start);
 }
 
-// 끝의 구두점을 제거한다. (`eth0,` -> `eth0`, `connected,` -> `connected`)
-//  주의: 따옴표(`"`)는 값 자체일 수 있으므로 제거하지 않는다.
-//        (제거하면 `"eth0"` 이 `"eth0` 이 되어 따옴표 짝이 깨진다.)
+
+
+
 std::string TrimPunct(const std::string& text)
 {
     std::size_t end = text.size();
@@ -130,16 +126,6 @@ bool IsNumber(const std::string& text)
            });
 }
 
-//  라우트 metric 표현 — Java Backend 계약
-//
-//  `show ip route` 의 `[110/200]` 은 두 값을 뜻한다.
-//    앞 = administrative distance, 뒤 = metric
-//  Backend(Java) 는 이 둘을 정수 필드로 나눠 담는다.
-//    distance : 110   metric : 200
-//  같은 JSON 을 두 파서가 내야 하므로 여기서도 같은 모양으로 담는다.
-//
-//  나눈 결과가 숫자가 아니면(예: `[foo/bar]`) 원문을 살리기 위해
-//  `metric_raw` 에 문자열로 남긴다. 정보를 버리지 않기 위함이다.
 void ApplyMetricBracket(Json& route, const std::string& token)
 {
     const std::string inner = TrimPunct(token);
@@ -171,11 +157,6 @@ void ApplyMetricBracket(Json& route, const std::string& token)
     }
 }
 
-// `metric 20` (키워드 + 스칼라) 을 정수로 담는다.
-//
-//  커널 `ip route show` / `ip -6 route` 는 브래킷 대신 `metric` 키워드를 쓴다.
-//  Backend(Java) 는 이 값도 정수로 내보내므로 문자열로 담으면 계약이 어긋난다.
-//  숫자가 아니면 원문을 `metric_raw` 에 남긴다.
 void ApplyMetricKeyword(Json& route, const std::string& value)
 {
     const std::string metric = TrimPunct(value);
@@ -187,10 +168,6 @@ void ApplyMetricKeyword(Json& route, const std::string& value)
     route["metric_raw"] = metric;
 }
 
-// `ip route` 의 경로 타입 키워드인지 판단한다.
-//   `blackhole 10.0.0.0/8` → 목적지는 두 번째 토큰이다.
-// 문법(routeHead : DEFAULT | ROUTETYPE ADDR | ADDR)이 목적지 자리를 이미 좁혔으므로
-// 여기서는 "첫 토큰을 목적지로 쓰면 안 되는 경우" 만 가려낸다.
 bool IsRouteTypeKeyword(const std::string& token)
 {
     static const std::set<std::string> kTypes = {
@@ -286,9 +263,9 @@ bool LooksLikeMac(const std::string& token)
     return std::count(token.begin(), token.end(), ':') >= 5;
 }
 
-// IP 주소(CIDR 포함) 형태인지 판별한다.
-//  `10.10.131.1`, `10.10.131.1/24`, `fe80::1/64` -> true
-//  `eth1.131` 처럼 점이 하나뿐인 이름 -> false (인터페이스명으로 취급해야 함)
+
+
+
 bool LooksLikeIp(const std::string& token)
 {
     if (token.find(':') != std::string::npos)
@@ -318,14 +295,6 @@ bool LooksLikeIp(const std::string& token)
     return dots == 3;  // 점 4개 옥텟이면 IPv4
 }
 
-// ============================================================================
-// 파싱 세션
-//
-//  lexer/토큰스트림/parser/오류리스너의 수명을 한 곳에서 관리한다.
-//  문법이 WS 를 skip 하므로 getText() 에는 공백이 사라진다.
-//  따라서 "줄 종류 판정은 문법으로, 필드 값은 원문 라인으로" 처리한다.
-//  (WS 를 skip 해도 토큰의 line/charPositionInLine 은 보존된다.)
-// ============================================================================
 
 class CollectingErrorListener : public antlr4::BaseErrorListener
 {
@@ -444,11 +413,7 @@ Json MakeParseFailure(const std::string& raw, const std::string& error)
     return failure;
 }
 
-// ============================================================================
-// IpAddr — NIC / 주소 / 라우트
-// ============================================================================
 
-// `2: eth1.131@eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP qlen 1000`
 Json ParseIfaceHeaderTokens(const std::vector<std::string>& tokens)
 {
     Json iface = Json::object();
@@ -726,10 +691,6 @@ public:
             route["is_default"] = (destination == "0.0.0.0/0" || destination == "::/0");
             route["destination"] = destination;
 
-            // 목적지 자리에 이미 쓴 토큰은 필드 순회에서 건너뛴다.
-            //   `default ...`        → 1개 (default)
-            //   `blackhole 10.0.0.0/8` → 2개 (blackhole, 10.0.0.0/8)
-            //   `10.99.10.0/24 ...`  → 1개
             std::size_t fieldStart = 1;
             if (!tokens.empty() && IsRouteTypeKeyword(tokens[0]) && tokens.size() > 1)
             {
@@ -788,11 +749,7 @@ public:
     }
 };
 
-// ============================================================================
-// FrrRouter — 라우팅 테이블 / 인터페이스
-// ============================================================================
 
-// FRR/Cisco 라우트 코드를 프로토콜 이름으로 정규화한다.
 std::string NormalizeRouteCode(const std::string& code)
 {
     if (code.empty())
@@ -1001,10 +958,6 @@ private:
                     const std::string next_hop = TrimPunct(tokens[j + 1]);
                     route["next_hop"] = next_hop;
                     route["via"] = next_hop;
-                    // via 뒤에서 인터페이스 이름을 찾는다.
-                    //   FRR   : `via <hop>, eth1, weight 1, 00:07:26`
-                    //   Cisco : `via <hop>, 00:07:26, GigabitEthernet0/1`
-                    // 업타임(콜론 포함)·숫자·weight 토큰은 건너뛴다.
                     for (std::size_t k = j + 2; k < tokens.size(); ++k)
                     {
                         const std::string iface = TrimPunct(tokens[k]);
@@ -1129,10 +1082,6 @@ public:
         if (ctx->briefEntry() != nullptr)
         {
             const std::vector<std::string> tokens = session->TokensOf(ctx->briefEntry());
-            // 컬럼 헤더/구분선을 인터페이스로 오인하지 않는다.
-            //   `Interface   IP-Address   OK? Method Status Protocol`
-            //   `            Address`            <- Arista 는 첫 줄이 비어 있다
-            //   `--------- -------------------- ------------ ...`
             const Json entry = ParseBriefEntryTokens(tokens);
             const std::string name = entry.value("name", std::string{});
             if (name == "Interface" || name == "Address" || name == "Name" ||
@@ -1219,12 +1168,7 @@ public:
     }
 };
 
-// ============================================================================
-// OvsTopology — ovs-vsctl show / list port / dump-flows
-// ============================================================================
 
-// `tag: 141` / `trunks: [141]` / `type: internal` / `ovs_version: "2.17.0"`
-// attrLine 은 ATTRWORD COLON elem* 이므로 원문에서 key/value 를 직접 쪼갠다.
 std::pair<std::string, std::string> SplitAttr(const std::string& line)
 {
     const std::size_t colon = line.find(':');
@@ -1396,13 +1340,6 @@ public:
         return {};
     }
 
-    // `ovs-vsctl list port` 레코드 -> 포트 객체 (레코드 경계 마다 새 객체)
-    //
-    //  실제 ovs-vsctl 은 두 가지 구분 방식을 쓴다.
-    //    (A) 속성 레코드를 `--` 로 구분 (구버전/일부 옵션)
-    //    (B) 레코드 사이를 **빈 줄** 로 구분 (배포판 기본, 실측 확인)
-    //  (B) 를 처리하지 않으면 모든 레코드가 하나의 객체로 합쳐져
-    //  포트가 1개만 수집된다. 두 방식 모두에서 새 레코드를 시작한다.
     std::any visitListItem(OvsTopologyParser::ListItemContext* ctx) override
     {
         // `--` 또는 빈 줄 = 레코드 구분자 → 다음 속성에서 새 객체를 시작한다.
@@ -1547,16 +1484,7 @@ public:
     }
 };
 
-// ============================================================================
-// NftablesRule — nft list ruleset
-// ============================================================================
 
-// 체인 속성 줄:
-//   `type filter hook forward priority filter; policy accept;`
-//   `type nat hook postrouting priority srcnat; policy accept;`
-//   `type filter hook input priority 0; policy drop;`
-// 한 줄에 여러 속성이 세미콜론으로 이어지고, 각 속성이 `key value` 쌍이므로
-// 토큰을 훑으며 키워드를 만날 때마다 다음 토큰을 값으로 취한다.
 void ApplyChainAttr(const std::string& line, Json& chain)
 {
     const std::vector<std::string> tokens = SplitTokens(line);
@@ -1592,13 +1520,6 @@ void ApplyChainAttr(const std::string& line, Json& chain)
     }
 }
 
-// 규칙 조각 목록에서 (match_pairs, action, modifiers) 를 뽑는다.
-//   `ip saddr 1.2.3.0/24 ip daddr 5.6.7.0/24 counter log prefix "NFT_DROP: " drop`
-//   `oifname "eth0" masquerade`
-//
-// nft 표기는 `ip saddr <값>` 처럼 두 토큰이 하나의 키를 이룬다.
-//   접두어(ip/ip6/tcp/udp/ct/meta/icmp) + 하위키(saddr/daddr/dport/...) 조합을
-//   "ip saddr" 한 키로 합쳐야 JSON 에서 소스/목적지를 바로 꺼낼 수 있다.
 void ApplyRulePieces(const std::vector<std::string>& pieces, Json& rule)
 {
     // 두 토큰이 하나의 키를 이루는 접두어
@@ -1858,17 +1779,7 @@ private:
     }
 };
 
-// ============================================================================
-// SwitchTopology — show vlan brief / show ip interface brief / switchport
-// ============================================================================
 
-// `show running-config` 의 `switchport ...` 설정 줄을 포트 레코드에 반영한다.
-//   switchport mode trunk|access
-//   switchport access vlan 99
-//   switchport trunk allowed vlan 100,110
-//   switchport trunk native vlan 5
-//
-// 이미 토큰화된 결과를 쓰므로 공백 트림/문자열 분해가 필요 없다.
 void ApplySwitchportTokens(const std::vector<std::string>& tokens, Json* port)
 {
     if (port == nullptr || tokens.size() < 2 || tokens[0] != "switchport")
@@ -2033,9 +1944,7 @@ public:
 
         const std::vector<std::string> tokens = session->TokensOf(ctx->portEntry());
 
-        // ---------------------------------------------------------------
         // 1) `interface Ethernet1` 형태 (IOS 스타일) -> 새 포트 레코드
-        // ---------------------------------------------------------------
         if (ctx->portEntry()->INTERFACE() != nullptr)
         {
             Json port = Json::object();
@@ -2056,10 +1965,6 @@ public:
             return {};
         }
 
-        // ---------------------------------------------------------------
-        // 2) Arista 는 `Name: Et2` 로 포트 블록을 시작한다.
-        //    (실제 장비 출력 기준) 이 줄에서 새 포트 레코드를 만든다.
-        // ---------------------------------------------------------------
         if (key == "Name")
         {
             Json port = Json::object();
@@ -2076,12 +1981,6 @@ public:
             return {};
         }
 
-        // 키 표기 차이 흡수:
-        //   IOS    : `Access Mode VLAN: 99`  / `Trunking VLANs Enabled: 111,112`
-        //   Arista : `Access Mode VLAN: 8 (VLAN8)`
-        //            `Trunking VLANs Enabled: ALL`
-        //            `Administrative Mode: static access`
-        //            `Operational Mode: static access`
         if (key == "Switchport")
         {
             (*current_port)["admin_enabled"] = (Unquote(value) == "Enabled");
@@ -2109,9 +2008,9 @@ public:
         }
         else if (key.find("Access Mode VLAN") != std::string::npos)
         {
-            // `8 (VLAN8)` 에서 괄호 앞 숫자만 VLAN ID 다.
-            // (ParseVlanNumbers 를 그대로 쓰면 괄호 안 이름의 숫자까지 이어붙어
-            //  `8 (VLAN8)` -> 88 이 되는 버그가 생긴다.)
+
+
+
             const std::size_t paren = value.find('(');
             const std::string id_text = Trim(paren == std::string::npos
                                                  ? value
@@ -2156,9 +2055,9 @@ public:
         return {};
     }
 
-    // `show running-config` 의 설정 줄.
-    //   interface Ethernet1      -> 새 포트 레코드
-    //   switchport mode trunk    -> 직전 포트에 반영
+
+
+
     std::any visitConfigLine(SwitchTopologyParser::ConfigLineContext* ctx) override
     {
         const std::vector<std::string> tokens = session->TokensOf(ctx);
@@ -2182,18 +2081,8 @@ public:
     }
 };
 
-}  // namespace
+}
 
-// ============================================================================
-// ARP / 이웃 테이블 — `ip neigh show`, `show arp`, `show ip arp`
-//
-//  세 벤더의 출력 형식이 모두 다르다.
-//    Linux  : 10.0.9.1 dev ens3 lladdr 0c:2d:07:65:99:f3 REACHABLE
-//    Arista : 10.0.9.100  1:35:06  0cae.dcfd.0000  Vlan9, Ethernet3
-//    Cisco  : Internet  10.20.0.4  -  0c2d.0765.99f3  ARPA  GigabitEthernet4
-//  공통점은 "선두에 IP 주소"라는 것뿐이므로, 첫 토큰을 주소로 잡고
-//  나머지는 형태를 보고 해석한다.
-// ============================================================================
 
 namespace
 {
@@ -2243,10 +2132,6 @@ std::string NormalizeHardwareAddress(const std::string& token)
     return normalized;
 }
 
-// ARP 테이블의 컬럼 헤더/구분선인지 판별한다.
-//  Arista : `Address  Age (sec)  Hardware Addr  Interface`
-//  Cisco  : `Protocol  Address  Age (min)  Hardware Addr  Type  Interface`
-//  Linux  : 헤더 없음
 bool IsArpHeaderLine(const std::vector<std::string>& tokens)
 {
     static const char* kHeaderWords[] = {
@@ -2527,9 +2412,7 @@ nlohmann::json ParseArpTable(const std::string& raw_output, Vendor /*vendor*/)
     }
 }
 
-// ============================================================================
 // 공개 API — NIC / 라우팅 / 인터페이스 / 스위치 / 방화벽
-// ============================================================================
 
 nlohmann::json ParseNicStatus(const std::string& raw_output)
 {
@@ -2581,21 +2464,6 @@ nlohmann::json ParseNicBrief(const std::string& raw_output)
     }
 }
 
-// FRR 라우터는 라우팅 정보를 두 가지 형식으로 내보낼 수 있다.
-//
-//   (A) 호스트 커널 — `ip route show` (Alpine/Debian 셸)
-//       default via 192.168.122.1 dev eth0 metric 1
-//       10.99.10.0/24 dev eth1 proto kernel scope link src 10.99.10.1
-//       10.10.128.0/21 nhid 30 via 10.99.10.4 dev eth1 proto ospf metric 20
-//       → 라우트 코드가 없고 IpAddr 문법으로 파싱해야 한다.
-//
-//   (B) vtysh — `show ip route` (FRR CLI)
-//       Codes: K - kernel route, C - connected, S - static, ...
-//       O>* 0.0.0.0/0 [110/1] via 10.99.10.1, eth0, weight 1, 00:17:20
-//       O   10.99.10.0/24 [110/100] is directly connected, eth0, ...
-//       → 라우트 코드가 있고 FrrRouter 문법으로 파싱해야 한다.
-//
-// 같은 Vendor::kFrr 라도 문법이 달라야 하므로 내용으로 판별한다.
 bool LooksLikeVtyshRouteTable(const std::string& raw_output)
 {
     // 1) FRR CLI 의 코드 설명 머리말은 가장 확실한 신호다.
@@ -2604,9 +2472,9 @@ bool LooksLikeVtyshRouteTable(const std::string& raw_output)
         return true;
     }
 
-    // 2) 줄 첫 토큰이 라우트 코드(영문 대문자 1~4자 + 선택적 `*`/`>` 마커)인지 본다.
-    //    커널 형식의 첫 토큰은 `default` 나 CIDR(`10.99.10.0/24`) 이므로
-    //    전부 대문자로만 이루어진 짧은 토큰과 겹치지 않는다.
+
+
+
     std::istringstream stream(raw_output);
     std::string line;
     while (std::getline(stream, line))
@@ -2652,17 +2520,6 @@ bool LooksLikeVtyshRouteTable(const std::string& raw_output)
 
 nlohmann::json ParseRouteStatus(const std::string& raw_output, Vendor vendor)
 {
-    // Linux `ip route show` 는 라우트 코드(O>*, C 등)가 없고
-    // `default via ... dev ... proto ...` 형태다.
-    // FRR/Cisco 문법으로는 코드가 없어 파싱되지 않으므로 IpAddr 문법을 쓴다.
-    //
-    // FRR 라우터(Vendor::kFrr)는 호스트 OS 가 리눅스이므로 커널 테이블을
-    // 그대로 내보낼 수도 있고(A), vtysh 로 코드가 붙은 표를 낼 수도 있다(B).
-    // 그래서 kFrr 은 출력 내용을 보고 문법을 고른다.
-    //
-    // nftables 방화벽(kNftables)·OpenVSwitch(kOpenVSwitch) 도 호스트는
-    // 리눅스이므로 커널 `ip route show` 형식을 그대로 낸다.
-    // 어느 쪽이든 라우트 코드가 없으면 IpAddr 문법으로 파싱한다.
     const bool linux_host_vendor = vendor == Vendor::kUbuntu || vendor == Vendor::kFrr ||
                                    vendor == Vendor::kNftables ||
                                    vendor == Vendor::kOpenVSwitch;
@@ -3021,13 +2878,6 @@ nlohmann::json ParseQueryOutput(Vendor vendor,
     return ParseNicStatus(raw_output);
 }
 
-// ============================================================================
-// 벤더 이름 <-> Vendor 열거형
-//
-// 수집기(collector)는 ProberConfig::GetProductName() 만 알고 있으므로
-// 제품명 문자열과 Vendor 사이의 변환이 필요하다.
-// ProberConfig::DetectProductName() 이 만드는 문자열을 그대로 받는다.
-// ============================================================================
 
 Vendor VendorFromProductName(const std::string& product_name)
 {

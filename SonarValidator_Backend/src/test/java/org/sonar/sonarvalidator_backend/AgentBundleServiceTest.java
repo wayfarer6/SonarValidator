@@ -22,28 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.sonar.sonarvalidator_backend.Service.AgentBundleService;
 
-/**
- * Agent 설치 번들 계약을 검증합니다.
- *
- * <h2>⚠️ 이 테스트가 잡는 실제 결함 3건</h2>
- * <ol>
- *   <li><b>형식이 ZIP 이었음</b> — 번들은 라우터(Alpine)·스위치(OVS)에서
- *       풀립니다. 그 장비에는 <b>{@code unzip} 이 없고</b> {@code tar·gzip} 만
- *       있습니다. ZIP 을 내려주면 장비에서 아무것도 못 합니다.</li>
- *   <li><b>포트 override 가 무시됨</b> — 화면은 {@code Management Server Port}
- *       를 받아 미리보기에 보여줬는데, 실제 번들은 서버 설정값
- *       ({@code server.port})을 썼습니다. 미리보기와 파일이 서로 다른 포트를
- *       말하므로 운영자는 그대로 믿고 방화벽을 엽니다.</li>
- *   <li><b>파일이 루트에 평평하게 담김</b> — 풀면 현재 폴더에 파일이 흩어져
- *       "어느 파일이 어디로 가는지" 를 README 로만 알 수 있었습니다.</li>
- * </ol>
- *
- * <p>번들 바이트를 직접 열어 보는 이유: 서비스가 반환하는 것이 <b>압축
- * 스트림</b>이라, 크기나 개수만 보면 위 결함이 모두 통과합니다.
- */
 class AgentBundleServiceTest {
 
-    /** 요청별 지정이 없을 때 쓰이는 서버 설정 포트. */
     private static final int CONFIGURED_PORT = 3000;
 
     private static AgentBundleService service(Path stage) {
@@ -56,13 +36,6 @@ class AgentBundleServiceTest {
                 "test-terminal-shared-secret-that-is-long-enough");
     }
 
-    /**
-     * tar.gz 를 풀어 {파일 이름 → 내용} 으로 만듭니다.
-     *
-     * @param bytes 번들 바이트
-     * @return 항목 맵
-     * @throws IOException 풀기 실패 (형식이 tar.gz 가 아닐 때)
-     */
     private static Map<String, String> readTarGz(byte[] bytes) throws IOException {
         final Map<String, String> files = new LinkedHashMap<>();
         try (TarArchiveInputStream tar = new TarArchiveInputStream(
@@ -76,9 +49,7 @@ class AgentBundleServiceTest {
         return files;
     }
 
-    // ------------------------------------------------------------------
     //  형식: tar.gz
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("번들은 gzip 매직 바이트로 시작한다 (ZIP 이 아니다)")
@@ -130,9 +101,7 @@ class AgentBundleServiceTest {
         assertFalse(readTarGz(bundle).isEmpty(), "항목이 하나도 없습니다");
     }
 
-    // ------------------------------------------------------------------
     //  설정 값: 주소·포트 override
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("요청 포트가 default.conf 에 그대로 들어간다")
@@ -193,9 +162,7 @@ class AgentBundleServiceTest {
         assertEquals("sonar-agent-Gateway-Router.tar.gz", info.get("file_name"));
     }
 
-    // ------------------------------------------------------------------
     //  스테이징 자산 포함
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("스테이징된 바이너리·스크립트·템플릿을 Installer/ 아래에 담고 실행 권한을 준다")

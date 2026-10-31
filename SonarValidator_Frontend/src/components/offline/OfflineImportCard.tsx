@@ -13,42 +13,6 @@ import {
 } from "../../lib/api/offline";
 import { ApiError } from "../../lib/api/client";
 
-/**
- * 오프라인 Prober 데이터 가져오기 카드입니다.
- *
- * <h2>무엇을 하는 카드인가</h2>
- * <p>중앙 관리 서버에 연결할 수 없는 장비에서는 Prober 가 수집 결과를
- * JSON 스냅샷 파일로 남깁니다. 운영자가 그 파일들을 이 카드에
- * <b>끌어다 놓으면</b> 서버가 <b>온라인 텔레메트리와 완전히 같은 파서</b>로
- * 변환해 장치 목록에 반영합니다.
- *
- * <pre>
- *   서버 미도달 장비                  브라우저                    서버
- *   ┌──────────────┐   파일 전송   ┌──────────┐   multipart   ┌─────────────┐
- *   │ Prober       │ ────────────► │ 이 카드   │ ────────────► │ 파서 → 반영  │
- *   │ --export-once│               │ (드래그앤 │               │ (온라인과    │
- *   └──────────────┘               │  드롭)    │               │  동일 경로)  │
- *                                  └──────────┘               └─────────────┘
- * </pre>
- *
- * <h2>드래그앤드롭에서 조용히 틀리기 쉬운 4가지 (전부 방어함)</h2>
- * <ol>
- *   <li><b>dragover 에서 preventDefault 를 빼면 drop 이 아예 안 옵니다.</b>
- *       브라우저 기본 동작이 "파일 열기" 라서 여기서 막아야 합니다.
- *       게다가 dragover 는 자식 요소마다 다시 발생하므로
- *       <b>dragenter/dragleave 카운터</b>가 없으면 아이콘이 깜빡입니다.</li>
- *   <li><b>dataTransfer.files 는 drop 이후에만 채워집니다.</b> dragover 에서
- *       읽으면 빈 목록이라 "드롭했는데 아무 일도 안 일어남" 이 됩니다.</li>
- *   <li><b>폴더를 끌어다 놓을 수 있습니다.</b> 그대로 업로드하면 서버가
- *       해석 못 하는 항목이 섞입니다. 그래서 확장자/크기를 먼저 봅니다.</li>
- *   <li><b>같은 파일을 두 번 올리면 같은 결과가 두 번 반영됩니다.</b>
- *       이미 목록에 있는 파일은 제외해 중복 반영을 막습니다.</li>
- * </ol>
- *
- * <h2>파일 선택 입력을 함께 두는 이유</h2>
- * <p>드래그앤드롭은 마우스가 필요합니다. 원격 콘솔/스크립트 환경이나
- * 접근성을 위해 클릭 → 파일 선택 경로도 같은 처리로 흐르게 했습니다.
- */
 export default function OfflineImportCard() {
   // 드래그 중인지. dragenter/dragleave 횟수를 세어 자식 이동 시 깜빡임을 막습니다.
   const dragDepth = useRef(0);
@@ -56,10 +20,8 @@ export default function OfflineImportCard() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /** 아직 업로드하지 않은 선택 파일들. */
   const [pending, setPending] = useState<File[]>([]);
 
-  /** 사전 검사에서 걸러진 파일들 (이름 → 사유). 업로드하지 않습니다. */
   const [skipped, setSkipped] = useState<{ name: string; reason: string }[]>([]);
 
   const [uploading, setUploading] = useState(false);
@@ -71,13 +33,6 @@ export default function OfflineImportCard() {
 
   const maxBytes = schema.data?.max_bytes ?? 8 * 1024 * 1024;
 
-  /**
-   * 선택/드롭된 파일을 목록에 추가합니다.
-   *
-   * <p>사전 검사로 명백히 잘못된 파일은 <b>여기서</b> 걸러 사유를 보여줍니다.
-   * 서버까지 보내고 거부당하면 왕복 시간을 낭비하고, 사용자는 왜 실패했는지
-   * 알기 어렵습니다.
-   */
   const addFiles = useCallback(
     (files: FileList | null) => {
       if (!files || files.length === 0) return;
@@ -116,9 +71,7 @@ export default function OfflineImportCard() {
     [schema.data?.schema],
   );
 
-  // ---------------------------------------------------------------------------
   // 드래그 이벤트 (1번 함정 방어)
-  // ---------------------------------------------------------------------------
 
   const handleDragEnter = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -152,9 +105,7 @@ export default function OfflineImportCard() {
     addFiles(event.dataTransfer.files);
   };
 
-  // ---------------------------------------------------------------------------
   // 업로드
-  // ---------------------------------------------------------------------------
 
   const handleUpload = async () => {
     if (pending.length === 0 || uploading) return;
@@ -188,13 +139,11 @@ export default function OfflineImportCard() {
     setPending((previous) => previous.filter((_, i) => i !== index));
   };
 
-  /** 선택된 파일들의 총 크기. */
   const totalBytes = useMemo(
     () => pending.reduce((sum, file) => sum + file.size, 0),
     [pending],
   );
 
-  /** 성공/실패 건수 요약 문구. */
   const summary = useMemo(() => {
     if (!result) return null;
     return `${result.received}건 중 ${result.accepted}건 반영, ${result.rejected}건 실패`;
@@ -436,13 +385,6 @@ export default function OfflineImportCard() {
   );
 }
 
-/**
- * 파일 한 건의 처리 결과를 렌더링합니다.
- *
- * <p>실패한 파일은 <b>사유를 그대로</b> 보여줍니다. "실패" 만 보이면 운영자가
- * 다음에 무엇을 해야 할지 알 수 없습니다. (예: "schema 불일치" 면 다른 파일을
- * 올려야 하고, "빈 payload" 면 장비에서 다시 뽑아야 합니다)
- */
 function SnapshotResultRow({ snapshot }: { snapshot: ApiOfflineSnapshotResult }) {
   return (
     <li

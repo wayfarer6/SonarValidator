@@ -40,11 +40,6 @@ bool TelemetryService::connect()
         reader_.Reset(ioc_, stream_);
         auto const results = resolver_.resolve(host_, std::to_string(port_));
 
-        // 제한 시간이 있는 연결입니다. 자세한 이유는
-        // components/backend_communication/connect_with_timeout.hpp 참고
-        // (표준 동기 connect 에는 타임아웃이 없고,
-        //  beast::tcp_stream::expires_after() 는 비동기 전용이며,
-        //  std::async + wait_for 는 future 소멸자에서 다시 블록된다)
         const boost::system::error_code ec =
             sonar::net::ConnectWithTimeout(stream_, results, kConnectTimeout);
         if (ec)

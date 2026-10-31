@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <thread>
 
 int main()
 {
@@ -21,6 +22,16 @@ int main()
     if (!second || sonar::net::beast::get_lowest_layer(stream).socket().is_open())
     {
         std::cerr << "[FAIL] repeated connection attempt can recover cleanly\n";
+        return 1;
+    }
+
+    std::stop_source cancel;
+    std::jthread timer([&] { std::this_thread::sleep_for(std::chrono::milliseconds(150)); cancel.request_stop(); });
+    const auto start = std::chrono::steady_clock::now();
+    const auto cancelled = sonar::net::ConnectWithTimeout(stream, resolver.resolve("192.0.2.1", "9"),
+                                                          std::chrono::seconds(5), cancel.get_token());
+    if (!cancelled || std::chrono::steady_clock::now() - start > std::chrono::seconds(1)) {
+        std::cerr << "[FAIL] connect cancellation exceeded its budget\n";
         return 1;
     }
 

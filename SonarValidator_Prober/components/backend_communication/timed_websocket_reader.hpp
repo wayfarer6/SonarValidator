@@ -10,10 +10,10 @@
 
 namespace sonar::net {
 
-// Keep one asynchronous read alive between polling windows. A synchronous
-// Beast read can wait indefinitely even with native_non_blocking(true), while
-// surfacing would_block to Beast fails the WebSocket. Cancelling on every
-// timeout would also discard fragmented messages and break idle connections.
+
+
+
+
 class TimedWebSocketReader {
     struct State {
         boost::beast::flat_buffer buffer;

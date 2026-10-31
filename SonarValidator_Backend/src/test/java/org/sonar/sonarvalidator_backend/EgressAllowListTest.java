@@ -29,67 +29,35 @@ import org.sonar.sonarvalidator_backend.support.StubRepository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * 서브넷의 <b>연결 허용 목록</b>({@code allowed_peers}) 을 검증합니다.
- *
- * <h2>⚠️ 이 기능이 겨냥하는 요구</h2>
- * <p>"기밀망은 인터넷으로 나가면 안 된다" 를 운영자가 화면에서 표현할 수 있어야
- * 하고, 배포할 때 <b>정해 둔 VLAN/대역만</b> 연결되도록 장치에 반영되어야 합니다.
- *
- * <h2>⚠️ 목록은 조이기만 해야 한다 (가장 중요한 불변식)</h2>
- * <p>허용 목록에 상대를 넣는 것으로 등급 규칙을 <b>완화할 수 있으면</b>
- * 운영자의 실수 한 번이 망분리를 없앱니다. 그래서 기밀망의 목록에 공개망을
- * 넣어도 위반은 그대로 남아야 합니다. 아래 테스트가 이 경계를 고정합니다.
- */
 class EgressAllowListTest {
 
-    /** 배열 첫 값을 꺼냅니다. (정책 스키마가 스칼라를 배열로 감쌉니다) */
     private static String first(JsonNode node, String key) {
         final JsonNode array = node.path(key);
         assertTrue(array.isArray() && !array.isEmpty(), key + " 가 비어 있으면 안 됩니다");
         return array.get(0).asText();
     }
 
-    /**
-     * 검증 엔진용 서브넷을 만듭니다.
-     *
-     * @param id      식별자
-     * @param cidr    대역
-     * @param zone    등급
-     * @param allowed 허용 상대
-     * @return 서브넷
-     */
     private static PolicySubnet subnet(String id, String cidr, ZoneClass zone, String... allowed) {
         final PolicySubnet value = PolicySubnet.of(id, cidr, zone);
         value.setAllowedPeers(List.of(allowed));
         return value;
     }
 
-    /**
-     * 검증 엔진용 규칙을 만듭니다.
-     *
-     * @param id  식별자
-     * @param src 출발
-     * @param dst 도착
-     * @return 규칙
-     */
     private static PolicyRule rule(String id, String src, String dst) {
         final PolicyRule value = new PolicyRule();
         value.setId(id);
         value.setSource(src);
         value.setDestination(dst);
         value.setProtocol("tcp");
-        // ⚠️ 포트를 반드시 지정합니다. 비워 두면 "허용 포트가 없는 규칙" 경고가
-        //    같은 규칙 식별자로 함께 붙어, 아래 위반 조회가 엉뚱한 항목을
-        //    집어 옵니다. (실제로 심각도가 MAJOR 로 보이는 오진을 만들었습니다)
+
+
+
         value.setPort(443);
         value.setEnabled(true);
         return value;
     }
 
-    // ------------------------------------------------------------------
     //  도메인 판정
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("허용 목록이 비면 제한이 없다")
@@ -125,9 +93,7 @@ class EgressAllowListTest {
         assertTrue(withInternet.allowsInternet(), "인터넷을 넣었으므로 허용 목록이 막지 않음");
     }
 
-    // ------------------------------------------------------------------
     //  검증 엔진
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("허용 목록 밖으로 나가는 규칙은 위반으로 보고된다")
@@ -169,10 +135,6 @@ class EgressAllowListTest {
     @DisplayName("허용 목록은 등급 규칙을 완화하지 못한다")
     void allowListCannotLoosenZoneRule() {
         final var engine = new SegmentationBddEngine();
-        // ⚠️ 기밀망의 허용 목록에 공개망을 <b>넣었습니다.</b>
-        //    이것은 "연결해도 좋다" 는 승인이 아닙니다 — 등급 건너뛰기는
-        //    그대로 위반이어야 합니다. 여기서 준수가 나오면 운영자가
-        //    목록 한 줄로 망분리를 끌 수 있다는 뜻입니다.
         final var report = engine.validate(
                 List.of(
                         subnet("C", "10.0.10.0/24", ZoneClass.CONFIDENTIAL, "O"),
@@ -201,16 +163,8 @@ class EgressAllowListTest {
         assertTrue(report.isCompliant(), "제한이 없으면 기존 동작 그대로: " + report.getMessages());
     }
 
-    // ------------------------------------------------------------------
     //  정책 생성 (장치로 나가는 차단)
-    // ------------------------------------------------------------------
 
-    /**
-     * 프로젝트를 메모리 저장소로 감쌉니다.
-     *
-     * @param project 프로젝트
-     * @return 저장소 스텁
-     */
     private static ProjectRepository repositoryOf(Project project) {
         return StubRepository.of(ProjectRepository.class, (method, args) -> switch (method) {
             case "findAllByOrderByCreatedAtDesc" -> new ArrayList<>(List.of(project));
@@ -219,17 +173,6 @@ class EgressAllowListTest {
         });
     }
 
-    /**
-     * 서브넷 엔티티를 만듭니다.
-     *
-     * @param id      식별자
-     * @param cidr    대역
-     * @param zone    등급
-     * @param agent   담당 Agent
-     * @param parent  소속 프로젝트
-     * @param allowed 허용 상대
-     * @return 서브넷
-     */
     private static ProjectSubnet entity(String id, String cidr, ZoneClass zone, String agent,
                                         Project parent, String... allowed) {
         final ProjectSubnet value = new ProjectSubnet();
@@ -242,12 +185,6 @@ class EgressAllowListTest {
         return value;
     }
 
-    /**
-     * 기밀망에 허용 목록을 적은 프로젝트를 만듭니다.
-     *
-     * @param allowed 대상 허용 목록
-     * @return 프로젝트
-     */
     private static Project restrictedProject(String... allowed) {
         final Project project = new Project();
         project.setProjectKey("egress");
@@ -282,9 +219,9 @@ class EgressAllowListTest {
         final ObjectNode policy = service.forAgent("cisco-router", DeviceType.ROUTER,
                 "cisco-router", "Cisco", "IOS XE");
 
-        // ⚠️ 규칙에 인터넷이 적혀 있지 않아도 막아야 합니다. 운영자의 요구가
-        //    "기밀망은 인터넷 차단" 인데 ACL 에 기본 경로 거부가 없으면
-        //    요구사항이 장치에 반영되지 않습니다.
+
+
+
         final JsonNode rules = policy.path("acl_apply").path("acl_rules");
         assertTrue(rules.isArray() && !rules.isEmpty(), "차단 목록이 있어야 합니다");
 
@@ -372,9 +309,9 @@ class EgressAllowListTest {
     @Test
     @DisplayName("허용 목록의 식별자는 CIDR 참조와도 매칭된다")
     void allowListMatchesIdentifierAgainstCidr() {
-        // ⚠️ 화면은 허용 항목을 <b>서브넷 식별자</b>로 보내는데, 규칙은 CIDR 로
-        //    대상을 적을 수 있습니다. 한쪽만 비교하면 운영자가 체크한 상대가
-        //    매칭되지 않아 <b>허용했는데 차단</b>됩니다.
+
+
+
         final Project project = restrictedProject("VLAN8");
         // 규칙은 같은 서브넷을 CIDR 로 가리킵니다.
         project.getRules().add(routerRule(project, "C", "10.0.8.0/24"));

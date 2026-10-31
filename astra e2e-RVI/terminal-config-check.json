@@ -1,7 +1,0 @@
-{
-  "keys_match" : true,
-  "backend_key_configured" : true,
-  "agent_key_configured" : true,
-  "agent_key_length" : 64,
-  "backend_key_length" : 64
-}

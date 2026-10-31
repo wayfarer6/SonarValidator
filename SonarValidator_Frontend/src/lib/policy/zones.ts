@@ -1,13 +1,10 @@
 import type { SubnetClass } from "../../lib/api/types";
 
-/** 등급 순서와 표시 정보입니다. 레벨이 클수록 민감합니다. */
 export const ZONE_CLASSES: {
   value: SubnetClass;
   label: string;
   level: number;
-  /** 배지 클래스 */
   badgeClass: string;
-  /** 행 배경 클래스 */
   rowClass: string;
   description: string;
 }[] = [
@@ -37,27 +34,11 @@ export const ZONE_CLASSES: {
   },
 ];
 
-/**
- * 등급 문자열에 해당하는 표시 정보를 찾습니다.
- *
- * @param value 등급 (null 허용)
- * @returns 표시 정보, 없으면 null
- */
 export function zoneInfo(value: SubnetClass | null) {
   if (!value) return null;
   return ZONE_CLASSES.find((zone) => zone.value === value) ?? null;
 }
 
-/**
- * 두 등급의 직접 연결이 금지되는지 판단합니다.
- *
- * <p>서버({@code ZoneClass.forbidsDirectConnection})와 같은 규칙입니다.
- * 화면에서 즉시 피드백을 주기 위한 것이며, 최종 판정은 항상 서버 결과입니다.
- *
- * @param source 출발 등급
- * @param target 도착 등급
- * @returns 금지되면 true
- */
 export function isForbiddenPair(
   source: SubnetClass | null,
   target: SubnetClass | null,
@@ -69,7 +50,6 @@ export function isForbiddenPair(
   return Math.abs(sourceZone.level - targetZone.level) >= 2;
 }
 
-/** 사람이 읽는 금지 사유를 만듭니다. */
 export function forbiddenReason(
   source: SubnetClass | null,
   target: SubnetClass | null,

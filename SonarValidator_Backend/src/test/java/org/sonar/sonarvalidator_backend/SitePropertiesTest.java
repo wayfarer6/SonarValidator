@@ -10,22 +10,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.sonar.sonarvalidator_backend.Config.SiteProperties;
 
-/**
- * 사이트 설정(하드코딩 제거)의 계약을 검증합니다.
- *
- * <h2>⚠️ 이 테스트가 겨냥하는 최악의 실패 모드</h2>
- * <p>제어평면(관리망) 대역은 격리에서 <b>절대 차단 대상이 되어서는 안 됩니다.</b>
- * 차단하면 서버로 나가는 길이 사라져 해제 명령조차 도달하지 못하고,
- * 운영자가 장치를 되살릴 방법이 없습니다.
- *
- * <p>그래서 여기서는 다음을 봅니다.
- * <ul>
- *   <li>프로젝트가 관리 대역을 지정하면 <b>그 값이 우선</b>하는가 (요구사항)</li>
- *   <li>지정하지 않으면 전역 기본값으로 폴백하는가</li>
- *   <li>쉼표로 여러 대역을 받는가</li>
- *   <li>업링크/브리지/테이블 이름이 설정으로 바뀌는가</li>
- * </ul>
- */
 class SitePropertiesTest {
 
     @Test

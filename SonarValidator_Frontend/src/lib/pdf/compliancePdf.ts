@@ -2,19 +2,6 @@ import type { jsPDF } from "jspdf";
 import type { ApiComplianceChange, ApiProjectSummary } from "../api/types";
 import { formatTimestamp, type AgentView } from "../agentView";
 
-/**
- * Compliance 변경 내역 보고서를 "텍스트 기반" PDF로 생성한다.
- *
- * html2canvas처럼 DOM을 비트맵으로 캡처하는 방식이 아니라,
- * 화면에 렌더링된 보고서의 데이터(헤더/메타/요약/테이블)를 jsPDF로
- * 직접 그려 넣는다.
- *  - 텍스트가 실제 문자열이라 PDF에서 선택·검색·복사 가능
- *  - 이미지 대비 파일 크기가 훨씬 작고 확대해도 깨지지 않음
- *  - 다크모드와 무관하게 항상 라이트 톤으로 출력
- *
- * 한글은 jsPDF 내장 폰트가 지원하지 않으므로 나눔고딕코딩 TTF를
- * Identity-H 인코딩으로 임베딩한다(jsPDF가 사용된 글리프만 서브셋).
- */
 
 const FONT_FAMILY = "NanumGothicCoding";
 const FONT_FILES = {
@@ -52,7 +39,6 @@ const STATUS_STYLE: Record<
   Rejected: { text: "#B42318", bg: "#FEF3F2" },
 };
 
-/** A4 세로 기준 본문 폭(182mm)에 맞춘 열 정의 */
 const COLUMNS = [
   { key: "id", label: "ID", width: 18 },
   { key: "scope", label: "구분", width: 18 },
@@ -71,9 +57,9 @@ export interface ComplianceReportInput {
   generatedAt: string;
 }
 
-/* ------------------------------------------------------------------ */
-/* 폰트 로딩                                                           */
-/* ------------------------------------------------------------------ */
+
+
+
 
 interface FontAsset {
   style: "normal" | "bold";
@@ -93,7 +79,6 @@ async function toBase64(buffer: ArrayBuffer): Promise<string> {
   return btoa(binary);
 }
 
-/** 한글 TTF를 base64로 로드(앱 실행 중 1회만 fetch 후 캐싱) */
 function fetchKoreanFonts(): Promise<FontAsset[]> {
   if (!fontPromise) {
     fontPromise = Promise.all(
@@ -116,7 +101,6 @@ function fetchKoreanFonts(): Promise<FontAsset[]> {
   return fontPromise;
 }
 
-/** jsPDF 인스턴스별 VFS이므로 인스턴스마다 폰트를 등록해 준다 */
 async function loadKoreanFonts(pdf: jsPDF): Promise<void> {
   const assets = await fetchKoreanFonts();
   assets.forEach(({ style, file, base64 }) => {
@@ -127,9 +111,9 @@ async function loadKoreanFonts(pdf: jsPDF): Promise<void> {
   });
 }
 
-/* ------------------------------------------------------------------ */
-/* 그리기 헬퍼                                                         */
-/* ------------------------------------------------------------------ */
+
+
+
 
 function setFont(pdf: jsPDF, style: "normal" | "bold", size: number) {
   pdf.setFont(FONT_FAMILY, style);
@@ -150,7 +134,6 @@ function drawText(
   pdf.text(text, x, y);
 }
 
-/** 텍스트를 폭에 맞게 줄바꿈한 결과(항상 1줄 이상) */
 function wrap(pdf: jsPDF, text: string, maxWidth: number): string[] {
   setFont(pdf, "normal", BODY_FONT_SIZE);
   const lines = pdf.splitTextToSize(text || "-", maxWidth) as string[];
@@ -175,9 +158,9 @@ function drawPill(
   pdf.text(text, x + (width - textWidth) / 2, y + height / 2 + 1.1);
 }
 
-/* ------------------------------------------------------------------ */
-/* 보고서 렌더링                                                       */
-/* ------------------------------------------------------------------ */
+
+
+
 
 interface Layout {
   pageWidth: number;
@@ -315,10 +298,6 @@ function drawFooter(pdf: jsPDF, input: ComplianceReportInput, layout: Layout) {
   }
 }
 
-/**
- * Compliance 변경 내역 보고서를 생성해 다운로드한다.
- * @returns 저장된 파일명
- */
 export async function exportComplianceReportPdf(
   input: ComplianceReportInput,
 ): Promise<string> {

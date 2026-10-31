@@ -21,77 +21,22 @@ import { listProjects } from "../lib/api/projects";
 import { listCredentials } from "../lib/api/opnsense";
 import type { ApiDiscoveredDevice, ApiQuarantineState, ApiTopologyNode } from "../lib/api/types";
 
-/**
- * Agent 목록 화면입니다.
- *
- * <h2>더미 데이터에서 서버 연동으로</h2>
- * 이 화면은 이전에 TailAdmin 의 프로필 카드들을 그대로 렌더링하는 스텁이었고
- * Agent 정보가 전혀 없었습니다. 이제 세 API 를 합쳐 보여줍니다.
- *
- * <ul>
- *   <li>{@code GET /api/v1/agents/overview} — 배포 예정 ∪ 연결 ∪ 텔레메트리</li>
- *   <li>{@code GET /api/v1/network/discovered} — 실제로 수신된 설정</li>
- * </ul>
- *
- * <h2>⚠️ 연결 목록({@code /api/v1/agents})을 1차 자료로 쓰지 않은 이유</h2>
- * <p>그 엔드포인트는 <b>지금 살아 있는 WebSocket 세션</b>만 돌려줍니다.
- * 그래서 배포 직후(첫 접속 전)와 네트워크 단절 중에는 <b>목록이 0건</b>이
- * 됩니다. 운영자는 그것을 "아무것도 배포되지 않았다" 로 읽습니다.
- * 통합 현황은 배포 예정을 알고 있으므로 그 공백을 {@code 무응답} 같은
- * 상태로 드러냅니다.
- *
- * <h2>설정 내보내기 (내려받기)</h2>
- * <p>각 Agent 의 설정을 오프라인 스냅샷 형식으로 내려받을 수 있습니다.
- * 다른 랩으로 옮기거나 백업을 남길 때 필요하고, 그 파일을 다시
- * "Import Offline Prober Data" 카드에 올리면 복원됩니다.
- * (왕복이 되어야 백업이므로 서버는 원본 텔레메트리 payload 를 그대로 싣습니다.)
- *
- * <h2>⚠️ 격리 버튼이 이 화면에 있는 이유</h2>
- * <p>격리는 판단이 아니라 <b>조치</b>이고, 조치는 사람이 누릅니다. 그래서 이 화면은
- * "무슨 일이 일어났나"(위반·경고)와 "지금 내가 뭘 할 수 있나"(격리/해제)를
- * 한 곳에 둡니다. 위반 목록을 보다가 다른 화면으로 이동해 조치하는 흐름은
- * 조치를 미루게 만듭니다.
- *
- * <p>격리는 장치가 관리하는 VLAN 서브넷 하나에 적용합니다. 프로젝트 토폴로지에서
- * 대상 CIDR을 명시적으로 선택해야 조치를 요청할 수 있습니다.
- *
- * <h2>Agent 다운로드는 프로젝트 안에서만 제공</h2>
- * Agent 는 프로젝트에 귀속되어야 관리 서버 주소와 소속이 명확하므로,
- * 다운로드 및 배포 예정 등록은 프로젝트 목록의 <b>Add Agent</b>에서만 합니다.
- */
 export default function Agent() {
   const navigate = useNavigate();
   const overview = useApi(() => listAgentOverview(), []);
   const discovered = useApi(() => getAllDiscoveredDevices(), []);
   const quarantine = useApi(() => listQuarantined(), []);
   const projects = useApi(() => listProjects(), []);
-  /**
-   * REST API 로만 연결되는 장치 수입니다.
-   *
-   * <p>이 화면에는 나타나지 않는 장치들이므로, 왜 안 보이는지와 어디로 가야
-   * 하는지를 숫자와 함께 알려줍니다. 이 안내가 없으면 운영자는 방화벽을
-   * 등록해 놓고도 "배포가 실패했다" 고 판단합니다.
-   */
   const apiNodes = useApi(() => listCredentials(), []);
 
   const [onlyIssues, setOnlyIssues] = useState(false);
 
-  /**
-   * 마지막으로 목록을 서버에서 다시 읽은 시각입니다.
-   *
-   * <p>새로고침은 요청이 즉시 끝나고 데이터가 같으면 <b>화면에 아무 변화가
-   * 없어</b> "버튼이 죽었다" 로 보입니다. 그래서 갱신 시각을 남깁니다.
-   */
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
-  /** 재요청 진행 중 여부 (버튼 스피너용). */
   const [refreshing, setRefreshing] = useState(false);
-  /** 유령 정리 진행 중 여부. */
   const [pruning, setPruning] = useState(false);
   const [pruneMessage, setPruneMessage] = useState<string | null>(null);
 
-  /** 내려받기 진행 중인 Agent 식별자. 중복 클릭을 막습니다. */
   const [downloading, setDownloading] = useState<string | null>(null);
-  /** 내려받기 실패 메시지 (Agent 별). */
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const [quarantining, setQuarantining] = useState<string | null>(null);
@@ -99,16 +44,9 @@ export default function Agent() {
   const [isolationSubnets, setIsolationSubnets] = useState<ApiTopologyNode[]>([]);
   const [selectedCidr, setSelectedCidr] = useState("");
   const [loadingIsolationSubnets, setLoadingIsolationSubnets] = useState(false);
-  /**
-   * 마지막 격리/해제 결과 메시지입니다.
-   *
-   * <p>조용히 성공하면 운영자는 "눌렀는데 아무 일도 안 일어났다" 로 읽습니다.
-   * 특히 장치가 미연결이면 명령이 전달되지 않으므로 그 사실을 반드시 보여야 합니다.
-   */
   const [quarantineMessage, setQuarantineMessage] = useState<string | null>(null);
   const [quarantineError, setQuarantineError] = useState<string | null>(null);
 
-  /** 노드 전체 격리는 기존 데이터 표시용으로 유지합니다. */
   const quarantinedIds = useMemo(
     () => new Set((quarantine.data?.quarantined ?? [])
       .filter((state) => !state.scope || state.scope === "NODE")
@@ -126,7 +64,6 @@ export default function Agent() {
     return result;
   }, [quarantine.data]);
 
-  /** Agent 식별자 → 수집 설정 */
   const configByAgent = useMemo(() => {
     const map = new Map<string, ApiDiscoveredDevice>();
     for (const device of discovered.data?.devices ?? []) {
@@ -140,7 +77,6 @@ export default function Agent() {
     [projects.data],
   );
 
-  /** 화면에 표시할 행 목록을 만듭니다. */
   const rows = useMemo(() => {
     const result = (overview.data?.agents ?? []).map((agent) => {
       const config = configByAgent.get(agent.agent_id);
@@ -160,9 +96,9 @@ export default function Agent() {
         connected: agent.connected,
         state: agent.state,
         expected: agent.expected,
-        // ⚠️ API 로 관리되는 장치(OPNsense 등)는 프로버가 아니므로
-        //    `connected=false` 입니다. 이를 "무응답" 으로 보여 주면
-        //    정상 동작 중인 방화벽을 고장으로 오해합니다.
+
+
+
         apiManaged: agent.api_managed === true,
         deviceType: agent.device_type,
         projectId: agent.project_id,
@@ -202,11 +138,6 @@ export default function Agent() {
     return result;
   }, [overview.data, configByAgent, projectNameById]);
 
-  /**
-   * 화면 행 하나의 모양입니다.
-   *
-   * <p>필터 판정 함수가 행을 받으므로 타입이 필요합니다.
-   */
   type Row = {
     agentId: string;
     lastSeen: string | null;
@@ -221,26 +152,12 @@ export default function Agent() {
     connected: boolean;
     state: string;
     expected: boolean;
-    /** REST API 로만 관리되는 장치인지(프로버 없음). */
     apiManaged: boolean;
     deviceType: string | null;
     projectId: string | null;
     projectName: string | null;
   };
 
-  /**
-   * "문제 있는 항목" 의 판정 기준입니다.
-   *
-   * <p>⚠️ 필터와 라벨 카운트가 <b>같은 함수</b>를 써야 합니다.
-   * 예전에는 두 곳에 조건을 따로 적어서, 필터는 `warnings` 를 포함하고
-   * 카운트는 빠져 있었습니다. 그래서 라벨은 4인데 실제로는 6건이 남았고
-   * "체크했는데 그대로다" 로 읽혔습니다.
-   *
-   * <p>같은 판단을 두 곳에 적으면 <b>반드시 다시 어긍납니다.</b>
-   *
-   * @param row 판정할 행
-   * @return 문제가 있으면 true
-   */
   const isProblem = useCallback(
     (row: Row) =>
       // API 관리 장치는 프로버가 없어 무텔레메트리가 정상입니다.
@@ -252,27 +169,18 @@ export default function Agent() {
     [],
   );
 
-  /** 필터를 적용한 실제 표시 목록입니다. */
   const visibleRows = useMemo(
     () => (onlyIssues ? rows.filter(isProblem) : rows),
     [rows, onlyIssues, isProblem],
   );
 
-  /**
-   * 필터가 걸러내는 건수입니다. {@link isProblem} 과 같은 기준을 쓴다.
-   *
-   * <p>라벨에 건수를 안 보여 주면, 대부분의 행이 이미 문제 조건에 해당할 때
-   * "체크했는데 그대로다 = 필터가 안 된다" 로 읽힙니다.
-   */
   const issueCount = useMemo(
     () => rows.filter(isProblem).length,
     [rows, isProblem],
   );
 
-  /** 필터가 전체를 그대로 볼러오는 경우 경고합니다(필터 고장으로 오해 방지). */
   const filterMatchesAll = onlyIssues && issueCount === rows.length;
 
-  /** 목록을 다시 읽고 갱신 시각·스피너를 관리합니다. */
   const handleRefresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
@@ -288,11 +196,6 @@ export default function Agent() {
     }
   };
 
-  /**
-   * 오래된 수신 이력(유령 Agent)을 서버에서 일괄 정리합니다.
-   *
-   * <p>연결 중인 Agent 는 서버가 거부합니다(409).
-   */
   const handlePruneStale = async () => {
     if (pruning) return;
     if (!window.confirm(
@@ -323,13 +226,6 @@ export default function Agent() {
   const error = overview.error ?? discovered.error ?? projects.error;
   const offline = overview.offline || discovered.offline || projects.offline;
 
-  /**
-   * Agent 의 설정을 오프라인 스냅샷 파일로 내려받습니다.
-   *
-   * <p>공유 링크가 아니라 Blob 을 받아 저장하는 이유: 서버가 404/401 을
-   * 돌려줄 때 브라우저가 오류 JSON 을 파일로 저장해 버리면, 운영자는
-   * 그것이 오류인지 설정인지 구분할 수 없습니다. 그래서 실패를 먼저 확인합니다.
-   */
   const handleDownload = async (agentId: string) => {
     if (downloading !== null) return;
 
@@ -356,21 +252,6 @@ export default function Agent() {
     }
   };
 
-  /**
-  * 선택한 Agent 소유 서브넷 하나를 격리하거나 해당 CIDR 격리를 해제합니다.
-   *
-   * <h2>왜 응답의 delivered 와 applied 를 나눠 보여주는가</h2>
-   * <p>{@code delivered=false} 는 "장치가 연결되어 있지 않아 명령이 못 갔다"
-   * 입니다. 이때 서버는 상태를 저장하므로, 장치가 재접속하면 차단 정책이
-   * 적용됩니다. 운영자가 이 차이를 모르면 "격리가 안 먹네" 하고 반복 클릭합니다.
-   *
-   * <p>{@code applied=null} 은 "명령은 갔는데 아직 ack 를 못 받았다" 입니다.
-   * 몇 초 뒤 새로고침하면 채워집니다.
-   *
-   * @param agentId 대상 Agent
-   * @param targetCidr 격리/해제할 CIDR
-   * @param isolate true 면 격리, false 면 해제
-   */
   const handleQuarantine = async (
     agentId: string,
     targetCidr: string,
@@ -449,17 +330,10 @@ export default function Agent() {
   const canIsolateSubnet = (row: Row) =>
     ["SWITCH", "ROUTER", "FIREWALL"].includes((row.deviceType ?? "").toUpperCase());
 
-  /**
-   * 격리 응답을 사람이 읽는 문장으로 바꿉니다.
-   *
-   * @param agentId 대상 Agent
-   * @param result  서버 응답
-   * @returns 한 줄 요약
-   */
   function describeIsolation(agentId: string, targetCidr: string, result: ApiQuarantineState): string {
-    // ⚠️ 거부를 가장 먼저 봅니다. 아래 분기(retry/delivered)는 모두
-    //    "명령을 보냈다" 를 전제로 문장을 만드는데, 거부된 요청은
-    //    명령을 보내지 않았습니다. 순서를 바꾸면 "격리했습니다" 가 나옵니다.
+
+
+
     if (result.rejected === true) {
       return `격리할 수 없습니다 — ${result.reason ?? "이 장치는 격리 대상이 아닙니다."}`;
     }
@@ -494,11 +368,6 @@ export default function Agent() {
       <PageBreadcrumb pageTitle="Agent" />
 
       <div className="space-y-6">
-        {/*
-          API 연결 장치 안내 — 프로버가 없어 이 목록에 나타나지 않는 장비가
-          있다는 사실을 먼저 알려줍니다. "방화벽을 등록했는데 안 보인다" 는
-          혼란이 여기서 끝납니다.
-        */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-white/[0.03]">
           <p className="text-sm text-gray-700 dark:text-gray-300">
             프로버 없이 REST API 로 직접 연결되는 장비(예: OPNsense)는 이 목록에 나타나지
@@ -566,10 +435,6 @@ export default function Agent() {
               <Badge size="sm" color="light">
                 {visibleRows.length}건
                 {filterMatchesAll && (
-                  /*
-                   * 라벨 숫자와 표시 건수가 같아도 필터가 고장 난 것은 아닙니다.
-                   * 그런데 화면만 보면 구분이 안 되므로 사유를 적어 둡니다.
-                   */
                   <span
                     className="ml-1 font-normal text-gray-400"
                     title="모든 항목이 문제 조건에 해당합니다"
@@ -716,12 +581,6 @@ export default function Agent() {
                         <span className="font-medium text-gray-700 dark:text-gray-200">
                           {row.product ?? "—"}
                         </span>
-                        {/*
-                          형식(파서 키)은 내부 이름이므로 작게 보조로 둡니다.
-                          제품명과 같거나(“Arista” vs “ARISTA_vEOS” 처럼 부분 일치)
-                          구분이 안 되는 경우에는 생략해 “AristaARISTA_vEOS” 처럼
-                          붙어 보이지 않게 합니다.
-                        */}
                         {row.format &&
                           row.format.toLowerCase() !== (row.product ?? "").toLowerCase() &&
                           !row.format.toLowerCase().includes((row.product ?? "").toLowerCase()) && (
@@ -890,7 +749,6 @@ export default function Agent() {
   );
 }
 
-/** 요약 카드 한 장을 렌더링합니다. */
 function SummaryCard({
   label,
   value,

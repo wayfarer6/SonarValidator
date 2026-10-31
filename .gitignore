@@ -112,3 +112,8 @@ known_hosts
 # Python 캐시 (배포 도구 실행 시 생성)
 __pycache__/
 *.pyc
+
+# Local UI recordings and test authentication state
+test-results/
+
+/SonarValidator_Prober/Installer/sonar_validator_prober

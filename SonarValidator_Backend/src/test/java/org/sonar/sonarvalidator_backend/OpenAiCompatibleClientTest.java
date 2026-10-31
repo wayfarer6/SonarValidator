@@ -12,30 +12,11 @@ import org.sonar.sonarvalidator_backend.Service.ai.OpenAiCompatibleClient.Connec
 import org.sonar.sonarvalidator_backend.Service.ai.OpenAiCompatibleClient.Message;
 import org.sonar.sonarvalidator_backend.Service.ai.OpenAiCompatibleClient.Result;
 
-/**
- * OpenAI 호환 클라이언트의 URL 조립과 방어 로직을 검증합니다.
- *
- * <h2>여기서 잡으려는 실패 모드</h2>
- * <ul>
- *   <li><b>baseUrl 중복/누락</b> — 사용자는 {@code https://api.openai.com},
- *       {@code .../v1}, {@code .../v1/} 을 모두 입력합니다. 그대로 이어 붙이면
- *       {@code /v1/v1/chat/completions} 나 {@code //chat/completions} 가 되어
- *       404 가 나는데, 메시지가 불친절해 원인을 찾기 어렵습니다.</li>
- *   <li><b>키 없는 로컬 모델</b> — Ollama/vLLM 은 API Key 가 없습니다.
- *       키를 필수로 만들면 로컬 모델을 쓸 수 없습니다.</li>
- *   <li><b>설정 불완전 시 조용한 실패</b> — 호출 전에 검증해야
- *       무의미한 네트워크 요청을 보내지 않습니다.</li>
- * </ul>
- *
- * <p>실제 네트워크 호출은 하지 않습니다. (외부 의존 없이 CI 에서 실행)
- */
 class OpenAiCompatibleClientTest {
 
     private final OpenAiCompatibleClient client = new OpenAiCompatibleClient();
 
-    // ---------------------------------------------------------------------------
     // URL 조립 (가장 자주 틀리는 부분)
-    // ---------------------------------------------------------------------------
 
     @Test
     @DisplayName("표준 baseUrl 에 경로를 붙인다")
@@ -100,9 +81,7 @@ class OpenAiCompatibleClientTest {
                 client.buildModelsUrl("https://api.openai.com/v1/chat/completions"));
     }
 
-    // ---------------------------------------------------------------------------
     // 설정 검증
-    // ---------------------------------------------------------------------------
 
     @Test
     @DisplayName("baseUrl 과 model 이 없으면 네트워크 요청 없이 실패한다")
@@ -134,9 +113,7 @@ class OpenAiCompatibleClientTest {
         assertFalse(noModel.isUsable());
     }
 
-    // ---------------------------------------------------------------------------
     // 결과 타입
-    // ---------------------------------------------------------------------------
 
     @Test
     @DisplayName("실패 결과는 사유를 담는다")
@@ -157,9 +134,7 @@ class OpenAiCompatibleClientTest {
         assertEquals(1234L, result.elapsedMs());
     }
 
-    // ---------------------------------------------------------------------------
     // 메시지 팩토리
-    // ---------------------------------------------------------------------------
 
     @Test
     @DisplayName("메시지 역할이 올바르게 만들어진다")

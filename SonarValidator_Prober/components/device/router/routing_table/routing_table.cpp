@@ -165,9 +165,9 @@ void RoutingTable::ParseCiscoTable(const std::string& raw_output)
   routing_protocol_.clear();
   parsed_routing_table_ = raw_output;
 
-  // 수작업 라인 스캔 대신 공용 ANTLR 문법(FrrRouter.g4)에 위임한다.
-  // Cisco `show ip route` 도 라우트 코드(C/O/S...)를 붙여 출력하므로
-  // FRR 과 동일한 문법으로 파싱한다.
+
+
+
   AppendRoutes(cli_parser::ParseRouteStatus(raw_output, cli_parser::Vendor::kCisco), routes_);
 
   std::string protocol;
@@ -270,4 +270,3 @@ std::string CiscoRoutingTableView::Render(const RoutingTable& table) const
   oss << table.GetConnectedNodeId() << " " << table.GetRoutingProtocol() << '\n';
   return oss.str();
 }
-

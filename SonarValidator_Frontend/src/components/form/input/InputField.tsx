@@ -8,10 +8,6 @@ interface InputProps {
   placeholder?: string;
   value?: string | number;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  /**
-   * 포커스를 잃을 때 호출됩니다. 입력이 끝난 시점에만 서버를 호출해야 하는
-   * 화면(예: OPNsense 장치 이름 조회)에서 사용합니다.
-   */
   onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   className?: string;
   min?: string;

@@ -22,12 +22,6 @@ import org.sonar.sonarvalidator_backend.Service.DeviceConfigService;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * 벤더별 설정 파서가 Agent 텔레메트리를 중립 설정으로 올바르게 옮기는지 검증합니다.
- *
- * <p>아래 JSON 은 실제 GNS3 랩에서 에이전트가 보낸 payload 를 그대로 축약한 것입니다.
- * (mock 서버 로그에서 캡처) 그래야 파서가 실제 수집 형식에 대해 검증됩니다.
- */
 class DeviceConfigParserTest {
 
     private final JsonMapper mapper = JsonMapper.builder().build();
@@ -36,10 +30,6 @@ class DeviceConfigParserTest {
         return mapper.readTree(text);
     }
 
-    /**
-     * FRR 라우터: 커널 {@code ip route show} 는 라우트 코드가 없고
-     * {@code destination}/{@code via} 키를 씁니다. 중립 설정으로 흡수돼야 합니다.
-     */
     @Test
     @DisplayName("FRR 라우터: 커널 형식 라우팅을 prefix/nextHop 으로 흡수한다")
     void frrKernelRoutes() {
@@ -95,10 +85,6 @@ class DeviceConfigParserTest {
         assertEquals("1", config.getMetadata().get("ospfRouteCount"));
     }
 
-    /**
-     * Alpine 방화벽: 서브인터페이스 이름에서 VLAN 을 분해해야 합니다.
-     * 이 랩에서 방화벽이 VLAN 종단을 하므로 존 게이트웨이 매핑에 필요합니다.
-     */
     @Test
     @DisplayName("Alpine 방화벽: eth1.131 을 VLAN 131 + parent eth1 로 분해한다")
     void alpineFirewallVlanTermination() {
@@ -182,10 +168,6 @@ class DeviceConfigParserTest {
         assertTrue(config.getFirewallRules().get(0).contains("ip saddr 10.10.131.0/24 drop"));
     }
 
-    /**
-     * Open vSwitch: 액세스 포트의 tag 와 트렁크의 trunks 가
-     * VLAN 정의와 포트 모드로 동시에 반영돼야 합니다.
-     */
     @Test
     @DisplayName("Open vSwitch: tag 는 access VLAN, trunks 는 trunk VLAN 으로 반영된다")
     void openVSwitchVlansAndTrunks() {
@@ -235,9 +217,6 @@ class DeviceConfigParserTest {
         assertTrue(config.getVlans().get(111).getMembers().contains("eth1"));
     }
 
-    /**
-     * Linux VM: 기본 경로와 인터페이스 주소가 그대로 올라와야 합니다.
-     */
     @Test
     @DisplayName("Linux VM: 인터페이스/라우팅/이웃을 중립 구조로 옮긴다")
     void linuxVmBasics() {
@@ -282,9 +261,6 @@ class DeviceConfigParserTest {
         assertEquals("REACHABLE", config.getArpEntries().get(0).getState());
     }
 
-    /**
-     * Arista: VLAN 정의와 switchport 정보를 합쳐야 포트-VLAN 매핑이 완성됩니다.
-     */
     @Test
     @DisplayName("Arista: show vlan brief 와 switchport 를 합쳐 포트 모드를 만든다")
     void aristaVlanAndSwitchport() {
@@ -324,9 +300,6 @@ class DeviceConfigParserTest {
         assertEquals("1", config.getMetadata().get("trunkPortCount"));
     }
 
-    /**
-     * 벤더 판정과 폴백: 제품명이 비어 있거나 모르는 값이어도 예외 없이 빈 설정을 돌려줘야 합니다.
-     */
     @Test
     @DisplayName("모르는 제품/빈 payload 에서도 예외 없이 빈 설정을 돌려준다")
     void gracefulFallback() {
@@ -355,10 +328,6 @@ class DeviceConfigParserTest {
         assertTrue(service.supportedFormats().contains("OpenvSwitch"));
     }
 
-    /**
-     * Cisco 는 {@code show ip interface brief} 에 서브넷 마스크가 없습니다.
-     * 파서가 마스크를 추측하면 잘못된 도달성 분석이 나오므로, 없는 채로 두는지 확인합니다.
-     */
     @Test
     @DisplayName("Cisco: 서브넷 마스크가 없으면 prefix_len 을 만들지 않는다")
     void ciscoDoesNotInventPrefixLength() {

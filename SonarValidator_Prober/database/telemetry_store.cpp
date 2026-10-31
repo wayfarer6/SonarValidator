@@ -13,12 +13,6 @@ using Json = nlohmann::json;
 namespace
 {
 
-// ---------------------------------------------------------------------------
-//  JSON 접근 헬퍼 — 키가 없거나 타입이 달라도 예외를 던지지 않습니다.
-//  (수집 루프가 파싱 실패로 멈추면 안 되므로 "없으면 건너뛴다" 를 기본으로 합니다.)
-// ---------------------------------------------------------------------------
-
-// object 에서 key 를 찾습니다. 없거나 null 이면 nullptr 입니다.
 const Json* FindMember(const Json& object, const char* key)
 {
     if (!object.is_object())
@@ -34,14 +28,12 @@ const Json* FindMember(const Json& object, const char* key)
     return &(*iterator);
 }
 
-// 배열이면 포인터를, 아니면 nullptr 을 돌려줍니다.
 const Json* FindArray(const Json& object, const char* key)
 {
     const Json* value = FindMember(object, key);
     return (value != nullptr && value->is_array()) ? value : nullptr;
 }
 
-// 문자열이면 그대로, 숫자/불리언이면 문자열로 바꿔 돌려줍니다. 그 외에는 빈 문자열.
 std::string JsonToText(const Json& value)
 {
     if (value.is_string())
@@ -54,15 +46,12 @@ std::string JsonToText(const Json& value)
     }
     if (value.is_number())
     {
-        // metric/distance 는 파서가 정수로 내보냅니다(Java Backend 계약).
-        // mtu 처럼 문자열로 오는 필드는 위 is_string() 분기가 처리합니다.
+
         return value.dump();
     }
     return {};
 }
 
-// 문자열 리스트(flags, ports, trunk_vlans 등)를 JSON 배열 문자열로 직렬화합니다.
-// 배열이 아니면 nullptr 을 돌려줘 호출부가 건너뛰게 합니다.
 std::string ListToJsonText(const Json& object, const char* key)
 {
     const Json* array = FindArray(object, key);
@@ -73,10 +62,6 @@ std::string ListToJsonText(const Json& object, const char* key)
     return array->dump();
 }
 
-// ---------------------------------------------------------------------------
-//  바인딩 값 표현 — "값 없음(NULL)" 과 "0/빈 문자열" 을 구분해야 하므로
-//  present 플래그를 둡니다.
-// ---------------------------------------------------------------------------
 struct ColumnValue
 {
     enum class Kind
@@ -95,7 +80,7 @@ struct ColumnValue
         ColumnValue column;
         column.kind = Kind::kText;
         column.text = std::move(value);
-        column.present = true;  // 빈 문자열도 "값 있음" 으로 저장합니다.
+        column.present = true;
         return column;
     }
 
@@ -108,14 +93,12 @@ struct ColumnValue
         return column;
     }
 
-    // JSON 에서 문자열/숫자를 읽어 TEXT 로 담습니다. 없으면 NULL.
     static ColumnValue FromText(const Json& object, const char* key)
     {
         const Json* value = FindMember(object, key);
         return value == nullptr ? ColumnValue{} : Text(JsonToText(*value));
     }
 
-    // JSON 에서 정수를 읽습니다. 숫자가 아니면 NULL. (예: "index")
     static ColumnValue FromInteger(const Json& object, const char* key)
     {
         const Json* value = FindMember(object, key);
@@ -126,7 +109,6 @@ struct ColumnValue
         return Integer(value->get<long long>());
     }
 
-    // JSON 불리언을 0/1 INTEGER 로 저장합니다. (예: selected, connected)
     static ColumnValue FromBoolean(const Json& object, const char* key)
     {
         const Json* value = FindMember(object, key);
@@ -150,7 +132,6 @@ struct ColumnValue
         return ColumnValue{};
     }
 
-    // 배열을 JSON 텍스트로 저장합니다. 키가 없어도 "[]" 을 남깁니다.
     static ColumnValue FromList(const Json& object, const char* key)
     {
         return Text(ListToJsonText(object, key));
@@ -159,22 +140,12 @@ struct ColumnValue
 
 using Row = std::vector<ColumnValue>;
 
-// 두 후보 중 "값이 있는" 첫 번째를 고릅니다.
-// 파서/벤더에 따라 같은 의미의 키 이름이 다를 때 사용합니다.
-//   예: 라우트 목적지가 prefix(FRR/Cisco) 또는 destination(Linux)
 inline ColumnValue FirstOf(ColumnValue first, ColumnValue second)
 {
     return first.present ? first : second;
 }
 
-// ---------------------------------------------------------------------------
-//  공통 저장 루틴
-//
-//  - 행이 없으면 아무것도 하지 않고 true 를 돌려줍니다(호출부가 분기할 필요 없음).
-//  - 한 스냅샷을 트랜잭션 하나로 묶습니다. 중간 실패 시 롤백해 반쪽 저장을 막습니다.
-//  - 여기서는 예외를 던지지 않고 실패를 false 로 알립니다.
-// ---------------------------------------------------------------------------
-bool PushRows(DatabaseQueue& database_queue,
+bool SaveRows(DatabaseService& database_service,
               const char* insert_sql,
               const std::string& agent,
               const std::string& collected_at,
@@ -182,15 +153,12 @@ bool PushRows(DatabaseQueue& database_queue,
 {
     if (rows.empty())
     {
-        return true;  // 저장할 행이 없습니다.
+        return true;
     }
 
-    // 태스크 실행 중 원본이 사라져도 안전하도록 값은 전부 복사 캡처합니다.
-    DatabaseTask task;
-    task.execute = [insert_sql, agent, collected_at, rows = std::move(rows)](DbHandle& handle)
+    return RunDatabaseWrite(database_service, [insert_sql, agent, collected_at, rows = std::move(rows)](DbHandle& handle)
         -> DatabaseResult {
-        // DB 워커가 set_value 를 못 하면(예외로 빠지면) 호출부 future 가 영원히
-        // 대기하므로, 이 람다는 어떤 경우에도 예외를 밖으로 내보내지 않습니다.
+
         DatabaseResult result;
         result.sql_task = insert_sql;
 
@@ -200,14 +168,12 @@ bool PushRows(DatabaseQueue& database_queue,
             return result;
         }
 
-        // 아래 모든 실패는 finalize 후 조용히 return 합니다.
         sqlite3_stmt* statement = nullptr;
         if (sqlite3_prepare_v2(database, insert_sql, -1, &statement, nullptr) != SQLITE_OK)
         {
             return result;
         }
 
-        // 앞 부분(agent, collected_at)은 모든 INSERT 문에서 공통입니다.
         const int first_row_parameter = 3;
         if (sqlite3_bind_text(statement, 1, agent.c_str(), -1, SQLITE_TRANSIENT) != SQLITE_OK ||
             sqlite3_bind_text(statement, 2, collected_at.c_str(), -1, SQLITE_TRANSIENT) != SQLITE_OK)
@@ -216,7 +182,8 @@ bool PushRows(DatabaseQueue& database_queue,
             return result;
         }
 
-        bool began_transaction = sqlite3_exec(database, "BEGIN", nullptr, nullptr, nullptr) == SQLITE_OK;
+        const bool began_transaction = sqlite3_exec(database, "BEGIN", nullptr, nullptr, nullptr) == SQLITE_OK;
+        if (!began_transaction) return result;
         bool all_rows_saved = true;
 
         for (const Row& row : rows)
@@ -267,6 +234,7 @@ bool PushRows(DatabaseQueue& database_queue,
             if (sqlite3_exec(database, finish, nullptr, nullptr, nullptr) != SQLITE_OK)
             {
                 all_rows_saved = false;
+                sqlite3_exec(database, "ROLLBACK", nullptr, nullptr, nullptr);
             }
         }
 
@@ -275,17 +243,9 @@ bool PushRows(DatabaseQueue& database_queue,
             result.db_task_result.push_back("ok");
         }
         return result;
-    };
-
-    return database_queue.Push(std::move(task));
+    });
 }
 
-// ---------------------------------------------------------------------------
-//  테이블별 행 추출
-// ---------------------------------------------------------------------------
-
-// route_table: 한 번 수집분의 라우팅 엔트리를 NULLABLE 컬럼 10개로 옮깁니다.
-// (agent, collected_at 은 PushRows 가 채웁니다.)
 constexpr const char* kInsertRouteSql =
     "INSERT INTO route_table (agent, collected_at, protocol, prefix, next_hop, metric,"
     " interface_name, selected, fib, connected, distance, metric_raw)"
@@ -304,35 +264,32 @@ std::vector<Row> ExtractRouteRows(const Json& route_status)
     {
         if (!route.is_object())
         {
-            continue;  // 형식이 다른 원소는 저장하지 않습니다.
+            continue;
         }
 
         rows.push_back(Row{
             ColumnValue::FromText(route, "protocol"),
-            // Linux `ip route show` 파서는 목적지를 destination 으로,
-            // FRR/Cisco 파서는 prefix 로 내보낸다. 두 표기를 모두 받는다.
+
             FirstOf(ColumnValue::FromText(route, "prefix"),
                     ColumnValue::FromText(route, "destination")),
-            // 다음 홉도 via / next_hop 두 표기가 있다.
+
             FirstOf(ColumnValue::FromText(route, "next_hop"),
                     ColumnValue::FromText(route, "via")),
-            // metric 은 정수로 저장합니다(Java Backend 계약).
-            // 숫자가 아니면 NULL 이 되고 원문은 metric_raw 에 남습니다.
+
             ColumnValue::FromInteger(route, "metric"),
             ColumnValue::FromText(route, "interface_name"),
             ColumnValue::FromBoolean(route, "selected"),
             ColumnValue::FromBoolean(route, "fib"),
             ColumnValue::FromBoolean(route, "connected"),
-            // administrative distance(`[110/200]` 의 앞 값). 커널 `ip route` 에는 없다.
+
             ColumnValue::FromInteger(route, "distance"),
-            // 숫자로 읽지 못한 metric 원문. 진단/추적용이며 없으면 NULL 입니다.
+
             ColumnValue::FromText(route, "metric_raw"),
         });
     }
     return rows;
 }
 
-// nic_info: 인터페이스 한 개 = 한 행. link_type 은 파서 버전에 따라 없을 수 있습니다.
 constexpr const char* kInsertNicInfoSql =
     "INSERT INTO nic_info (agent, collected_at, name, index_number, mac, mtu, state,"
     " flags, link_type, parent) VALUES (?,?,?,?,?,?,?,?,?,?)";
@@ -367,8 +324,6 @@ std::vector<Row> ExtractNicInfoRows(const Json& nic_status)
     return rows;
 }
 
-// nic_address: 인터페이스별 addresses 배열을 펼칩니다.
-// 주소 객체 자체에 "interface" 가 있으면 그 값을, 없으면 부모 인터페이스 이름을 씁니다.
 constexpr const char* kInsertNicAddressSql =
     "INSERT INTO nic_address (agent, collected_at, interface_name, family, address,"
     " prefix_len, scope) VALUES (?,?,?,?,?,?,?)";
@@ -389,7 +344,6 @@ std::vector<Row> ExtractNicAddressRows(const Json& nic_status)
             continue;
         }
 
-        // 부모 인터페이스 이름은 주소 객체에 "interface" 가 없을 때 대신 씁니다.
         std::string interface_name;
         if (const Json* name = FindMember(interface, "name"))
         {
@@ -399,7 +353,7 @@ std::vector<Row> ExtractNicAddressRows(const Json& nic_status)
         const Json* addresses = FindArray(interface, "addresses");
         if (addresses == nullptr)
         {
-            continue;  // 주소가 없는 인터페이스는 nic_info 에만 남습니다.
+            continue;
         }
 
         for (const Json& address : *addresses)
@@ -409,7 +363,6 @@ std::vector<Row> ExtractNicAddressRows(const Json& nic_status)
                 continue;
             }
 
-            // 주소 객체의 "interface" 우선, 없으면 부모 이름.
             ColumnValue owner = ColumnValue::FromText(address, "interface");
             if (!owner.present && !interface_name.empty())
             {
@@ -523,19 +476,16 @@ std::vector<Row> ExtractArpRows(const Json& arp_table)
     return rows;
 }
 
-// collected_at 이 비어 있으면 현재 UTC 시각으로 채웁니다.
 std::string ResolveCollectedAt(const std::string& collected_at)
 {
     return collected_at.empty() ? telemetry_store::CurrentUtcTimestamp() : collected_at;
 }
 
-} // namespace
+}
 
 namespace telemetry_store
 {
 
-// 수집 시각은 로컬 타임존이 아니라 UTC 로 통일합니다.
-// (여러 장비의 수집 결과를 서버에서 시간순으로 합칠 때 혼선이 없도록)
 std::string CurrentUtcTimestamp()
 {
     const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -547,14 +497,14 @@ std::string CurrentUtcTimestamp()
     return buffer;
 }
 
-bool EnqueueRouteStatusSave(DatabaseQueue& database_queue,
+bool SaveRouteStatus(DatabaseService& database_service,
                             const std::string& agent,
                             const Json& route_status,
                             const std::string& collected_at)
 {
     try
     {
-        return PushRows(database_queue,
+        return SaveRows(database_service,
                         kInsertRouteSql,
                         agent,
                         ResolveCollectedAt(collected_at),
@@ -567,18 +517,18 @@ bool EnqueueRouteStatusSave(DatabaseQueue& database_queue,
     }
 }
 
-bool EnqueueNicInfoSave(DatabaseQueue& database_queue,
+bool SaveNicInfo(DatabaseService& database_service,
                         const std::string& agent,
                         const Json& nic_status,
                         const std::string& collected_at)
 {
     try
     {
-        // 인터페이스와 주소가 같은 시각을 쓰도록 여기서 한 번만 시각을 정합니다.
+
         const std::string snapshot_time = ResolveCollectedAt(collected_at);
-        const bool interfaces_saved = PushRows(
-            database_queue, kInsertNicInfoSql, agent, snapshot_time, ExtractNicInfoRows(nic_status));
-        const bool addresses_saved = PushRows(database_queue,
+        const bool interfaces_saved = SaveRows(
+            database_service, kInsertNicInfoSql, agent, snapshot_time, ExtractNicInfoRows(nic_status));
+        const bool addresses_saved = SaveRows(database_service,
                                               kInsertNicAddressSql,
                                               agent,
                                               snapshot_time,
@@ -592,14 +542,14 @@ bool EnqueueNicInfoSave(DatabaseQueue& database_queue,
     }
 }
 
-bool EnqueueVlanStatusSave(DatabaseQueue& database_queue,
+bool SaveVlanStatus(DatabaseService& database_service,
                            const std::string& agent,
                            const Json& vlan_status,
                            const std::string& collected_at)
 {
     try
     {
-        return PushRows(database_queue,
+        return SaveRows(database_service,
                         kInsertVlanSql,
                         agent,
                         ResolveCollectedAt(collected_at),
@@ -612,14 +562,14 @@ bool EnqueueVlanStatusSave(DatabaseQueue& database_queue,
     }
 }
 
-bool EnqueueTrunkStatusSave(DatabaseQueue& database_queue,
+bool SaveTrunkStatus(DatabaseService& database_service,
                             const std::string& agent,
                             const Json& trunk_status,
                             const std::string& collected_at)
 {
     try
     {
-        return PushRows(database_queue,
+        return SaveRows(database_service,
                         kInsertTrunkSql,
                         agent,
                         ResolveCollectedAt(collected_at),
@@ -632,14 +582,14 @@ bool EnqueueTrunkStatusSave(DatabaseQueue& database_queue,
     }
 }
 
-bool EnqueueArpTableSave(DatabaseQueue& database_queue,
+bool SaveArpTable(DatabaseService& database_service,
                          const std::string& agent,
                          const Json& arp_table,
                          const std::string& collected_at)
 {
     try
     {
-        return PushRows(database_queue,
+        return SaveRows(database_service,
                         kInsertArpSql,
                         agent,
                         ResolveCollectedAt(collected_at),
@@ -652,4 +602,4 @@ bool EnqueueArpTableSave(DatabaseQueue& database_queue,
     }
 }
 
-} // namespace telemetry_store
+}

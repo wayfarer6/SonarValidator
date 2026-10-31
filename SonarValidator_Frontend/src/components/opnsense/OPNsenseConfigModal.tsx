@@ -18,46 +18,13 @@ import {
 } from "../../lib/api/opnsense";
 
 interface OPNsenseConfigModalProps {
-  /** 모달 열림 여부. */
   isOpen: boolean;
-  /** 닫기 콜백. */
   onClose: () => void;
-  /**
-   * 장치 이름(node_id)의 초기값입니다.
-   *
-   * <p>⚠️ 비워 두면 사용자가 모달에서 직접 입력합니다. 이 값은 서버가
-   * OPNsense 설정을 식별하는 <b>키</b>이므로, 표시 이름이나 관리 서버 IP 로
-   * 대신 채우면 안 됩니다. (그렇게 하면 실제 장치 이름과 어긋나 기존 설정을
-   * 불러오지 못합니다)
-   */
   initialNodeId?: string;
-  /** 표시용 장치 이름 (제목에 사용). */
   deviceLabel?: string | null;
-  /** 저장/삭제 성공 후 호출. (부모 목록 갱신용) */
   onSaved?: () => void;
 }
 
-/**
- * OPNsense 접속 정보 입력 모달입니다.
- *
- * <h2>기존 모달 컴포넌트를 재사용한 방식</h2>
- * `components/ui/modal` 의 `Modal` 을 그대로 씁니다. 이 컴포넌트가 이미
- * ESC 닫기, 배경 클릭 닫기, 스크롤 잠금을 처리하므로 여기서 다시 구현하지
- * 않습니다. `Project.tsx` 의 생성 모달과 같은 클래스 조합을 씁니다.
- *
- * <h2>시크릿 입력란을 항상 비워 두는 이유</h2>
- * 서버는 저장된 Secret 을 <b>절대 평문으로 내려보내지 않습니다.</b> 대신
- * `has_secret` 플래그만 줍니다. 그래서 입력란은 비어 있고, placeholder 에
- * "저장됨(변경하려면 입력)" 이라고 안내합니다.
- *
- * <p>값을 하드코딩해 채워 두면 화면 캡처나 DOM 검사로 비밀이 노출됩니다.
- * 또 서버로 다시 보내는 과정에서 평문이 여러 곳에 남습니다.
- *
- * <h2>OPNsense 인증 형식 안내를 화면에 넣은 이유</h2>
- * OPNsense 는 API Key 를 <b>사용자 이름 자리</b>에 넣어 Basic 인증합니다.
- * 이걸 모르고 반대로 넣으면 "Authentication Failed" 만 나와서 원인을 찾기
- * 어렵습니다. 그래서 발급 경로와 함께 화면에 적어 둡니다.
- */
 export default function OPNsenseConfigModal({
   isOpen,
   onClose,
@@ -71,17 +38,8 @@ export default function OPNsenseConfigModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  /**
-   * 서버가 설정을 식별하는 키입니다. (node_id)
-   *
-   * <p>⚠️ 이 입력란이 없던 동안에는 값이 항상 빈 문자열이었고, 화면은
-   * 모든 요청을 `/credentials/`(경로 변수 없음) 로 보냈습니다. 서버는 이를
-   * <b>"No static resource api/v1/opnsense/credentials."</b> 라는 404 로
-   * 돌려주기 때문에, 운영자에게는 "엔드포인트가 잘못됐다" 처럼 보였습니다.
-   */
   const [nodeId, setNodeId] = useState("");
   const [nodeIdError, setNodeIdError] = useState<string | null>(null);
-  /** 마지막으로 서버에서 조회를 끝낸 node_id. 중복 조회를 막는 표식입니다. */
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
   const [existing, setExisting] = useState<OPNsenseCredential | null>(null);
@@ -93,23 +51,10 @@ export default function OPNsenseConfigModal({
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [apiSecretError, setApiSecretError] = useState<string | null>(null);
 
-  /**
-   * 이 장치가 속한 프로젝트 키입니다. 빈 문자열이면 "미지정" 입니다.
-   *
-   * <p>REST 전용 장치는 프로버가 없어 `expected_agent` 에 등록되지 않으므로,
-   * 소속을 다른 곳에서 알 수 없습니다. 그래서 접속 정보에 직접 남깁니다.
-   */
   const [projectKey, setProjectKey] = useState("");
-  /** 선택지로 쓸 프로젝트 목록입니다. */
   const [projects, setProjects] = useState<{ project_id: string; name: string }[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
 
-  /**
-   * 선택지로 쓸 프로젝트 목록을 한 번 읽습니다.
-   *
-   * <p>실패해도 모달 자체는 쓸 수 있어야 합니다 — 프로젝트 지정은 부가
-   * 정보이고, 그것 때문에 자격증명 등록을 막으면 손해가 큽니다.
-   */
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -136,15 +81,6 @@ export default function OPNsenseConfigModal({
     };
   }, [isOpen]);
 
-  /**
-   * 장치 이름으로 기존 설정을 불러옵니다.
-   *
-   * <p>404 는 "아직 설정 없음" 이므로 오류가 아닙니다. 다만 그 외의 오류
-   * (권한/네트워크)는 감추지 않고 그대로 보여줍니다 — 감추면 "새로 등록"
-   * 으로 오인해 기존 설정을 덮어쓸 수 있습니다.
-   *
-   * @param target 장치 이름
-   */
   const loadExisting = useCallback(async (target: string) => {
     const id = target.trim();
     if (id === "") return;
@@ -168,14 +104,6 @@ export default function OPNsenseConfigModal({
     }
   }, []);
 
-  /**
-   * 모달을 열 때마다 상태를 초기화합니다.
-   *
-   * <p>⚠️ 장치 이름이 <b>주어진 경우(편집 진입)에는 즉시 서버 조회</b>를
-   * 시작합니다. 예전에는 이름을 직접 입력하고 포커스를 옮겨야만 조회했기
-   * 때문에, 편집으로 들어오면 주소가 빈 채로 열려 저장 버튼이 거부됐습니다.
-   * (값이 비어 있는데 오류도 없어 "주소가 사라졌다" 로 보였습니다)
-   */
   useEffect(() => {
     if (!isOpen) return;
     const initial = initialNodeId?.trim() ?? "";
@@ -201,18 +129,16 @@ export default function OPNsenseConfigModal({
     }
   }, [isOpen, initialNodeId, deviceLabel, loadExisting]);
 
-  /** 이름 입력을 마치면(=포커스 해제) 기존 설정을 조회합니다. */
   const handleNodeIdBlur = useCallback(() => {
     const id = nodeId.trim();
     if (id === "" || id === loadedFor) return;
     void loadExisting(id);
   }, [nodeId, loadedFor, loadExisting]);
 
-  /** 저장합니다. */
   const handleSave = useCallback(async () => {
-    // ⚠️ 장치 이름·주소·Key/Secret 을 "같은 무게" 로 검증합니다.
-    //    이름을 빼면 요청 경로에 경로 변수가 사라져(=/credentials/)
-    //    서버가 "No static resource ..." 라는 404 를 돌려줍니다.
+
+
+
     const target = nodeId.trim();
     let invalid = false;
     if (target === "") {
@@ -273,7 +199,6 @@ export default function OPNsenseConfigModal({
     }
   }, [nodeId, displayName, baseUrl, apiKey, apiSecret, allowInsecureTls, projectKey, onSaved, existing]);
 
-  /** 연결을 다시 확인합니다. */
   const handleVerify = useCallback(async () => {
     setVerifying(true);
     setError(null);
@@ -290,7 +215,6 @@ export default function OPNsenseConfigModal({
     }
   }, [nodeId, onSaved]);
 
-  /** 설정을 삭제합니다. */
   const handleDelete = useCallback(async () => {
     if (!window.confirm("OPNsense 접속 정보를 삭제하시겠습니까?")) return;
     setSaving(true);
@@ -363,12 +287,6 @@ export default function OPNsenseConfigModal({
               </ol>
             </div>
 
-            {/*
-              장치 이름(node_id) — 서버가 이 설정을 찾는 키입니다.
-              ⚠️ 이 입력란이 없던 동안 요청 경로의 변수가 비어
-                 `/credentials/` 로 나갔고, 서버가 "No static resource
-                 api/v1/opnsense/credentials." 라는 404 를 돌려줬습니다.
-            */}
             <div>
               <Label>
                 장치 이름 (node_id) <span className="text-error-500">*</span>
@@ -409,11 +327,6 @@ export default function OPNsenseConfigModal({
               </p>
             </div>
 
-            {/*
-              프로젝트 소속 — REST 전용 장치는 프로버가 없어 `expected_agent`
-              에 등록되지 않으므로, 소속을 알 근거가 여기에밖에 없습니다.
-              목록에서 "어느 프로젝트 방화벽인가" 를 볼 수 있게 합니다.
-            */}
             <div>
               <Label>프로젝트</Label>
               <select
@@ -422,10 +335,6 @@ export default function OPNsenseConfigModal({
                 className="h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
               >
                 <option value="">미지정 (어느 프로젝트에도 속하지 않음)</option>
-                {/* 저장된 값이 목록에 없을 수도 있습니다(프로젝트 삭제 등).
-                    그때 선택지가 사라지면 화면은 미지정으로 보이는데 서버에는
-                    값이 남아 있어, 저장 시 조용히 지워집니다. 그래서 항목을
-                    하나 더 넣어 현재 값을 그대로 보여줍니다. */}
                 {projectKey !== "" &&
                   !projects.some((project) => project.project_id === projectKey) && (
                     <option value={projectKey}>{projectKey} (목록에 없음)</option>

@@ -11,30 +11,11 @@ import org.junit.jupiter.api.Test;
 import org.sonar.sonarvalidator_backend.Service.ai.OpenAiCompatibleClient;
 import org.sonar.sonarvalidator_backend.Service.log.LogNormalizer;
 
-/**
- * 로그 정규화와 OpenAI 호환 URL 조립을 검증합니다.
- *
- * <h2>여기서 잡으려는 실패 모드</h2>
- * <ul>
- *   <li><b>심각도 방향 반전</b>: syslog 는 숫자가 낮을수록 심각합니다.
- *       부등호를 반대로 쓰면 "warning 이상" 이 정반대 결과가 되는데,
- *       결과가 그럴듯해 보여 알아채기 어렵습니다.</li>
- *   <li><b>baseUrl 중복/누락</b>: {@code /v1/v1/chat/completions} 또는
- *       {@code //chat/completions} 는 404 를 냅니다. 사용자가 주소를
- *       어떻게 입력하든 동작해야 합니다.</li>
- *   <li><b>심각도 판단 실패의 기본값</b>: info 로 두면 어떤 필터에도 안 걸려
- *       조용히 묻히고, warning 으로 두면 모든 로그가 경고가 됩니다.</li>
- * </ul>
- *
- * <p>실제 벤더 로그 샘플로 검증합니다. 목을 쓰면 실제 형식 변화를 못 잡습니다.
- */
 class LogNormalizerTest {
 
     private final LogNormalizer normalizer = new LogNormalizer();
 
-    // ---------------------------------------------------------------------------
     // 심각도 이름 해석
-    // ---------------------------------------------------------------------------
 
     @Test
     @DisplayName("심각도 이름과 숫자를 모두 해석한다")
@@ -78,9 +59,7 @@ class LogNormalizerTest {
         assertEquals("notice", LogNormalizer.nameOf(99));
     }
 
-    // ---------------------------------------------------------------------------
     // Cisco IOS-XE
-    // ---------------------------------------------------------------------------
 
     @Test
     @DisplayName("Cisco 형식에서 facility/심각도/메시지 ID 를 뽑는다")
@@ -118,9 +97,7 @@ class LogNormalizerTest {
         assertEquals(3, log.severityNum, "OSPF-3 은 error");
     }
 
-    // ---------------------------------------------------------------------------
     // FRR
-    // ---------------------------------------------------------------------------
 
     @Test
     @DisplayName("FRR 형식도 같은 규칙으로 파싱한다")
@@ -134,9 +111,7 @@ class LogNormalizerTest {
         assertEquals("%DAEMON-3-BGP_PEER_DOWN", log.messageId);
     }
 
-    // ---------------------------------------------------------------------------
     // Linux / syslog (벤더 코드 없음)
-    // ---------------------------------------------------------------------------
 
     @Test
     @DisplayName("벤더 코드가 없으면 키워드로 심각도를 추정한다")

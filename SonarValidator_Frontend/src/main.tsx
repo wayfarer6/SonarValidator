@@ -14,11 +14,6 @@ createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <AppWrapper>
         <AuthProvider>
-          {/* ProjectWizardProvider 는 여기(main.tsx)에 두지 않습니다.
-              이 위치는 <Router> 바깥이고, Provider 가 ?project_id= 를 읽어
-              백엔드에서 서브넷을 가져와야 하기 때문입니다.
-              (Router 는 App.tsx 안에 있습니다)
-              → layout/AppLayout.tsx 에서 <Outlet/> 을 감쌉니다. */}
           <App />
         </AuthProvider>
       </AppWrapper>

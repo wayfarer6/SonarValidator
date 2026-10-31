@@ -22,12 +22,6 @@ import org.springframework.web.socket.WebSocketSession;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * plain WebSocket 봉투 처리 계약을 실소켓 없이 검증합니다.
- *
- * <p>{@link WebSocketSession} 은 무거운 목 의존성 대신 최소 스텁으로 대체합니다.
- * 검증 범위는 "봉투 → 응답 봉투" 변환이므로 세션은 식별/속성만 제공하면 충분합니다.
- */
 class AgentMessageRouterTest {
 
     private JsonMapper mapper;
@@ -38,9 +32,9 @@ class AgentMessageRouterTest {
     void setUp() {
         mapper = JsonMapper.builder().build();
         registry = new AgentSessionRegistry(mapper);
-        // 라우터는 텔레메트리 로그를 LogService 로 넘깁니다.
-        // 이 테스트는 봉투 처리 계약만 보므로 로그 적재는 스텁으로 대체합니다.
-        // (실제 LogService 는 저장소가 필요해 단위 테스트에 부적합합니다)
+
+
+
         router = new AgentMessageRouterService(
                 registry,
                 new PolicyRegistryService(),
@@ -53,13 +47,6 @@ class AgentMessageRouterTest {
                         new org.sonar.sonarvalidator_backend.Service.cli.CliOutputParser()));
     }
 
-    /**
-     * 알림을 저장하지 않는 스텁입니다.
-     *
-     * <p>라우터는 Agent 연결/해제를 알림으로 남기지만, 이 테스트의 관심사는
-     * "봉투 → 응답 봉투" 변환입니다. DB 쓰기가 끼어들면 테스트가 저장소를
-     * 함께 띄워야 하므로 스텁으로 대체합니다.
-     */
     private static class NoopNotificationService
             extends org.sonar.sonarvalidator_backend.Service.NotificationService {
 
@@ -81,12 +68,6 @@ class AgentMessageRouterTest {
         }
     }
 
-    /**
-     * 로그 적재를 하지 않는 스텁입니다.
-     *
-     * <p>라우터 테스트의 관심사는 "봉투 → 응답 봉투" 변환이므로
-     * DB 쓰기는 끼어들지 않아야 합니다.
-     */
     private static class NoopLogService
             extends org.sonar.sonarvalidator_backend.Service.log.LogService {
 
@@ -106,10 +87,6 @@ class AgentMessageRouterTest {
         }
     }
 
-    /**
-     * 투가 JSON 로 왕복해도 필드가 보존되는지 확인합니다.
-     * Agent(C++)가 직접 만드는 JSON 과 서버 DTO 의 계약이 어긋나지 않게 하는 회귀 테스트입니다.
-     */
     @Test
     @DisplayName("Envelope 은 snake_case JSON 과 왕복한다")
     void envelopeRoundTrip() {
@@ -128,9 +105,6 @@ class AgentMessageRouterTest {
         assertTrue(again.contains("\"correlation_id\":\"c-1\""), again);
     }
 
-    /**
-     * hello 는 ack 를 돌려주고 Agent 를 레지스트리에 등록해야 합니다.
-     */
     @Test
     @DisplayName("hello 는 ack 를 반환하고 Agent 를 등록한다")
     void helloRegistersAgent() {
@@ -147,9 +121,6 @@ class AgentMessageRouterTest {
         assertEquals(1, response.getPayload().path("connected_agents").asInt());
     }
 
-    /**
-     * policy-request  device_type 에 맞는 정책을 담은 policy-response 여야 합니다.
-     */
     @Test
     @DisplayName("policy-request 는 장치 유형에 맞는 정책을 반환한다")
     void policyRequestReturnsPolicy() {
@@ -179,10 +150,6 @@ class AgentMessageRouterTest {
         assertEquals(1L, router.policyRequestCount());
     }
 
-    /**
-     * device_type 이 없어도 device_id 접두사로 유형을 추론해야 합니다.
-     * (C++ Agent 는 device_id 만 보내는 경로가 있음)
-     */
     @Test
     @DisplayName("device_type 이 없으면 device_id 접두사로 추론한다")
     void policyRequestInfersTypeFromDeviceId() {
@@ -195,10 +162,6 @@ class AgentMessageRouterTest {
         assertEquals("SWITCH", response.getPayload().path("device_type").asString(""));
     }
 
-    /**
-     * telemetry  일방향이므로 응답이 없어야 합니다.
-     * (응답을 보내면 Agent 의 요청-응답 매칭이 깨집니다.)
-     */
     @Test
     @DisplayName("telemetry 는 응답하지 않고 최근 값만 저장한다")
     void telemetryIsUniDirectional() {
@@ -213,9 +176,6 @@ class AgentMessageRouterTest {
         assertNotNull(router.lastSeenOf("vm-01"));
     }
 
-    /**
-     * 알 수 없는 type 은 error 봉투로 거부해야 합니다.
-     */
     @Test
     @DisplayName("알 수 없는 type 은 error 로 거부한다")
     void unknownTypeRejected() {
@@ -229,9 +189,6 @@ class AgentMessageRouterTest {
         assertTrue(response.getError().contains("unsupported"));
     }
 
-    /**
-     * 연결되지 않은 Agent 로의 푸시는 예외 없이 false 를 돌려줘야 합니다.
-     */
     @Test
     @DisplayName("미연결 Agent 로의 푸시는 false 를 반환한다")
     void pushToDisconnectedAgentFails() {
@@ -242,9 +199,6 @@ class AgentMessageRouterTest {
         assertEquals(0, registry.broadcast(command));
     }
 
-    /**
-     * DeviceType 파싱은 문서 약어와 C++ 이름을 모두 허용해야 합니다.
-     */
     @Test
     @DisplayName("DeviceType 은 VM/Switch 표기를 모두 허용한다")
     void deviceTypeParsing() {
@@ -255,17 +209,10 @@ class AgentMessageRouterTest {
         assertNull(DeviceType.fromString("nope"));
     }
 
-    /**
-     * 최소 WebSocketSession 스텁. 식별자와 속성만 제공합니다.
-     *
-     * @param id 세션 ID
-     * @return 스텁 세션
-     */
     private WebSocketSession session(String id) {
         return new StubSession(id);
     }
 
-    /** 테스트용 최소 세션 구현. */
     private static final class StubSession implements WebSocketSession {
         private final String id;
         private final java.util.Map<String, Object> attributes = new HashMap<>();

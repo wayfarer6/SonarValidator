@@ -15,17 +15,6 @@ import org.sonar.sonarvalidator_backend.Policy.PolicySubnet;
 import org.sonar.sonarvalidator_backend.Policy.ZoneClass;
 import org.sonar.sonarvalidator_backend.Service.ObservedConnectivity;
 
-/**
- * 라우팅 테이블에서 대역 간 실제 연결을 유도하는 규칙을 검증합니다.
- *
- * <p>핵심 계약:
- * <ol>
- *   <li>한 장치가 두 대역에 L3 주소를 가지면 그 대역들은 <b>연결</b>입니다.</li>
- *   <li>라우팅 테이블이 비어 있어도(실측 Arista 는 경로 0건) 인터페이스 주소로 판단합니다.</li>
- *   <li>등급을 건너뛰는 조합은 {@code forbidden} 으로 표시됩니다(화면에서 빨간 선).</li>
- *   <li>연결이 없는 장치·대역은 만들지 않습니다(오탐 금지).</li>
- * </ol>
- */
 class ObservedConnectivityTest {
 
     private static Project project(ProjectSubnet... subnets) {
@@ -54,7 +43,6 @@ class ObservedConnectivityTest {
         return config;
     }
 
-    /** 라우팅 테이블 한 줄을 추가합니다. (수집 파서가 만드는 형태) */
     private static void route(NeutralDeviceConfig config, String protocol, String prefix,
                               String nextHop) {
         final NeutralDeviceConfig.RouteConfig entry = new NeutralDeviceConfig.RouteConfig();
@@ -179,9 +167,7 @@ class ObservedConnectivityTest {
         assertThat(links.getFirst().targetCidr()).doesNotContain("10.99");
     }
 
-    // ------------------------------------------------------------------
     //  인터넷 노출 판정 (토폴로지의 Internet 노드와 검증이 공유하는 규칙)
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("기본 경로가 있는 장치만 인터넷 노출로 본다")

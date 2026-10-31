@@ -14,21 +14,16 @@
 #include "components/backend_communication/timed_websocket_reader.hpp"
 #include "components/policy/policy_command.hpp"
 #include "module/configuration_module/prober_config.hpp"
+#include "components/device/command_executor.hpp"
 #include "components/terminal/terminal_session.hpp"
+#include "components/policy/policy_executor.hpp"
 #include <thread>
 namespace beast = boost::beast;
 namespace net = boost::asio;
 namespace websocket = beast::websocket;
 using tcp = boost::asio::ip::tcp;
 
-
-// 중앙 서버와 WebSocket으로 통신하며 수신한 정책을 장치에 적용하는 서비스입니다.
-//
-// STOMP를 사용하지 않고 순수 WebSocket 텍스트 프레임 위에서 envelope.hpp 가 만든
-// JSON 봉투를 주고받습니다. 요청과 응답의 짝은 봉투의 correlation_id 로 맞춥니다.
-//
-// 벤더별 정책 적용(Apply*), 공통 명령 실행(RunCommand), 영속 CLI 세션(CliCommand)을 제공합니다.
-class ManagementService {
+class ManagementService final : public DeviceCommandExecutor {
     std::stop_token stop_token_;
 public:
     ManagementService();
@@ -38,113 +33,41 @@ public:
     bool connect();
     void SetStopToken(std::stop_token token) { stop_token_ = token; }
 
-    // 서버에 알릴 에이전트 ID 를 설정합니다. (미설정이면 device_id 로 대체)
     void SetAgentId(std::string agent_id);
 
-    // 봉투 하나를 텍스트 프레임으로 전송합니다.
     bool SendEnvelope(const nlohmann::json& message);
 
-    // fetchPolicy 가 응답을 기다리는 최대 시간입니다.
     static constexpr std::chrono::seconds kResponseTimeout{5};
 
-    // TCP 연결 수립 / WebSocket 핸드셰이크 제한 시간입니다.
-    //
-    // ⚠️ 이 값이 없으면 connect/handshake 가 무제한 블록되어, SIGTERM 을 받아도
-    //    프로세스가 종료되지 않습니다(워커가 join 에서 멈춤).
     static constexpr std::chrono::seconds kConnectTimeout{5};
     static constexpr std::chrono::seconds kHandshakeTimeout{5};
 
-    // 정책을 요청하고(policy-request) 같은 correlation_id 의 응답(policy-response)을 기다립니다.
-    // 실패하면 null JSON(Json())을 반환합니다.
-    //
-    // stop_token 이 있으면 대기 중 stop 요청을 확인해 즉시 빈 JSON 을 돌려줍니다.
-    // (없으면 SIGTERM 후에도 최대 kResponseTimeout{5}초를 기다립니다)
     nlohmann::json fetchPolicy(const DeviceType device_type,
                                const std::string& device_id,
                                std::stop_token stop_token = {});
 
-    // 정책 적용이 끝났음을 서버에 알립니다. (ack 봉투, 일방향)
     bool ReportPolicyApplied(const DeviceType device_type,
                             const std::string& device_id,
                             const std::string& policy_id,
                             bool applied);
 
-    // 짧은 시간 동안 수신을 시도합니다. 완전한 JSON 텍스트 프레임이면 true 입니다.
-    // 서버 푸시(command 등)를 처리하는 수신 루프에서 사용합니다.
     bool TryReceive(std::string& message, std::chrono::milliseconds timeout);
 
-    // 공통 명령 실행 유틸
-    // 호출 스레드를 무기한 차단하지 않도록 출력 수집/명령 실행은 kCommandTimeout 내로 제한합니다.
     static constexpr std::chrono::seconds kCommandTimeout{20};
-    bool RunCommand(const std::string& command);
-    std::string RunCommandOutput(const std::string& command);
+    bool RunCommand(const std::string& command) override;
+    std::string RunCommandOutput(const std::string& command) override;
 
-    // IOS-XE guestshell의 dohost 명령으로 IOS CLI를 실행합니다. (인증 불필요)
-    //
-    // 여러 명령은 하나의 dohost 호출에 세미콜론으로 이어 붙여 실행합니다.
-    // (설정 컨텍스트 유지 — components/terminal/ios_cli.hpp 참고)
-    // IOS 가 명령을 거부하면(`%` 오류 줄) 빈 문자열을 돌려주므로,
-    // 호출자는 `!output.empty()` 로 성공을 판정하면 됩니다.
-    std::string ExecuteIosCli(const std::vector<std::string>& cli_commands);
+    std::string ExecuteIosCli(const std::vector<std::string>& cli_commands) override;
 
-    // Arista vEOS CLI(FastCli) 명령을 실행하고 출력을 돌려줍니다.
-    // 수집기(collector)가 `show ...` 조회 명령을 실행할 때 사용합니다.
-    // (내부적으로 private CliCommand({"FastCli"}, ...) 에 위임합니다.)
-    std::string QueryAristaCli(const std::string& command);
+    std::string QueryAristaCli(const std::string& command) override;
 
-    // 벤더별 정책 구현 및 validated policy command 디스패치
-    bool ApplyOpenVSwitchPolicy(const nlohmann::json& policy);
-    bool ApplyAristaSwitchPolicy(const nlohmann::json& policy);
-    bool ApplyCiscoSwitchPolicy(const nlohmann::json& policy);
-    bool ApplyCiscoRouterPolicy(const nlohmann::json& policy);
-    bool ApplyFrrRouterPolicy(const nlohmann::json& policy);
-    bool ApplyNftablesPolicy(const nlohmann::json& policy);
-    bool ApplyVmPolicy(const nlohmann::json& policy);
+    std::string CliCommand(const std::vector<std::string>& argv, const std::string& command) override;
     bool ApplyPolicyCommand(const PolicyCommand& command);
+    void RegisterPolicyExecutor(std::shared_ptr<const PolicyExecutor> strategy) {
+        policy_executors_.Register(std::move(strategy));
+    }
 
 private:
-    // 라우터/스위치의 차단 ACL 을 <b>선언적으로</b> 맞춥니다.
-    //
-    // 왜 연결 하나짜리 규칙(enforcementRule)으로는 안 되는가
-    //   IOS 확장 ACL 은 규칙 하나만 지우는 문법이 없어 이름으로 통째로 다시
-    //   써야 합니다. 그래서 서버는 "지금 남아 있어야 하는 규칙 전체" 를
-    //   acl_apply 노드로 보내고, 여기서 이전 것을 지우고 새로 씁니다.
-    //   연결 하나만 보고 만든 규칙을 차례로 보내면 <b>운영자가 지운 규칙이
-    //   장치에 그대로 남습니다</b> — 차단이 안 풀린 채 남는 가장 위험한 실패입니다.
-    bool ApplyCiscoRouterAcl(const nlohmann::json& policy);
-
-    // VM 의 netplan 스키마(network_config)를 /etc/netplan 에 써서 적용합니다.
-    // ApplyVmPolicy 에서 분기하며, 실패 시 기존 설정을 건드리지 않습니다.
-    bool ApplyNetplanPolicy(const nlohmann::json& policy, const std::string& command);
-
-    // netplan 이 없는 이미지를 위한 폴백: network_config 의 주소/경로를
-    // ip 명령으로 직접 적용합니다. (런타임 적용 — 재부팅 시 소멸)
-    bool ApplyAddressesWithIp(const nlohmann::json& policy,
-                              const nlohmann::json::const_iterator& ethernets,
-                              const std::string& command);
-
-    // 프로그램이 PATH 에 있는지 확인합니다.
-    bool HasCommand(const std::string& program);
-
-    // FRR 라우터용입니다. 문법은 표준 access-list 이며,
-    // <b>실장비 검증은 하지 못했습니다</b>(랩에 FRR 라우터가 없음).
-    bool ApplyFrrRouterAcl(const nlohmann::json& policy);
-
-    // Open vSwitch 차단 플로우용입니다. 우리가 넣은 흐름에만 쿠키를 찍고
-    // 쿠키로만 지웁니다 — 다른 도구가 넣은 흐름을 건드리지 않기 위함입니다.
-    bool ApplyOpenVSwitchAcl(const nlohmann::json& policy);
-
-    // 장치의 기본(주소를 가진) 인터페이스 이름을 찾습니다.
-    // netplan 자리표시자(__primary__)를 이 값으로 치환합니다.
-    std::string PrimaryInterface();
-
-    // 정책에 쓰인 인터페이스 이름의 자리표시자를 실제 이름으로 바꿈니다.
-    std::string ResolveInterfaceName(const std::string& name);
-
-    // 영속 CLI 세션(pty)으로 명령을 보내고 출력을 받습니다.
-    std::string CliCommand(const std::vector<std::string>& argv, const std::string& command);
-
-    // 봉투를 만들 때 쓰는 에이전트 식별자입니다. (비어 있으면 device_id 로 대체)
     std::string ResolveAgentId(const std::string& device_id) const;
 
     std::string host_{};                              // 서버 호스트
@@ -154,13 +77,12 @@ private:
     tcp::resolver resolver_;                          // DNS 리졸버
     websocket::stream<beast::tcp_stream> stream_;     // WebSocket 스트림
     sonar::net::TimedWebSocketReader reader_;
+    TerminalSession cli_session_;
+    std::string cli_program_;
+    PolicyExecutorRegistry policy_executors_ = DefaultPolicyExecutors();
     bool connected_;                                  // 연결 상태
     bool hello_sent_{false};                          // hello 봉투 전송 여부
     std::string agent_id_{};                          // 서버에 알릴 에이전트 ID
-    std::thread management_thread_;                   // (예약) 관리 스레드
-    TerminalSession cli_session_;                     // 영속 CLI 세션(pty)
-    std::string cli_program_;                         // 현재 열려 있는 CLI 프로그램명
-    std::string primary_interface_;                   // 캐시된 기본 인터페이스 이름
 
 };
 

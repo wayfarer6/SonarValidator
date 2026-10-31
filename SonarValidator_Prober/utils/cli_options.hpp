@@ -1,13 +1,12 @@
-#include <iostream>
+#ifndef SONAR_VALIDATOR_CLI_OPTIONS_HPP_
+#define SONAR_VALIDATOR_CLI_OPTIONS_HPP_
+#include <string>
 
-class CliOptions {
-    
-    public:
-        bool offline_only = false;
-        bool export_once = false;
-        bool export_stdout = false;
-        std::string export_dir{};
-        bool show_help = false;
-        CliOptions ParseArgs(int argc, char **argv);
-        void printUsage(const char *program) const;
+struct CliOptions {
+    std::string export_file;
+    std::string error;
+    bool show_help = false;
+    static CliOptions ParseArgs(int argc, char** argv);
+    void printUsage(const char* program) const;
 };
+#endif

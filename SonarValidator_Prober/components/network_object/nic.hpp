@@ -9,10 +9,10 @@
 
 #include "components/network_object/network_interface.hpp"
 
-// 호스트/VM/라우터의 네트워크 인터페이스 카드(NIC) 하나를 표현하는 공통 객체입니다.
-//
-// `Port` 가 L2 스위치 포트를 담당한다면, `Nic` 은 `ip a`/`ip -br addr` 계열의
-// 호스트 관점 인터페이스를 담당합니다. 둘 다 NetworkInterface(추상) 를 상속합니다.
+
+
+
+
 class Nic : public NetworkInterface
 {
 public:
@@ -54,9 +54,9 @@ public:
     // (VLAN 은 스위치 포트/서브인터페이스 쪽에서 다룹니다.)
     VlanIdList VlanIds() const override { return {}; }
 
-    // telemetry_store(NIC 저장)가 기대하는 JSON 형태로 직렬화합니다.
-    //  {"index","name","parent","mac","mtu","state","flags":[],"link_type",
-    //   "addresses":[{"family","address","prefix_len","scope","interface"}]}
+
+
+
     nlohmann::json ToJson() const
     {
         using nlohmann::json;

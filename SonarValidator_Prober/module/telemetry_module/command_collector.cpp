@@ -7,7 +7,8 @@
 #include <sstream>
 #include <vector>
 
-#include "module/management_module/management_service.hpp"
+#include "module/configuration_module/prober_config.hpp"
+#include <stdexcept>
 #include "components/parser/cli_output_parser.hpp"
 
 using Json = nlohmann::json;
@@ -17,12 +18,6 @@ namespace collector
 namespace
 {
 
-// ---------------------------------------------------------------------------
-//  제품군 분류
-//
-//  ProberConfig::GetProductName() 은 "Cisco 8000v" / "Arista" / "Ubuntu" 같은
-//  사람이 읽는 문자열이라, 조회 명령을 고르려면 한 번 분류가 필요하다.
-// ---------------------------------------------------------------------------
 enum class ProductKind
 {
     kLinux,        // Ubuntu 등 일반 리눅스 (ip ... 명령)
@@ -34,56 +29,6 @@ enum class ProductKind
     kOther         // 알 수 없는 제품 — 수집 명령을 실행하지 않는다
 };
 
-ProductKind ClassifyProduct(const std::string& product_name)
-{
-    if (product_name.find("Cisco") != std::string::npos)
-    {
-        return ProductKind::kCisco;
-    }
-    if (product_name.find("Arista") != std::string::npos)
-    {
-        return ProductKind::kArista;
-    }
-    // OpenVSwitch 는 스위치의 L2 설정(port 의 tag/trunks)을 vtysh/IP 와
-    // 전혀 다른 CLI 로 내놓으므로 별도 분기로 처리한다.
-    if (product_name.find("OpenVSwitch") != std::string::npos ||
-        product_name.find("Open vSwitch") != std::string::npos)
-    {
-        return ProductKind::kOpenVSwitch;
-    }
-    // FRR 은 라우팅 데몬일 뿐이고 실제 호스트는 리눅스(Alpine 등)이므로
-    // `ip ...` 명령으로 NIC/라우팅/이웃을 그대로 수집할 수 있다.
-    // (제품 감지는 vtysh 존재를 먼저 보므로 Ubuntu 판정보다 앞에 둔다.)
-    if (product_name.find("FRR") != std::string::npos)
-    {
-        return ProductKind::kFrr;
-    }
-    // nftables 방화벽도 호스트는 Alpine 리눅스다.
-    // NIC/라우팅/이웃은 `ip ...` 로, 규칙은 `nft list ruleset` 으로 수집한다.
-    if (product_name.find("nftables") != std::string::npos ||
-        product_name.find("nft") != std::string::npos ||
-        product_name.find("Firewall") != std::string::npos)
-    {
-        return ProductKind::kFirewall;
-    }
-    if (product_name.find("Ubuntu") != std::string::npos ||
-        product_name.find("Linux") != std::string::npos)
-    {
-        return ProductKind::kLinux;
-    }
-    return ProductKind::kOther;
-}
-
-// ---------------------------------------------------------------------------
-//  원문 라인에서 주소/MAC 을 보조 추출하기 위한 유틸
-//
-//  Cisco/Arista 의 `show ip interface brief` 는 벤더·버전마다 컬럼이 달라
-//  FrrRouter 문법이 만든 구조 필드만으로는 주소를 100% 신뢰할 수 없다.
-//  그래서 구조 필드(이름/상태/IP)는 파서 결과에서, 주소/MAC/MTU 는 원문에서
-//  보조로 뽑아 합친다. (parser 가 실패해도 여기서 얻은 값은 살아남는다.)
-// ---------------------------------------------------------------------------
-
-// 문자열을 소문자로.
 std::string ToLower(std::string text)
 {
     std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
@@ -92,7 +37,6 @@ std::string ToLower(std::string text)
     return text;
 }
 
-// 원문 라인을 토큰으로 쪼갠다(공백/탭 기준, `,` 는 제거).
 std::vector<std::string> SplitTokens(const std::string& line)
 {
     std::vector<std::string> tokens;
@@ -112,7 +56,6 @@ std::vector<std::string> SplitTokens(const std::string& line)
     return tokens;
 }
 
-// `10.0.8.1/24` 를 (주소, prefix) 로 나눈다. CIDR 이 없으면 false.
 bool SplitCidr(const std::string& token, std::string& address, int& prefix_len)
 {
     const std::size_t slash = token.find('/');
@@ -134,7 +77,6 @@ bool SplitCidr(const std::string& token, std::string& address, int& prefix_len)
     return true;
 }
 
-// IPv4/IPv6 주소처럼 보이는가? (점 4옥텟 또는 콜론 포함)
 bool LooksLikeIp(const std::string& token)
 {
     if (token.find(':') != std::string::npos)
@@ -156,7 +98,6 @@ bool LooksLikeIp(const std::string& token)
     return dots == 3;
 }
 
-// MAC 주소처럼 보이는가? (aa:bb:cc:dd:ee:ff)
 bool LooksLikeMac(const std::string& token)
 {
     std::size_t colons = 0;
@@ -170,8 +111,6 @@ bool LooksLikeMac(const std::string& token)
     return colons == 5 && token.size() == 17;
 }
 
-// 인터페이스 이름 자리에 올 수 있는 토큰인가?
-// (`global`, `forever` 같은 속성 토큰과 주소/MAC 을 걸러낸다.)
 bool LooksLikeIfaceName(const std::string& token)
 {
     if (token.empty() || token.find('/') != std::string::npos || token.find(':') != std::string::npos)
@@ -192,8 +131,6 @@ bool LooksLikeIfaceName(const std::string& token)
     return std::isalpha(static_cast<unsigned char>(token[0])) != 0;
 }
 
-// 원문에서 특정 인터페이스 이름으로 시작하는 라인을 찾아준다.
-// (파서가 만든 엔트리 순서는 원문 라인 순서와 같다.)
 std::string FindLineForName(const std::vector<std::string>& lines,
                             const std::string& name,
                             std::size_t& cursor)
@@ -220,7 +157,6 @@ std::string FindLineForName(const std::vector<std::string>& lines,
     return {};
 }
 
-// `show ip interface brief` 원문 라인에서 주소/MAC/MTU 만 뽑는다.
 struct LineFacts
 {
     Json addresses = Json::array();
@@ -243,7 +179,6 @@ LineFacts ExtractLineFacts(const std::string& line)
             continue;  // 플래그 묶음
         }
 
-        // CIDR 주소
         std::string bare;
         int prefix_len = -1;
         if (SplitCidr(token, bare, prefix_len))
@@ -283,7 +218,6 @@ LineFacts ExtractLineFacts(const std::string& line)
     return facts;
 }
 
-// `ip -br addr show` 결과(brief[])를 nic_info/nic_address 저장 모양(interfaces[])으로 바꾼다.
 Json ConvertBriefEntriesToNic(const Json& brief_result)
 {
     Json nic = Json::object();
@@ -339,7 +273,6 @@ Json ConvertBriefEntriesToNic(const Json& brief_result)
     return nic;
 }
 
-// `show ip interface brief` 파서 결과 + 원문을 합쳐 nic_info/nic_address 모양을 만든다.
 Json BuildNicFromInterfaceBrief(const Json& brief_result, const std::string& raw)
 {
     Json nic = Json::object();
@@ -351,7 +284,6 @@ Json BuildNicFromInterfaceBrief(const Json& brief_result, const std::string& raw
         return nic;
     }
 
-    // 원문 라인을 미리 쪼개 둔다(엔트리 순서 = 라인 순서).
     std::vector<std::string> lines;
     {
         std::istringstream stream(raw);
@@ -381,7 +313,6 @@ Json BuildNicFromInterfaceBrief(const Json& brief_result, const std::string& raw
         Json iface = Json::object();
         iface["name"] = name;
 
-        // 상태는 파서 결과를 우선하고, 없으면 원문에서 보조한다.
         std::string state = entry.value("status", std::string{});
         if (state.empty())
         {
@@ -400,7 +331,6 @@ Json BuildNicFromInterfaceBrief(const Json& brief_result, const std::string& raw
             iface["mtu"] = facts.mtu;
         }
 
-        // 주소: 원문에서 못 찾으면 구조 필드(ip_address)로 대체한다.
         Json addresses = facts.addresses;
         if (addresses.empty() && entry.contains("ip_address") && entry["ip_address"].is_string() &&
             !entry["ip_address"].get<std::string>().empty())
@@ -432,16 +362,6 @@ Json BuildNicFromInterfaceBrief(const Json& brief_result, const std::string& raw
     return nic;
 }
 
-// ---------------------------------------------------------------------------
-//  Arista FastCli 배치 출력 정리
-//
-//  `printf 'enable\n<cmd>\n' | FastCli` 출력에는 다음 잡음이 섞인다.
-//    - 명령 에코:        `> show vlan brief`
-//    - 안내문:           `Pagination disabled.` / `Arista Networks EOS shell`
-//    - 종료 시 오류:     `% Internal error at line 3`
-//    - 프롬프트 조각:    `ARISTA#` / `>`
-//  파서가 이들을 헤더/데이터로 오인하지 않도록 제거한다.
-// ---------------------------------------------------------------------------
 std::string CleanAristaOutput(const std::string& raw)
 {
     std::istringstream stream(raw);
@@ -450,13 +370,11 @@ std::string CleanAristaOutput(const std::string& raw)
 
     while (std::getline(stream, line))
     {
-        // 앞뒤 공백/캐리지리턴 제거
         while (!line.empty() && (line.back() == '\r' || line.back() == ' '))
         {
             line.pop_back();
         }
 
-        // 빈 줄은 유지한다(파서가 빈 줄을 허용).
         if (line.empty())
         {
             cleaned += '\n';
@@ -466,23 +384,19 @@ std::string CleanAristaOutput(const std::string& raw)
         const std::size_t first = line.find_first_not_of(" \t");
         const std::string trimmed = (first == std::string::npos) ? line : line.substr(first);
 
-        // `> ` 로 시작하는 명령 에코
         if (trimmed.size() >= 2 && trimmed[0] == '>' && trimmed[1] == ' ')
         {
             continue;
         }
-        // 프롬프트만 있는 줄
         if (trimmed == ">" || trimmed.rfind("ARISTA#", 0) == 0 ||
             trimmed.rfind("ARISTA>", 0) == 0)
         {
             continue;
         }
-        // 종료 시 발생하는 내부 오류 메시지
         if (trimmed.rfind("%", 0) == 0)
         {
             continue;
         }
-        // 셸 진입 안내문
         if (trimmed == "Arista Networks EOS shell" ||
             trimmed.rfind("Pagination disabled", 0) == 0 ||
             trimmed.rfind("Last login:", 0) == 0)
@@ -496,7 +410,6 @@ std::string CleanAristaOutput(const std::string& raw)
     return cleaned;
 }
 
-// JSON 객체의 배열 키에 실제 항목이 있는지.
 bool HasItems(const Json& object, const char* key)
 {
     if (!object.is_object())
@@ -507,7 +420,6 @@ bool HasItems(const Json& object, const char* key)
     return iterator != object.end() && iterator->is_array() && !iterator->empty();
 }
 
-// JSON 객체의 배열 멤버를 찾습니다. 없거나 배열이 아니면 nullptr.
 const Json* FindArrayMember(const Json& object, const char* key)
 {
     if (!object.is_object())
@@ -522,16 +434,6 @@ const Json* FindArrayMember(const Json& object, const char* key)
     return &(*iterator);
 }
 
-// ---------------------------------------------------------------------------
-//  Open vSwitch 변환
-//
-//  `ovs-vsctl show` 는 브리지 → 포트 → 인터페이스 계층을 준다.
-//  포트의 `tag`(액세스 VLAN)와 `trunks`(트렁크 허용 VLAN)가 L2 설정의 전부다.
-//  이를 벤더 중립적인 vlan_status / trunk_status 모양으로 바꿔 다른 장비와
-//  같은 테이블에 저장되도록 한다.
-// ---------------------------------------------------------------------------
-
-// 포트의 tag 값을 정수로 읽습니다. 없으면 -1(액세스 VLAN 아님).
 int OvsPortAccessVlan(const Json& port)
 {
     const auto iterator = port.find("tag");
@@ -543,7 +445,6 @@ int OvsPortAccessVlan(const Json& port)
     {
         return iterator->get<int>();
     }
-    // `tag: []` 처럼 배열로 올 수도 있다.
     if (iterator->is_array() && !iterator->empty() && iterator->front().is_number_integer())
     {
         return iterator->front().get<int>();
@@ -551,7 +452,6 @@ int OvsPortAccessVlan(const Json& port)
     return -1;
 }
 
-// 포트의 trunks 배열을 정수 목록으로 읽습니다.
 std::vector<int> OvsPortTrunks(const Json& port)
 {
     std::vector<int> vlans;
@@ -570,8 +470,6 @@ std::vector<int> OvsPortTrunks(const Json& port)
     return vlans;
 }
 
-// `ovs-vsctl show` 결과를 vlan_status(vlans) 로 변환합니다.
-//  액세스 포트의 tag 를 VLAN 별로 묶고, 그 VLAN 을 쓰는 포트 목록을 남긴다.
 Json OvsTopologyToVlanStatus(const Json& topology)
 {
     Json vlans = Json::array();
@@ -581,7 +479,6 @@ Json OvsTopologyToVlanStatus(const Json& topology)
         return Json::object();
     }
 
-    // vlan_id -> 포트 이름 목록
     std::map<int, std::vector<std::string>> members;
     for (const Json& bridge : *bridges)
     {
@@ -624,8 +521,6 @@ Json OvsTopologyToVlanStatus(const Json& topology)
     return body;
 }
 
-// `ovs-vsctl show` 결과를 trunk_status(ports) 로 변환합니다.
-//  포트의 tag 를 access_vlan, trunks 를 trunk_vlans 로 옮긴다.
 Json OvsTopologyToTrunkStatus(const Json& topology)
 {
     Json ports_out = Json::array();
@@ -647,7 +542,6 @@ Json OvsTopologyToTrunkStatus(const Json& topology)
             const int access_vlan = OvsPortAccessVlan(port);
             const std::vector<int> trunks = OvsPortTrunks(port);
 
-            // 액세스 VLAN 도 트렁크도 없는 포트(예: br0 internal)는 제외한다.
             if (access_vlan <= 0 && trunks.empty())
             {
                 continue;
@@ -679,8 +573,6 @@ Json OvsTopologyToTrunkStatus(const Json& topology)
     return body;
 }
 
-// `ovs-vsctl list port` 결과를 vlan_status(vlans) 로 변환합니다.
-//  포트 레코드의 tag 를 VLAN 별로 모아 `show` 와 같은 모양으로 만든다.
 Json OvsPortListToVlanStatus(const Json& ports_result)
 {
     const Json* ports = FindArrayMember(ports_result, "ports");
@@ -724,7 +616,6 @@ Json OvsPortListToVlanStatus(const Json& ports_result)
     return body;
 }
 
-// `ovs-vsctl list port` 결과를 trunk_status(ports) 로 변환합니다.
 Json OvsPortListToTrunkStatus(const Json& ports_result)
 {
     const Json* ports = FindArrayMember(ports_result, "ports");
@@ -770,13 +661,12 @@ Json OvsPortListToTrunkStatus(const Json& ports_result)
 
 } // namespace
 
-CollectedState BuildStateFromOutputs(DeviceType device_type,
+static CollectedState BuildBuiltinState(DeviceType device_type,
                                      const std::string& product_name,
-                                     const std::map<std::string, std::string>& outputs)
+                                     const std::map<std::string, std::string>& outputs, ProductKind product)
 {
     CollectedState state;
     const cli_parser::Vendor vendor = cli_parser::VendorFromProductName(product_name);
-    const ProductKind product = ClassifyProduct(product_name);
 
     auto output = [&outputs](const std::string& command) -> std::string {
         const auto iterator = outputs.find(command);
@@ -787,18 +677,12 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
 
     Json snapshot = Json::object();
 
-    // 리눅스 계열(VM/방화벽, Ubuntu)은 `ip ...` 명령을 쓴다.
-    // FRR 라우터와 nftables 방화벽도 호스트 OS 가 리눅스(Alpine 등)이므로 같은 경로를 쓴다.
-    // OpenVSwitch 스위치도 컨테이너 호스트가 리눅스라 `ip a` 로 포트 정보를 얻는다.
     const bool linux_style = product == ProductKind::kLinux ||
                              product == ProductKind::kFrr ||
                              product == ProductKind::kFirewall ||
                              product == ProductKind::kOpenVSwitch ||
                              device_type == DeviceType::kVirtualMachine;
 
-    // -----------------------------------------------------------------------
-    // 1) NIC / 주소 — ip a, ip -br addr show, show ip interface brief
-    // -----------------------------------------------------------------------
     if (linux_style)
     {
         const std::string raw = output("ip a");
@@ -813,7 +697,6 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
             }
         }
 
-        // `ip -br addr show` 는 보조 수단이다. `ip a` 가 실패했을 때만 쓴다.
         if (!HasItems(state.nic, "interfaces") && !empty(brief_raw))
         {
             const Json brief_result = cli_parser::ParseNicBrief(brief_raw);
@@ -832,7 +715,6 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
     }
     else
     {
-        // 라우터/스위치는 `show ip interface brief` 결과를 nic_info 모양으로 변환해 쓴다.
         const std::string brief_raw = output("show ip interface brief");
         if (!empty(brief_raw))
         {
@@ -854,9 +736,6 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 2) 라우팅 테이블 — ip route show / show ip route
-    // -----------------------------------------------------------------------
     {
         std::string raw = output("show ip route");
         if (empty(raw))
@@ -878,13 +757,8 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 3) VLAN — ovs-vsctl show (OpenVSwitch) 또는 show vlan brief (Arista)
-    // -----------------------------------------------------------------------
     if (product == ProductKind::kOpenVSwitch)
     {
-        // 스위치는 L2 전용이라 `show vlan brief` 가 없다.
-        // 포트의 tag/trunks 가 곧 VLAN 구성이므로 ovs-vsctl 출력에서 만든다.
         const std::string raw = output("ovs-vsctl show");
         if (!empty(raw))
         {
@@ -917,8 +791,6 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
             }
         }
 
-        // `list port` 는 `show` 와 같은 tag/trunks 를 레코드 형태로 준다.
-        // `show` 가 브리지 이름을 못 준 경우의 대안으로만 쓴다.
         if (!HasItems(state.trunk, "ports"))
         {
             const std::string raw_list = output("ovs-vsctl list port");
@@ -971,10 +843,6 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 4) 트렁크/스위치포트 — show interfaces switchport (Arista/Cisco)
-    //    (OpenVSwitch 는 위 3) 에서 이미 채웠다.)
-    // -----------------------------------------------------------------------
     if (product != ProductKind::kOpenVSwitch)
     {
         const std::string raw = output("show interfaces switchport");
@@ -993,17 +861,8 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 5) 방화벽 규칙 — nft list ruleset (nftables)
-    //
-    //  nftables 방화벽은 라우터/스위치의 VLAN·트렁크 대신 필터 규칙이
-    //  수집 대상이다. 규칙은 스냅샷에만 실어 보내고(서버 계약 유지)
-    //  DB 규칙 테이블 저장은 기존 firewall_rule_table 경로가 담당한다.
-    // -----------------------------------------------------------------------
     if (product == ProductKind::kFirewall)
     {
-        // nft's native JSON preserves named sets, interval elements, negation,
-        // comments and counters that the legacy text grammar cannot represent.
         const Json native = Json::parse(output("nft -j list ruleset"), nullptr, false);
         if (native.is_object() && native.contains("nftables") && native["nftables"].is_array())
         {
@@ -1019,7 +878,6 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
             if (!empty(raw))
             {
                 state.rules = cli_parser::ParseFirewallRules(raw);
-                // 파서는 tables 배열을 돌려준다(table → chains → rules 구조).
                 if (HasItems(state.rules, "tables"))
                 {
                     snapshot["firewall_rules"] = state.rules;
@@ -1033,9 +891,6 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
         }
     }
 
-    // -----------------------------------------------------------------------
-    // 6) ARP / 이웃 — ip neigh show, show arp, show ip arp
-    // -----------------------------------------------------------------------
     {
         std::string raw = output("show arp");
         if (empty(raw))
@@ -1061,7 +916,6 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
         }
     }
 
-    // 벤더명/명령 개수는 디버깅에 유용하다(서버 payload 계약에 영향 없음).
     snapshot["vendor"] = cli_parser::VendorName(vendor);
     snapshot["product"] = product_name;
 
@@ -1069,136 +923,87 @@ CollectedState BuildStateFromOutputs(DeviceType device_type,
     return state;
 }
 
-CollectedState CollectState(const ProberConfig& config, ManagementService& management_service)
-{
-    const std::string product = config.GetProductName();
-    const ProductKind kind = ClassifyProduct(product);
-    std::map<std::string, std::string> outputs;
-
-    // 명령 하나가 예외/실패를 내도 나머지 수집은 계속한다.
-    auto run_shell = [&outputs](const std::string& command, ManagementService& service) {
-        try
-        {
-            outputs[command] = service.RunCommandOutput(command);
-        }
-        catch (const std::exception& exception)
-        {
-            std::cerr << "[COLLECT] command failed: " << command << " (" << exception.what() << ")\n";
-        }
-    };
-
-    auto run_ios = [&outputs](const std::string& command, ManagementService& service) {
-        try
-        {
-            outputs[command] = service.ExecuteIosCli({command});
-        }
-        catch (const std::exception& exception)
-        {
-            std::cerr << "[COLLECT] ios command failed: " << command << " (" << exception.what()
-                      << ")\n";
-        }
-    };
-
-    auto run_arista = [&outputs](const std::string& command, ManagementService& service) {
-        try
-        {
-            // FastCli 배치 출력에는 명령 에코와 종료 시 오류 잡음이 섞인다.
-            // 파서가 헤더로 오인하지 않도록 여기서 걸러낸다.
-            outputs[command] = CleanAristaOutput(service.QueryAristaCli(command));
-        }
-        catch (const std::exception& exception)
-        {
-            std::cerr << "[COLLECT] arista command failed: " << command << " (" << exception.what()
-                      << ")\n";
-        }
-    };
-
-    switch (kind)
-    {
-    case ProductKind::kLinux:
-        // docs/Agent_Command.md "Linux VM (NIC 설정)" + 라우팅/이웃 조회
-        run_shell("ip a", management_service);
-        run_shell("ip -br addr show", management_service);
-        run_shell("ip route show", management_service);
-        run_shell("ip neigh show", management_service);
-        break;
-
-    case ProductKind::kFrr:
-        // FRR 라우터의 호스트 OS 는 리눅스(Alpine 등)이므로 `ip ...` 로 수집한다.
-        // 수집기는 조회 전용이므로 vtysh 설정 변경은 하지 않는다.
-        run_shell("ip a", management_service);
-        run_shell("ip -br addr show", management_service);
-        run_shell("ip route show", management_service);
-        run_shell("ip neigh show", management_service);
-        break;
-
-    case ProductKind::kFirewall:
-        // nftables 방화벽도 호스트는 Alpine 리눅스다.
-        // NIC/라우팅/이웃/ARP 는 `ip ...` 로, 필터 규칙은 nft 조회로 수집한다.
-        // (조회 전용 — 규칙을 추가/삭제하지 않는다.)
-        run_shell("ip a", management_service);
-        run_shell("ip -br addr show", management_service);
-        run_shell("ip route show", management_service);
-        run_shell("ip neigh show", management_service);
-        run_shell("nft list ruleset", management_service);
-        run_shell("nft -j list ruleset", management_service);
-        break;
-
-    case ProductKind::kCisco:
-        // docs/Agent_Command.md "Cisco" — guestshell 의 dohost 로 IOS CLI 실행
-        run_ios("show ip interface brief", management_service);
-        run_ios("show ip route", management_service);
-        run_ios("show ip arp", management_service);
-        break;
-
-    case ProductKind::kArista:
-        // docs/Agent_Command.md "Arista" — FastCli 영속 세션
-        run_arista("show vlan brief", management_service);
-        run_arista("show ip interface brief", management_service);
-        // ⚠️ 라우팅 테이블을 빼면 "이 스위치는 인터넷으로 나가지 않는다" 로 잘못 판정합니다.
-        //    vEOS 는 기본 경로를 가질 수 있고(실측: `S 0.0.0.0/0 via 172.18.10.1, Ethernet1`),
-        //    그 사실이 수집되지 않으면 기밀망 인터넷 노출을 놓칩니다.
-        run_arista("show ip route", management_service);
-        run_arista("show interfaces switchport", management_service);
-        run_arista("show arp", management_service);
-        break;
-
-    case ProductKind::kOpenVSwitch:
-        // docs/Agent_Command.md "OpenvSwitch" — L2 토폴로지는 ovs-vsctl 로만 보인다.
-        // `show` 는 브리지/포트/인터페이스 계층을, `list port` 는 포트 속성
-        // 레코드(tag/trunks/vlan_mode)를 준다. 둘 다 조회 전용이다.
-        // 스위치는 L2 전용이지만 `ip a` 로 포트별 MAC/상태는 수집할 수 있다.
-        run_shell("ovs-vsctl show", management_service);
-        run_shell("ovs-vsctl list port", management_service);
-        run_shell("ip a", management_service);
-        run_shell("ip -br addr show", management_service);
-        break;
-
-    case ProductKind::kOther:
-        std::cerr << "[COLLECT] no live query commands for product '" << product
-                  << "' — 수집 생략\n";
-        break;
-    }
-
-    CollectedState state = BuildStateFromOutputs(config.GetDeviceType(), product, outputs);
-
-    std::size_t empty_outputs = 0;
-    for (const auto& [command, value] : outputs)
-    {
-        if (value.empty())
-        {
-            ++empty_outputs;
-            std::cerr << "[COLLECT] empty output: " << command << '\n';
-        }
-    }
-
-    if (!state.any_success)
-    {
-        std::cerr << "[COLLECT] no usable state collected (product=" << product
-                  << ", commands=" << outputs.size() << ", empty=" << empty_outputs << ")\n";
-    }
-
-    return state;
+void TelemetryStrategyRegistry::Register(std::shared_ptr<const TelemetryStrategy> strategy) {
+    if (!strategy || strategy->Id().empty()) throw std::invalid_argument("telemetry strategy requires an id");
+    for (const auto& current : strategies_)
+        if (current->Id() == strategy->Id()) throw std::invalid_argument("duplicate telemetry strategy id");
+    strategies_.push_back(std::move(strategy));
 }
 
+const TelemetryStrategy* TelemetryStrategyRegistry::Select(DeviceType type, const std::string& product) const {
+    const TelemetryStrategy* selected = nullptr;
+    bool ambiguous = false;
+    for (const auto& strategy : strategies_) {
+        if (!strategy->Supports(type, product)) continue;
+        if (!selected || strategy->Priority() > selected->Priority()) {
+            selected = strategy.get();
+            ambiguous = false;
+        } else if (strategy->Priority() == selected->Priority()) ambiguous = true;
+    }
+    return ambiguous ? nullptr : selected;
+}
+
+const TelemetryStrategyRegistry& DefaultTelemetryStrategies() {
+    static const auto registry = [] {
+        TelemetryStrategyRegistry result;
+        const std::vector<DeviceQuery> linux = {
+            {QueryChannel::Shell, "ip a"}, {QueryChannel::Shell, "ip -br addr show"},
+            {QueryChannel::Shell, "ip route show"}, {QueryChannel::Shell, "ip neigh show"}};
+        auto add = [&](std::string id, ProductKind kind, std::vector<std::string> markers,
+                       std::vector<DeviceQuery> queries, int priority = 100) {
+            result.Register(std::make_shared<FunctionalTelemetryStrategy>(std::move(id),
+                [markers](DeviceType, const std::string& product) {
+                    return std::any_of(markers.begin(), markers.end(), [&](const auto& marker) { return product.find(marker) != std::string::npos; });
+                }, std::move(queries),
+                [kind](DeviceType type, const std::string& product, const Outputs& outputs) {
+                    return BuildBuiltinState(type, product, outputs, kind);
+                }, priority));
+        };
+        add("linux", ProductKind::kLinux, {"Ubuntu", "Linux"}, linux, 0);
+        add("frr", ProductKind::kFrr, {"FRR"}, linux);
+        auto firewall = linux;
+        firewall.push_back({QueryChannel::Shell, "nft list ruleset"});
+        firewall.push_back({QueryChannel::Shell, "nft -j list ruleset"});
+        add("nftables", ProductKind::kFirewall, {"nftables", "nft", "Firewall"}, firewall);
+        add("cisco", ProductKind::kCisco, {"Cisco"}, {{QueryChannel::Ios, "show ip interface brief"},
+            {QueryChannel::Ios, "show ip route"}, {QueryChannel::Ios, "show ip arp"}});
+        add("arista", ProductKind::kArista, {"Arista"}, {{QueryChannel::Arista, "show vlan brief"},
+            {QueryChannel::Arista, "show ip interface brief"}, {QueryChannel::Arista, "show ip route"},
+            {QueryChannel::Arista, "show interfaces switchport"}, {QueryChannel::Arista, "show arp"}});
+        add("ovs", ProductKind::kOpenVSwitch, {"OpenVSwitch", "Open vSwitch"}, {{QueryChannel::Shell, "ovs-vsctl show"},
+            {QueryChannel::Shell, "ovs-vsctl list port"}, {QueryChannel::Shell, "ip a"}, {QueryChannel::Shell, "ip -br addr show"}});
+        return result;
+    }();
+    return registry;
+}
+
+CollectedState BuildStateFromOutputs(DeviceType type, const std::string& product, const Outputs& outputs,
+                                    const TelemetryStrategyRegistry& strategies) {
+    const auto* strategy = strategies.Select(type, product);
+    if (!strategy) return {};
+    return strategy->Parse(type, product, outputs);
+}
+
+CollectedState CollectState(const ProberConfig& config, DeviceCommandExecutor& device,
+                            const TelemetryStrategyRegistry& strategies) {
+    const auto product = config.GetProductName();
+    const auto* strategy = strategies.Select(config.GetDeviceType(), product);
+    if (!strategy) {
+        std::cerr << "[COLLECT] no unambiguous strategy for " << product << '\n';
+        return {};
+    }
+    Outputs outputs;
+    for (const auto& query : strategy->Queries()) {
+        try {
+            switch (query.channel) {
+                case QueryChannel::Shell: outputs[query.command] = device.RunCommandOutput(query.command); break;
+                case QueryChannel::Ios: outputs[query.command] = device.ExecuteIosCli({query.command}); break;
+                case QueryChannel::Arista: outputs[query.command] = CleanAristaOutput(device.QueryAristaCli(query.command)); break;
+            }
+        } catch (const std::exception& error) {
+            std::cerr << "[COLLECT] " << query.command << ": " << error.what() << '\n';
+        }
+    }
+    return strategy->Parse(config.GetDeviceType(), product, outputs);
+}
 } // namespace collector

@@ -26,12 +26,6 @@ class ProjectDiscoveryTest {
             """));
     }
 
-    /**
-     * 주소가 없는 L2 전용 VLAN 은 초안이 되지 않습니다.
-     *
-     * <p>대역을 알 수 없으므로 정책에 쓸 수 없고, 그대로 두면 편집 화면에
-     * 빈 CIDR 행만 쌓입니다. (실측 Arista: VLAN1=default, VLAN99=TRANSIT)
-     */
     @Test void addresslessVlansProduceNoDrafts() {
         final var drafts = ProjectDiscoveryService.drafts("switch", collected());
         assertTrue(drafts.isEmpty(),

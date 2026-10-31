@@ -7,31 +7,31 @@ import Branch_Divider from "../components/common/Branch_Divider";
 import AgentDeployCard from "../components/project/AgentDeployCard";
 import { getProject, updateProject } from "../lib/api/projects";
 
-/**
- * Agent 배포 화면입니다.
- *
- * <h2>장비 카드는 `AgentDeployCard` 를 씁니다</h2>
- * 장비 목록, OPNsense 의 자격증명 모달, 온라인/오프라인 분기 안내는
- * 프로젝트 목록 화면의 <b>Add Agent</b> 와 완전히 같아야 합니다.
- * 그래서 두 화면이 같은 {@link AgentDeployCard} 를 씁니다. 한쪽에서 장비가
- * 늘면 다른 쪽도 같이 늘어납니다.
- *
- * <h2>이 화면에 남아 있는 것</h2>
- * 좌측의 <b>Management Server IP/Port 입력</b> 과 오른쪽의 <b>절차 안내</b>
- * 입니다. 즉 "처음 배포하는 사람에게 순서를 알려주는" 역할에 집중합니다.
- * (목록 화면은 이미 프로젝트가 있는 상태라 순서 안내 없이 카드만 펼칩니다)
- *
- * <h2>환경 구성 방식이 둘로 갈리는 이유</h2>
- * 프로버를 배포한 뒤 절차는 <b>서버에 닿는지</b>에 따라 완전히 달라집니다.
- * <ol>
- *   <li><b>온라인</b> — 좌측에 IP/Port 를 넣으면 30초 주기로 자동 전송</li>
- *   <li><b>오프라인</b> — 설정을 JSON 으로 남기고, 다음 단계에서 업로드</li>
- * </ol>
- * <p>이 갈림길을 표시하지 않으면 운영자는 두 절차를 동시에 하는 것으로
- * 오해하고, 연결되지 않는 장비에 IP 를 넣고 "왜 안 올라오지" 를 반복합니다.
- * 그래서 우측 카드에 {@link Branch_Divider} 로 분기 지점을 명시하고,
- * 각 갈래에 다음 행동을 적어 두었습니다.
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 export default function ProjectCreation() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("project_id");
@@ -138,7 +138,7 @@ export default function ProjectCreation() {
 
       {/* 전체 메인 컨테이너 박스 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
-        
+
         {/* 상단 헤더 영역 (Prober Deployment 뱃지 및 우측 Continue 버튼) */}
         <div className="mb-6 flex items-center justify-between border-b border-gray-100 pb-4 dark:border-gray-800">
           <span className="inline-block rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
@@ -178,12 +178,12 @@ export default function ProjectCreation() {
 
         {/* 와이어프레임 기반 좌우 2분할 레이아웃 */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          
+
           {/* 좌측: Setup Management Server 박스 */}
           <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-transparent">
-            
+
             <div className="mb-5 rounded-lg border border-gray-200 bg-white py-2.5 text-center font-medium text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white/90">
-              Setup Management Server 
+              Setup Management Server
             </div>
 
             <form onSubmit={handleCreateProber} className="space-y-4">
@@ -192,7 +192,7 @@ export default function ProjectCreation() {
                   저장된 서버 설정을 불러오지 못했습니다: {serverSettingsError}
                 </p>
               )}
-              
+
               {/* Management Server IP 입력 영역 */}
               <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/50">
                 <input
@@ -247,13 +247,13 @@ export default function ProjectCreation() {
             </form>
           </div>
 
-          {/* 우측: 환경 구성 방식 카드
-              프로버를 배포한 뒤 갈래가 둘로 나뉩니다.
-                (A) 서버에 연결 가능 → 텔레메트리를 서버로 직접 전송
-                (B) 서버에 연결 불가 → 설정을 JSON 으로 남겨 나중에 업로드
-              이 갈림길을 그냥 여백으로 두면 운영자가 두 절차를 동시에 하는 것으로
-              오해하고, 연결이 안 되는 장비에 IP/Port 를 넣고 "왜 안 올라오지" 를
-              반복합니다. 그래서 분기 지점을 Branch_Divider 로 명시합니다. */}
+          {
+
+
+
+
+
+}
           <div className="flex flex-col rounded-xl border border-gray-200 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-transparent">
             <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
               <h3 className="mb-4 text-center text-base font-semibold text-gray-800 dark:text-white/90">
@@ -311,7 +311,7 @@ export default function ProjectCreation() {
                   반영합니다.
                 </p>
                 <code className="mt-2 block rounded bg-gray-100 px-2 py-1.5 font-mono text-[10px] text-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                  ./sonar_validator_prober --export-once
+                  ./sonar_validator_prober --export snapshot.json
                 </code>
               </div>
 

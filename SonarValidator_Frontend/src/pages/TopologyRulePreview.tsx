@@ -1,3 +1,4 @@
+import PolicyAnalysisScope from "../components/project/PolicyAnalysisScope";
 import { useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
@@ -12,21 +13,6 @@ import {
   topologyToDetailedMermaid,
 } from "../lib/topology/mermaid";
 
-/**
- * 마법사 마지막 단계의 토폴로지/규칙 미리보기입니다.
- *
- * <h2>더미 데이터를 걷어낸 자리</h2>
- * 이전에는 Physical/Logical/Detail 세 그림이 모두 문자열로 박혀 있었습니다.
- * {@code 업무포털}, {@code 계정계}, {@code 10.30.10.0/24} 같은 값은 실제
- * 프로젝트와 아무 관계가 없는 예시였습니다. 이제 세 그림 모두 <b>방금 만든
- * 프로젝트의 실제 서브넷과 규칙</b>으로 그립니다.
- *
- * <ul>
- *   <li><b>Physical/Detail</b> — 서브넷 CIDR 까지 포함한 상세 그림</li>
- *   <li><b>Logical</b> — 등급 존 단위로 접은 그림</li>
- *   <li><b>Detail</b> — 규칙 위반 요약 (서버 판정 결과)</li>
- * </ul>
- */
 
 interface ViewCardProps {
   title: string;
@@ -99,10 +85,9 @@ export default function TopologyRulePreview() {
     [topology.data],
   );
 
-  /** 서버가 판정한 결과를 한 줄로 요약합니다. */
   const verdict = violations.data
     ? violations.data.compliant
-      ? `검증 통과 — 규칙 ${violations.data.rule_count}건 / 서브넷 ${violations.data.subnet_count}개`
+      ? `정책 모델 검증 통과 — 규칙 ${violations.data.rule_count}건 / 서브넷 ${violations.data.subnet_count}개`
       : `위반 ${violations.data.violation_count}건 — 심각도별 CRITICAL ${violations.data.by_severity?.CRITICAL ?? 0} / MAJOR ${violations.data.by_severity?.MAJOR ?? 0} / MINOR ${violations.data.by_severity?.MINOR ?? 0}`
     : undefined;
 
@@ -146,6 +131,7 @@ export default function TopologyRulePreview() {
             }`}
           >
             {verdict}
+            {violations.data && <PolicyAnalysisScope report={violations.data} />}
           </div>
         )}
 

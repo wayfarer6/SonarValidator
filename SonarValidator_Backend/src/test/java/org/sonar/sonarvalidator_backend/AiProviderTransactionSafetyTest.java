@@ -20,51 +20,8 @@ import org.sonar.sonarvalidator_backend.support.StubRepository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * AI 공급자 조회가 <b>트랜잭션을 오염시키지 않는지</b> 검증합니다.
- *
- * <h2>🐛 왜 이 테스트가 필요한가 (실측 E2E 에서 발견한 결함)</h2>
- * <p>로그 분석 / 정책 조언 서비스는 {@code @Transactional} 이고, 호출 실패를
- * <b>정상 응답으로 알려주는</b> 것이 계약입니다({@code succeeded=false} + 200).
- *
- * <p>그런데 그 안에서 {@code providerService.resolve()} 를 부르는데, 이것도
- * 같은 트랜잭션에 참여했습니다. 공급자가 하나도 없으면 {@code resolve()} 가
- * {@code IllegalStateException} 을 던지고, Spring 은 <b>그 트랜잭션을
- * {@code rollback-only} 로 마킹</b>합니다.
- *
- * <p>호출자가 예외를 잡아 실패를 기록해도 마킹은 되돌릴 수 없습니다. 결과:
- * <pre>
- *   POST /api/v1/logs/analyze        → 500 UnexpectedRollbackException
- *   POST /api/v1/policy/advice/{id}  → 500 UnexpectedRollbackException
- *
- *   기대: 200 { "succeeded": false,
- *              "error_message": "사용 가능한 AI 공급자가 없습니다…" }
- * </pre>
- *
- * <p>즉 <b>친절한 안내가 500 으로 나가고, 실패 기록도 롤백되어 사라집니다.</b>
- * AI 공급자를 아직 등록하지 않은 <b>모든 신규 설치</b>가 이 경로를 밟습니다.
- *
- * <h2>고친 방법</h2>
- * <p>조회는 트랜잭션에 <b>참여하지 않게</b> 했습니다
- * ({@code Propagation.NOT_SUPPORTED}). 그러면 마킹할 트랜잭션 자체가 없어
- * 문제가 사라집니다. 또한 호출자를 위해 <b>예외 없는 조회</b>
- * ({@link AiProviderService#resolveOrEmpty}) 를 새로 두었습니다 —
- * 예외를 아예 만들지 않는 편이 더 견고합니다.
- *
- * <h2>⚠️ 왜 트랜잭션 전파를 <b>리플렉션</b>으로 검증하는가</h2>
- * <p>이 결함은 <b>런타임 프록시 동작</b>이라 단위 테스트에서 재현하기
- * 어렵습니다(실제 트랜잭션 매니저와 프록시가 필요). 대신 <b>결함을 만든
- * 설정값</b>(전파 수준)을 직접 확인합니다. 전파가 {@code REQUIRED} 로
- * 되돌아가면 이 테스트가 즉시 실패하므로, 회귀가 조용히 들어오지 못합니다.
- */
 class AiProviderTransactionSafetyTest {
 
-    /**
-     * 조회 메서드가 트랜잭션에 참여하지 않는지 확인합니다.
-     *
-     * <p>참여하면 {@link Propagation#REQUIRED} 이고, 그 경우 호출자의 트랜잭션이
-     * 롤백 전용으로 마킹됩니다.
-     */
     @Test
     @DisplayName("공급자 조회는 호출자 트랜잭션에 참여하지 않는다 (롤백 전용 전파 차단)")
     void lookupDoesNotJoinCallerTransaction() throws NoSuchMethodException {
@@ -111,7 +68,7 @@ class AiProviderTransactionSafetyTest {
         final IllegalStateException absent = assertThrows(
                 IllegalStateException.class, () -> service.resolve(null));
         assertTrue(absent.getMessage().contains("사용 가능한 AI 공급자가 없습니다"));
-        // 사유가 있어야 운영자가 무엇을 고칠지 압니다.
+
         assertTrue(absent.getMessage().contains("등록"),
                 "무엇을 해야 하는지 알려야 합니다");
 
@@ -136,16 +93,6 @@ class AiProviderTransactionSafetyTest {
         assertEquals("테스트 공급자", result.get().getName());
     }
 
-    /**
-     * 지정한 조회 결과를 돌려주는 저장소를 가진 서비스를 만듭니다.
-     *
-     * <p>{@code JpaRepository} 를 직접 구현하면 120개 넘는 메서드를 채워야 하고
-     * Spring Data 버전이 올라갈 때마다 관계없는 컴파일 실패가 납니다. 그래서
-     * 동적 프록시 스텁({@link StubRepository})을 씁니다.
-     *
-     * @param byId 지정 공급자 조회 결과 (없으면 빈 값)
-     * @return 서비스
-     */
     private AiProviderService serviceWith(Optional<AiProvider> byId) {
         final AiProviderRepository repository = StubRepository.of(
                 AiProviderRepository.class,

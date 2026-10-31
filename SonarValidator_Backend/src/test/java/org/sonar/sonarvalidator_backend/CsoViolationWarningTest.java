@@ -26,25 +26,6 @@ import org.sonar.sonarvalidator_backend.Service.ComplianceService;
 import org.sonar.sonarvalidator_backend.Service.NotificationService;
 import org.sonar.sonarvalidator_backend.Service.ProjectService;
 
-/**
- * CSO 정책 위반(등급 건너뛰기) 감지와 경고 발생을 검증합니다.
- *
- * <h2>검증 대상</h2>
- * 프로젝트를 저장했을 때, <b>Confidential 과 Open 을 직접 연결</b>하는 규칙이
- * 있으면 서버가 그것을 CRITICAL 로 판정하고 경고 알림을 만들어야 합니다.
- *
- * <h2>⚠️ 왜 이 테스트가 필요한가</h2>
- * 이 경로가 없던 동안, 위반이 있는 정책을 저장해도 알림이 <b>하나도 생기지
- * 않았습니다.</b> 저장이 성공했다는 이유로 화면에는 정상 저장으로 보였고,
- * 운영자는 나중에 푸시가 거부될 때서야 위반을 알게 됩니다.
- *
- * <p>랩에서 실측한 결과:
- * <pre>
- *   PUT /api/v1/projects/poc-dai-pbl   (Confidential -> Open 규칙 추가)
- *     -> compliant=false, by_severity={CRITICAL:1, MAJOR:5}
- *     -> SECURITY/critical 알림 생성 (이 테스트가 지키는 동작)
- * </pre>
- */
 class CsoViolationWarningTest {
 
     private final List<Notification> notifications = new ArrayList<>();
@@ -101,9 +82,7 @@ class CsoViolationWarningTest {
                 new NotificationService(notificationRepository));
     }
 
-    // ------------------------------------------------------------------
     //  위반 감지
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("Confidential 과 Open 을 직접 연결하면 CRITICAL 위반이다")
@@ -130,7 +109,7 @@ class CsoViolationWarningTest {
                 "출발 대역이 지목되어야 합니다: " + violation.reason());
         assertTrue(violation.reason().contains("10.30.141.0/24"),
                 "도착 대역이 지목되어야 합니다: " + violation.reason());
-        // 등급 차이도 남아야 "왜" 를 알 수 있습니다.
+
         assertTrue(violation.reason().contains("Confidential"), violation.reason());
         assertTrue(violation.reason().contains("Open"), violation.reason());
     }
@@ -165,9 +144,7 @@ class CsoViolationWarningTest {
         assertEquals(2, criticalCount(report), "방향이 달라도 각각 위반입니다");
     }
 
-    // ------------------------------------------------------------------
     //  경고 발생
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("위반이 있는 정책을 저장하면 SECURITY/critical 경고가 생성된다")
@@ -236,9 +213,7 @@ class CsoViolationWarningTest {
                 "2건 경고가 별도로 있어야 합니다 (합치면 개선/악화를 알 수 없음)");
     }
 
-    // ------------------------------------------------------------------
     //  헬퍼
-    // ------------------------------------------------------------------
 
     private Project saveProject(String key,
                                 List<ProjectDto.SubnetPayload> subnets,

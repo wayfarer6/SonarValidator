@@ -11,43 +11,7 @@ import {
 } from "../../lib/api/notifications";
 import type { ApiNotification } from "../../lib/api/types";
 
-/**
- * 헤더의 알림 드롭다운입니다.
- *
- * <h2>⚠️ 더미 데이터를 제거한 이유</h2>
- * 이 컴포넌트는 "Terry Franci 가 권한을 요청함" 같은 TailAdmin 템플릿의
- * 하드코딩된 항목을 보여주고 있었습니다. 실제 사용자/권한 개념이 없는
- * 프로젝트라 <b>사실과 무관한 내용</b>이 표시되고, 그 아래 "5분 전" 도
- * 항상 같았습니다. 이제 서버에 적재된 알림을 읽어옵니다.
- *
- * <h2>안읽음만 보여주는 이유</h2>
- * 드롭다운은 "새로 온 것" 을 알리는 자리입니다. 읽은 것까지 섞으면 최근
- * 5건이 모두 읽은 항목으로 채워져 정작 봐야 할 알림이 밀려납니다.
- * 전체 목록은 "View All Notifications" 로 가는 <b>별도 화면</b>이 담당합니다.
- *
- * <h2>⚠️ 읽음 처리 성공 후에만 새로고침하는 이유</h2>
- * 실패했는데 화면만 지우면, 다시 열었을 때 알림이 되돌아와 "왜 안 사라지지"
- * 가 됩니다. 서버 요청이 성공한 뒤 목록을 다시 읽습니다.
- *
- * <h2>⚠️ 폴링을 붙인 이유 (경고 전파)</h2>
- * <p>Agent 가 위반을 감지하면 서버가 알림을 적재합니다. 그런데 이 컴포넌트는
- * <b>드롭다운을 열 때만</b> 갱신했습니다. 그래서 운영자가 헤더의 빨간 배지를
- * 보지 못하고 화면을 계속 쳐다보지 않는 한 위반 사실을 모릅니다.
- *
- * <p>실시간 채널 대신 <b>15초 폴링</b>을 씁니다. 경고는 사람이 읽고 판단하는
- * 정보라 분 단위 신선도로 충분하고, 새 채널을 만드는 비용이 그 이득보다
- * 큽니다. ({@link usePolling} 참고)
- *
- * <p>멈추는 조건: 탭이 숨겨지면 폴링이 자동으로 멈춥니다. 다시 보이면
- * 즉시 한 번 갱신합니다.
- */
 
-/**
- * ISO-8601 시각을 상대 시간으로 바꿉니다.
- *
- * @param iso ISO-8601 문자열
- * @returns 상대 시간 (파싱 실패 시 원문)
- */
 function relativeTime(iso: string): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return iso;
@@ -95,7 +59,6 @@ export default function NotificationDropdown() {
     setIsOpen(false);
   }
 
-  /** 알림을 눌러 읽음 처리하고, 상세 화면이 있으면 이동합니다. */
   const handleOpen = async (notification: ApiNotification) => {
     setBusyId(notification.id);
     try {
@@ -113,7 +76,6 @@ export default function NotificationDropdown() {
     }
   };
 
-  /** 모두 읽음 처리합니다. */
   const handleMarkAllRead = async () => {
     try {
       await markAllNotificationsRead();

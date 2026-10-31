@@ -1,40 +1,60 @@
 #include "components/terminal/terminal_session.hpp"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdlib>
-#include <cstring>
-#include <iostream>
 #include <thread>
-
+#include <utility>
+#include <dirent.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
+#include <spawn.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-TerminalSession::~TerminalSession()
+extern char** environ;
+
+namespace
 {
-    Close();
+void SignalSession(pid_t leader, int signal)
+{
+    // Job control gives foreground/background jobs their own process groups.
+    if (DIR* processes = opendir("/proc"))
+    {
+        while (dirent* entry = readdir(processes))
+        {
+            char* end = nullptr;
+            const long value = strtol(entry->d_name, &end, 10);
+            if (*entry->d_name && *end == '\0' && value > 1 &&
+                getsid(static_cast<pid_t>(value)) == leader)
+            {
+                kill(static_cast<pid_t>(value), signal);
+            }
+        }
+        closedir(processes);
+    }
+    kill(-leader, signal);
+    kill(leader, signal);
 }
+}
+
+TerminalSession::~TerminalSession() { Close(); }
 
 TerminalSession::TerminalSession(TerminalSession&& other) noexcept
-    : master_fd_(other.master_fd_),
-      child_pid_(other.child_pid_)
-{
-    other.master_fd_ = -1;
-    other.child_pid_ = -1;
-}
+    : master_fd_(std::exchange(other.master_fd_, -1)),
+      child_pid_(std::exchange(other.child_pid_, -1)),
+      ended_(std::exchange(other.ended_, false)) {}
 
-TerminalSession& TerminalSession::operator=(TerminalSession&& other) noexcept // noexcept 는 예외 처리 문제 때문인가
+TerminalSession& TerminalSession::operator=(TerminalSession&& other) noexcept
 {
     if (this != &other)
     {
         Close();
-        master_fd_ = other.master_fd_;
-        child_pid_ = other.child_pid_;
-        other.master_fd_ = -1;
-        other.child_pid_ = -1;
+        master_fd_ = std::exchange(other.master_fd_, -1);
+        child_pid_ = std::exchange(other.child_pid_, -1);
+        ended_ = std::exchange(other.ended_, false);
     }
     return *this;
 }
@@ -42,152 +62,112 @@ TerminalSession& TerminalSession::operator=(TerminalSession&& other) noexcept //
 bool TerminalSession::Open(const std::vector<std::string>& argv)
 {
     Close();
+    if (argv.empty() || argv.front().empty()) return false;
 
-    if (argv.empty())
+    master_fd_ = posix_openpt(O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
+    char slave_name[256];
+    if (master_fd_ < 0 || grantpt(master_fd_) != 0 || unlockpt(master_fd_) != 0 ||
+        ptsname_r(master_fd_, slave_name, sizeof(slave_name)) != 0)
     {
+        Close();
         return false;
     }
 
-    master_fd_ = posix_openpt(O_RDWR | O_NOCTTY); // 리눅스니까 posix 방식으로 
-    if (master_fd_ < 0)
+    std::vector<char*> args;
+    for (const auto& arg : argv) args.push_back(const_cast<char*>(arg.c_str()));
+    args.push_back(nullptr);
+    posix_spawn_file_actions_t actions;
+    posix_spawnattr_t attributes;
+    if (posix_spawn_file_actions_init(&actions) != 0)
     {
-        return false; // 0 보다 작으면 실패한건가?
-    }
-    if (grantpt(master_fd_) != 0 || unlockpt(master_fd_) != 0)  // grantpt 랑 언락은 왜 있지 문서를 봐야한다 sys.h의
-    {
-        ::close(master_fd_);
-        master_fd_ = -1;
+        Close();
         return false;
     }
-
-    const char* slave_name = ptsname(master_fd_); // slave name은 왜 ? 마스터도 왜 넣었지
-    if (slave_name == nullptr)
+    if (posix_spawnattr_init(&attributes) != 0)
     {
-        ::close(master_fd_);
-        master_fd_ = -1;
+        posix_spawn_file_actions_destroy(&actions);
+        Close();
         return false;
     }
+    sigset_t defaults, mask;
+    sigemptyset(&defaults);
+    sigemptyset(&mask);
+    for (const int signal : {SIGINT, SIGQUIT, SIGTERM, SIGHUP, SIGPIPE, SIGTSTP, SIGTTIN, SIGTTOU})
+        sigaddset(&defaults, signal);
 
-    const pid_t pid = fork(); // 스레드 포크 관련 인듯 터미널은 스레드가 달라야 하니
-    if (pid < 0)
+    const int error =
+        posix_spawnattr_setflags(&attributes,
+            POSIX_SPAWN_SETSID | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK) ||
+        posix_spawnattr_setsigdefault(&attributes, &defaults) ||
+        posix_spawnattr_setsigmask(&attributes, &mask) ||
+        posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, slave_name, O_RDWR, 0) ||
+        posix_spawn_file_actions_adddup2(&actions, STDIN_FILENO, STDOUT_FILENO) ||
+        posix_spawn_file_actions_adddup2(&actions, STDIN_FILENO, STDERR_FILENO) ||
+        // A shell must never retain Prober sockets, SQLite files, or its launcher lock.
+        posix_spawn_file_actions_addclosefrom_np(&actions, STDERR_FILENO + 1) ||
+        posix_spawnp(&child_pid_, args[0], &actions, &attributes, args.data(), environ);
+    posix_spawn_file_actions_destroy(&actions);
+    posix_spawnattr_destroy(&attributes);
+    if (error)
     {
-        ::close(master_fd_);
-        master_fd_ = -1;
+        child_pid_ = -1;
+        Close();
         return false;
     }
-
-    if (pid == 0)
-    {
-        // 자식: 새 세션을 만들고 slave pty를 제어 터미널로 붙여 CLI를 실행합니다.
-        setsid();
-        const int slave_fd = open(slave_name, O_RDWR);
-        if (slave_fd < 0)
-        {
-            _exit(127);
-        }
-        ioctl(slave_fd, TIOCSCTTY, 0); // slave fd  /dev/pty0,1,2,3 이런걸 읽는데 근데 ioctl은 뭐지?
-        dup2(slave_fd, STDIN_FILENO);
-        dup2(slave_fd, STDOUT_FILENO);
-        dup2(slave_fd, STDERR_FILENO);
-        if (slave_fd > STDERR_FILENO)
-        {
-            ::close(slave_fd);
-        }
-
-        std::vector<char*> c_argv; // c_argv를 정의 햇는데 이건 뭐지 const로 들어가는 걸 보면 아마 혹시 환경 변수를 넣어 주는 건가?
-        c_argv.reserve(argv.size() + 1);
-        for (const auto& arg : argv)
-        {
-            c_argv.push_back(const_cast<char*>(arg.c_str()));
-        }
-        c_argv.push_back(nullptr);
-
-        execvp(c_argv[0], c_argv.data()); // execvp 배웠는데 기억이 
-        _exit(127);
-    }
-
-    child_pid_ = pid;
     return true;
 }
 
 void TerminalSession::Close()
 {
-    if (master_fd_ >= 0)
+    const pid_t child = child_pid_;
+    if (child > 0) SignalSession(child, SIGTERM);
+    if (master_fd_ >= 0) ::close(std::exchange(master_fd_, -1));
+    if (child > 0)
     {
-        ::close(master_fd_);
-        master_fd_ = -1;
-    }
-    if (child_pid_ > 0)
-    {
-        const pid_t pid = child_pid_;
-        (void)kill(-pid, SIGTERM);
-        (void)kill(pid, SIGTERM);
-        int status = 0;
-        const auto deadline = std::chrono::steady_clock::now() +
-                              std::chrono::milliseconds(200);
-        bool reaped = false;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(200);
+        // Keep the leader unreaped until all remaining jobs have been signalled.
         while (std::chrono::steady_clock::now() < deadline)
         {
-            const pid_t waited = waitpid(pid, &status, WNOHANG);
-            if (waited == pid || (waited < 0 && errno == ECHILD))
-            {
-                reaped = true;
-                break;
-            }
-            if (waited < 0 && errno != EINTR)
-            {
-                break;
-            }
+            siginfo_t info{};
+            const int result = waitid(P_PID, child, &info, WEXITED | WNOHANG | WNOWAIT);
+            if ((result == 0 && info.si_pid == child) || (result < 0 && errno == ECHILD)) break;
+            if (result < 0 && errno != EINTR) break;
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-        if (!reaped)
-        {
-            (void)kill(-pid, SIGKILL);
-            (void)kill(pid, SIGKILL);
-            while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
-            {
-            }
-        }
-        child_pid_ = -1;
+        SignalSession(child, SIGKILL);
+        while (waitpid(child, nullptr, 0) < 0 && errno == EINTR) {}
     }
+    child_pid_ = -1;
+    ended_ = false;
 }
 
-bool TerminalSession::Write(const std::string& data) // 문자열 크기가 작으면 문제가 안될거 같은데 입력값이 커지면 벡터 쓰는게 안전해 보인다
+bool TerminalSession::Write(const std::string& data)
 {
-    if (master_fd_ < 0 || data.empty())
-    {
-        return false;
-    }
-
-    std::string buffer = data;
-    if (buffer.back() != '\n')
-    {
-        buffer.push_back('\n');
-    }
-
-    return WriteRaw(buffer);
+    if (data.empty()) return false;
+    return WriteRaw(data.back() == '\n' ? data : data + '\n');
 }
 
 bool TerminalSession::WriteRaw(const std::string& data)
 {
-    if (master_fd_ < 0)
-    {
-        return false;
-    }
-
+    if (!IsOpen()) return false;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(250);
     std::size_t offset = 0;
     while (offset < data.size())
     {
         const ssize_t written = ::write(master_fd_, data.data() + offset, data.size() - offset);
-        if (written > 0)
+        if (written > 0) { offset += written; continue; }
+        if (written < 0 && errno == EINTR) continue;
+        if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
         {
-            offset += static_cast<std::size_t>(written);
-            continue;
+            const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(
+                deadline - std::chrono::steady_clock::now()).count();
+            if (left <= 0) return false;
+            pollfd fd{master_fd_, POLLOUT, 0};
+            const int ready = poll(&fd, 1, static_cast<int>(left));
+            if (ready < 0 && errno == EINTR) continue;
+            if (ready > 0 && (fd.revents & POLLOUT)) continue;
         }
-        if (written < 0 && errno == EINTR)
-        {
-            continue;
-        }
+        ended_ = true;
         return false;
     }
     return true;
@@ -195,10 +175,7 @@ bool TerminalSession::WriteRaw(const std::string& data)
 
 bool TerminalSession::Resize(unsigned short columns, unsigned short rows)
 {
-    if (master_fd_ < 0 || columns == 0 || rows == 0)
-    {
-        return false;
-    }
+    if (!IsOpen() || columns == 0 || rows == 0) return false;
     winsize size{};
     size.ws_col = columns;
     size.ws_row = rows;
@@ -206,94 +183,53 @@ bool TerminalSession::Resize(unsigned short columns, unsigned short rows)
 }
 
 std::string TerminalSession::ReadAvailable(std::chrono::milliseconds timeout,
-                                           std::size_t max_output_bytes)
-{ // readAvailable는 왜 넣은거지?
-    if (master_fd_ < 0 || max_output_bytes == 0)
-    {
-        return {};
-    }
-
+                                         std::size_t max_output_bytes)
+{
     std::string result;
-    char buffer[4096];
     const auto deadline = std::chrono::steady_clock::now() + timeout;
-
-    while (true)
+    while (IsOpen() && result.size() < max_output_bytes)
     {
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= deadline)
+        const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(
+            deadline - std::chrono::steady_clock::now()).count();
+        if (left <= 0) break;
+        pollfd fd{master_fd_, POLLIN, 0};
+        const int ready = poll(&fd, 1, static_cast<int>(left));
+        if (ready < 0 && errno == EINTR) continue;
+        if (ready <= 0) break;
+        char buffer[4096];
+        const ssize_t count = ::read(master_fd_, buffer,
+            std::min(sizeof(buffer), max_output_bytes - result.size()));
+        if (count > 0)
         {
-            break;
+            result.append(buffer, count);
+            if (static_cast<std::size_t>(count) < sizeof(buffer)) break;
+            continue;
         }
-        const auto remaining =
-            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
-
-        pollfd pfd{master_fd_, POLLIN, 0};
-        const int ready = poll(&pfd, 1, static_cast<int>(remaining.count()));
-        if (ready <= 0)
-        {
-            break;
-        }
-
-        const ssize_t n = ::read(master_fd_, buffer, sizeof(buffer));
-        if (n <= 0)
-        {
-            break;
-        }
-        result.append(buffer, static_cast<std::size_t>(n));
-        if (static_cast<std::size_t>(n) < sizeof(buffer) || result.size() >= max_output_bytes)
-        {
-            break;
-        }
+        if (count < 0 && errno == EINTR) continue;
+        if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) break;
+        ended_ = true;
     }
-
+    if (result.empty() && child_pid_ > 0)
+    {
+        // Background jobs can keep the slave open after the shell leader exits.
+        siginfo_t child{};
+        if (waitid(P_PID, child_pid_, &child, WEXITED | WNOHANG | WNOWAIT) == 0 &&
+            child.si_pid == child_pid_) ended_ = true;
+    }
     return result;
 }
 
-std::string TerminalSession::ReadUntil(const std::string& prompt,
-                                       std::chrono::milliseconds timeout)
+std::string TerminalSession::ReadUntil(const std::string& prompt, std::chrono::milliseconds timeout)
 {
-    if (prompt.empty())
-    {
-        return ReadAvailable(timeout);
-    }
-
-    if (master_fd_ < 0)
-    {
-        return {};
-    }
-
+    if (prompt.empty()) return ReadAvailable(timeout);
     std::string result;
-    char buffer[4096];
     const auto deadline = std::chrono::steady_clock::now() + timeout;
-
-    while (true)
+    while (IsOpen() && std::chrono::steady_clock::now() < deadline)
     {
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= deadline)
-        {
-            break;
-        }
-        const auto remaining =
-            std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
-
-        pollfd pfd{master_fd_, POLLIN, 0};
-        const int ready = poll(&pfd, 1, static_cast<int>(remaining.count()));
-        if (ready <= 0)
-        {
-            break;
-        }
-
-        const ssize_t n = ::read(master_fd_, buffer, sizeof(buffer));
-        if (n <= 0)
-        {
-            break;
-        }
-        result.append(buffer, static_cast<std::size_t>(n));
-        if (result.find(prompt) != std::string::npos)
-        {
-            break;
-        }
+        const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(
+            deadline - std::chrono::steady_clock::now());
+        result += ReadAvailable(left);
+        if (result.find(prompt) != std::string::npos) break;
     }
-
     return result;
 }

@@ -1,3 +1,4 @@
+import PolicyAnalysisScope from "../components/project/PolicyAnalysisScope";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
@@ -22,45 +23,13 @@ const SEVERITY_COLOR: Record<ViolationSeverity, "error" | "warning" | "info"> = 
   MINOR: "info",
 };
 
-/**
- * AI 조언을 요청할 대상입니다. (SONAR-43)
- *
- * <p>{@code ruleId} 가 비면 <b>프로젝트 전체</b>를 묻습니다 — 위반 요약
- * 메시지 카드가 그 경로입니다. 특정 위반 행을 누르면 그 규칙/쌍으로 좁힙니다.
- */
 interface AdviceTarget {
-  /** 규칙 식별자. 없으면 프로젝트 전체 조언. */
   ruleId: string;
   srcSubnet?: string | null;
   dstSubnet?: string | null;
-  /** 모달 헤더에 보여줄 사람이 읽는 설명. */
   label: string;
 }
 
-/**
- * 정책 관리 화면입니다.
- *
- * <h2>스텁에서 실제 기능으로</h2>
- * 이 화면은 이전에 프로필 카드만 렌더링하는 25줄 스텁이었습니다. 대응하는
- * 백엔드 {@code PolicyManagement} 도 {@code isPolicyViolated() → false} 만 있는
- * 스텁이었습니다. 이제 양쪽 모두 실제 동작합니다.
- *
- * <h2>무엇을 보여주는가</h2>
- * <ol>
- *   <li><b>위반 현황</b>: 심각도별 집계 + 반례 패킷 (BDD 가 뽑은 재현 예시)</li>
- *   <li><b>금지 조합</b>: 어떤 서브넷 쌍이 애초에 금지인지</li>
- *   <li><b>정책 푸시</b>: 검증 통과 시에만 장치로 전송</li>
- * </ol>
- *
- * <p>위반을 없애는 작업은 프로젝트 편집 화면에서 합니다. 이 화면은 <b>현황
- * 파악과 적용</b>에 집중하고, "편집" 링크로 편집 화면을 안내합니다.
- *
- * <h2>⚠️ 격리 버튼이 Agent 화면에도 있는 이유</h2>
- * <p>같은 조치를 두 곳에 둔 것은 중복이 아니라 <b>동선</b> 때문입니다.
- * 위반을 발견한 자리(이 화면)에서 바로 조치할 수 있어야 하고,
- * 장치 상태를 보는 자리(Agent 화면)에서도 조치할 수 있어야 합니다.
- * 둘 다 같은 API 를 부르고 서버가 진실을 가지므로 어긋나지 않습니다.
- */
 export default function PolicyManagement() {
   const [searchParams] = useSearchParams();
   const projects = useApi(() => listProjects(), []);
@@ -92,27 +61,11 @@ export default function PolicyManagement() {
     () => (activeProjectId ? listQuarantined(activeProjectId) : Promise.resolve(null)),
     [activeProjectId],
   );
-  /** 해제 진행 중인 Agent 식별자. */
   const [releasing, setReleasing] = useState<string | null>(null);
-  /** 해제 결과/오류 메시지. */
   const [releaseNote, setReleaseNote] = useState<string | null>(null);
 
-  /**
-   * AI 정책 조언 대상입니다. (SONAR-43)
-   *
-   * <p>null 이면 모달이 닫혀 있습니다. 위반 메시지 카드나 위반 행을 누르면
-   * 값이 채워지고 모달이 열립니다.
-   */
   const [adviceTarget, setAdviceTarget] = useState<AdviceTarget | null>(null);
 
-  /**
-   * 격리를 해제합니다.
-   *
-   * <p>해제 후 <b>두 목록을 모두</b> 새로고침합니다. 격리 목록만 갱신하면
-   * 위반 현황은 "격리됨" 을 반영하지 않은 채 남아 화면이 서로 모순됩니다.
-   *
-   * @param agentId 해제할 Agent
-   */
   const handleRelease = async (agentId: string) => {
     if (releasing !== null) return;
     setReleasing(agentId);
@@ -307,10 +260,11 @@ export default function PolicyManagement() {
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                       규칙 {report.rule_count}건 · 서브넷 {report.subnet_count}건 검사
                     </p>
+                    <PolicyAnalysisScope report={report} />
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge size="sm" color={report.compliant ? "success" : "error"}>
-                      {report.compliant ? "정책 준수" : `위반 ${report.violation_count}건`}
+                      {report.compliant ? "정책 모델 준수" : `검토 ${report.violation_count}건`}
                     </Badge>
                     <Button
                       size="sm"
@@ -340,16 +294,10 @@ export default function PolicyManagement() {
                       {pushAction.submitting ? "전송 중..." : "정책 푸시"}
                     </Button>
                     {!report.compliant && (
-                      /*
-                       * ⚠️ 백엔드는 `force=true` 를 지원하고 경고 로그를 남깁니다.
-                       *    그런데 화면에 경로가 없어, 위반이 있으면 API 를 직접
-                       *    호출해야만 전송할 수 있었습니다.
-                       *    위험한 동작이므로 눈에 덜 띄게 두고 확인을 받습니다.
-                       */
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={pushAction.submitting}
+                        disabled={pushAction.submitting || report.model_valid === false}
                         onClick={() => {
                           const ok = window.confirm(
                             `위반 ${report.violation_count}건이 있습니다.\n` +
@@ -359,7 +307,7 @@ export default function PolicyManagement() {
                           );
                           if (ok) pushAction.run(true);
                         }}
-                        title="위반을 무시하고 강제로 전송합니다. 경고 로그가 남습니다."
+                        title={report.model_valid === false ? "입력 오류를 먼저 수정해야 합니다" : "정책 제약 위반을 무시하고 전송합니다. 경고 로그가 남습니다."}
                       >
                         강제 푸시
                       </Button>
@@ -393,9 +341,9 @@ export default function PolicyManagement() {
                   ))}
                 </div>
 
-                {/* 메시지 — 각 카드를 누르면 그 위반에 대한 AI 정책 조언이 열립니다.
-                    (SONAR-43) 메시지는 "무엇이 잘못됐나" 만 말하므로,
-                    "그래서 어떻게 고치나" 로 이어지는 동선이 필요합니다. */}
+                {
+
+}
                 {report.messages.length > 0 && (
                   <div className="space-y-2">
                     {report.messages.map((message) => (
@@ -505,12 +453,6 @@ export default function PolicyManagement() {
                   </div>
                 )}
 
-                {/*
-                  BDD 내부 지표(노드 수 / 조합 수)는 화면에서 뺐습니다.
-                  운영자가 고칠 대상은 위반 테이블의 연결 경로이지,
-                  판정 엔진이 몇 개 노드를 썼는지가 아닙니다.
-                  엔진 수치는 서버 로그로 확인할 수 있습니다.
-                */}
 
                 {/* 푸시 결과 */}
                 {pushAction.result && (
@@ -533,12 +475,6 @@ export default function PolicyManagement() {
         </div>
       </div>
 
-      {/*
-        AI 정책 조언 모달 (SONAR-43).
-
-        ⚠️ report 가 null 이어도 렌더링하지 않습니다. 조언은 서버가 다시 판정한
-        결과를 근거로 하므로, 화면에 위반이 보이는 상태에서만 열려야 합니다.
-      */}
       {activeProjectId && adviceTarget && (
         <PolicyAdviceModal
           isOpen

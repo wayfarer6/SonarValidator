@@ -28,29 +28,6 @@ import type {
 } from "../lib/api/types";
 import { ZONE_CLASSES } from "../lib/policy/zones";
 
-/**
- * 프로젝트 편집 페이지입니다.
- *
- * <h2>기존 화면들과의 관계</h2>
- * 프로젝트 생성 마법사({@code /project/create/*})는 4단계로 나뉘어 있고
- * 각 단계가 서로 다른 화면이었습니다. 편집은 "이미 만들어진 프로젝트를 다시
- * 손보는" 작업이라 <b>한 화면에서 모두</b> 보여주는 편이 맞습니다.
- * (단계를 오가며 이전 값을 기억할 필요가 없어집니다.)
- *
- * <p>스타일과 구성 요소는 기존 화면을 그대로 참조했습니다.
- * - 프로젝트 메타 입력: {@code Project.tsx} 의 모달 폼
- * - 서브넷 등급 표: {@code SubnetAdvanceConfiguration.tsx} 의 CSO 드롭다운
- * - 규칙 표: {@code NetworkSegmentationRule.tsx} 의 정책 설정 표
- * - 검증 피드백: {@code NetworkSegmentationRule.tsx} 의 토스트 대신 상시 패널
- *
- * <h2>⚠️ 검증은 저장된 상태가 아니라 "화면의 현재 초안" 을 보냅니다</h2>
- * 서버에 저장된 상태만 검증하면, 등급을 <b>Confidential 로 바꾸고 검증을 눌러도</b>
- * 저장 전이므로 이전 결과(위반 0건)가 그대로 나옵니다. 기밀망으로 분류했는데
- * 장치에 인터넷 기본 경로가 있는데도 아무 경고가 없어, 가장 위험한 불일치를
- * 놓칩니다. 그래서 {@code /api/v1/projects/draft/validation} 으로
- * <b>편집 중인 초안</b>을 보내고 서버가 최종 판정합니다.
- * (저장 버튼은 [저장 → 검증] 을 그대로 수행합니다)
- */
 export default function ProjectEditor() {
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
@@ -60,9 +37,7 @@ export default function ProjectEditor() {
   // (기존 마법사가 ?project_id=... 를 쓰고 있어 호환을 유지합니다)
   const projectId = routeProjectId ?? searchParams.get("project_id") ?? "";
 
-  // ---------------------------------------------------------------------
   // 서버 상태 로드
-  // ---------------------------------------------------------------------
   const { data, loading, error, offline, reload } = useApi(
     () => getProjectForEditing(projectId),
     [projectId],
@@ -71,9 +46,7 @@ export default function ProjectEditor() {
   const forbiddenPairs = useApi(() => getForbiddenPairs(projectId), [projectId]);
   const agentOverview = useApi(() => listAgentOverview(projectId), [projectId]);
 
-  // ---------------------------------------------------------------------
   // 편집 상태 (서버 응답을 로컬 draft 로 복사해 편집)
-  // ---------------------------------------------------------------------
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
@@ -96,15 +69,13 @@ export default function ProjectEditor() {
     setReport(null);
   }, [data]);
 
-  // ---------------------------------------------------------------------
   // 액션
-  // ---------------------------------------------------------------------
-  /** 현재 화면 상태를 서버 요청 본문으로 만듭니다. (저장·검증 공통) */
   const requestBody = useCallback(() => ({
     subnets: subnets.map((subnet) => ({
       id: subnet.id,
       cidr: subnet.cidr,
       vlan_id: subnet.vlan_id,
+      network_role: subnet.network_role,
       subnet_class: subnet.subnet_class,
       name: subnet.name,
       agent_id: subnet.agent_id,
@@ -141,18 +112,6 @@ export default function ProjectEditor() {
   const validateAction = useApiAction(() => validateDraft(requestBody()));
   const pushAction = useApiAction(() => pushPolicy(projectId, false));
 
-  /**
-   * 저장 후 검증까지 한 번에 수행합니다.
-   *
-   * <h2>성공 시에만 목록으로 돌아가는 이유</h2>
-   * 저장·검증이 <b>모두 성공</b>하고 위반이 하나도 없을 때만 편집을 끝난 것으로
-   * 보고 프로젝트 목록으로 보냅니다. 위반이 남아 있으면 화면에 그대로 머무릅니다.
-   * 그래야 사용자가 반례 패킷을 보면서 고칠 수 있습니다. (여기서 이동해 버리면
-   * 무엇을 고쳐야 하는지 알 수 없습니다)
-   *
-   * <p>검증이 실패(네트워크/서버 오류)한 경우에도 이동하지 않습니다. 저장만
-   * 되고 검증이 안 된 상태는 "통과" 가 아니기 때문입니다.
-   */
   const handleSave = useCallback(async () => {
     const saved = await saveAction.run();
     if (!saved) return;
@@ -167,13 +126,11 @@ export default function ProjectEditor() {
     }
   }, [saveAction, validateAction, navigate]);
 
-  /** 검증만 실행합니다. 저장하지 않은 초안 변경도 그대로 반영됩니다. */
   const handleValidate = useCallback(async () => {
     const validation = await validateAction.run();
     if (validation) setReport(validation);
   }, [validateAction]);
 
-  /** 정책을 장치로 푸시합니다. */
   const handlePush = useCallback(async () => {
     const result = await pushAction.run();
     if (result) {
@@ -182,9 +139,7 @@ export default function ProjectEditor() {
     }
   }, [pushAction, reload]);
 
-  // ---------------------------------------------------------------------
   // 편집 핸들러
-  // ---------------------------------------------------------------------
   const updateSubnetClass = (subnetId: string, subnetClass: SubnetClass | null) => {
     setSubnets((prev) =>
       prev.map((subnet) =>
@@ -196,12 +151,6 @@ export default function ProjectEditor() {
     setDirty(true);
   };
 
-  /**
-   * CIDR 을 변경합니다.
-   *
-   * <p>형식 검증은 서버가 최종 판정하지만, 명백히 잘못된 값은 여기서 알려
-   * 줍니다. 그래야 저장 전에 고칠 수 있습니다.
-   */
   const updateSubnetCidr = (subnetId: string, cidr: string) => {
     setSubnets((prev) =>
       prev.map((subnet) =>
@@ -224,18 +173,6 @@ export default function ProjectEditor() {
     setDirty(true);
   };
 
-  /**
-   * 서브넷의 연결 허용 목록을 교체합니다.
-   *
-   * <h2>⚠️ 빈 목록은 "제한 해제" 입니다</h2>
-   * <p>체크를 모두 해제하면 제한이 사라집니다(기존 동작으로 복귀). 그래서
-   * "아무것도 허용하지 않음" 을 표현할 수 없는데, 그 상태는 서브넷을
-   * 고립시키는 것과 같아 정상 운영에서 쓸 일이 없고, 실수로 만들면
-   * 원인을 찾기 어려운 장애가 됩니다. 필요하면 허용 목록 대신 규칙을
-   * 모두 끄는 편이 의도가 분명합니다.
-   *
-   * <p>인터넷을 체크하지 않으면 배포 시 기본 경로가 차단됩니다.
-   */
   const updateSubnetAllowedPeers = (subnetId: string, peers: string[]) => {
     setSubnets((prev) =>
       prev.map((subnet) =>
@@ -257,18 +194,11 @@ export default function ProjectEditor() {
     setDirty(true);
   };
 
-  /**
-   * 새 서브넷을 추가합니다.
-   *
-   * <p>기본 CIDR 을 순번에 따라 다르게 둡니다. 모두 {@code 10.0.0.0/24} 로
-   * 시작하면 여러 개를 추가했을 때 어떤 행을 고치는지 헷갈립니다.
-   * (검증에서도 중복 대역은 구분이 안 됩니다)
-   */
   const addSubnet = () => {
     setSubnets((prev) => {
-      // 이미 쓰이지 않은 세 번째 옥텟과 식별자 번호를 고릅니다.
-      // 삭제 후 추가하면 개수 기반 번호가 기존 ID 와 충돌하므로,
-      // 실제로 쓰이지 않은 번호를 찾습니다.
+
+
+
       const usedCidrs = new Set(prev.map((subnet) => subnet.cidr.split("/")[0]));
       const usedIds = new Set(prev.map((subnet) => subnet.id));
 
@@ -308,9 +238,9 @@ export default function ProjectEditor() {
     setDirty(true);
   };
 
-  // 새 규칙은 가장 민감한 서브넷과 그 다음 등급을 기본값으로 둡니다.
-  // (가장 흔한 검토 대상이 "기밀망에서 어디로 나가는가" 이기 때문)
-  // 식별자 번호는 삭제 후 추가해도 충돌하지 않도록 빈 번호를 찾습니다.
+
+
+
   const addRule = () => {
     setRules((prev) => {
       const sorted = [...subnets].sort(
@@ -351,9 +281,7 @@ export default function ProjectEditor() {
     return ids;
   }, [report]);
 
-  // ---------------------------------------------------------------------
   // 렌더
-  // ---------------------------------------------------------------------
   if (!projectId) {
     return (
       <>
@@ -542,10 +470,11 @@ export default function ProjectEditor() {
             )}
 
             {/* 편집 표: 서브넷 + 규칙 */}
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6">
               <SubnetEditor
                 subnets={subnets}
-                onChange={updateSubnetClass}
+                onRoleChange={(id, role) => { setSubnets(items => items.map(item => item.id === id ? { ...item, network_role: role, manually_edited: true } : item)); setDirty(true); }}
+          onChange={updateSubnetClass}
                 onNameChange={(id, name) => { setSubnets(prev => prev.map(s => s.id === id ? {...s, name, manually_edited: true} : s)); setDirty(true); }}
               onCidrChange={updateSubnetCidr}
                 onAgentChange={updateSubnetAgent}

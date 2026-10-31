@@ -3,12 +3,12 @@
 
 #include <string>
 #include <vector>
-#include "components/device/switch/switch_interface/port_info.hpp"
+#include "components/network_object/port.hpp"
 
 // 스위치 브리지(브리지 이름 + 포트 목록)를 나타냅니다.
 struct BridgeInfo {
     std::string name;
-    std::vector<PortInfo> ports;
+    std::vector<Port> ports;
 };
 
 // 스위치 브리지/포트 토폴로지를 지원하는 벤더입니다.

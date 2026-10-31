@@ -26,63 +26,18 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * OPNsense REST API 클라이언트입니다.
- *
- * <h2>OPNsense 인증 방식 (중요)</h2>
- * <p>OPNsense 는 사용자 이름/비밀번호 대신 <b>API Key + API Secret</b> 을
- * HTTP Basic 인증 형식으로 보냅니다.
- *
- * <pre>
- *   Authorization: Basic base64(apiKey + ":" + apiSecret)
- * </pre>
- *
- * <p>즉 <b>키가 사용자 이름 자리에</b> 들어갑니다. 이 부분을 반대로 넣으면
- * 401 이 나는데, 메시지가 "Authentication Failed" 뿐이라 원인을 찾기
- * 어렵습니다. (OPNsense 는 실패 사유를 구체적으로 알려주지 않습니다.)
- *
- * <p>API 를 쓰려면 OPNsense 에서 <b>System &gt; Access &gt; Users</b> 의 해당
- * 사용자에 권한을 주고, <b>API keys</b> 에서 키를 발급해야 합니다.
- * 키만 발급하고 권한이 없으면 403 이 납니다.
- *
- * <h2>사용하는 엔드포인트</h2>
- * <table border="1">
- *   <caption>OPNsense API</caption>
- *   <tr><th>용도</th><th>경로</th></tr>
- *   <tr><td>버전/연결 확인</td><td>{@code /api/core/firmware/status}</td></tr>
- *   <tr><td>인터페이스 목록</td><td>{@code /api/diagnostics/interface/get}</td></tr>
- *   <tr><td>방화벽 규칙</td><td>{@code /api/firewall/filter/search_rule?rowCount=-1}</td></tr>
- *   <tr><td>NAT 규칙</td><td>{@code /api/firewall/filter/search_nat?rowCount=-1}</td></tr>
- *   <tr><td>별칭(주소 그룹)</td><td>{@code /api/firewall/alias/search_item?rowCount=-1}</td></tr>
- * </table>
- *
- * <h2>⚠️ 테스트 불가 안내</h2>
- * <p>현재 랩에 OPNsense 실장비가 없어 <b>실제 호출은 검증되지 않았습니다.</b>
- * 그래서 이 클래스는 다음 원칙을 지킵니다.
- * <ul>
- *   <li>응답 구조를 <b>추측하지 않습니다.</b> 키가 없으면 null/빈 값을 돌려줍니다.</li>
- *   <li>파싱 실패를 예외로 던지지 않고 {@code raw} 를 함께 남깁니다.
- *       → 실장비가 붙으면 원문을 보고 매핑을 맞출 수 있습니다.</li>
- *   <li>호출 실패는 {@link Result} 로 감싸 사유와 함께 돌려줍니다.</li>
- * </ul>
- */
 @Component
 public class OPNsenseApiClient {
 
     private static final Logger log = LoggerFactory.getLogger(OPNsenseApiClient.class);
 
-    /** 연결 타임아웃. 랩 장비는 응답이 느릴 수 있어 넉넉히 둡니다. */
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
 
-    /** 요청 타임아웃. 규칙 목록은 클 수 있어 조금 길게 둡니다. */
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
 
     private final ObjectMapper objectMapper;
     private final OPNsenseTransportPolicy transportPolicy;
 
-    /**
-     * @param objectMapper JSON 매퍼 (Spring 이 주입)
-     */
     public OPNsenseApiClient(ObjectMapper objectMapper) {
         this(objectMapper, new OPNsenseTransportPolicy(""));
     }
@@ -93,59 +48,25 @@ public class OPNsenseApiClient {
         this.transportPolicy = transportPolicy;
     }
 
-    /**
-     * 호출 결과입니다.
-     *
-     * <p>예외 대신 이 래퍼를 돌려주는 이유: 자격증명이 틀린 것과 네트워크가
-     * 막힌 것을 <b>설정 화면에서 구분해 보여줘야</b> 하기 때문입니다.
-     * 예외를 던지면 상위에서 메시지를 다시 해석해야 합니다.
-     *
-     * @param ok         성공 여부
-     * @param statusCode HTTP 상태 코드 (네트워크 실패면 0)
-     * @param body       파싱된 본문 (실패 시 null)
-     * @param rawBody    원문 (진단용)
-     * @param error      오류 메시지 (성공 시 null)
-     */
     public record Result(boolean ok,
                          int statusCode,
                          JsonNode body,
                          String rawBody,
                          String error) {
 
-        /** @return 성공 결과 */
         public static Result success(int status, JsonNode body, String raw) {
             return new Result(true, status, body, raw, null);
         }
 
-        /** @return 실패 결과 */
         public static Result failure(int status, String raw, String error) {
             return new Result(false, status, null, raw, error);
         }
     }
 
-    /**
-     * 연결을 확인합니다. (설정 모달의 "연결 테스트" 버튼)
-     *
-     * <p>가장 가벼운 엔드포인트를 씁니다. 이 호출이 성공하면 URL 과
-     * 자격증명이 모두 유효합니다.
-     *
-     * @param connection 접속 정보
-     * @return 호출 결과
-     */
     public Result checkConnection(OPNsenseConnection connection) {
         return getFirstAvailable(connection, "/api/core/firmware/status", "/api/core/firmware/info");
     }
 
-    /**
-     * 응답에서 OPNsense 버전을 추출합니다.
-     *
-     * <p>버전 위치가 응답 구조마다 다를 수 있어 <b>여러 후보 경로를
-     * 순서대로</b> 확인합니다. 어디에도 없으면 null 을 돌려줍니다.
-     * (실장비 없이 구조를 단정하지 않기 위함)
-     *
-     * @param body 응답 본문
-     * @return 버전 문자열, 찾지 못하면 null
-     */
     public String extractVersion(JsonNode body) {
         if (body == null || body.isNull()) {
             return null;
@@ -169,21 +90,6 @@ public class OPNsenseApiClient {
         return null;
     }
 
-    /**
-     * 인터페이스 목록을 조회합니다.
-     *
-     * <p><b>경로가 버전마다 다릅니다</b>(실측).
-     * <ul>
-     *   <li>기존(문서 기준): {@code /api/diagnostics/interface/get}
-     *       → <b>OPNsense 26.1 에서 404</b></li>
-     *   <li>현재: {@code /api/interfaces/overview/interfacesInfo}
-     *       → 주소·설명·상태를 함께 돌려줍니다</li>
-     * </ul>
-     * 그래서 후보를 순서대로 시도합니다.
-     *
-     * @param connection 접속 정보
-     * @return 호출 결과
-     */
     public Result fetchInterfaces(OPNsenseConnection connection) {
         return getFirstAvailable(connection,
                 "/api/interfaces/overview/interfacesInfo",
@@ -191,41 +97,16 @@ public class OPNsenseApiClient {
                 "/api/diagnostics/interface/get");
     }
 
-    /**
-     * 방화벽 필터 규칙을 조회합니다.
-     *
-     * @param connection 접속 정보
-     * @return 호출 결과
-     */
     public Result fetchFirewallRules(OPNsenseConnection connection) {
         return get(connection, "/api/firewall/filter/search_rule?rowCount=-1");
     }
 
-    /**
-     * NAT 규칙을 조회합니다.
-     *
-     * <p><b>전용 {@code search_nat} 엔드포인트는 제거되었습니다</b>(실측).
-     * OPNsense 26.1 에서 {@code /api/firewall/filter/search_nat} 은 404 이고,
-     * {@code search_rule?type=nat} 도 <b>type 을 무시</b>해 필터 규칙을 돌려줍니다.
-     *
-     * <p>NAT 규칙은 필터 설정 전체를 주는 {@code /api/firewall/filter/get} 의
-     * {@code filter.snatrules} 에 들어 있습니다. 이 경로를 우선 사용하며
-     * 404인 구버전에서만 search_nat 경로를 시도합니다.
-     *
-     * @param connection 접속 정보
-     * @return 호출 결과
-     */
     public Result fetchNatRules(OPNsenseConnection connection) {
         final Result all = get(connection, "/api/firewall/filter/get");
         if (all.statusCode() == 404) {
             return get(connection, "/api/firewall/filter/search_nat?rowCount=-1");
         }
         if (!all.ok() || all.body() == null) return all;
-        // filter 안의 NAT 계열 세 갈래를 모읍니다. (실측 구조)
-        //   snatrules : { "rule": [ ... ] }  ← Source NAT
-        //   npt       : { "rule": [ ... ] }  ← NPTv6
-        //   onetoone  : { "rule": [ ... ] }  ← 1:1 NAT
-        // ⚠️ 값이 빈 배열이어도 "규칙 없음" 이라는 정상 결과입니다.
         final JsonNode filter = all.body().path("filter");
         final ArrayNode rows = objectMapper.createArrayNode();
         rows.addAll(collectRules(filter.path("snatrules")));
@@ -239,15 +120,6 @@ public class OPNsenseApiClient {
         return Result.success(all.statusCode(), wrapper, wrapper.toString());
     }
 
-    /**
-     * NAT 갈래에서 규칙 배열만 꺼냅니다.
-     *
-     * <p>OPNsense 는 {@code {"rule":[...]}} 로 한 겹 감싸서 주지만,
-     * 버전에 따라 배열을 그대로 줄 수도 있어 둘 다 받습니다.
-     *
-     * @param node {@code snatrules} / {@code npt} / {@code onetoone} 노드
-     * @return 규칙 배열 (없으면 빈 배열)
-     */
     private ArrayNode collectRules(JsonNode node) {
         if (node.isArray()) {
             return (ArrayNode) node;
@@ -256,19 +128,6 @@ public class OPNsenseApiClient {
         return inner.isArray() ? (ArrayNode) inner : objectMapper.createArrayNode();
     }
 
-    /**
-     * 후보 경로를 순서대로 시도해 <b>처음 성공한</b> 결과를 돌려줍니다.
-     *
-     * <p>OPNsense 는 버전마다 API 경로가 바뀝니다(실측: 26.1 에서
-     * {@code /api/diagnostics/interface/get} 이 404). 한 경로만 박아 두면
-     * 업그레이드 때 진단이 통째로 실패하므로, 여러 후보를 둡니다.
-     *
-     * <p>404만 다음 버전 경로로 폴백합니다. 인증/연결 오류는 그대로 반환합니다.
-     *
-     * @param connection 접속 정보
-     * @param paths      시도할 경로들 (우선순위 순)
-     * @return 처음 성공한 결과, 모두 실패하면 마지막 결과
-     */
     public Result getFirstAvailable(OPNsenseConnection connection, String... paths) {
         Result last = null;
         for (final String path : paths) {
@@ -282,23 +141,10 @@ public class OPNsenseApiClient {
                 : last;
     }
 
-    /**
-     * 별칭(주소 그룹) 목록을 조회합니다.
-     *
-     * @param connection 접속 정보
-     * @return 호출 결과
-     */
     public Result fetchAliases(OPNsenseConnection connection) {
         return get(connection, "/api/firewall/alias/search_item?rowCount=-1");
     }
 
-    /**
-     * GET 요청을 보냅니다.
-     *
-     * @param connection 접속 정보
-     * @param path       API 경로 ({@code /api/...} 로 시작)
-     * @return 호출 결과
-     */
     public Result get(OPNsenseConnection connection, String path) {
         if (connection != null && !transportPolicy.allows(connection)) {
             return Result.failure(0, null,
@@ -360,17 +206,6 @@ public class OPNsenseApiClient {
         }
     }
 
-    /**
-     * HTTP 상태 코드를 사람이 읽는 사유로 바꿉니다.
-     *
-     * <p>OPNsense 는 인증 실패 시 본문에 {@code "Authentication Failed"} 만
-     * 넣습니다. 그것만 보면 "키가 틀렸는지, 권한이 없는지" 구분이 안 되므로
-     * 확인할 곳을 함께 안내합니다.
-     *
-     * @param status     상태 코드
-     * @param connection 접속 정보 (URL 안내용)
-     * @return 오류 메시지
-     */
     private String describeFailure(int status, OPNsenseConnection connection) {
         return switch (status) {
             case 301, 302, 303, 307, 308 -> "리다이렉트 응답(" + status + "). "
@@ -388,30 +223,12 @@ public class OPNsenseApiClient {
         };
     }
 
-    /**
-     * Basic 인증 헤더를 만듭니다.
-     *
-     * <p><b>키가 사용자 이름 자리</b>입니다. ({@code key:secret})
-     *
-     * @param connection 접속 정보
-     * @return {@code Basic ...} 헤더 값
-     */
     private String basicAuthHeader(OPNsenseConnection connection) {
         final String pair = connection.apiKey() + ":" + connection.apiSecret();
         return "Basic " + Base64.getEncoder()
                 .encodeToString(pair.getBytes(StandardCharsets.UTF_8));
     }
 
-    /**
-     * HttpClient 를 만듭니다.
-     *
-     * <p>{@code allowInsecureTls} 가 켜져 있으면 모든 인증서를 신뢰합니다.
-     * 랩 장비가 자체 서명 인증서를 쓰는 경우를 위한 것이며,
-     * <b>운영에서는 절대 켜지 마세요.</b> 중간자 공격에 무방비가 됩니다.
-     *
-     * @param connection 접속 정보
-     * @return HttpClient
-     */
     private HttpClient buildClient(OPNsenseConnection connection) {
         final HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(CONNECT_TIMEOUT)
@@ -432,7 +249,6 @@ public class OPNsenseApiClient {
         return builder.build();
     }
 
-    /** 모든 인증서를 신뢰하는 관리자. 랩 전용입니다. */
     private static final X509TrustManager TRUST_ALL = new X509TrustManager() {
         @Override
         public void checkClientTrusted(X509Certificate[] chain, String authType) {
@@ -450,15 +266,6 @@ public class OPNsenseApiClient {
         }
     };
 
-    /**
-     * 본문을 JSON 으로 파싱합니다. 실패하면 null 을 돌려줍니다.
-     *
-     * <p>OPNsense 는 콘텐츠 타입을 잘못 주는 경우가 있어 예외를 흡수합니다.
-     * 원문은 {@code rawBody} 에 남아 있으므로 진단에 문제가 없습니다.
-     *
-     * @param raw 원문
-     * @return 파싱된 노드 또는 null
-     */
     private JsonNode parseJson(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
@@ -471,14 +278,6 @@ public class OPNsenseApiClient {
         }
     }
 
-    /**
-     * 응답 본문을 요약합니다. (설정 모달의 미리보기용)
-     *
-     * <p>본문이 클 수 있으므로 상위 키만 세어 개수를 알려줍니다.
-     *
-     * @param body 응답 본문
-     * @return 요약 정보
-     */
     public Map<String, Object> summarize(JsonNode body) {
         final Map<String, Object> summary = new LinkedHashMap<>();
         if (body == null || body.isNull()) {

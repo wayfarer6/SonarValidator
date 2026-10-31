@@ -15,34 +15,6 @@ import AgentDeployCard from "../components/project/AgentDeployCard";
 import ProjectAgentList from "../components/project/ProjectAgentList";
 import ApiConnectedNodesPanel from "../components/opnsense/ApiConnectedNodesPanel";
 
-/**
- * 프로젝트 목록 화면입니다.
- *
- * <h2>더미 데이터에서 서버 연동으로</h2>
- * 이 화면은 이전에 {@code useState([...])} 로 하드코딩된 두 건을 보여줬습니다.
- * 이제 {@code GET /api/v1/projects} 를 호출하고, 생성도
- * {@code POST /api/v1/projects} 로 서버에 저장합니다.
- *
- * <h2>생성 직후 편집 화면으로 보내는 이유</h2>
- * 기존에는 4단계 마법사({@code /project/create/*})로 보냈습니다. 이제는
- * 편집 화면 하나에서 서브넷/규칙/검증을 모두 다루므로, 단계를 나누면
- * 같은 정보를 두 곳에서 관리하게 됩니다. 마법사 경로는 그대로 남겨 두어
- * 기존 링크가 깨지지 않게 했습니다.
- *
- * <h2>오프라인 안내를 넣은 이유</h2>
- * 백엔드가 꺼져 있으면 화면이 그냥 비어 보입니다. "왜 프로젝트가 안 보이지"
- * 로 오해하지 않도록 연결 실패를 구분해 실행 방법까지 안내합니다.
- *
- * <h2>Manage 와 Add Agent 를 나눈 이유</h2>
- * 두 동작은 목적이 다릅니다.
- * <ul>
- *   <li><b>Manage</b> — 이미 있는 서브넷/규칙을 보고 검증합니다. 편집 화면으로
- *       이동합니다.</li>
- *   <li><b>Add Agent</b> — 이 프로젝트에 장비를 붙입니다. 화면을 옮기지 않고
- *       목록에서 <b>그 행 아래에</b> 배포 카드를 펼칩니다. 여러 프로젝트를
- *       오가며 배포할 때 목록으로 돌아오는 왕복이 없어집니다.</li>
- * </ul>
- */
 export default function Project() {
   const navigate = useNavigate();
   const { data, loading, error, offline, reload } = useApi(() => listProjects(), []);
@@ -54,31 +26,11 @@ export default function Project() {
   const [categoryName, setCategoryName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
 
-  /**
-   * 배포 카드가 펼쳐진 프로젝트 키입니다. 한 번에 하나만 엽니다.
-   *
-   * <p>여러 개를 동시에 열어 두면 어느 카드가 어느 프로젝트의 설정인지
-   * 헷갈립니다. Management Server IP 를 프로젝트마다 다르게 넣는 경우가
-   * 특히 그렇습니다. ("지금 고친 값이 어디에 들어가나")
-   */
   const [deployingProjectId, setDeployingProjectId] = useState<string | null>(null);
 
-  /** 이름 검증 실패 문구. `alert()` 대신 인라인으로 보여 줍니다. */
   const [nameError, setNameError] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
-  /**
-   * 프로젝트를 생성하고 **생성 마법사**로 이동합니다.
-   *
-   * <h2>⚠️ 편집 화면이 아니라 마법사로 가는 이유</h2>
-   * <p>새 프로젝트는 서브넷·분할 규칙이 아직 없습니다. 편집 화면은 <b>이미
-   * 정책이 있는</b> 프로젝트를 고치는 곳이므로, 빈 프로젝트를 거기로 보내면
-   * 사용자가 "이제 뭘 해야 하나" 를 알 수 없습니다.
-   *
-   * <p>예전에는 이 자리가 비어 있어 `project_id` 없이 마법사에 들어가면
-   * 전 단계가 빈 값이 되고 마지막 미리보기에서 막혔습니다.
-   * 여기서 `project_id` 를 붙여 주면 흐름이 끊기지 않습니다.
-   */
   const handleCreate = async () => {
     if (!projectName.trim()) {
       // ⚠️ alert() 는 화면을 막고 스타일도 맞지 않습니다.
@@ -185,6 +137,7 @@ export default function Project() {
           {projects.map((project) => (
             <div
               key={project.project_id}
+              data-testid={`project-${project.project_id}`}
               className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900 lg:p-6"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -270,15 +223,6 @@ export default function Project() {
           ))}
         </div>
 
-        {/*
-          API 연결 장치 — 프로버 없이 REST API 로만 붙는 장비(OPNsense 등)입니다.
-
-          ⚠️ 프로젝트 카드마다 나누지 않고 공통 목록으로 한 번만 보여줍니다.
-             각 프로젝트 카드 아래에 같은 목록을 반복하면 "이 카드의 장치" 처럼
-             오해됩니다. 대신 각 행이 <b>소속 프로젝트</b> 를 직접 표시하므로,
-             어느 프로젝트 것인지는 목록에서 바로 알 수 있습니다. 소속 지정·해제는
-             각 행의 편집에서 합니다.
-        */}
         <ApiConnectedNodesPanel
           title="API 연결 장치"
           description="프로버 없이 REST API 로 직접 연결되는 장비입니다(예: OPNsense). Agent 목록에는 나타나지 않으며, 각 행에 소속 프로젝트를 함께 표시합니다."

@@ -22,29 +22,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import tools.jackson.databind.ObjectMapper;
 
-/**
- * 로그인/인증 흐름 테스트입니다.
- *
- * <h2>무엇을 확인하는가</h2>
- * <ol>
- *   <li>인증 없이는 보호된 API 가 <b>401</b> 을 돌려주는지</li>
- *   <li>로그인에 성공하면 세션이 생기고 이후 요청이 통과하는지</li>
- *   <li>잘못된 비밀번호가 401 이고, 계정 존재 여부가 드러나지 않는지</li>
- *   <li>Agent WebSocket 경로가 인증 없이 접근 가능한지
- *       (막으면 랩 장치들이 전부 연결에 실패합니다)</li>
- * </ol>
- *
- * <h2>⚠️ RANDOM_PORT 로 띄우는 이유</h2>
- * <p>{@code WebSocketConfig} 의 {@code ServletServerContainerFactoryBean} 은
- * <b>실제 톰캣</b>이 필요합니다. {@code @SpringBootTest} 기본값(MOCK)에서는
- * {@code Attribute 'jakarta.websocket.server.ServerContainer' not found in
- * ServletContext} 로 컨텍스트 기동이 실패합니다.
- *
- * <h2>DB 는 H2 인메모리</h2>
- * <p>{@code test} 프로필이 H2 인메모리 + {@code create-drop} 을 씁니다. 덕분에
- * 외부 DB 서버 없이 인증/권한/잠금 로직을 실제 SQL 로 검증할 수 있습니다.
- * (매번 깨끗한 스키마에서 시작하므로 테스트 간 간섭이 없습니다)
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -72,9 +49,9 @@ class AuthenticationTest {
     @Test
     @DisplayName("Agent WebSocket 경로는 인증 없이 접근 가능하다")
     void agentWebSocketPathsArePublic() throws Exception {
-        // WebSocket 핸드셰이크는 세션이 없습니다. 여기서 401 이 나오면
-        // C++ Prober 가 전부 연결에 실패합니다.
-        // (핸드셰이크가 아닌 일반 GET 이라 400/404 는 정상이며, 401 이 아니면 됩니다)
+
+
+
         final int management = mockMvc.perform(get("/api/v1/management"))
                 .andReturn().getResponse().getStatus();
         final int telemetry = mockMvc.perform(get("/api/v1/telemetry"))
@@ -313,14 +290,12 @@ class AuthenticationTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    /** 사용자가 없을 때만 만듭니다. (테스트 간 간섭 방지) */
     private void createUserIfAbsent(String username, String password) {
         if (userService.findByUsername(username) == null) {
             userService.create(username, password, null, User.Role.OPERATOR);
         }
     }
 
-    /** 로그인해서 세션을 돌려줍니다. */
     private jakarta.servlet.http.HttpSession loginAndGetSession(String username, String password)
             throws Exception {
         return mockMvc.perform(post("/api/v1/auth/login")

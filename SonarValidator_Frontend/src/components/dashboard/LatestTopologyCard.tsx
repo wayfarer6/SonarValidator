@@ -6,16 +6,7 @@ import { getTopology } from "../../lib/api";
 import { listProjects } from "../../lib/api/projects";
 import { topologyToMermaid } from "../../lib/topology/mermaid";
 
-/**
- * 가장 최근에 생성된 프로젝트의 토폴로지 카드입니다.
- *
- * <h2>더미 데이터를 걷어낸 자리</h2>
- * 이전에는 mockData 의 프로젝트/에이전트 배열을 걸러 그림을 그렸습니다.
- * 이제 서버의 프로젝트 목록에서 가장 최근 것을 고르고, 그 프로젝트의 실제
- * 서브넷/규칙을 getTopology 로 받아 그립니다.
- */
 
-/** 생성 시각 내림차순 첫 번째를 돌려줍니다. */
 function pickLatest<T extends { created_at: string | null }>(
   items: T[],
 ): T | null {

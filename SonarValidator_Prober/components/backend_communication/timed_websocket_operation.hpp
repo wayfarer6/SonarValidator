@@ -11,16 +11,16 @@
 namespace sonar::net {
 using WebSocket = boost::beast::websocket::stream<boost::beast::tcp_stream>;
 
-// SO_RCVTIMEO/SO_SNDTIMEO do not bound Asio synchronous operations: Asio can
-// retry EAGAIN using an indefinite poll. Drive an async operation until a real
-// deadline, then close the transport and drain its callback before returning.
-// The context/stream belong to this worker; a pending async read may also run.
-//
-// The completion state lives on the heap (shared_ptr) so that a completion
-// handler which fires after we give up cannot touch destroyed stack locals.
-// Draining is bounded: the original `while (!done) context.run_one();` could
-// block forever (run_one blocks when no work is queued), which left the worker
-// thread alive and made SIGTERM look ignored until systemd escalated to SIGKILL.
+
+
+
+
+
+
+
+
+
+
 template<class Start>
 boost::system::error_code RunWebSocketOperation(
     boost::asio::io_context& context, WebSocket& stream,

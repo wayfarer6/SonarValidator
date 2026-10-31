@@ -19,35 +19,12 @@ import {
 } from "../../lib/api/opnsense";
 
 interface ApiConnectedNodesPanelProps {
-  /** 요약 카드(전체 / 연결됨 / 실패 / 미확인 + 전체 연결 확인)를 표시합니다. */
   showSummary?: boolean;
-  /** 아직 설정이 없는 OPNsense 후보까지 표시합니다. */
   showCandidates?: boolean;
-  /** 섹션 제목. */
   title?: string;
-  /** 섹션 설명. */
   description?: string;
 }
 
-/**
- * REST API 로만 연결되는 장비(OPNsense 등)의 목록입니다.
- *
- * <h2>⚠️ 왜 Agent 목록과 따로 보여야 하는가</h2>
- * <p>Agent 목록({@code /agent})은 <b>프로버가 설치된 장비</b>를 다룹니다.
- * OPNsense 는 프로버를 올릴 수 없고 서버가 REST API 로 직접 접속하므로
- * <b>Agent 목록에 나타나지 않습니다.</b> 그래서 "방화벽을 등록했는데 목록에
- * 안 보인다" 는 혼란이 생깁니다. 이 패널이 그 장치들을 한 곳에 모읍니다.
- *
- * <h2>편집이 가능해야 하는 이유</h2>
- * 주소가 바뀌거나 API Key 를 재발급하면 <b>다시 입력</b>해야 합니다.
- * 등록만 되고 수정이 안 되면 사용자는 삭제 후 재등록을 하게 되고, 그 과정에서
- * 연결 확인 이력과 감지 버전이 사라집니다.
- *
- * <h2>Project 화면에서도 쓰는 이유</h2>
- * API 연결 장치는 Agent 처럼 프로젝트에 귀속되지 않습니다(설정 테이블에
- * 프로젝트 컬럼이 없습니다). 그래서 프로젝트별로 나누어 보여줄 수 없고,
- * 프로젝트 화면에서는 <b>공통 장치</b>로 한 번만 보여줍니다.
- */
 export default function ApiConnectedNodesPanel({
   showSummary = false,
   showCandidates = false,
@@ -63,16 +40,11 @@ export default function ApiConnectedNodesPanel({
     [showCandidates],
   );
 
-  /** 편집 중인 장치의 식별자입니다. null 이면 편집 모달이 닫혀 있습니다. */
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  /** 마지막으로 읽은 편집 대상의 표시 이름 (모달 제목용). */
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
-  /** 새 연결 등록 모달이 열려 있는지 여부. */
   const [adding, setAdding] = useState(false);
 
-  /** 요청 진행 중인 장치의 식별자입니다. 같은 행의 중복 클릭을 막습니다. */
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  /** 행 작업 결과 메시지입니다. */
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,13 +53,11 @@ export default function ApiConnectedNodesPanel({
   const failedCount = rows.filter((row) => row.status === "FAILED").length;
   const unverifiedCount = rows.filter((row) => row.status === "UNVERIFIED").length;
 
-  /** 목록과 후보를 다시 읽습니다. */
   const refresh = () => {
     credentials.reload();
     if (showCandidates) candidates.reload();
   };
 
-  /** 연결을 다시 확인합니다. */
   const handleVerify = async (credential: OPNsenseCredential) => {
     const key = credentialNodeId(credential);
     setBusyKey(key);
@@ -108,7 +78,6 @@ export default function ApiConnectedNodesPanel({
     }
   };
 
-  /** 등록된 모든 장치의 연결을 한 번에 확인합니다. */
   const handleVerifyAll = async () => {
     setBusyKey("*");
     setNotice(null);
@@ -125,7 +94,6 @@ export default function ApiConnectedNodesPanel({
     }
   };
 
-  /** 설정을 삭제합니다. */
   const handleDelete = async (credential: OPNsenseCredential) => {
     const key = credentialNodeId(credential);
     if (
@@ -149,7 +117,6 @@ export default function ApiConnectedNodesPanel({
     }
   };
 
-  /** 편집 모달을 엽니다. */
   const openEditor = (credential: OPNsenseCredential) => {
     setEditingKey(credentialNodeId(credential));
     setEditingLabel(credentialLabel(credential));
@@ -157,7 +124,6 @@ export default function ApiConnectedNodesPanel({
     setError(null);
   };
 
-  /** 후보 장치를 새 연결로 등록합니다. */
   const openCandidate = (candidate: OPNsenseCandidate) => {
     setEditingKey(candidate.agent_id);
     setEditingLabel(candidate.hostname ?? candidate.agent_id);
@@ -391,11 +357,6 @@ export default function ApiConnectedNodesPanel({
         initialNodeId={adding ? undefined : (editingKey ?? undefined)}
         deviceLabel={editingLabel}
         onSaved={() => {
-          // ⚠️ 여기서 "저장했습니다." 같은 문구를 띄우지 않습니다.
-          //    이 콜백은 저장뿐 아니라 모달의 <b>연결 테스트</b> 뒤에도
-          //    호출됩니다. 저장하지 않았는데 "저장했습니다." 가 뜨면
-          //    "설정이 바뀌었나?" 로 오해합니다. 결과 안내는 모달이 책임지고,
-          //    이 패널은 목록만 최신으로 맞춥니다.
           refresh();
         }}
       />
@@ -403,7 +364,6 @@ export default function ApiConnectedNodesPanel({
   );
 }
 
-/** 요약 타일입니다. (숫자 하나 + 라벨) */
 function SummaryTile({
   label,
   value,
@@ -429,7 +389,6 @@ function SummaryTile({
   );
 }
 
-/** OPNsense 로 보이지만 아직 연결이 등록되지 않은 장치 목록입니다. */
 function CandidateSection({
   candidates,
   loading,

@@ -1,3 +1,0 @@
-Stopping Gateway-Router
-Starting Gateway-Router
-Restarted Gateway-Router

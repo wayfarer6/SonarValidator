@@ -7,18 +7,6 @@ import org.sonar.sonarvalidator_backend.Service.quarantine.QuarantineContext;
 import org.sonar.sonarvalidator_backend.Service.quarantine.QuarantineMethod;
 import org.springframework.stereotype.Component;
 
-/**
- * 라우터의 격리 전략입니다.
- *
- * <h2>방식 — 장치 단위(인터페이스 down)</h2>
- * <p>라우터는 Agent 가 붙어 있으므로 관리 경로를 뺀 데이터 인터페이스를
- * 내리는 방식이 유효합니다.
- *
- * <h2>⚠️ 제어평면 경고</h2>
- * <p>라우터는 관리 VRF 와 데이터 VRF 를 함께 들고 있을 수 있습니다.
- * 관리 인터페이스를 내리면 서버로 나가는 길이 사라지므로, Agent 의 관리
- * 경로 제외에 의존하지 말고 콘솔에서 확인하도록 경고합니다.
- */
 @Component
 public class RouterQuarantine implements QuarantineMethod {
 

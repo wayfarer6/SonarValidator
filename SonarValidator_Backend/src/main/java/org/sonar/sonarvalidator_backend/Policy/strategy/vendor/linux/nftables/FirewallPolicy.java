@@ -11,55 +11,17 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * nftables 방화벽의 정책 전략입니다.
- *
- * <h2>이 전략이 아는 것</h2>
- * <ul>
- *   <li>폴백: {@code filter} 테이블 생성</li>
- *   <li>선언: 별도 {@code sonar} 테이블 + input/forward 체인 (기본 accept)</li>
- *   <li>집행: 연결별 {@code rule_target + match_criteria + action}</li>
- * </ul>
- *
- * <h2>⚠️ 기본 {@code filter} 테이블을 건드리지 않는다</h2>
- * <p>기존 방화벽 설정을 덮어쓰면 랩 전체가 끊길 수 있습니다. 그래서 별도
- * {@code sonar} 테이블을 만들고, 그 안에서만 규칙을 다룹니다.
- *
- * <h2>⚠️ 기본 정책을 {@code drop} 으로 두지 않는다</h2>
- * <p>체인 기본값을 {@code accept} 로 두고 금지 연결만 명시적으로 {@code drop}
- * 합니다. 기본을 {@code drop} 으로 두면 정책이 비어 있는 순간(예: 프로젝트에
- * 규칙이 하나도 없을 때) <b>모든 트래픽이 끊깁니다.</b>
- *
- * <h2>⚠️ 이 장치는 격리 대상이 아니다</h2>
- * <p>방화벽은 {@code eth1} 트렁크에 여러 VLAN 을 <b>동시에</b> 들고 있습니다
- * (랩 기준 131/132/133). 인터페이스를 내리는 격리를 적용하면 위반한 서브넷만
- * 끊는 것이 아니라 <b>무관한 존 전체가 함께 죽습니다.</b> 그래서 격리는
- * 상위 계층(격리 서비스)에서 방화벽을 제외합니다.
- * 이 전략은 정책만 다룹니다.
- */
 @Component
 public class FirewallPolicy implements DevicePolicy {
 
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
-    /**
-     * 방화벽 테이블 이름을 담은 사이트 설정입니다.
-     *
-     * <h2>⚠️ 왜 상수가 아니라 설정인가</h2>
-     * <p>이전에는 {@code FIREWALL_TABLE = "sonar"} 로 박혀 있었습니다.
-     * 같은 장비에 여러 도구가 붙거나 테이블 이름이 겹치면 충돌합니다.
-     * 그래서 {@code sonar.site.firewall.table-name} 으로 뺐습니다.
-     */
     private final SiteProperties site;
 
-    /**
-     * @param site 사이트 설정 (방화벽 테이블 이름)
-     */
     public FirewallPolicy(SiteProperties site) {
         this.site = site;
     }
 
-    /** @return 방화벽 정책이 쓰는 nftables 테이블 이름 */
     private String firewallTable() {
         return site.getFirewallDefaults().getTableName();
     }
@@ -138,13 +100,6 @@ public class FirewallPolicy implements DevicePolicy {
         return rule;
     }
 
-    /**
-     * nftables 체인 1개를 만듭니다.
-     *
-     * @param hook          hook 이름이자 chain 이름 (input/forward)
-     * @param defaultPolicy 기본 verdict (drop/accept)
-     * @return 체인 노드
-     */
     private ObjectNode chain(String hook, String defaultPolicy) {
         final ObjectNode chain = JSON.objectNode();
         chain.putArray("chain_name").add(hook);
@@ -154,12 +109,6 @@ public class FirewallPolicy implements DevicePolicy {
         return chain;
     }
 
-    /**
-     * 공통 머리말을 채웁니다.
-     *
-     * @param context 빌드 컨텍스트
-     * @return 머리말이 채워진 노드
-     */
     private ObjectNode baseRule(PolicyBuildContext context) {
         final ObjectNode rule = JSON.objectNode();
         rule.putArray("vendor").add(context.vendorOr(defaultVendor()));

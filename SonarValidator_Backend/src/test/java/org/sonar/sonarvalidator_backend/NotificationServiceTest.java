@@ -19,30 +19,6 @@ import org.springframework.data.domain.Pageable;
 
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * 알림 기록/조회 계약을 저장소 없이 검증합니다.
- *
- * <h2>왜 저장소 스텁을 쓰는가</h2>
- * 알림 서비스의 위험한 로직은 <b>DB 종류와 무관한 부분</b>에 있습니다.
- * <ul>
- *   <li>중복 키가 같은 알림을 합치는가 (5분 창)</li>
- *   <li>분류/심각도의 잘못된 값이 목록을 비게 만들지 않는가</li>
- *   <li>검색어가 없을 때 LIKE 패턴이 null 로 나가는가</li>
- * </ul>
- * 그리고 <b>실제로 두 번 물렸던 버그</b>는 모두 여기서 잡힙니다.
- *
- * <h2>⚠️ 이 테스트가 잡는 실제 버그 2건</h2>
- * <ol>
- *   <li><b>읽음 필터 뒤집힘</b> — {@code unread_only=true} 를 서버가 그대로
- *       "읽음 여부" 로 해석해 <b>읽은 것만</b> 돌려주던 문제. 두 값이 모두
- *       boolean 이라 컴파일러가 잡지 못했고, 응답이 그럴듯해서 화면에서도
- *       눈치채기 어려웠습니다.</li>
- *   <li><b>PostgreSQL LOWER(bytea)</b> — 검색어가 없을 때 파라미터가 untyped
- *       null 로 바인딩되어 {@code function lower(bytea) does not exist} 로
- *       조회가 500 이 되던 문제. H2 에서는 통과하고 PostgreSQL 에서만
- *       터지므로 테스트 DB 로는 잡히지 않았습니다.</li>
- * </ol>
- */
 class NotificationServiceTest {
 
     private RecordingRepository repository;
@@ -54,9 +30,7 @@ class NotificationServiceTest {
         service = new NotificationService(repository);
     }
 
-    // ------------------------------------------------------------------
     //  기록
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("알림을 기록하면 외부 식별자와 기본 상태가 채워진다")
@@ -133,9 +107,7 @@ class NotificationServiceTest {
         service.notifyQuietly("POLICY", "info", "제목", null, null, null, "system", null, null);
     }
 
-    // ------------------------------------------------------------------
     //  조회 — 검색 패턴 (PostgreSQL 회귀)
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("검색어가 없으면 LIKE 패턴은 null 로 전달된다")
@@ -164,9 +136,7 @@ class NotificationServiceTest {
         assertNull(repository.lastPattern);
     }
 
-    // ------------------------------------------------------------------
     //  조회 — 읽음 필터 (뒤집힘 회귀)
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("읽음 상태는 3상태 문자열로 저장소에 전달된다")
@@ -197,9 +167,7 @@ class NotificationServiceTest {
         assertEquals("unread", repository.lastReadState);
     }
 
-    // ------------------------------------------------------------------
     //  읽음 처리 / 삭제
-    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("읽음/안읽음 토글이 저장소에 반영된다")
@@ -235,36 +203,22 @@ class NotificationServiceTest {
         assertFalse(restored.isRead());
     }
 
-    // ------------------------------------------------------------------
     //  테스트용 저장소 스텁
-    // ------------------------------------------------------------------
 
-    /**
-     * 실제 쿼리를 실행하지 않고 <b>전달된 인자만 기록</b>하는 스텁입니다.
-     *
-     * <p>이 테스트의 관심사는 "서비스가 저장소에 무엇을 넘기는가" 입니다.
-     * DB 가 개입하면 PostgreSQL 전용 문제를 H2 로는 재현할 수 없습니다.
-     */
     private static class RecordingRepository
             implements NotificationRepository {
 
-        /** save 로 넘어온 알림들. */
         final List<Notification> saved = new java.util.ArrayList<>();
 
-        /** findFirstByDedupeKey... 의 판정에 쓰이지 않습니다 (저장된 목록에서 찾습니다). */
         @SuppressWarnings("unused")
         Notification duplicate;
 
-        /** findByNotificationId 가 돌려줄 대상. */
         Notification byId;
 
-        /** true 면 save 가 실패합니다. */
         boolean failOnSave;
 
-        /** 마지막 search 호출에 전달된 LIKE 패턴. */
         String lastPattern;
 
-        /** 마지막 search 호출에 전달된 읽음 상태. */
         String lastReadState;
 
         @Override

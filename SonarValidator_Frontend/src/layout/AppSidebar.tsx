@@ -28,22 +28,10 @@ const navItems: NavItem[] = [
     name: "Dashboard",
     subItems: [
       { name: "Project List", path: "/project", pro: false },
-      // ⚠️ "Create Project" 사이드바 항목을 <b>의도적으로 제거</b>했습니다.
-      //
-      //   프로젝트 생성은 이제 <b>목록 화면의 버튼</b>에서 시작합니다.
-      //   (Project List → Create) 이유:
-      //   1. 사이드바 항목은 "어디로 가는가" 를 항상 보여주지만, 생성은
-      //      목록을 <b>보고 나서</b> 하는 행동입니다. 흐름이 끊깁니다.
-      //   2. 사이드바가 프로젝트 관련 항목 2개를 차지해 다른 메뉴가 밀립니다.
-      //   3. 생성 마법사는 어느 프로젝트의 맥락에서 시작됐는지가 중요한데,
-      //      사이드바에서 바로 들어가면 그 맥락이 없습니다.
-      //
-      //   마법사 경로(/project/create/*) 자체는 그대로 살아 있습니다 —
-      //   진입점만 목록 화면으로 옮깁니다.
       { name: "Agent List", path: "/agent", pro: false },
-      // ⚠️ REST API 로만 연결되는 장비(OPNsense 등)는 Agent 목록에 나타나지 않습니다.
-      //    같은 목록에 섞으면 "연결됨" 의 의미(WebSocket 세션 vs API 자격증명)가
-      //    달라져 혼란스러우므로 별도 화면으로 둡니다.
+
+
+
       { name: "API 연결 노드", path: "/api-nodes", pro: false },
     ],
   },
@@ -264,7 +252,7 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -332,7 +320,7 @@ const AppSidebar: React.FC = () => {
             </div>
           </div>
         </nav>
-        
+
       </div>
     </aside>
   );

@@ -1,43 +1,13 @@
-# Website
+# SonarValidator 문서
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
-
-## Installation
+[문서 안내](docs/intro.md)부터 읽습니다. 기능별 문서는 `docs/`에 있습니다. 날짜별 blog는 사용하지 않습니다.
 
 ```bash
-npm install
-```
-
-**Note**: feel free to use the package manager of your choice.
-
-## Local Development
-
-```bash
-npm run start
-```
-
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
-
-## Build
-
-```bash
+npm ci
+npm start -- --port 3001
 npm run build
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+Backend 3000·Frontend 5173과 겹치지 않게 문서 서버는 3001을 사용합니다. 문서를 옮기면 내부 링크·저장소 README 링크와 문서 빌드를 함께 확인합니다.
 
-## Deployment
-
-Using SSH:
-
-```bash
-USE_SSH=true npm run deploy
-```
-
-Not using SSH:
-
-```bash
-GIT_USER=<Your GitHub username> npm run deploy
-```
-
-If you are using GitHub Pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+과거 시험의 결론과 미검증 범위는 [시험 근거](docs/testing/evidence.md)에 모았습니다. 현재 실행 결과와 구분합니다. 비밀번호·API 키·공유 시크릿 원문을 문서에 넣지 않습니다.

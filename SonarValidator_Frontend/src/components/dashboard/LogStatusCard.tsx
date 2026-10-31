@@ -3,7 +3,6 @@ import { FileTextIcon } from "../../icons";
 import { useApi } from "../../hooks/useApi";
 import { getLogSummary, listLogs } from "../../lib/api/aiLogs";
 
-/** 화면에 쓰는 3단계 묶음. 서버는 8단계 심각도를 씁니다. */
 type LevelKey = "ERROR" | "WARN" | "INFO";
 
 const LEVEL_STYLE: Record<LevelKey, string> = {
@@ -12,7 +11,6 @@ const LEVEL_STYLE: Record<LevelKey, string> = {
   INFO: "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
 };
 
-/** 서버 심각도 이름을 화면 3단계로 접습니다. */
 function levelOf(severity: string | null): LevelKey {
   const name = (severity ?? "").toLowerCase();
   if (["emergency", "alert", "critical", "error"].includes(name)) return "ERROR";

@@ -1,0 +1,16 @@
+configure terminal
+event manager session cli username guestshell privilege 15
+no event manager applet SONAR-Lab1-Collect
+event manager applet SONAR-Lab1-Collect authorization bypass
+ event timer watchdog time 60 maxrun 55
+ action 010 cli command "enable"
+ action 015 cli command "terminal length 0"
+ action 020 cli command "show ip interface brief | redirect bootflash:guest-share/sonar_show_ip_interface_brief.out" pattern "confirm|#"
+ action 021 cli command ""
+ action 030 cli command "show ip route | redirect bootflash:guest-share/sonar_show_ip_route.out" pattern "confirm|#"
+ action 031 cli command ""
+ action 040 cli command "show ip arp | redirect bootflash:guest-share/sonar_show_ip_arp.out" pattern "confirm|#"
+ action 041 cli command ""
+ action 050 cli command "guestshell run /bin/bash /home/guestshell/sonar/start.sh"
+end
+write memory

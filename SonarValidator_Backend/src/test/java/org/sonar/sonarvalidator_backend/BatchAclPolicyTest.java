@@ -20,23 +20,8 @@ import org.sonar.sonarvalidator_backend.Policy.strategy.vendor.cisco.iosxe.Route
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * 차단 ACL 을 <b>선언적으로</b> 내려보내는 경로를 검증합니다.
- *
- * <h2>⚠️ 왜 연결 하나짜리 규칙으로는 부족한가</h2>
- * <p>IOS 확장 ACL 은 규칙 하나만 지우는 문법이 없어 이름으로 통째로 다시 써야
- * 합니다. 그래서 서버는 {@code acl_apply} 노드에 "지금 남아 있어야 하는 규칙
- * 전체" 를 싣습니다. 이 테스트는 그 노드가:
- * <ul>
- *   <li>금지 연결만 담는지 (허용을 넣으면 ACL 이 무의미하게 커짐)</li>
- *   <li>마스크를 <b>와일드카드</b>로 바꾸는지 (넷마스크를 넣으면 차단이 사라짐)</li>
- *   <li>차단이 0건일 때도 노드를 보내는지 (안 보내면 마지막 해제가 반영 안 됨)</li>
- * </ul>
- * 를 확인합니다.
- */
 class BatchAclPolicyTest {
 
-    /** 배열 첫 값을 꺼냅니다. (문서 스키마가 스칼라를 배열로 감쌉니다) */
     private static String first(JsonNode node, String key) {
         final JsonNode array = node.get(key);
         assertNotNull(array, key + " 키가 있어야 합니다");
@@ -44,13 +29,6 @@ class BatchAclPolicyTest {
         return array.get(0).asText();
     }
 
-    /**
-     * 테스트용 최소 서브넷을 만듭니다.
-     *
-     * @param id   서브넷 식별자
-     * @param cidr CIDR 대역
-     * @return 채워진 서브넷
-     */
     private static org.sonar.sonarvalidator_backend.Model.entity.ProjectSubnet subnet(String id,
                                                                                      String cidr) {
         final var value = new org.sonar.sonarvalidator_backend.Model.entity.ProjectSubnet();
@@ -59,14 +37,6 @@ class BatchAclPolicyTest {
         return value;
     }
 
-    /**
-     * 연결 뷰 하나를 만듭니다.
-     *
-     * @param source     출발 대역
-     * @param destination 도착 대역
-     * @param forbidden  금지 연결인지
-     * @return 연결 뷰
-     */
     private static PolicyBuildContext.ConnectionView connection(String source,
                                                                 String destination,
                                                                 boolean forbidden) {
@@ -128,9 +98,9 @@ class BatchAclPolicyTest {
                 subnet("s1", "10.0.8.0/24"), "Cisco", "IOS XE",
                 List.of(connection("10.0.8.0/24", "10.0.9.0/24", false))));
 
-        // ⚠️ 여기서 null 을 돌려주면 "규칙 없음" 과 "이번엔 안 보냄" 을 장치가
-        //    구분하지 못합니다. 운영자가 마지막 금지 연결을 지운 순간이
-        //    장치에 반영되지 않습니다.
+
+
+
         assertNotNull(node, "빈 목록도 보내야 합니다");
         assertEquals(0, node.path("acl_rules").size(), "차단 목록은 비어 있어야 합니다");
     }

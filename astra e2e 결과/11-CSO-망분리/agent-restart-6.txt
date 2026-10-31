@@ -1,3 +1,0 @@
- * Stopping sonar_validator_prober ... [ ok ]
- * Starting sonar_validator_prober ... [ ok ]
- * status: started

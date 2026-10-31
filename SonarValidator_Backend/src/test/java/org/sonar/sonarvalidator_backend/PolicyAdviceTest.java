@@ -20,32 +20,11 @@ import org.sonar.sonarvalidator_backend.Policy.advice.PolicyAdviceParser;
 import org.sonar.sonarvalidator_backend.Policy.advice.PolicyAdvicePromptBuilder;
 import org.sonar.sonarvalidator_backend.Policy.advice.ViolationBrief;
 
-/**
- * AI 정책 조언(SONAR-43)의 계약을 검증합니다.
- *
- * <h2>여기서 잡으려는 실패 모드</h2>
- * <ul>
- *   <li><b>센티널 -1 누출</b> — 판정 엔진의 {@code ANY_PORT(-1)} 이 프롬프트에
- *       그대로 들어가면 모델이 "포트 -1" 을 실제 포트로 읽고 없는 문제를
- *       지어냅니다. {@link ViolationBrief} 가 {@code null} 로 바꿔야 합니다.</li>
- *   <li><b>등급 미상과 차이 0 혼동</b> — 등급을 모를 때 차이를 0 으로 만들면
- *       "등급이 같다" 는 <b>거짓 사실</b>이 프롬프트에 들어갑니다.</li>
- *   <li><b>모델 응답 모양 3가지</b> — 순수 JSON / 코드블록 / 설명+JSON.
- *       하나만 처리하면 나머지는 "조언 실패" 로 보입니다.</li>
- *   <li><b>스키마 이탈</b> — {@code options} 를 문자열 배열로 보내는 경우.
- *       버리면 조언의 절반이 사라집니다.</li>
- * </ul>
- *
- * <p>네트워크·DB 를 쓰지 않습니다. 프롬프트 조립과 파싱은 <b>순수 함수</b>라
- * 전부 여기서 검증할 수 있습니다.
- */
 class PolicyAdviceTest {
 
     private final PolicyAdviceParser parser = new PolicyAdviceParser();
 
-    // -------------------------------------------------------------------------
     //  ViolationBrief — 판정 표현 → 프롬프트 표현
-    // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("ANY_PORT(-1) 센티널을 포트로 내보내지 않는다")
@@ -121,9 +100,7 @@ class PolicyAdviceTest {
         assertNull(ViolationBrief.from(null));
     }
 
-    // -------------------------------------------------------------------------
     //  PolicyAdviceParser — 모델 응답 3가지 모양
-    // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("순수 JSON 응답을 파싱한다")
@@ -303,9 +280,7 @@ class PolicyAdviceTest {
                 parser.parse("{\"note\": \"핵심 조언\"}").policyAdvice());
     }
 
-    // -------------------------------------------------------------------------
     //  PolicyAdviceOption
-    // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("제목만 있고 실행 방법이 없으면 사용 불가로 본다")
@@ -315,9 +290,7 @@ class PolicyAdviceTest {
         assertTrue(new PolicyAdviceOption("제목", "방법", "", "", false).isUsable());
     }
 
-    // -------------------------------------------------------------------------
     //  PolicyAdvicePromptBuilder — 프롬프트 계약
-    // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("시스템 지침에 등급 규칙과 JSON 스키마가 들어간다")
@@ -327,7 +300,7 @@ class PolicyAdviceTest {
                 .get(0)
                 .content();
 
-        // 등급 규칙이 없으면 모델은 "왜 금지인지" 를 모른 채 일반론을 냅니다.
+
         assertTrue(system.contains("Confidential"), "등급 이름이 있어야 합니다");
         assertTrue(system.contains("레벨"), "등급 레벨 설명이 있어야 합니다");
         assertTrue(system.contains("차이"), "인접 규칙이 있어야 합니다");
@@ -410,9 +383,7 @@ class PolicyAdviceTest {
                 "목록이 비었지만 미준수인 경우를 구분해야 합니다");
     }
 
-    // -------------------------------------------------------------------------
     //  PolicyAdviceContext — 잘림/정렬/매칭
-    // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("심각도 순으로 정렬해 자른다 (MINOR 가 먼저 잘린다)")
@@ -485,37 +456,22 @@ class PolicyAdviceTest {
         assertEquals(0, context.bySeverity().get("MINOR"));
     }
 
-    // -------------------------------------------------------------------------
     //  헬퍼
-    // -------------------------------------------------------------------------
 
-    /** 위반이 없는 준수 맥락을 만듭니다. (Project 없이 최소 정보) */
     private PolicyAdviceContext emptyContext() {
         return contextWith(List.of(), true, 0);
     }
 
-    /** 지정한 위반 목록으로 맥락을 만듭니다. */
     private PolicyAdviceContext contextWith(List<ViolationBrief> briefs,
                                             boolean compliant,
                                             int totalCount) {
         return contextFromBriefs(briefs, compliant, totalCount);
     }
 
-    /** 잘림 시나리오용 맥락을 만듭니다. */
     private PolicyAdviceContext contextTruncated(List<ViolationBrief> briefs, int totalCount) {
         return contextFromBriefs(briefs, false, totalCount);
     }
 
-    /**
-     * 맥락을 직접 만듭니다.
-     *
-     * <p>{@link PolicyAdviceContext#of} 는 {@code Project}/{@code Report} 를
-     * 요구하므로, 프롬프트 계약만 검증할 때는 리플렉션 없이 같은 상태를
-     * 만들 수 없습니다. 그래서 <b>실제 생성 경로</b>를 쓰지 않고 여기서는
-     * {@code of} 를 쓰지 않습니다 — 대신 검증 대상이 프롬프트라면
-     * 위반 목록만 있으면 충분합니다. 이 헬퍼는 {@code of} 와 같은 규칙으로
-     * 목록을 정렬/절단합니다.
-     */
     private PolicyAdviceContext contextFromBriefs(List<ViolationBrief> briefs,
                                                   boolean compliant,
                                                   int totalCount) {
@@ -550,7 +506,6 @@ class PolicyAdviceTest {
         return PolicyAdviceContext.of(project, report);
     }
 
-    /** 테스트용 {@link ViolationBrief} 를 판정 엔진의 위반으로 되돌립니다. */
     private PolicyViolation toViolation(ViolationBrief brief) {
         final ZoneClass source = ZoneClass.fromString(brief.srcClass());
         final ZoneClass target = ZoneClass.fromString(brief.dstClass());

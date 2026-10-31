@@ -64,12 +64,12 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
                       << policy_id << '\n';
         }
 
-        // 정책 적용 직후 잠깐 수신 창을 엽니다.
-        //
-        // 서버는 격리 명령을 command 봉투로 **비동기**로 보냅니다. fetchPolicy 의
-        // 대기 루프는 correlation_id 가 다른 봉투를 버리므로, 여기서 받지 않으면
-        // 다음 정책 요청까지 최대 3초 동안 아무도 명령을 처리하지 않습니다.
-        // (격리는 "즉시" 가 생명이므로 이 창이 필요합니다.)
+
+
+
+
+
+
         const auto command_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
         while (!stop_token.stop_requested() &&
                std::chrono::steady_clock::now() < command_deadline)

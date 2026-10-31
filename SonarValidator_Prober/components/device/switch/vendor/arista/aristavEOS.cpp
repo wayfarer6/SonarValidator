@@ -4,9 +4,9 @@
 
 #include <nlohmann/json.hpp>
 
-// Arista EOS 의 `show running-config`(interface/switchport 줄) 파싱은
-// components/parser 의 ANTLR 문법(SwitchTopology.g4)이 담당합니다.
-// 이 클래스는 그 JSON 결과를 스위치 모델로 옮기는 얇은 변환 계층입니다.
+
+
+
 std::vector<BridgeInfo> AristaTopologyParser::parse(const std::string& raw_output) const
 {
     std::vector<BridgeInfo> bridges;
@@ -23,7 +23,7 @@ std::vector<BridgeInfo> AristaTopologyParser::parse(const std::string& raw_outpu
 
     for (const auto& port_json : parsed["ports"])
     {
-        PortInfo port;
+        Port port;
         port.name = port_json.value("name", std::string{});
         port.interface_name = port.name;
 

@@ -6,28 +6,9 @@ import { getTopology } from "../lib/api";
 import { listProjects } from "../lib/api/projects";
 import { topologyToMermaid } from "../lib/topology/mermaid";
 
-/**
- * 프로젝트의 실제 서브넷/규칙으로 그리는 CSO 토폴로지입니다.
- *
- * <h2>더미 데이터를 걷어낸 자리</h2>
- * 이전에는 {@code 192.168.1.0/24} ~ {@code 192.168.4.0/24} 와 H1~H4/SW1~SW4/R1~R4
- * 같은 가짜 장비를 문자열로 박아 넣고 그렸습니다. 이제는 서버가 판정한
- * <b>실제</b> 토폴로지를 그립니다. 그림의 근거가 되는 값은 오직 서버 응답입니다:
- * <ul>
- *   <li>{@code GET /api/v1/network/topology/{projectId}} → 노드(서브넷) + 간선(규칙)</li>
- *   <li>등급(level)은 서버가 서브넷 CIDR 과 프로젝트 등급을 맞춰 계산합니다.</li>
- *   <li>금지 조합 여부({@code forbidden})도 서버가 판정합니다. 프론트는 색만 칠합니다.</li>
- * </ul>
- * 즉 이 화면은 <b>판정하지 않고 표시만</b> 합니다.
- */
 
 interface NetworkTopologyMermaidProps {
-  /**
-   * 그릴 프로젝트 키. 넘기지 않으면 {@code ?project_id=} 쿼리스트링을 읽고,
-   * 그것도 없으면 프로젝트 선택 드롭다운을 보여줍니다.
-   */
   projectId?: string | null;
-  /** 상단 프로젝트 선택 UI 를 숨길지 여부. (마법사 단계에서 이미 정해진 경우) */
   hideSelector?: boolean;
 }
 
@@ -41,10 +22,6 @@ export default function NetworkTopologyMermaid({
   const projects = useApi(() => listProjects(), []);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  /**
-   * 그릴 프로젝트를 정합니다.
-   * 우선순위: prop > 쿼리스트링 > 사용자가 드롭다운에서 고른 값 > 목록 첫 번째.
-   */
   const activeProjectId = useMemo(() => {
     if (queryProjectId) return queryProjectId;
     if (selectedProjectId) return selectedProjectId;
@@ -58,12 +35,6 @@ export default function NetworkTopologyMermaid({
 
   const chart = useMemo(() => topologyToMermaid(topology.data), [topology.data]);
 
-  /**
-   * 격리 중인 서브넷 개수입니다.
-   *
-   * <p>0 이면 범례/안내를 숨깁니다. 항상 보이면 "격리 기능이 있긴 한가" 를
-   * 매번 읽어야 하고, 진짜 격리가 생겼을 때 눈에 띄지 않습니다.
-   */
   const quarantinedCount = useMemo(
     () => (topology.data?.nodes ?? []).filter((node) => node.quarantined).length,
     [topology.data],

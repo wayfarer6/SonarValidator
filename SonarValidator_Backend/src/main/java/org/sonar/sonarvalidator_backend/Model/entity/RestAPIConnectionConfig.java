@@ -19,22 +19,10 @@ import org.sonar.sonarvalidator_backend.Model.Configuration;
 @Setter
 public class RestAPIConnectionConfig {
 
-    /**
-     * 기본 키. JPA 는 모든 @Entity 에 식별자를 요구합니다.
-     * (없으면 기동 시 AnnotationException 으로 컨텍스트가 뜨지 않습니다.)
-     *
-     * <p>전략을 {@code AUTO} 로 두면 H2 에서 시퀀스 기반(
-     * {@code REST_API_NODE_CONFIG_SEQ}) 으로 생성되어 다른 테이블과
-     * 번호 체계가 갈라집니다. IDENTITY 를 명시해 통일합니다.
-     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * 이 설정이 가리키는 노드.
-     * 노드당 설정 1개이므로 OneToOne 이며, 소유 측(설정)이 FK 를 가집니다.
-     */
     @OneToOne
     @JoinColumn(name = "node_id")
     private Configuration node;

@@ -11,32 +11,6 @@ import org.sonar.sonarvalidator_backend.grammar.SwitchTopologyParser;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * 스위치 CLI 출력({@code show vlan brief}, {@code show ip interface brief},
- * {@code show interfaces switchport}, {@code show running-config})을 JSON 으로 옮기는 방문자.
- *
- * <h2>문법이 나눠 준 것</h2>
- * <pre>
- *   vlanDocument    : vlanEntry 하나 = VLAN 한 행 (id/name/status/ports)
- *   briefDocument   : briefEntry 하나 = 인터페이스 한 행
- *   portDocument    : portEntry = `key: value` 또는 `interface X`
- *   runningDocument : configLine = 임의 토큰 줄
- * </pre>
- *
- * <p>{@code show running-config} 의 {@code switchport ...} 줄은
- * 키워드를 전용 토큰으로 승격해 두었다({@code SWITCHPORT}, {@code MODEWORD},
- * {@code ACCESS}, {@code TRUNK}, {@code NATIVE}, {@code VLANWORD}).
- * 따라서 {@link #applySwitchportTokens} 는 <b>토큰 타입만 보고</b> 분기한다.
- *
- * <h2>키 이름 비교에 대해</h2>
- * {@code show interfaces switchport} 의 키는 {@code Access Mode VLAN},
- * {@code Administrative Mode} 처럼 <b>여러 단어 + 대문자</b>라서 전용 토큰으로
- * 승격하기 어렵다. 이런 곳은 문법이 "키는 콜론 앞부분" 이라고 이미 확정해 주므로
- * (keyWord+ COLON elem*), 남은 판단은 소문자 정규화 비교로 처리한다.
- *
- * <p>순회는 ANTLR 이 자동 생성한 {@code SwitchTopologyBaseVisitor} 를 그대로
- * 씁니다.
- */
 public final class SwitchVisitor extends SwitchTopologyBaseVisitor<Void> {
 
     private final ParseSession<SwitchTopologyLexer, SwitchTopologyParser> session;
@@ -93,13 +67,6 @@ public final class SwitchVisitor extends SwitchTopologyBaseVisitor<Void> {
         vlans.add(vlan);
     }
 
-    /**
-     * 이어지는 줄의 <b>첫 토큰 종류</b>로 포트 목록 continuation 인지 판단한다.
-     *
-     * <p>문법에서 {@code VLAN0003} / {@code Eth1/1} / {@code Gi0/1} 은 모두
-     * {@code PORTNAME} 또는 {@code IFNAME} 이다. 즉 "포트 모양" 판별이 이미
-     * 토큰 타입에 들어 있으므로 문자를 훑을 필요가 없다.
-     */
     private void appendVlanContinuation(SwitchTopologyParser.GenericLineContext ctx) {
         TokenCursor<SwitchTopologyParser.ElemContext> cursor =
                 TokenCursor.of(ctx, SwitchTopologyParser.ElemContext.class);
@@ -231,19 +198,6 @@ public final class SwitchVisitor extends SwitchTopologyBaseVisitor<Void> {
         return null;
     }
 
-    /**
-     * {@code show interfaces switchport} 의 키/값을 포트 레코드에 반영한다.
-     *
-     * <p>키 표기 차이를 흡수한다.
-     * <pre>
-     *   IOS    : Access Mode VLAN: 99 / Trunking VLANs Enabled: 111,112
-     *   Arista : Access Mode VLAN: 8 (VLAN8) / Trunking VLANs Enabled: ALL
-     *            Administrative Mode: static access
-     * </pre>
-     *
-     * @param key   소문자로 정규화한 키
-     * @param value 콜론 뒤 원문 값
-     */
     private void applyPortAttribute(String key, String value, ObjectNode port) {
         if ("switchport".equals(key)) {
             port.put("admin_enabled", "Enabled".equals(CliText.unquote(value)));
@@ -324,19 +278,6 @@ public final class SwitchVisitor extends SwitchTopologyBaseVisitor<Void> {
         return null;
     }
 
-    /**
-     * {@code switchport} 설정 줄을 직전 포트 레코드에 반영한다.
-     *
-     * <p>문법이 키워드를 전용 토큰으로 승격해 두었으므로 <b>단어 비교 없이</b>
-     * 타입만 보고 분기한다.
-     * <pre>
-     *   switchport mode trunk              → SWITCHPORT MODEWORD TRUNK
-     *   switchport mode access             → SWITCHPORT MODEWORD ACCESS
-     *   switchport access vlan 99          → SWITCHPORT ACCESS VLANWORD NUMBER
-     *   switchport trunk allowed vlan 1,2  → SWITCHPORT TRUNK ATTRWORD VLANWORD NUMBER COMMA NUMBER
-     *   switchport trunk native vlan 5     → SWITCHPORT TRUNK NATIVE VLANWORD NUMBER
-     * </pre>
-     */
     private void applySwitchportTokens(TokenCursor<SwitchTopologyParser.ElemContext> cursor,
                                        ObjectNode port) {
         if (port == null || !cursor.is(SwitchTopologyLexer.SWITCHPORT)) {
@@ -406,14 +347,6 @@ public final class SwitchVisitor extends SwitchTopologyBaseVisitor<Void> {
 
     /* ==================== 도우미 ==================== */
 
-    /**
-     * {@code "Access Mode VLAN: 8 (VLAN8)"} 를 키/값으로 가른다.
-     *
-     * <p>문법이 {@code keyWord+ COLON elem*} 로 "키는 콜론 앞" 이라고 확정해 주므로
-     * 첫 콜론만 기준으로 자르면 된다.
-     *
-     * @return 길이 2 배열 {키, 값}
-     */
     private static String[] splitAttr(String line) {
         int colon = line.indexOf(':');
         if (colon < 0) {
@@ -423,12 +356,10 @@ public final class SwitchVisitor extends SwitchTopologyBaseVisitor<Void> {
                               CliText.trim(line.substring(colon + 1)) };
     }
 
-    /** 키 비교용 소문자 정규화. 공백을 하나로 접는다. */
     private static String normalizeKey(String key) {
         return CliText.trim(key).toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", " ");
     }
 
-    /** {@code "111,112"} → VLAN 번호 배열. 값은 이미 콜론 뒤 원문이다. */
     private static ArrayNode vlanArray(String value) {
         ArrayNode array = CliJson.array();
         String[] parts = value.split("[,\\s]+");

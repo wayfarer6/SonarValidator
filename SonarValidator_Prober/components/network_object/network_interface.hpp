@@ -5,17 +5,17 @@
 
 #include "components/network_object/vlan.hpp"
 
-// 모든 장비가 공통으로 갖는 "네트워크 인터페이스" 계약입니다.
-//
-// 포트/ NIC 같은 요소는 스위치(L2) · 라우터(L3) · VM 마다 표현이 조금씩 다르지만
-// 이름 · 내부 여부 · VLAN 이라는 공통 요소는 항상 존재합니다. 그 공통 요소를
-// 여기(추상 인터페이스)에 모아 두고, 장비별 클래스가 상속해 구체화합니다.
-//
-// 구현 예:
-//   class Port : public NetworkInterface { ... };  // 스위치 포트(L2)
-//   class Nic  : public NetworkInterface { ... };  // 호스트/VM NIC(L3)
-//
-// RoutingTableView(추상) + Frr/CiscoRoutingTableView(구현) 구조와 동일한 패턴입니다.
+
+
+
+
+
+
+
+
+
+
+
 class NetworkInterface
 {
 public:

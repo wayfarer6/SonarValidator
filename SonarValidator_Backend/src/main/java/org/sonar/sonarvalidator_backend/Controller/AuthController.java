@@ -26,30 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
-/**
- * 로그인/로그아웃/현재 사용자 조회 API 입니다.
- *
- * <h2>왜 직접 인증을 호출하는가</h2>
- * <p>{@code formLogin()} 을 쓰면 스프링이 {@code application/x-www-form-urlencoded}
- * 와 302 리다이렉트를 강제합니다. 프론트엔드는 <b>JSON</b> 을 보내고 JSON
- * 응답을 받아야 하므로, {@link AuthenticationManager} 를 직접 호출해
- * 성공/실패를 모두 JSON 으로 돌려줍니다.
- *
- * <h2>세션에 SecurityContext 를 저장하는 이유</h2>
- * <p>인증에 성공하면 {@link SecurityContext} 를 <b>명시적으로 세션에 넣어야</b>
- * 다음 요청에서 인증된 사용자로 인식됩니다. 이 단계를 빠뜨리면 로그인은
- * 성공(200)하는데 이후 API 가 전부 401 이 되는 혼란스러운 증상이 생깁니다.
- *
- * <h2>실패 사유를 구분해 주는 이유</h2>
- * <ul>
- *   <li>{@link BadCredentialsException} -> 401 "아이디 또는 비밀번호가 올바르지 않습니다"</li>
- *   <li>{@link DisabledException} -> 403 "비활성 계정입니다"</li>
- * </ul>
- * <p>아이디 존재 여부는 드러내지 않습니다. (아이디/비밀번호 오류를 한 문구로 통일)
- *
- * <p><b>계정 잠금(423)은 제거되었습니다.</b> 서버가 잠금 상태를 두지 않으므로
- * {@code LockedException} 분기도 없습니다.
- */
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -59,31 +35,14 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
 
-    /**
-     * @param authenticationManager 인증 관리자
-     * @param userService           사용자 서비스
-     */
     public AuthController(AuthenticationManager authenticationManager, UserService userService) {
         this.authenticationManager = authenticationManager;
         this.userService = userService;
     }
 
-    /**
-     * 로그인 요청 본문입니다.
-     *
-     * @param username 아이디 (화면에서는 Email 로 표시)
-     * @param password 평문 비밀번호
-     */
     public record LoginRequest(String username, String password) {
     }
 
-    /**
-     * 로그인합니다.
-     *
-     * @param body    로그인 요청
-     * @param request HTTP 요청 (세션 생성을 위함)
-     * @return 성공 시 사용자 정보, 실패 시 오류 메시지
-     */
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody(required = false) LoginRequest body,
                                                      HttpServletRequest request) {
@@ -137,15 +96,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * 현재 로그인한 사용자를 반환합니다.
-     *
-     * <p>프론트엔드가 새로고침 후 로그인 상태를 복원할 때 씁니다.
-     * 세션 쿠키가 유효하면 사용자 정보를, 아니면 401 을 돌려줍니다.
-     *
-     * @param authentication 현재 인증 (없으면 null)
-     * @return 사용자 정보 또는 401
-     */
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()
@@ -166,16 +116,6 @@ public class AuthController {
         return ResponseEntity.ok(body);
     }
 
-    /**
-     * 로그아웃합니다.
-     *
-     * <p>{@code SecurityConfig} 의 {@code logout()} 설정이 실제 무효화를
-     * 담당하며, 이 메서드는 스프링 시큐리티 필터가 처리하지 못한 경우를 위한
-     * 안전망입니다.
-     *
-     * @param request HTTP 요청
-     * @return 결과 메시지
-     */
     @PostMapping("/logout")
     public ResponseEntity<Map<String, Object>> logout(HttpServletRequest request) {
         final HttpSession session = request.getSession(false);

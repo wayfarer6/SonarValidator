@@ -28,16 +28,6 @@ import org.sonar.sonarvalidator_backend.Repository.ExpectedAgentRepository;
 import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
 import org.sonar.sonarvalidator_backend.Service.ProjectSubnetAutoSyncService;
 
-/**
- * 수집된 텔레메트리 → 프로젝트 서브넷 자동 반영 규칙을 검증합니다.
- *
- * <p>여기서 지키려는 계약은 세 가지입니다.
- * <ol>
- *   <li>장치가 붙으면 대역이 <b>자동으로</b> 생긴다 (운영자가 아무것도 안 해도)</li>
- *   <li>관리망과 주소 없는 VLAN 은 <b>들어오지 않는다</b></li>
- *   <li>운영자가 손댄 것(수동 편집·다른 장치)은 <b>건드리지 않는다</b></li>
- * </ol>
- */
 class ProjectSubnetAutoSyncServiceTest {
 
     private ProjectRepository projects;
@@ -58,7 +48,6 @@ class ProjectSubnetAutoSyncServiceTest {
         when(projects.findByProjectKey("PRJ-1")).thenReturn(Optional.of(project));
     }
 
-    /** 프로젝트에 에이전트를 등록합니다. */
     private void expectAgentInProject(String agentId) {
         final ExpectedAgent agent = new ExpectedAgent();
         agent.setAgentId(agentId);
@@ -66,13 +55,6 @@ class ProjectSubnetAutoSyncServiceTest {
         when(expected.findByAgentId(agentId)).thenReturn(Optional.of(agent));
     }
 
-    /**
-     * Arista 스위치 형태의 수집 결과를 만듭니다.
-     *
-     * <p>실측한 랩 장비를 그대로 반영했습니다 — SVI 는 {@code Vlan8}/{@code Vlan9}
-     * 이고, 관리 인터페이스는 {@code Management1}, VLAN 멤버는
-     * {@code Et2}/{@code Et3} 입니다. (SVI 이름과 멤버 이름이 다릅니다)
-     */
     private static NeutralDeviceConfig aristaConfig() {
         final NeutralDeviceConfig config = new NeutralDeviceConfig();
         config.setHostname("Arista-Switch");
@@ -103,7 +85,6 @@ class ProjectSubnetAutoSyncServiceTest {
         iface.getAddresses().addAll(List.of(addresses));
     }
 
-    /** 프로젝트에 저장된 서브넷을 CIDR 로 찾습니다. */
     private ProjectSubnet subnetOf(String cidr) {
         for (final ProjectSubnet subnet : project.getSubnets()) {
             if (cidr.equals(subnet.getCidr())) {
@@ -118,14 +99,14 @@ class ProjectSubnetAutoSyncServiceTest {
     void createsSubnetsFromCollectedTelemetry() {        expectAgentInProject("Arista-Switch");
         assertTrue(service.syncForAgent("Arista-Switch", aristaConfig()));
 
-        // ⚠️ VLAN 으로 라우팅되는 장비는 **VLAN 대역만** 씁니다.
-        //    물리 포트 대역(Ethernet1=172.18.10.0/24)까지 만들면 같은 망이
-        //    인터페이스 이름으로 목록에 중복됩니다.
+
+
+
         assertEquals(2, project.getSubnets().size(), "VLAN8 · VLAN9 (VLAN 기반만)");
         assertNull(subnetOf("172.18.10.0/24"), "VL​AN 장비의 물리 포트 대역은 제외됩니다");
         final ProjectSubnet vlan8 = subnetOf("10.0.8.0/24");
         assertNotNull(vlan8, "VLAN8 SVI 대역이 생겨야 합니다");
-        assertEquals(ZoneClass.OPEN, vlan8.getZoneClass(), "등급은 안전한 쪽(Open)으로 채웁니다");
+        assertNull(vlan8.getZoneClass(), "자동 수집은 CSO 등급을 결정하지 않습니다");
         assertEquals("Arista-Switch", vlan8.getAgentId());
         assertEquals(8, vlan8.getVlanId());
         assertFalse(vlan8.isManuallyEdited(), "자동 생성분으로 표시되어야 합니다");
@@ -315,4 +296,13 @@ class ProjectSubnetAutoSyncServiceTest {
         assertFalse(service.syncForAgent(null, aristaConfig()));
         assertFalse(service.syncForAgent("Arista-Switch", null));
     }
+    @Test
+    void clearsLegacyUnconfirmedOpenClassification() {
+        expectAgentInProject("Arista-Switch");
+        service.syncForAgent("Arista-Switch", aristaConfig());
+        subnetOf("10.0.9.0/24").setZoneClass(ZoneClass.OPEN);
+        service.syncForAgent("Arista-Switch", aristaConfig());
+        assertNull(subnetOf("10.0.9.0/24").getZoneClass());
+    }
+
 }

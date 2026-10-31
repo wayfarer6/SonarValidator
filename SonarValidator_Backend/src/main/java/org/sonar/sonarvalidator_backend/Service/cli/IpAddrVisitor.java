@@ -14,83 +14,26 @@ import java.util.List;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * {@code IpAddr} 문법의 파스 트리를 중립 JSON 으로 옮깁니다.
- *
- * <h2>문법이 판별하고, visitor 는 옮기기만 한다</h2>
- * <p>이 visitor 에는 "이 토큰이 MAC 처럼 생겼는가", "이 단어가 키워드인가" 같은
- * <b>문자열 추측이 없습니다.</b> 그 판별은 전부 문법이 전용 토큰으로 끝내 두었고,
- * visitor 는 토큰 타입 또는 파스 트리 접근자만 봅니다.
- *
- * <table border="1">
- *   <caption>문법이 제공하는 판별</caption>
- *   <tr><th>문법 요소</th><th>visitor 가 얻는 것</th></tr>
- *   <tr><td>{@code attrLead : LINK|INET|INET6|LIFETIME}</td>
- *       <td>속성 줄의 종류 (분기 하나로 끝)</td></tr>
- *   <tr><td>{@code ADDR4} / {@code ADDR6} 토큰</td>
- *       <td>주소 패밀리 (inet/inet6) — 추측 불필요</td></tr>
- *   <tr><td>{@code MAC} / {@code MACDOTTED} 토큰</td>
- *       <td>하드웨어 주소 위치와 표기법</td></tr>
- *   <tr><td>{@code FLAGS} 토큰 ({@code <UP,LOWER_UP>})</td>
- *       <td>인터페이스 플래그 — 텍스트 앞뒤 문자 검사 불필요</td></tr>
- *   <tr><td>{@code GLOBAL} / {@code SCOPEWORD} / {@code ADDRFLAG}</td>
- *       <td>{@code scope global eth1.131} 에서 인터페이스명이 붙는지 여부</td></tr>
- *   <tr><td>{@code VIA/DEV/PROTO/METRIC/SRC/SCOPE/TABLE/LINKDOWN}</td>
- *       <td>라우트 키 — 문자열 비교 대신 switch</td></tr>
- *   <tr><td>{@code MTU/QDISC/STATE/QLEN/GROUP/NETNSID}</td>
- *       <td>헤더의 키/값 쌍</td></tr>
- *   <tr><td>{@code AGE} / {@code NUD} / {@code ARPTYPE} / {@code LLADDR}</td>
- *       <td>이웃 테이블 컬럼의 의미</td></tr>
- * </table>
- *
- * <p>남은 문자열 작업은 <b>표기 정리</b>뿐입니다. CIDR 분해({@code /24} 떼기),
- * 점 표기 MAC 을 콜론 표기로 바꾸기, 끝 구두점 떼기. 이는 "무엇인가"의 판별이
- * 아니라 "어떻게 쓰여 있는가"의 정리이므로 문법이 아니라 helper 의 몫입니다.
- *
- * <p>순회는 ANTLR 이 자동 생성한 {@code IpAddrBaseVisitor} 를 그대로 씁니다.
- * {@code visitDocument} 같은 상위 방문 메서드는 생성된 기본 구현이 스스로
- * 자식을 걷기 때문에, 이 클래스는 "의미가 있는 규칙"의 방문 메서드만
- * 덮어씁니다({@code visitItem}, {@code visitIfaceHeader}, …).
- */
 public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
 
     private final ParseSession<IpAddrLexer, IpAddrParser> session;
 
-    /** {@code ip a} 결과. {@code nic_status.interfaces[]} 로 그대로 쓰입니다. */
     public final ArrayNode interfaces = CliJson.array();
 
-    /** {@code ip -br addr show} 결과. */
     public final ArrayNode brief = CliJson.array();
 
-    /** {@code ip route show} 결과. {@code route_status.routes[]} 로 쓰입니다. */
     public final ArrayNode routes = CliJson.array();
 
-    /** {@code ip neigh show} / {@code show arp} 결과. */
     public final ArrayNode arpEntries = CliJson.array();
 
-    /** 현재 주소를 붙이고 있는 인터페이스 레코드. */
     private ObjectNode currentIface;
 
-    /**
-     * @param session 파싱 세션 (원문 라인 접근용)
-     */
     public IpAddrVisitor(ParseSession<IpAddrLexer, IpAddrParser> session) {
         this.session = session;
     }
 
-    // ==================================================================
     // ip a / ip addr show
-    // ==================================================================
 
-    /**
-     * {@code item} 하나를 처리합니다.
-     *
-     * <p>{@code genericLine} / {@code blank} 는 흡수만 하고 버립니다. 문법이
-     * "정보 누락을 막기 위해 자유 형식으로 둔다"고 선언한 종류라 여기서
-     * 해석을 시도하지 않습니다.
-     *
-     * @param ctx item 컨텍스트
-     */
     @Override
     public Void visitItem(IpAddrParser.ItemContext ctx) {
         if (ctx.ifaceHeader() != null) {
@@ -107,11 +50,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return null;
     }
 
-    /**
-     * {@code 2: eth1.131@eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...}
-     *
-     * @param ctx 헤더 컨텍스트
-     */
     @Override
     public Void visitIfaceHeader(IpAddrParser.IfaceHeaderContext ctx) {
         final ObjectNode iface = CliJson.object();
@@ -151,11 +89,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return null;
     }
 
-    /**
-     * {@code link/ether ... brd ...} / {@code inet ...} / {@code valid_lft ...}
-     *
-     * @param ctx 속성 줄 컨텍스트
-     */
     @Override
     public Void visitIfaceAttr(IpAddrParser.IfaceAttrContext ctx) {
         if (currentIface == null || ctx.attrLead() == null) {
@@ -171,14 +104,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return null;
     }
 
-    /**
-     * {@code valid_lft forever preferred_lft forever} → 직전 주소에 채웁니다.
-     *
-     * <p>키/값 짝은 문법이 {@code lifetimePair : LIFETIME elem} 로 남겨 두었으므로
-     * visitor 는 옆 토큰을 세지 않고 짝을 그대로 꺼냅니다.
-     *
-     * @param ctx 생명주기 줄 컨텍스트
-     */
     @Override
     public Void visitLifetimeAttr(IpAddrParser.LifetimeAttrContext ctx) {
         if (currentIface == null) {
@@ -196,16 +121,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return null;
     }
 
-    /**
-     * {@code link/ether 02:42:7c:24:78:01 brd ff:ff:ff:ff:ff:ff}
-     *
-     * <p>{@code link/ether} 는 {@code LINK} 토큰 하나이고 하드웨어 주소는
-     * {@code MAC}/{@code MACDOTTED} 토큰이다. 둘 다 타입으로 구분되므로
-     * "MAC 처럼 생겼는가" 를 볼 필요가 없다.
-     *
-     * @param ctx   속성 줄 컨텍스트
-     * @param iface 대상 인터페이스
-     */
     private void applyLinkLine(IpAddrParser.IfaceAttrContext ctx, ObjectNode iface) {
         final TokenCursor<ElemContext> cursor = TokenCursor.of(ctx, ElemContext.class);
         while (cursor.hasNext()) {
@@ -234,19 +149,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         }
     }
 
-    /**
-     * {@code inet 10.10.131.1/24 scope global eth1.131}
-     * {@code inet6 fe80::1/64 scope link}                             ← dev 없음
-     * {@code inet6 ... scope global dynamic mngtmpaddr noprefixroute}  ← 플래그만
-     *
-     * <p>"scope 뒤에 오는 것이 인터페이스명인가 주소 플래그인가" 는 문법이
-     * {@code GLOBAL}/{@code SCOPEWORD}/{@code ADDRFLAG} 토큰으로 확정해 두었습니다.
-     * <b>global</b> 일 때만 dev 가 출력되고, 그 외에는 플래그가 옵니다.
-     *
-     * @param lead 속성 줄 종류
-     * @param ctx  속성 줄 컨텍스트
-     * @return 주소 레코드
-     */
     private ObjectNode parseAddressLine(IpAddrParser.AttrLeadContext lead,
                                         IpAddrParser.IfaceAttrContext ctx) {
         final ObjectNode address = CliJson.object();
@@ -281,18 +183,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return address;
     }
 
-    /**
-     * {@code scope} 뒤 조각을 읽습니다.
-     *
-     * <ul>
-     *   <li>{@code global eth1.131} → scope=global, interface=eth1.131</li>
-     *   <li>{@code host|link|nowhere} → scope 만 기록 (dev 없음)</li>
-     *   <li>{@code ADDRFLAG} → 플래그로 남김</li>
-     * </ul>
-     *
-     * @param address 대상 주소 레코드
-     * @param cursor  scope 다음 위치의 커서
-     */
     private void applyScope(ObjectNode address, TokenCursor<ElemContext> cursor) {
         final int type = cursor.type();
         if (type == IpAddrLexer.GLOBAL) {
@@ -309,29 +199,12 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         }
     }
 
-    /**
-     * 기본 경로 여부. {@code default} 키워드 표기와 {@code 0.0.0.0/0}
-     * 주소 표기를 모두 "기본 경로" 로 본다(벤더 표기 차이일 뿐이다).
-     *
-     * @param prefix 목적지
-     * @return 기본 경로 여부
-     */
     private static boolean isDefaultPrefix(String prefix) {
         return "0.0.0.0/0".equals(prefix) || "::/0".equals(prefix);
     }
 
-    // ==================================================================
     // ip -br addr show
-    // ==================================================================
 
-    /**
-     * {@code eth0  UP  10.40.121.10/24 fe80::42:2fff:fe7e:d600/64}
-     *
-     * <p>주소와 MAC 의 구분은 {@code briefAddr : addr | MAC | MACDOTTED} 가
-     * 끝내 두었으므로 접근자만 고르면 됩니다.
-     *
-     * @param ctx 브리프 줄 컨텍스트
-     */
     @Override
     public Void visitBriefEntry(IpAddrParser.BriefEntryContext ctx) {
         final ObjectNode entry = CliJson.object();
@@ -373,17 +246,8 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return null;
     }
 
-    // ==================================================================
     // ip route show
-    // ==================================================================
 
-    /**
-     * {@code default via 10.99.10.1 dev eth0 proto ospf metric 20}
-     * {@code 10.99.10.0/24 dev eth0 proto kernel scope link src 10.99.10.4}
-     * {@code blackhole 10.0.0.0/8}   ← routeHead 가 IFNAME, destination 보정 필요
-     *
-     * @param ctx 라우트 줄 컨텍스트
-     */
     @Override
     public Void visitRouteEntry(IpAddrParser.RouteEntryContext ctx) {
         final IpAddrParser.RouteHeadContext head = ctx.routeHead();
@@ -393,11 +257,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
 
         final ObjectNode route = CliJson.object();
 
-        // 목적지 자리는 문법이 네 가지로 확정한다.
-        //   `default ...`            → DEFAULT
-        //   `0.0.0.0/0 ...`          → DEFAULTADDR (기본 경로 주소 표기)
-        //   `blackhole 10.0.0.0/8`   → blackholeDestination (목적지가 따로 온다)
-        //   `10.99.10.0/24 ...`      → addr
         final String prefix = head.DEFAULT() != null || head.DEFAULTADDR() != null
                 ? "0.0.0.0/0"
                 : head.blackholeDestination() != null
@@ -424,10 +283,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
             } else if (field.routeProto() != null) {
                 route.put("protocol", field.routeProto().protoName().getText());
             } else if (field.routeMetric() != null) {
-                // `metric 20` — 커널 iproute2 는 브래킷이 아니라 키워드를 쓴니다.
-                // 계약은 정수다: 소비자(AbstractDeviceConfigParser)가 metric 을
-                // Long 으로 읽으므로 문자열로 담으면 값이 사라진다.
-                // 숫자가 아니면 원문을 metric_raw 에 남겨 정보를 버리지 않는다.
                 final String metric = CliText.trimPunct(field.routeMetric().INDEX().getText());
                 if (CliText.isNumber(metric)) {
                     route.put("metric", Integer.parseInt(metric));
@@ -461,26 +316,8 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return null;
     }
 
-    // ==================================================================
     // ip neigh show / show arp / show ip arp
-    // ==================================================================
 
-    /**
-     * 이웃(ARP) 한 줄을 옮깁니다.
-     *
-     * <pre>
-     *   ip neigh show   10.0.9.1 dev ens3 lladdr 0c:2d:07:65:99:f3 REACHABLE
-     *   show arp        172.18.10.1  2:31:51  0cae.21dd.0001  Ethernet1
-     *   show ip arp     Internet 10.20.0.4 - 0c2d.0765.99f3 ARPA GigabitEthernet4
-     * </pre>
-     *
-     * <p>Cisco 헤더 줄은 {@code arpAddress : addr | INETWORD} 덕분에 애초에
-     * {@code arpEntry} 로 매칭되지 않습니다(헤더의 첫 단어 {@code Protocol} 은
-     * 어느 쪽에도 해당하지 않아 {@code genericLine} 으로 떨어집니다). 그래서
-     * 여기에 헤더 필터링 코드가 없습니다.
-     *
-     * @param ctx 이웃 줄 컨텍스트
-     */
     @Override
     public Void visitArpEntry(IpAddrParser.ArpEntryContext ctx) {
         final IpAddrParser.ArpAddressContext first = ctx.arpAddress();
@@ -580,16 +417,8 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return null;
     }
 
-    // ==================================================================
     // 값 정리 helper (판별이 아니라 표기 정리)
-    // ==================================================================
 
-    /**
-     * {@code ADDR4}/{@code ADDR6} 토큰 텍스트를 주소와 prefix 길이로 나눠 넣습니다.
-     *
-     * @param target 대상 객체
-     * @param value  {@code 10.10.131.1/24} 같은 값
-     */
     private static void applyCidr(ObjectNode target, String value) {
         final String bare = CliText.trimPunct(value);
         final String[] address = new String[1];
@@ -602,24 +431,11 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         }
     }
 
-    /**
-     * {@code MACDOTTED} 토큰이면 콜론 표기로 바꾸고, {@code MAC} 이면 그대로 씁니다.
-     *
-     * @param value 토큰 텍스트
-     * @param type  토큰 타입
-     * @return 콜론 표기 MAC
-     */
     private static String mac(String value, int type) {
         final String trimmed = CliText.trimPunct(value);
         return type == IpAddrLexer.MACDOTTED ? CliText.dottedMacToColon(trimmed) : trimmed;
     }
 
-    /**
-     * 다음 조각이 MAC 이면 표기 정리해 돌려줍니다. ({@code brd}/{@code lladdr} 뒤 값)
-     *
-     * @param cursor 커서
-     * @return MAC (없으면 빈 문자열)
-     */
     private static String takeMacLike(TokenCursor<ElemContext> cursor) {
         final int type = cursor.type();
         final String value = cursor.take();
@@ -629,12 +445,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return CliText.trimPunct(value);
     }
 
-    /**
-     * {@code <BROADCAST,MULTICAST,UP,LOWER_UP>} 을 플래그 배열로 나눕니다.
-     *
-     * @param token FLAGS 토큰 텍스트
-     * @return 플래그 배열
-     */
     private static ArrayNode splitFlags(String token) {
         final ArrayNode flags = CliJson.array();
         for (final String flag : token.substring(1, token.length() - 1).split(",", -1)) {
@@ -645,15 +455,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         return flags;
     }
 
-    /**
-     * 헤더 줄의 키/값 짝을 넣습니다.
-     *
-     * <p>키/값의 짝은 문법이 {@code ifaceHeaderField : ifaceHeaderKey ifaceHeaderValue}
-     * 로 남겨 두었으므로, 여기서는 키 토큰 이름을 보고 필드 이름만 정한다.
-     *
-     * @param iface 대상 인터페이스
-     * @param field 문법이 확정한 키/값 짝
-     */
     private static void applyHeaderKeyValue(ObjectNode iface, IpAddrParser.IfaceHeaderFieldContext field) {
         final String value = CliText.trimPunct(field.ifaceHeaderValue().getText());
         final IpAddrParser.IfaceHeaderKeyContext key = field.ifaceHeaderKey();
@@ -673,12 +474,6 @@ public class IpAddrVisitor extends IpAddrBaseVisitor<Void> {
         }
     }
 
-    /**
-     * {@code Internet}/{@code ipv6} 같은 패밀리 단어를 {@code inet}/{@code inet6} 로 맞춥니다.
-     *
-     * @param word 패밀리 단어
-     * @return 패밀리
-     */
     private static String familyOfInetWord(String word) {
         return word.toLowerCase().contains("ipv6") ? "inet6" : "inet";
     }

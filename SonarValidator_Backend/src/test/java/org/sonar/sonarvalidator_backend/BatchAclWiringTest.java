@@ -24,30 +24,8 @@ import org.sonar.sonarvalidator_backend.Service.PolicyRegistryService;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
-/**
- * 차단 ACL({@code acl_apply})이 <b>정책 최상위</b>에 실려 나가는지 검증합니다.
- *
- * <h2>⚠️ 이 테스트가 겨냥하는 실패 모드</h2>
- * <p>전략 단위 테스트({@link BatchAclPolicyTest})는 노드의 <b>내용</b>만
- * 봅니다. 그런데 실제로 차단이 걸리려면 그 노드가
- * <ul>
- *   <li>정책 최상위 키 {@code acl_apply} 로 나가야 하고,</li>
- *   <li>Prober 가 읽는 {@code policies[]} 와 <b>같은 객체</b>에 있어야 합니다.</li>
- * </ul>
- * 둘 중 하나가 어긋나면 장치는 항상 빈 차단 목록을 받습니다 — 규칙은 만들어지고
- * 로그도 정상으로 보이는데 <b>차단만 안 되는</b> 상태입니다.
- *
- * <p>그래서 여기서는 {@code forAgent} 진입점부터 확인합니다. Prober 가 실제로
- * 보는 것과 같은 경로입니다.
- */
 class BatchAclWiringTest {
 
-    /**
-     * 프로젝트 하나를 메모리 저장소로 감쌉니다.
-     *
-     * @param project 프로젝트
-     * @return 저장소 스텁
-     */
     private static ProjectRepository repositoryOf(Project project) {
         final List<Project> rows = new ArrayList<>(List.of(project));
         return of(ProjectRepository.class, (method, args) -> switch (method) {
@@ -57,16 +35,6 @@ class BatchAclWiringTest {
         });
     }
 
-    /**
-     * 서브넷을 만듭니다.
-     *
-     * @param id     서브넷 식별자
-     * @param cidr   대역
-     * @param zone   등급
-     * @param agent  배정된 Agent 식별자
-     * @param parent 소속 프로젝트
-     * @return 서브넷
-     */
     private static ProjectSubnet subnet(String id,
                                         String cidr,
                                         ZoneClass zone,
@@ -81,14 +49,6 @@ class BatchAclWiringTest {
         return value;
     }
 
-    /**
-     * 기밀망 → 개방망 <b>금지</b> 규칙을 담은 프로젝트를 만듭니다.
-     *
-     * <p>{@code Confidential(3) → Open(1)} 은 Sensitive(2) 를 건너뛰므로
-     * 금지 연결입니다. 즉 두 장치 모두 {@code acl_apply} 를 받아야 합니다.
-     *
-     * @return 프로젝트
-     */
     private static Project forbiddenProject() {
         final Project project = new Project();
         project.setProjectKey("acl-wiring");
@@ -111,7 +71,6 @@ class BatchAclWiringTest {
         return project;
     }
 
-    /** 배열 첫 값을 꺼냅니다. (정책 스키마가 스칼라를 배열로 감쌉니다) */
     private static String first(JsonNode node, String key) {
         final JsonNode array = node.path(key);
         assertTrue(array.isArray() && !array.isEmpty(), key + " 가 비어 있으면 안 됩니다");
@@ -205,9 +164,9 @@ class BatchAclWiringTest {
         final ObjectNode policy = service.forAgent("cisco-router", DeviceType.ROUTER,
                 "cisco-router", "Cisco", "IOS XE");
 
-        // ⚠️ 여기서 노드를 빼면 "규칙 없음" 과 "이번엔 안 보냄" 을 장치가
-        //    구분하지 못합니다. 운영자가 마지막 금지 연결을 지운 순간이
-        //    장치에 반영되지 않습니다 — 차단이 영원히 안 풀립니다.
+
+
+
         assertNotNull(policy.get("acl_apply"), "빈 목록도 보내야 합니다");
         assertEquals(0, policy.get("acl_apply").path("acl_rules").size(),
                 "차단 목록은 비어 있어야 합니다");
