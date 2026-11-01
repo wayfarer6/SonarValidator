@@ -1,6 +1,9 @@
 #ifndef SONAR_INTERFACE_QUARANTINE_HPP_
 #define SONAR_INTERFACE_QUARANTINE_HPP_
 #include <arpa/inet.h>
+#include <algorithm>
+#include <vector>
+#include "utils/atomic_json_file.hpp"
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -101,10 +104,9 @@ inline bool Reconcile(DeviceCommandExecutor& device, Platform platform, const st
     for(const auto& name:desired) if(!original.contains(name)) original[name]=ports.at(name).up;
     // Persist the exact original admin states before changing any device interface.
     std::filesystem::create_directories(directory);
-    {std::ofstream out(path+".tmp");out<<original.dump();out.close();
-        if(!out || chmod((path+".tmp").c_str(),0600)!=0 || rename((path+".tmp").c_str(),path.c_str())!=0) {
-            detail="Cannot persist original interface states";return false;
-        }}
+    if(!file_storage::WriteJsonAtomically(path,original)) {
+        detail="Cannot persist original interface states";return false;
+    }
     std::vector<std::string> commands{"configure terminal"};
     std::map<std::string,bool> expected;
     for(auto it=original.begin();it!=original.end();++it) {
@@ -123,8 +125,9 @@ inline bool Reconcile(DeviceCommandExecutor& device, Platform platform, const st
         detail="Interface admin state readback does not match requested state";return false;
     }
     for(auto it=original.begin();it!=original.end();) if(!desired.count(it.key())) it=original.erase(it);else ++it;
-    {std::ofstream out(path+".tmp");out<<original.dump();out.close();
-        if(!out || chmod((path+".tmp").c_str(),0600)!=0 || rename((path+".tmp").c_str(),path.c_str())!=0) {detail="Cannot save verified restoration state";return false;}}
+    if(!file_storage::WriteJsonAtomically(path,original)) {
+        detail="Cannot save verified restoration state";return false;
+    }
     detail=desired.empty()?"Original device interface states restored and verified":"Device data interface isolation verified";
     return true;
 }

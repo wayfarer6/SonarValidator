@@ -57,6 +57,14 @@ if [[ "$scenario" == isolation ]]; then
   suite="$here/suites/isolation_topology.robot"
   scenario=Q01_Isolate_Observe_And_Release
 fi
+if [[ "$scenario" == isolation-ui ]]; then
+  suite="$here/suites/isolation_topology.robot"
+  scenario=Q02_UI_Scope_Selection_And_Apply
+fi
+if [[ "$scenario" == isolation-reboot ]]; then
+  suite="$here/suites/isolation_topology.robot"
+  scenario=Q03_Active_Isolation_Journal_Survives_VM_Restart
+fi
 if [[ "$scenario" == presentation ]]; then
   suite="$here/suites/presentation_demo.robot"
   scenario=all

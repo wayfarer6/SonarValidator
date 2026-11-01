@@ -3,6 +3,7 @@ import Button from "../ui/button/Button";
 import type { ApiTopologyNode } from "../../lib/api/types";
 
 type Props = {
+  error: string | null;
   agent: { agentId: string; deviceType?: string | null } | null;
   subnets: ApiTopologyNode[];
   selectedCidr: string | null;
@@ -13,10 +14,12 @@ type Props = {
   onSubmit: () => void | Promise<void>;
 };
 
-export default function IsolationModal({ agent, subnets, selectedCidr, loading, submitting, onSelect, onClose, onSubmit }: Props) {
+export default function IsolationModal({ error, agent, subnets, selectedCidr, loading, submitting, onSelect, onClose, onSubmit }: Props) {
   return (
       <Modal
         isOpen={agent !== null}
+        ariaLabel="격리 설정"
+        closeDisabled={submitting}
         onClose={onClose}
         className="max-w-lg p-6"
       >
@@ -37,6 +40,7 @@ export default function IsolationModal({ agent, subnets, selectedCidr, loading, 
             </select>
           </label>
           <p className="text-xs text-gray-500">장비의 적용 확인 후 격리 상태로 표시됩니다. 해제하면 이번 격리에서 변경한 포트·규칙만 복원합니다.</p>
+          {error && <p role="alert" className="text-sm text-error-600 dark:text-error-400">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="outline" onClick={onClose} disabled={submitting}>취소</Button>
             <Button

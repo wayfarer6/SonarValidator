@@ -215,8 +215,8 @@ export default function SubnetEditor({
           </table>
         </div>
       )}
-      {connectionSubnet && <Modal isOpen onClose={() => setConnectionId(null)} showCloseButton={false} className="mx-4 max-w-2xl p-7">
-        <section role="dialog" aria-modal="true" aria-label="서브넷 연결 관리" className="max-h-[80vh] overflow-y-auto">
+      {connectionSubnet && <Modal ariaLabel="서브넷 연결 관리" isOpen onClose={() => setConnectionId(null)} showCloseButton={false} className="mx-4 max-w-2xl p-7">
+        <section className="max-h-[80vh] overflow-y-auto">
           <h3 className="mb-1 text-lg font-semibold dark:text-white">{connectionSubnet.name || connectionSubnet.id}</h3>
           <p className="mb-5 font-mono text-sm text-gray-500">{connectionSubnet.cidr}</p>
           <PeerSelector subnet={{ ...connectionSubnet, allowed_peers: connectionDraft }} subnets={subnets} onChange={setConnectionDraft} disabled={readOnly} />

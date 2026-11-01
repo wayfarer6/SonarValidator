@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
@@ -40,6 +40,7 @@ export default function Agent() {
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const [quarantining, setQuarantining] = useState<string | null>(null);
+  const isolationRequest = useRef(0);
   const [isolationRow, setIsolationRow] = useState<Row | null>(null);
   const [isolationSubnets, setIsolationSubnets] = useState<ApiTopologyNode[]>([]);
   const [selectedCidr, setSelectedCidr] = useState<string | null>(null);
@@ -264,7 +265,7 @@ export default function Agent() {
     isolate: boolean,
     projectId?: string | null,
   ) => {
-    if (quarantining !== null) return;
+    if (quarantining !== null) return false;
 
     setQuarantining(`${agentId}:${targetCidr}`);
     setQuarantineMessage(null);
@@ -276,6 +277,10 @@ export default function Agent() {
           projectId: projectId ?? undefined,
           targetCidr,
         });
+        if (result.rejected) {
+          setQuarantineError(result.reason ?? "이 장치는 격리 대상이 아닙니다.");
+          return false;
+        }
         setQuarantineMessage(describeIsolation(agentId, targetCidr, result));
       } else {
         const result = await releaseQuarantine(agentId, undefined, targetCidr);
@@ -288,10 +293,12 @@ export default function Agent() {
       // 서버가 확정한 상태를 다시 받아 화면을 맞춥니다.
       quarantine.reload();
       overview.reload();
+      return true;
     } catch (cause) {
       setQuarantineError(
         cause instanceof Error ? cause.message : "격리 요청을 처리하지 못했습니다.",
       );
+      return false;
     } finally {
       setQuarantining(null);
     }
@@ -302,6 +309,7 @@ export default function Agent() {
       setQuarantineError(`${row.agentId}: 프로젝트에 연결된 Agent만 격리를 요청할 수 있습니다.`);
       return;
     }
+    const request = ++isolationRequest.current;
     setIsolationRow(row);
     setSelectedCidr(null);
     setIsolationSubnets([]);
@@ -309,19 +317,22 @@ export default function Agent() {
     setQuarantineError(null);
     try {
       const topology = await getTopology(row.projectId);
+      if (request !== isolationRequest.current) return;
       const ownedSubnets = topology.nodes
         .filter((node) => node.agent_id?.toLowerCase() === row.agentId.toLowerCase())
         .filter((node) => node.cidr?.trim());
       setIsolationSubnets(row.deviceType?.toUpperCase() === "VM" ? [] : ownedSubnets);
     } catch (err) {
+      if (request !== isolationRequest.current) return;
       setQuarantineError(err instanceof Error ? err.message : "프로젝트 서브넷을 불러오지 못했습니다.");
     } finally {
-      setLoadingIsolationSubnets(false);
+      if (request === isolationRequest.current) setLoadingIsolationSubnets(false);
     }
   };
 
   const closeIsolationModal = () => {
     if (quarantining !== null) return;
+    ++isolationRequest.current;
     setIsolationRow(null);
     setSelectedCidr(null);
     setIsolationSubnets([]);
@@ -329,8 +340,8 @@ export default function Agent() {
 
   const submitSubnetIsolation = async () => {
     if (!isolationRow || selectedCidr === null) return;
-    await handleQuarantine(isolationRow.agentId, selectedCidr, true, isolationRow.projectId);
-    closeIsolationModal();
+    const accepted = await handleQuarantine(isolationRow.agentId, selectedCidr, true, isolationRow.projectId);
+    if (accepted) closeIsolationModal();
   };
 
   const canIsolateSubnet = (row: Row) =>
@@ -699,6 +710,7 @@ export default function Agent() {
         </div>
       </div>
       <IsolationModal
+        error={quarantineError}
         agent={isolationRow} subnets={isolationSubnets} selectedCidr={selectedCidr}
         loading={loadingIsolationSubnets} submitting={quarantining !== null}
         onSelect={setSelectedCidr} onClose={closeIsolationModal} onSubmit={submitSubnetIsolation}

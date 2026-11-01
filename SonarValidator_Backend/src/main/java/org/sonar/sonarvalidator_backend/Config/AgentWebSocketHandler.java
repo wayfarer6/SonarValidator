@@ -51,8 +51,13 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         try {
             request = objectMapper.readValue(raw, Envelope.class);
         } catch (RuntimeException ex) {
-            log.warn("invalid envelope from session {}: {}", session.getId(), ex.getMessage());
-            registry.send(session, Envelope.error(null, "invalid JSON envelope: " + ex.getMessage()));
+            log.warn("invalid envelope from session {}", session.getId());
+            registry.send(session, Envelope.error(null, "invalid JSON envelope"));
+            return;
+        }
+
+        if (request == null) {
+            registry.send(session, Envelope.error(null, "invalid JSON envelope"));
             return;
         }
 

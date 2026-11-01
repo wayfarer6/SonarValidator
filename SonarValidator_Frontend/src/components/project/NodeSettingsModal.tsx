@@ -64,8 +64,8 @@ function NodeSettingsEditor({ projectId, agentId, expectedIp, connected, onClose
     finally { setSaving(false); }
   };
   const input = "w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white";
-  return <Modal isOpen onClose={close} showCloseButton={false} className="mx-4 max-w-5xl p-6 sm:p-8">
-    <section role="dialog" aria-modal="true" aria-labelledby={titleId} data-testid="node-settings-modal" className="max-h-[85vh] overflow-y-auto">
+  return <Modal ariaLabelledBy={titleId} isOpen onClose={close} showCloseButton={false} className="mx-4 max-w-5xl p-6 sm:p-8">
+    <section data-testid="node-settings-modal" className="max-h-[85vh] overflow-y-auto">
       <header className="mb-6 flex items-start justify-between gap-4">
         <div><h2 id={titleId} className="text-xl font-semibold text-gray-900 dark:text-white">{agentId} 노드 설정</h2>
           <p className="mt-1 text-sm text-gray-500">{connected ? "온라인" : "오프라인"} · {projectId}</p></div>

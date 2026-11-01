@@ -4,10 +4,7 @@
 #include <iomanip>
 #include <sstream>
 
-#include <cerrno>
-#include <fcntl.h>
-#include <system_error>
-#include <unistd.h>
+#include "utils/atomic_json_file.hpp"
 
 namespace offline {
 namespace {
@@ -57,29 +54,8 @@ ExportResult ExportSnapshot(const std::filesystem::path& target, const Json& doc
     std::error_code error;
     if (!target.parent_path().empty()) std::filesystem::create_directories(target.parent_path(), error);
     if (error) { result.message = "cannot create output directory: " + error.message(); return result; }
-    std::string temporary = target.string() + ".tmp.XXXXXX";
-    const int descriptor = ::mkstemp(temporary.data());
-    if (descriptor < 0) { result.message = "cannot create snapshot file"; return result; }
-    bool ok = true;
-    try {
-        const std::string data = document.dump(2) + "\n";
-        std::size_t written = 0;
-        while (written < data.size()) {
-            const ssize_t count = ::write(descriptor, data.data() + written, data.size() - written);
-            if (count < 0 && errno == EINTR) continue;
-            if (count <= 0) { ok = false; break; }
-            written += static_cast<std::size_t>(count);
-        }
-        if (ok && ::fsync(descriptor) != 0) ok = false;
-    } catch (...) { ok = false; }
-    if (::close(descriptor) != 0) ok = false;
-    if (ok) {
-        std::filesystem::rename(temporary, target, error);
-        ok = !error;
-    }
-    if (!ok) {
-        std::filesystem::remove(temporary, error);
-        result.message = "snapshot write or atomic rename failed";
+    if (!file_storage::WriteJsonAtomically(target, document)) {
+        result.message = "snapshot write, rename or durable sync failed";
         return result;
     }
     result.saved = true;

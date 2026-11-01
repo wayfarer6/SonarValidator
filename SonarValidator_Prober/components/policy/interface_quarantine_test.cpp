@@ -2,6 +2,7 @@
 #include <cassert>
 #include <iostream>
 #include <unistd.h>
+#include <sys/wait.h>
 struct Device final : DeviceCommandExecutor {
     std::map<std::string,bool> ports{{"GigabitEthernet1",true},{"GigabitEthernet2",true},{"GigabitEthernet3",false},{"VirtualPortGroup0",true}};
     int changes=0;bool reject=false,ignore=false,unknownManagement=false;
@@ -42,6 +43,21 @@ int main(){
         d.unknownManagement=true;assert(!reconcile(empty,true));assert(d.changes==before);d.unknownManagement=false;
         d.ignore=true;assert(!reconcile(data,false));assert(detail.find("readback")!=std::string::npos);d.ignore=false;
         d.reject=true;assert(!reconcile(data,false));d.reject=false;assert(reconcile(empty,false));
+        const auto journal = root / "quarantine_interfaces.json";
+        struct stat info{};assert(stat(journal.c_str(),&info)==0 && (info.st_mode&0777)==0600);
+        {std::ofstream corrupt(journal);corrupt<<"Protocol  Address\nInternet  10.10.20.1\n";}
+        const auto unchanged=d.changes;
+        assert(!reconcile(data,false));assert(d.changes==unchanged);
+        assert(detail=="Saved quarantine interface state is invalid");
+        std::string preserved;{std::ifstream input(journal);std::getline(input,preserved);}
+        assert(preserved=="Protocol  Address");
+        assert(file_storage::WriteJsonAtomically(journal,nlohmann::json::object()));
+        assert(reconcile(data,false));assert(!d.ports.at("GigabitEthernet2"));
+        // A separate process reloads the journal without relying on the writer's memory.
+        const auto child=fork();assert(child>=0);
+        if(child==0){const bool restored=reconcile(empty,false);_exit(restored && d.ports.at("GigabitEthernet2")?0:1);}
+        int status=0;assert(waitpid(child,&status,0)==child && WIFEXITED(status) && WEXITSTATUS(status)==0);
+        nlohmann::json restored;std::ifstream(journal)>>restored;assert(restored.is_object() && restored.empty());
         std::filesystem::remove_all(root);std::cout<<"[ok] isolation/release, management and VPG protection, idempotence, pre-down preservation, readback failure, rejection, journal recovery\n";
     }catch(...){std::filesystem::remove_all(root);throw;}
 }

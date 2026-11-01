@@ -41,8 +41,8 @@ export default function ProjectServerSettings({ projectId }: { projectId: string
       {!open && error && <p role="alert" className="mt-2 text-error-600">{error}</p>}
     </div>
     <button type="button" disabled={busy} onClick={() => void startEditing()} className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:text-gray-200 disabled:opacity-50">관리 서버 설정</button>
-    <Modal isOpen={open} onClose={() => { if (!busy) setOpen(false); }} className="m-4 max-w-lg">
-      <section role="dialog" aria-modal="true" aria-labelledby="project-server-title" data-testid="project-server-modal" className="rounded-2xl bg-white p-6 dark:bg-gray-900">
+    <Modal ariaLabelledBy="project-server-title" isOpen={open} onClose={() => { if (!busy) setOpen(false); }} className="m-4 max-w-lg">
+      <section data-testid="project-server-modal" className="rounded-2xl bg-white p-6 dark:bg-gray-900">
         <h3 id="project-server-title" className="pr-10 text-lg font-semibold dark:text-white">프로젝트 관리 서버</h3>
         <p className="mt-2 text-xs text-gray-500">새로 다운로드할 모든 Prober에 동일하게 적용됩니다.</p>
         <form onSubmit={event => { event.preventDefault(); void save(); }} className="mt-5 space-y-4">

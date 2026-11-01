@@ -214,6 +214,24 @@ class LabEvidence:
             "target_cidr": ctx["cidr"], "events": ctx["events"]})
 
     @keyword
+    def reboot_isolated_device_and_verify_journal(self):
+        ctx = self.isolation
+        agent = ctx["agent"]
+        assert self.lab == "lab1" and agent["profile"] == "ios", "Reboot regression is limited to Lab1 Cisco inventory"
+        self._assert_isolation_confirmation(True)
+        journal = agent["root"] + "/data/quarantine_interfaces.json"
+        before = json.loads(self.control.ssh(agent, "cat " + shlex.quote(journal)).stdout)
+        assert isinstance(before, dict) and before, "An active interface journal is required"
+        self._isolation_event("before-reboot-journal", before)
+        node = agent["gns3_node"]
+        self.control.gns("/nodes/" + node + "/stop", {}, "POST")
+        self.control.gns("/nodes/" + node + "/start", {}, "POST")
+        self.control.wait_ready(self.lab, timeout=600)
+        after = json.loads(self.control.ssh(agent, "cat " + shlex.quote(journal)).stdout)
+        assert after == before, "Original admin states did not persist across GNS3 restart"
+        self._isolation_event("after-reboot-journal", after)
+
+    @keyword
     def request_live_isolation(self):
         ctx = self.isolation
         payload = {"project_id": self.site["project_id"], "reason": "Robot live topology isolation regression",

@@ -37,7 +37,7 @@ def main():
     parser = argparse.ArgumentParser(description="Record feature scenarios sequentially, then restore the initial GNS3 node state.")
     parser.add_argument("lab", choices=["all", *LABS])
     parser.add_argument("mode", choices=["check", "demo"], nargs="?", default="demo")
-    parser.add_argument("--scenario", choices=["features", "deployment", "isolation", "presentation"], default="features")
+    parser.add_argument("--scenario", choices=["features", "deployment", "isolation", "isolation-ui", "isolation-reboot", "presentation"], default="features")
     parser.add_argument("--prepare", action="store_true", help="Register/deploy current bundles before testing. Lab2 requires SONAR_DEVICE_PASSWORD.")
     parser.add_argument("--reboot", action="store_true", help="Stop/start the selected Lab after preparation.")
     parser.add_argument("--keep-active", action="store_true", help="Keep the final Lab running instead of restoring the initial state.")
@@ -91,7 +91,7 @@ def main():
                     for node in LABS[lab]["nodes"]:
                         control.gns("/nodes/" + node + "/start", {}, "POST")
                     control.wait_ready(lab, timeout=600)
-                cases = LABS[lab]["isolation_cases"] if args.scenario == "isolation" else [None]
+                cases = LABS[lab]["isolation_cases"] if args.scenario in {"isolation", "isolation-ui", "isolation-reboot"} else [None]
                 for case in cases:
                     case_env = env.copy()
                     if case:

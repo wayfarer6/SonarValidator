@@ -63,6 +63,23 @@ Q02_UI_Scope_Selection_And_Apply
     Scene    ${ISOLATION_AGENT} · 화면에서 선택한 범위만 적용하고 복구 확인
     Take Screenshot    ${OUTPUT_DIR}/screenshots/Q02_restored    fullPage=True
 
+Q03_Active_Isolation_Journal_Survives_VM_Restart
+    [Tags]    reboot-isolation
+    [Timeout]    15 minutes
+    Skip If    '${LAB}' != 'lab1'    This power-cycle regression uses Lab1 Cisco devices.
+    Wait Until Keyword Succeeds    150s    3s    Prepare Isolation Check    ${ISOLATION_AGENT}    ${ISOLATION_CIDR}    ${PROBE_AGENT}    ${PROBE_DESTINATION}    ${INTERFACE_DOWN}    ${OUTPUT_DIR}/evidence
+    Request Live Isolation
+    Wait Until Keyword Succeeds    150s    3s    Live Isolation Should Be Confirmed
+    Go To    ${UI_URL}/network?project_id=${PROJECT_ID}
+    Scene    ${ISOLATION_AGENT} · 격리 원본 상태를 저장한 채 VM 재시작
+    Take Screenshot    ${OUTPUT_DIR}/screenshots/Q03_before_reboot    fullPage=True
+    Reboot Isolated Device And Verify Journal
+    Wait Until Keyword Succeeds    150s    3s    Live Isolation Should Be Confirmed
+    Request Live Release
+    Wait Until Keyword Succeeds    150s    3s    Live Release Should Be Confirmed
+    Scene    ${ISOLATION_AGENT} · 재시작 후 원본 포트 상태와 통신 복구
+    Take Screenshot    ${OUTPUT_DIR}/screenshots/Q03_recovered    fullPage=True
+
 *** Keywords ***
 Finish Isolation Scenario
     TRY

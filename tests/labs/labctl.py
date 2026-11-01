@@ -3,6 +3,7 @@ import argparse
 import base64
 import configparser
 import http.cookiejar
+import hashlib
 import io
 import json
 import os
@@ -192,6 +193,9 @@ class LabControl:
                     content = text.encode()
                     item.mode = 0o600
                 if item.name == "Installer/sonar_validator_prober":
+                    expected = os.environ.get("SONAR_EXPECTED_PROBER_SHA256")
+                    if expected and hashlib.sha256(content).hexdigest() != expected.lower():
+                        raise RuntimeError("Downloaded Prober does not match SONAR_EXPECTED_PROBER_SHA256; update the backend stage directory.")
                     item.name += ".next"
                 item.size = len(content)
                 target.addfile(item, io.BytesIO(content))
@@ -250,7 +254,10 @@ class LabControl:
             output = []
             for command in commands:
                 channel.sendall(command.encode() + b"\r")
-                result = receive()
+                try:
+                    result = receive(limit=60 if command.strip() == "write memory" else 15)
+                except RuntimeError as error:
+                    raise RuntimeError("Cisco console failed after: " + command) from error
                 if re.search(r"% (?:Invalid input|Incomplete command|Ambiguous command|Error)", result):
                     raise RuntimeError("Cisco rejected command: " + command)
                 output.append(result)
@@ -334,7 +341,14 @@ class LabControl:
             shlex.quote(root) + "; chmod 600 " + shlex.quote(root + "/Installer/default.conf") +
             "; mv -f " + shlex.quote(root + "/Installer/sonar_validator_prober.next") + " " +
             shlex.quote(root + "/Installer/sonar_validator_prober") + "; sync")
-        self.ssh(agent, command, data=self._bundle(site, agent), timeout=90)
+        bundle = self._bundle(site, agent)
+        with tarfile.open(fileobj=io.BytesIO(bundle), mode="r:gz") as archive:
+            digest = hashlib.sha256(archive.extractfile("Installer/sonar_validator_prober.next").read()).hexdigest()
+        self.ssh(agent, command, data=bundle, timeout=90)
+        installed = self.ssh(agent, "sha256sum " + shlex.quote(root + "/Installer/sonar_validator_prober")).stdout.decode().split()[0]
+        if installed != digest:
+            raise RuntimeError("Installed Prober checksum mismatch: " + agent["id"])
+        print("Verified Prober " + agent["id"] + " sha256=" + digest, flush=True)
         pattern = "^" + re.escape(root + "/Installer/sonar_validator_prober") + "$"
         self.ssh(agent, "pkill -TERM -f " + shlex.quote(pattern) + " || true")
         time.sleep(1)

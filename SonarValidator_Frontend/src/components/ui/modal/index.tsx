@@ -10,6 +10,9 @@ interface ModalProps {
   children: React.ReactNode;
   showCloseButton?: boolean;
   isFullscreen?: boolean;
+  ariaLabel?: string;
+  ariaLabelledBy?: string;
+  closeDisabled?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -19,13 +22,16 @@ export const Modal: React.FC<ModalProps> = ({
   className,
   showCloseButton = true,
   isFullscreen = false,
+  ariaLabel = "상세 정보",
+  ariaLabelledBy,
+  closeDisabled = false,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const modalId = useRef(Symbol("modal"));
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && openModals[openModals.length - 1] === modalId.current) {
+      if (!closeDisabled && event.key === "Escape" && openModals[openModals.length - 1] === modalId.current) {
         onClose();
       }
     };
@@ -37,7 +43,7 @@ export const Modal: React.FC<ModalProps> = ({
     return () => {
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, closeDisabled]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -82,24 +88,31 @@ export const Modal: React.FC<ModalProps> = ({
 
   const contentClasses = isFullscreen
     ? "w-full h-full"
-    : "relative w-full rounded-3xl bg-white  dark:bg-gray-900";
+    : "relative w-full max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl bg-white dark:bg-gray-900";
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
+    <div className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto modal z-99999">
       {!isFullscreen && (
         <div
           className="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
-          onClick={onClose}
+          onClick={() => { if (!closeDisabled) onClose(); }}
         ></div>
       )}
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabelledBy ? undefined : ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        tabIndex={-1}
         className={`${contentClasses}  ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (
           <button
-            onClick={onClose}
+            type="button"
+            disabled={closeDisabled}
+            onClick={() => { if (!closeDisabled) onClose(); }}
             aria-label="모달 닫기"
             className="absolute right-3 top-3 z-999 flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6 sm:h-11 sm:w-11"
           >

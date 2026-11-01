@@ -118,3 +118,57 @@ B04_Compact_Errors_And_Log_Detail_Modal
     FINALLY
         Evaluate JavaScript    ${None}    () => {if(window.__errorOriginalFetch)window.fetch=window.__errorOriginalFetch;}
     END
+
+B05_Isolation_Modal_Fits_Viewport_And_Protects_Pending_Request
+    Go To    ${UI_URL}/agent
+    ${row}=    Set Variable    css=tr:has-text("${EXPECTED_AGENTS}[0]")
+    Show And Click    ${row} >> role=button[name="격리 설정"]
+    Set Viewport Size    800    400
+    ${dialog}=    Set Variable    role=dialog[name="격리 설정"]
+    Wait For Elements State    ${dialog}    visible
+    ${fits}=    Evaluate JavaScript    ${dialog}    (element) => {const r=element.getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight && r.left>=0 && r.right<=innerWidth;}
+    Should Be True    ${fits}
+    Select Options By    role=combobox[name="격리 범위"]    value    ${EMPTY}
+    Evaluate JavaScript    ${None}
+    ...    () => {window.__modalFetch=window.fetch.bind(window);window.fetch=async(input,options)=>{if(String(input).includes('/quarantine/')&&options?.method==='POST'){await new Promise(resolve=>window.__finishModalRequest=resolve);return new Response(JSON.stringify({message:'UI test request cancelled'}),{status:409,headers:{'Content-Type':'application/json'}});}return window.__modalFetch(input,options);};}
+    TRY
+        Show And Click    ${dialog} >> role=button[name="격리 요청"]
+        Wait For Elements State    ${dialog} >> role=button[name="모달 닫기"]    disabled
+        Press Keys    ${dialog}    Escape
+        Wait For Elements State    ${dialog}    visible
+        Evaluate JavaScript    ${None}    () => document.querySelector('.modal > div')?.click()
+        Wait For Elements State    ${dialog}    visible
+        Take Screenshot    ${OUTPUT_DIR}/screenshots/B05_bounded_busy_dialog    selector=${dialog}
+        Evaluate JavaScript    ${None}    () => window.__finishModalRequest()
+        Wait For Elements State    ${dialog} >> role=button[name="모달 닫기"]    enabled
+        Get Text    ${dialog} >> role=alert    *=    UI test request cancelled
+        Press Keys    ${dialog}    Escape
+        Wait For Elements State    ${dialog}    detached
+    FINALLY
+        Evaluate JavaScript    ${None}    () => {window.__finishModalRequest?.();if(window.__modalFetch)window.fetch=window.__modalFetch;}
+        Set Viewport Size    1600    1000
+    END
+
+B06_Late_Subnet_Response_Cannot_Replace_Another_Node
+    Skip If    '${LAB}' != 'lab1'    Two Cisco agents in one project exercise cross-node response ordering.
+    Go To    ${UI_URL}/agent
+    Evaluate JavaScript    ${None}
+    ...    () => {window.__subnetFetch=window.fetch.bind(window);let first=true;window.fetch=async(input,options)=>{if(first&&String(input).includes('/network/topology/')){first=false;const response=await window.__subnetFetch(input,options);await new Promise(resolve=>window.__releaseFirstTopology=resolve);return response;}return window.__subnetFetch(input,options);};}
+    TRY
+        Show And Click    css=tr:has-text("Lab1-R1") >> role=button[name="격리 설정"]
+        Wait For Function    () => typeof window.__releaseFirstTopology==='function'
+        Show And Click    role=dialog[name="격리 설정"] >> role=button[name="모달 닫기"]
+        Show And Click    css=tr:has-text("Lab1-R2") >> role=button[name="격리 설정"]
+        Wait For Elements State    role=combobox[name="격리 범위"]    enabled
+        ${options}=    Get Text    role=combobox[name="격리 범위"]
+        Should Contain    ${options}    Lab1-R2
+        Evaluate JavaScript    ${None}    () => window.__releaseFirstTopology()
+        Sleep    300ms
+        ${options}=    Get Text    role=combobox[name="격리 범위"]
+        Should Contain    ${options}    Lab1-R2
+        Should Not Contain    ${options}    Lab1-R1
+        Take Screenshot    ${OUTPUT_DIR}/screenshots/B06_latest_node_scope    selector=role=dialog[name="격리 설정"]
+        Show And Click    role=dialog[name="격리 설정"] >> role=button[name="모달 닫기"]
+    FINALLY
+        Evaluate JavaScript    ${None}    () => {window.__releaseFirstTopology?.();if(window.__subnetFetch)window.fetch=window.__subnetFetch;}
+    END

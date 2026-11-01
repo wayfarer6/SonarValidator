@@ -5,8 +5,8 @@ import { compactText, errorLog, formatErrorDetails, type LogDetail, type Request
 
 export function LogDetailsModal({ detail, onClose }: { detail: LogDetail | null; onClose: () => void }) {
   const titleId = useId();
-  return <Modal isOpen={detail !== null} onClose={onClose} className="m-4 max-w-3xl">
-    {detail && <section role="dialog" aria-modal="true" aria-labelledby={titleId} data-testid="log-details-modal" className="max-h-[90vh] overflow-y-auto p-6 pt-16 sm:p-8 sm:pt-16">
+  return <Modal ariaLabelledBy={titleId} isOpen={detail !== null} onClose={onClose} className="m-4 max-w-3xl">
+    {detail && <section data-testid="log-details-modal" className="max-h-[90vh] overflow-y-auto p-6 pt-16 sm:p-8 sm:pt-16">
       <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-white">{detail.title}</h2>
       <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{compactText(detail.summary)}</p>
       {detail.metadata && <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
