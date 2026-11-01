@@ -41,9 +41,9 @@ bool RunDatabaseWrite(DatabaseService& database,
     }
 }
 
-bool SaveSetting(DatabaseService& queue, const std::string& key, const std::string& value)
+bool SaveSetting(DatabaseService& database_service, const std::string& key, const std::string& value)
 {
-    return RunDatabaseWrite(queue, [key, value](DbHandle& handle) -> DatabaseResult {
+    return RunDatabaseWrite(database_service, [key, value](DbHandle& handle) -> DatabaseResult {
         sqlite3* database = handle.get();
         DatabaseResult result;
         result.sql_task = "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)";
@@ -73,10 +73,10 @@ bool SaveSetting(DatabaseService& queue, const std::string& key, const std::stri
     });
 }
 
-std::string LoadSetting(DatabaseService& queue, const std::string& key)
+std::string LoadSetting(DatabaseService& database_service, const std::string& key)
 {
 
-    const DatabaseResult result = RunDatabaseTask(queue, [key](DbHandle& handle) -> DatabaseResult {
+    const DatabaseResult result = RunDatabaseTask(database_service, [key](DbHandle& handle) -> DatabaseResult {
         sqlite3* database = handle.get();
         DatabaseResult r;
         r.sql_task = "SELECT value FROM settings WHERE key = ?";

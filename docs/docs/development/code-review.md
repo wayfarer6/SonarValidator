@@ -75,3 +75,17 @@ UML과 이벤트 순서는 [장비 확장 구조](../architecture/device-extensi
 추가 worker, promise, 클래스 상속 계층 또는 실행용 스크립트를 도입하지 않았습니다. Frontend 시험/프로덕션 빌드, Backend 전체 시험, Prober core 컴파일과 policy_safety_test로 변경을 확인했습니다. 실제 Lab1 모달 격리·복구 회귀 결과는 별도 실행 기록을 기준으로 합니다. 이번 Backend/Prober 분리 변경은 개발 트리에서 검증했고, Lab의 기존 검증된 실행 바이너리를 교체한 것으로 해석하면 안 됩니다.
 
 패키지 정리에서 남은 점은 Backend의 `Service`/`Model` 등 대문자 패키지 관례, 큰 `LogManagement`/`ProjectEditor` 페이지와 CLI parser입니다. 발표 직전 전체 패키지 이동은 하지 않았습니다. 후속 작업은 기능별 화면 컴포넌트와 순수 파싱 함수의 작은 추출부터 진행하고, 수집·격리·복구 계약은 기존 시험으로 유지합니다.
+
+
+## main 반영 후 재검토
+
+검토 기준 시작 커밋: `8afaf68`. 아래는 재확인한 사항이며 미해결 항목은 완료로 표시하지 않습니다.
+
+| 항목 | 실제 문제 | 조치 / 확인 |
+| --- | --- | --- |
+| DB-01 | 현재 소스와 달리 추적 중인 `SonarValidator_Prober/main` ELF에는 이전 `DatabaseWorker`가 남음 | 오래된 main과 DB 시험 실행 파일을 Git에서 제거하고 ignore 추가. 소스로 다시 빌드하도록 통일 |
+| DB-02 | 동기 DatabaseService의 매개변수가 여전히 queue라는 이름이라 구조를 오해하게 함 | database_service로 명확히 변경. DB 전용 스레드·작업 큐는 없음 |
+
+DB 회귀 시험은 생성 전후 스레드 수가 같고 Execute가 호출자 스레드에서 실행됨을 확인합니다. 동시 저장 80회와 진행 중 트랜잭션의 영속성, Close의 대기와 종료 후 쓰기 거절도 검사합니다. mutex는 여러 worker의 설정 저장과 수집 저장 간 충돌을 막기 위해 유지합니다. SQLite 핸들은 worker 종료 이후 RAII로 해제합니다.
+
+추가 점검 순서는 WebSocket 입력/노드 식별, 일반 정책의 적용 범위, UI 모달과 화면 경계, Prober 종료와 설정/수집 계약입니다. 디자인 패턴을 새로 늘리기보다 기존 Strategy와 동기 Observer의 책임 및 실패 처리를 검사합니다.

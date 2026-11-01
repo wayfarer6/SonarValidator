@@ -124,3 +124,7 @@ test-results/
 *:Zone.Identifier
 
 /SonarValidator_Prober/Installer/licenses/
+
+# Legacy in-tree Prober executables
+/SonarValidator_Prober/main
+/SonarValidator_Prober/database/database_service_test
