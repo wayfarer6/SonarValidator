@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #ifndef SONAR_VALIDATOR_PROBER_ACL_COMMANDS_HPP_
 #define SONAR_VALIDATOR_PROBER_ACL_COMMANDS_HPP_
 
@@ -9,25 +10,8 @@
 
 #include "components/policy/policy_json.hpp"
 
-// 서버가 보낸 일괄 차단 ACL(`acl_apply` 노드)을 장치 명령으로 옮기는 <b>순수 함수</b> 모음입니다.
-//
-
-//   이 변환은 장치 설정을 실제로 바꾸는 명령을 만듭니다. 그런데 서비스 안에
-
-
-
-
-
-
-
-
-
-
 namespace acl
 {
-
-
-
 
 struct Entry
 {
@@ -37,15 +21,6 @@ struct Entry
     std::string destination_wildcard;
     std::string reason;
 };
-
-
-
-
-
-
-
-
-
 
 inline std::vector<Entry> ReadEntries(const nlohmann::json& policy)
 {
@@ -70,7 +45,7 @@ inline std::vector<Entry> ReadEntries(const nlohmann::json& policy)
 
         if (entry.source.empty() || entry.destination.empty())
         {
-            std::cerr << "[POLICY] dropping ACL entry with empty address (src='"
+            SV_LOG_WARN << "[POLICY] dropping ACL entry with empty address (src='"
                       << entry.source << "' dst='" << entry.destination << "')\n";
             continue;
         }
@@ -89,10 +64,6 @@ inline std::string ReadName(const nlohmann::json& policy)
     }
     return policy_json::AsString(*target, "acl_name");
 }
-
-
-
-
 
 inline std::string ReadApplyTarget(const nlohmann::json& policy)
 {
@@ -114,39 +85,11 @@ inline std::string ReadApplyTarget(const nlohmann::json& policy)
                                  policy_json::AsString(policy, "applied_interface"));
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 inline std::vector<std::string> BuildIosAclCommands(const std::string& acl_name,
                                                     const std::string& interface_name,
                                                     const std::vector<Entry>& entries)
 {
     std::vector<std::string> commands = {"configure terminal"};
-
-
-
-
-
-
 
     if (!interface_name.empty())
     {
@@ -180,26 +123,6 @@ inline std::vector<std::string> BuildIosAclCommands(const std::string& acl_name,
     commands.push_back("end");
     return commands;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 inline std::vector<std::string> BuildFrrAclCommands(const std::string& acl_name,
                                                     const std::string& interface_name,

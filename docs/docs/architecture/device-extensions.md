@@ -12,7 +12,6 @@ classDiagram
         RunCommandOutput()
         ExecuteIosCli()
         QueryAristaCli()
-        CliCommand()
     }
     class ManagementService {
         connect()
@@ -59,7 +58,7 @@ classDiagram
 
 `ManagementService`는 네트워크 연결·시간 제한·CLI 세션을 관리합니다. 장비별 정책 함수는 `PolicyActions`로 옮겼고 실행할 전략은 `PolicyExecutorRegistry`가 선택합니다. 동작이 있는 상위 클래스를 상속하는 대신 `DeviceCommandExecutor` 포트를 구성합니다. 새로운 정책 전략은 이 포트만 의존하므로 WebSocket 구현을 알아야 할 이유가 없습니다.
 
-수집기는 장비별 조회 목록과 출력 해석기를 `TelemetryStrategy`로 등록합니다. `CollectState()`는 선택된 조회를 실행하고 선택된 파서로 결과를 변환합니다. Shell/IOS/FastCli는 전송 수단의 분기이며 장비별 긴 switch문은 없습니다. 기존 IOS 수집은 EEM 캐시 우선·dohost 폴백 계약을 유지합니다.
+수집기는 장비별 조회 목록과 출력 해석기를 `TelemetryStrategy`로 등록합니다. `CollectState()`는 선택된 조회를 실행하고 선택된 파서로 결과를 변환합니다. Shell/IOS/FastCli는 전송 수단의 분기이며 장비별 긴 switch문은 없습니다. IOS 수집은 사용 가능한 EEM bridge의 새 CLI 결과를 우선하고, bridge가 없을 때 기존 snapshot/dohost 경로를 사용합니다.
 
 - Prober의 구성 지점: `DefaultTelemetryStrategies()`, `DefaultPolicyExecutors()`.
 - 실행 전 추가 등록: `TelemetryMonitor.RegisterStrategy()`, `ManagementService.RegisterPolicyExecutor()`.
@@ -150,7 +149,7 @@ sequenceDiagram
     Note over R,BE: Offline import publishes the same event with OFFLINE source
 ```
 
-Prober의 SQLite 저장과 네트워크 전송은 동기 옵저버입니다. 별도 DB 스레드/큐를 되살리지 않았습니다. 실패한 옵저버 뒤에도 다음 옵저버가 실행됩니다. 사용자 옵저버는 `TelemetryMonitor.AddObserver()`로 실행 전에 등록합니다. 현재 기본 실행은 main + 3개 worker이며 터미널 I/O 스레드는 세션이 있을 때의 별도 수명 관리 대상입니다.
+Prober의 SQLite 저장과 네트워크 전송은 동기 옵저버입니다. 별도 DB 스레드/큐를 되살리지 않았습니다. 실패한 옵저버 뒤에도 다음 옵저버가 실행됩니다. 사용자 옵저버는 `TelemetryMonitor.AddObserver()`로 실행 전에 등록합니다. 현재 실행은 main + 3개 worker입니다. 터미널 소켓과 PTY는 터미널 worker 하나가 소유합니다. 잠금과 종료 순서는 [Prober 수명 관리](prober-runtime.md)에 정리했습니다.
 
 Backend의 LIVE/OFFLINE 입력은 동일한 `TelemetrySnapshot` 이벤트를 발행합니다. `NodeRegistryService`가 순서 100, `ProjectSubnetAutoSyncService`가 200으로 구독합니다. 새 후처리는 `TelemetryObserver` 구현 bean을 추가합니다. 각 트랜잭션은 구독자의 공개 `onTelemetry()` 경계에 유지하며 하나의 실패가 나머지 구독을 막지 않습니다. 설정 객체는 읽기 전용으로 취급해야 합니다.
 
@@ -163,3 +162,7 @@ Prober는 `--export <file>`로 한 번 수집한 JSON 파일을 만듭니다. `E
 `DeviceExtensionTest`, `TelemetryObserverTest`와 C++ `device_strategies_test`는 공통 상위 구현 클래스 없이 새 전략을 등록하고, 등록 순서가 달라도 우선순위를 지키며, 모호한 정책은 명령을 실행하지 않고, 한 구독자의 예외가 다음 구독자를 막지 않는지 검사합니다.
 
 전략 등록은 시작 단계에서 끝내고 처리 중에 바꾸지 않습니다. 동기 옵저버에서 오래 걸리는 작업을 추가하면 수집 주기가 늘어납니다. 새로운 장비 기능을 지원한다고 선언하기 전에 수집 출력 fixture·명령 생성 계약·미지원 오류를 함께 추가해야 합니다. 이 확장 구조가 [BDD의 실제 전달 경로 미지원 범위](../policy/bdd.md)를 해소하는 것은 아닙니다.
+
+Arista CLI 조회와 제어는 [배치 실행·검증 계약](../features/arista-cli.md)을 사용합니다. 고정 300ms 읽기와 영구 FastCli PTY는 제거했습니다. 확장 구현은 `CliCommand` 대신 `QueryAristaCli` 또는 검증한 명령 묶음의 `RunCommand`를 사용합니다.
+
+노드별 수집 주기는 [수집 설정](../features/node-monitor-settings.md)의 전용 telemetry 채널에서 동기화합니다. 이는 전략 등록·정책 관리 채널과 독립적입니다.

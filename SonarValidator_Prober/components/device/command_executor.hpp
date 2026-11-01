@@ -9,7 +9,6 @@ public:
     virtual bool RunCommand(const std::string& command) = 0;
     virtual std::string RunCommandOutput(const std::string& command) = 0;
     virtual std::string ExecuteIosCli(const std::vector<std::string>& commands) = 0;
-    virtual std::string CliCommand(const std::vector<std::string>& argv, const std::string& command) = 0;
     virtual std::string QueryAristaCli(const std::string& command) = 0;
 };
 #endif

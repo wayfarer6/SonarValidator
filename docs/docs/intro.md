@@ -17,5 +17,6 @@ title: SonarValidator 문서
 | 과거 결과·시험 | [근거](testing/evidence.md), [시나리오](testing/scenarios.md) |
 | AI·격리·로그 | [AI](features/ai-advice.md), [격리](features/quarantine.md), [로그·이력](features/logs-compliance.md) |
 | 운영·장애 진단 | [운영](operations/runbook.md) |
+| 코드 품질·수정 우선순위 | [전반 코드 리뷰와 개선 계획](development/code-review.md) |
 
 중복 버전, 빈 페이지, 이전 접속 명령과 자격증명 원문을 제거했습니다. 과거 시험의 결론과 한계는 시험 근거에 통합합니다. 원본은 Git 이력에서 확인합니다.

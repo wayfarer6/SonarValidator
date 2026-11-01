@@ -66,21 +66,24 @@ export async function downloadSnapshot(agentId: string): Promise<{
   file_name: string;
   blob: Blob;
 }> {
-  const url = `${API_BASE_URL}/api/v1/offline/export/${encodeURIComponent(agentId)}`;
+  const path = `/api/v1/offline/export/${encodeURIComponent(agentId)}`;
+  const url = `${API_BASE_URL}${path}`;
 
   const response = await fetch(url, {
     method: "GET",
     credentials: "include",
   }).catch((cause) => {
     // 네트워크 실패(백엔드 미기동)는 status 0 으로 구분합니다.
-    throw new ApiError(0, cause instanceof Error ? cause.message : "네트워크 오류");
+    throw new ApiError(0, "서버에 연결할 수 없습니다.", cause).record("GET", path);
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, `스냅샷을 내려받지 못했습니다 (${response.status})`);
+    throw new ApiError(response.status, "스냅샷을 내려받지 못했습니다.", await response.text()).record("GET", path);
   }
 
-  const blob = await response.blob();
+  const blob = await response.blob().catch((cause: unknown) => {
+    throw new ApiError(0, "다운로드 응답을 받지 못했습니다.", cause).record("GET", path);
+  });
   return {
     // 파일 이름에 시각을 넣어 여러 번 받아도 덮어쓰이지 않게 합니다.
     file_name: `${agentId}_${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
@@ -106,17 +109,21 @@ export async function importSnapshots(
     body: form,
     credentials: "include",
   }).catch((cause) => {
-    throw new ApiError(0, cause instanceof Error ? cause.message : "네트워크 오류");
+    throw new ApiError(0, "서버에 연결할 수 없습니다.", cause).record("POST", "/api/v1/offline/import");
   });
 
-  const body = await response.json().catch(() => null);
+  const text = await response.text().catch((cause: unknown) => {
+    throw new ApiError(0, "응답을 확인하지 못했습니다. 실행 이력을 확인하세요.", cause).record("POST", "/api/v1/offline/import");
+  });
+  let body: unknown;
+  try { body = JSON.parse(text); } catch { body = text; }
 
   if (!response.ok) {
     throw new ApiError(
       response.status,
       `업로드에 실패했습니다 (${response.status})`,
       body,
-    );
+    ).record("POST", "/api/v1/offline/import");
   }
 
   return body as ApiOfflineImportResult;

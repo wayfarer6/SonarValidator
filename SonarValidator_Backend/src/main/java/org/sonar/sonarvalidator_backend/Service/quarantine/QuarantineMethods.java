@@ -31,7 +31,7 @@ public class QuarantineMethods {
                 }
             }
         }
-        log.info("quarantine strategies registered: {} (types={})",
+        log.debug("quarantine strategies registered: {} (types={})",
                 strategies.size(), byType.keySet());
     }
 

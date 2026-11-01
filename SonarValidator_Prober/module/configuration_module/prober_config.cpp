@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #include "module/configuration_module/prober_config.hpp"
 #include <cerrno>
 #include <cstdio>
@@ -210,7 +211,7 @@ void ProberConfig::DetectServerPort()
     }
     catch (const std::exception&)
     {
-        std::cerr << "Invalid SERVER_PORT in default configuration\n";
+        SV_LOG_WARN << "Invalid SERVER_PORT in default configuration\n";
     }
 }
 
@@ -265,7 +266,7 @@ bool ProberConfig::DetectDeviceType()
     }
     else
     {
-        std::cerr << "Invalid NODE_TYPE in default configuration\n";
+        SV_LOG_WARN << "Invalid NODE_TYPE in default configuration\n";
         return false;
     }
     return true;
@@ -284,7 +285,7 @@ void ProberConfig::DetectKernelName()
     struct utsname system_info;
     if (uname(&system_info) != 0)
     {
-        std::cerr << "uname failed: " << std::strerror(errno) << '\n';
+        SV_LOG_WARN << "uname failed: " << std::strerror(errno) << '\n';
         return;
     }
 
@@ -310,7 +311,7 @@ void ProberConfig::DetectDistributionName()
         distribution_name_ = "Unknown (" + kernel_name_ + ")";
     }
 
-    std::cerr << "Unable to read distribution name from /etc/os-release"
+    SV_LOG_WARN << "Unable to read distribution name from /etc/os-release"
                  "; falling back to \"" << distribution_name_ << "\"\n";
 }
 
@@ -320,7 +321,7 @@ void ProberConfig::DetectMemorySizeBytes()
     struct sysinfo memory_info;
     if (sysinfo(&memory_info) != 0)
     {
-        std::cerr << "sysinfo failed: " << std::strerror(errno) << '\n';
+        SV_LOG_WARN << "sysinfo failed: " << std::strerror(errno) << '\n';
         return;
     }
 
@@ -335,7 +336,7 @@ void ProberConfig::DetectArchitecture()
     struct utsname system_info;
     if (uname(&system_info) != 0)
     {
-        std::cerr << "uname failed: " << std::strerror(errno) << '\n';
+        SV_LOG_WARN << "uname failed: " << std::strerror(errno) << '\n';
         return;
     }
     architecture_ = system_info.machine;

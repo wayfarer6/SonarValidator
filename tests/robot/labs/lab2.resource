@@ -1,6 +1,6 @@
 *** Variables ***
-${LAB_TITLE}           Lab 2 · Cisco / OPNsense / Arista / Ubuntu
-${PROJECT_ID}          %{SONAR_LAB2_PROJECT_ID=}
+${LAB_TITLE}           Lab2 · API 방화벽과 VLAN20
+${PROJECT_ID}          %{SONAR_LAB2_PROJECT_ID=PRJ-LAB2}
 ${MANAGEMENT_SERVER}   192.168.150.10
-@{EXPECTED_AGENTS}
-@{EXPECTED_CIDRS}
+@{EXPECTED_AGENTS}     Lab2-R1    Lab2-SW1    Lab2-Ubuntu
+@{EXPECTED_CIDRS}      10.20.0.0/30    10.20.20.0/24

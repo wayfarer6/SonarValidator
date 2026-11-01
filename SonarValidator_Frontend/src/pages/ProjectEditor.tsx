@@ -6,6 +6,7 @@ import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
 import Input from "../components/form/input/InputField";
 import Label from "../components/form/Label";
+import ProjectServerSettings from "../components/project/ProjectServerSettings";
 import DiscoveredVlans from "../components/project/DiscoveredVlans";
 import { getProjectForEditing } from "../lib/api/discovery";
 import SubnetEditor from "../components/project/SubnetEditor";
@@ -424,6 +425,7 @@ export default function ProjectEditor() {
                   </select>
                 </div>
               </div>
+              <ProjectServerSettings projectId={projectId} />
             </div>
 
             <DiscoveredVlans projectId={projectId} />

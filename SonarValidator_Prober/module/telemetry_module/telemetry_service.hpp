@@ -1,5 +1,7 @@
 #include <chrono>
+#include <memory>
 #include <string>
+#include <stop_token>
 
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
@@ -15,12 +17,14 @@ using tcp = boost::asio::ip::tcp;
 
 class TelemetryService {
 private:
+    std::stop_token stop_token_;
     std::string host_;                              // 서버 호스트
     int port_;                                      // 서버 포트
     std::string target_;                            // WebSocket 경로
     net::io_context ioc_;                           // Boost.Asio I/O 컨텍스트
     tcp::resolver resolver_;                        // DNS 리졸버
-    websocket::stream<beast::tcp_stream> stream_;   // WebSocket 스트림
+    using Stream = websocket::stream<beast::tcp_stream>;
+    std::unique_ptr<Stream> stream_;   // WebSocket 스트림
     sonar::net::TimedWebSocketReader reader_;
     bool connected_;                                // 연결 상태
 
@@ -34,6 +38,8 @@ public:
     TelemetryService(std::string host, int port, std::string target);
     ~TelemetryService();
 
+    void SetStopToken(std::stop_token stop) { stop_token_ = stop; }
+    bool IsConnected() const { return connected_; }
     bool connect();                                 // 서버에 WebSocket 연결
     bool sendText(const std::string &message);      // 텍스트 전송
     std::string receiveText();

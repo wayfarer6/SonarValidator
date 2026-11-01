@@ -365,6 +365,14 @@ void TestAristaRoute()
     CheckEq(routes[1]["interface_name"].get<std::string>(), "Vlan8", "라우트1 Vlan8 인터페이스");
 
     Check(json["parsed"].get<bool>(), "Arista 라우팅 문법 오류 없음");
+    const auto no_default = cli_parser::ParseRouteStatus(
+        "VRF: default\nGateway of last resort is not set\n"
+        " C 192.168.150.0/24 is directly connected, Management1\n", Vendor::kArista);
+    Check(!no_default.contains("gateway_of_last_resort"), "not set을 게이트웨이 주소로 만들지 않음");
+    Check(no_default["routes"].size() == 1, "기본 게이트웨이가 없어도 연결 경로 유지");
+    const auto invalid = cli_parser::ParseRouteStatus(
+        "Gateway of last resort is 999.0.0.1 to network 0.0.0.0\n", Vendor::kArista);
+    Check(!invalid.contains("gateway_of_last_resort"), "잘못된 게이트웨이 주소 거부");
 }
 
 //  show ip interface brief  (Cisco 샘플)

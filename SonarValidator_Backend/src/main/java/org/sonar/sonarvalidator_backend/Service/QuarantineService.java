@@ -69,6 +69,48 @@ public class QuarantineService {
         this.notificationService = notificationService;
     }
 
+    private org.sonar.sonarvalidator_backend.Repository.ExpectedAgentRepository expectedAgents;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setExpectedAgents(org.sonar.sonarvalidator_backend.Repository.ExpectedAgentRepository expectedAgents) {
+        this.expectedAgents = expectedAgents;
+    }
+
+    private AgentTelemetryStore telemetryStore;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setTelemetryStore(AgentTelemetryStore telemetryStore) {
+        this.telemetryStore = telemetryStore;
+    }
+
+    private boolean overlapsControlInterface(String agentId, String targetCidr) {
+        final var config = telemetryStore == null || agentId == null ? null : telemetryStore.configOf(agentId);
+        if (config == null) return false;
+        final var target = org.sonar.sonarvalidator_backend.Policy.PacketVariables.parseCidr(targetCidr);
+        return config.getInterfaces().entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith("VirtualPortGroup") || entry.getKey().startsWith("Management"))
+                .flatMap(entry -> entry.getValue().getAddresses().stream())
+                .filter(address -> address != null && !address.contains(":"))
+                .anyMatch(address -> {
+                    final var control = org.sonar.sonarvalidator_backend.Policy.PacketVariables.parseCidr(
+                            address.contains("/") ? address : address + "/32");
+                    final int length = Math.min(target.prefixLength(), control.prefixLength());
+                    final int mask = length == 0 ? 0 : -1 << (32 - length);
+                    return (target.address() & mask) == (control.address() & mask);
+                });
+    }
+
+    private org.sonar.sonarvalidator_backend.Repository.OPNsenseCredentialRepository apiCredentials;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setApiCredentials(org.sonar.sonarvalidator_backend.Repository.OPNsenseCredentialRepository apiCredentials) {
+        this.apiCredentials = apiCredentials;
+    }
+
+    private void lockAgent(String agentId) {
+        if (expectedAgents != null && agentId != null) expectedAgents.findForMonitorUpdate(agentId);
+    }
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setDeviceTypeResolver(DeviceTypeResolver deviceTypeResolver) {
         this.deviceTypeResolver = deviceTypeResolver;
@@ -121,6 +163,7 @@ public class QuarantineService {
         final String display = firstNonBlank(effectiveAgentId,
                 effectiveNodeId == null ? null : "node-" + effectiveNodeId, "unknown");
 
+        lockAgent(effectiveAgentId);
         final DeviceType deviceType = resolveDeviceType(effectiveAgentId, node);
         final QuarantineMethod strategy = strategies().of(deviceType);
         // ⚠️ 제어평면 대역은 프로젝트가 지정하면 그 값을 우선합니다.
@@ -134,6 +177,10 @@ public class QuarantineService {
                     ? "이 장치는 격리 대상이 아닙니다." : strategy.exclusionReason();
             log.warn("rejected isolation of {} ({}) — not isolatable", display, deviceType);
             return excludedResponse(display, projectKey, deviceType, why);
+        }
+        if (effectiveNodeId != null && apiCredentials != null && apiCredentials.existsByNodeId(effectiveNodeId)) {
+            return excludedResponse(display, projectKey, deviceType,
+                    "OPNsense API 직접 격리 적용은 아직 지원하지 않습니다. 방화벽 관리 화면에서 규칙을 적용하세요.");
         }
         final boolean connectionScoped = context.hasSubnet();
         if (connectionScoped) {
@@ -150,6 +197,9 @@ public class QuarantineService {
             } catch (IllegalArgumentException ex) {
                 return excludedResponse(display, projectKey, deviceType, "유효한 IPv4 CIDR을 지정해야 합니다.");
             }
+        }
+        if (connectionScoped && overlapsControlInterface(effectiveAgentId, targetCidr)) {
+            return excludedResponse(display, projectKey, deviceType, "GuestShell 또는 장비 관리 인터페이스는 격리할 수 없습니다.");
         }
         if (connectionScoped && deviceType != DeviceType.SWITCH
                 && deviceType != DeviceType.ROUTER && deviceType != DeviceType.FIREWALL) {
@@ -191,6 +241,10 @@ public class QuarantineService {
             created.setRequestedBy(operator);
             created.setQuarantinedAt(new Date());
             created.setCommandDelivered(false);
+            created.setConfirmedBlocked(effectiveAgentId != null && reconciliationStates(effectiveAgentId).stream()
+                    .filter(previous -> java.util.Objects.equals(previous.getTargetCidr(), connectionScoped ? targetCidr : null))
+                    .filter(previous -> (previous.getScope() == QuarantineState.Scope.CONNECTION) == connectionScoped)
+                    .anyMatch(previous -> Boolean.TRUE.equals(previous.getConfirmedBlocked())));
                 created.setScope(connectionScoped
                     ? QuarantineState.Scope.CONNECTION : QuarantineState.Scope.NODE);
                 created.setTargetCidr(connectionScoped ? targetCidr : null);
@@ -200,10 +254,12 @@ public class QuarantineService {
                     projectKey, operator, reason);
         }
 
-        final boolean delivered = !connectionScoped
-            && strategy.mode() == QuarantineMethod.Mode.DEVICE && context.hasAgent()
-                && sendCommand(effectiveAgentId, ACTION_QUARANTINE, projectKey, state.getReason(),
-                        strategy.mode(), state.getTargetCidr());
+        state.setRequestId(java.util.UUID.randomUUID().toString());
+        state.setApplyStatus("PENDING");
+        state.setApplyDetail(null);
+        repository.save(state);
+
+        final boolean delivered = false;
         if (delivered != state.isCommandDelivered()) {
             state.setCommandDelivered(delivered);
             repository.save(state);
@@ -221,7 +277,7 @@ public class QuarantineService {
                 retry ? "QuarantineRetry" : "Quarantine",
                 "Agent " + display + " 격리"
                         + (state.getReason() == null ? "" : " — " + state.getReason())
-                        + (delivered ? " (명령 전달됨)" : " (⚠️ 명령 미전달 — 장치 미연결)")
+                        + (delivered ? " (명령 전달됨)" : " (정책 동기화 대기)")
                         + (state.getTargetCidr() == null ? "" : " [대상 " + state.getTargetCidr() + "]"),
                 operator,
                 "{\"agent_id\":\"" + display + "\",\"delivered\":" + delivered
@@ -230,7 +286,7 @@ public class QuarantineService {
         notificationService.notifyQuietly(
                 "SECURITY",
                 delivered ? "critical" : "warning",
-                "Agent 격리: " + display,
+                "Agent 격리 요청: " + display,
                 quarantineMessage(delivered, display, state) + riskNote,
                 projectKey,
                 effectiveAgentId,
@@ -282,9 +338,14 @@ public class QuarantineService {
         final String display = firstNonBlank(effectiveAgentId,
                 effectiveNodeId == null ? null : "node-" + effectiveNodeId, agentId);
 
-        final Optional<QuarantineState> active = targetCidr == null || targetCidr.isBlank()
+        lockAgent(effectiveAgentId);
+        Optional<QuarantineState> active = targetCidr == null || targetCidr.isBlank()
             ? findActive(effectiveAgentId, effectiveNodeId)
             : findActive(effectiveAgentId, effectiveNodeId, targetCidr);
+        if (active.isEmpty() && effectiveAgentId != null) active = reconciliationStates(effectiveAgentId).stream()
+                .filter(row -> !row.isActive() && !"APPLIED".equals(row.getApplyStatus()))
+                .filter(row -> targetCidr == null ? row.getScope() != QuarantineState.Scope.CONNECTION
+                        : java.util.Objects.equals(targetCidr, row.getTargetCidr())).findFirst();
         if (active.isEmpty()) {
             final Map<String, Object> body = new LinkedHashMap<>();
             body.put("agent_id", effectiveAgentId);
@@ -297,16 +358,15 @@ public class QuarantineService {
         final QuarantineState state = active.get();
         state.setReleasedAt(new Date());
         state.setReleasedBy(operator);
+        state.setRequestId(java.util.UUID.randomUUID().toString());
+        state.setApplyStatus("PENDING");
+        state.setApplyDetail(null);
         repository.save(state);
 
 
 
 
-        final boolean deviceScoped = state.getScope() != QuarantineState.Scope.CONNECTION;
-        final boolean delivered = deviceScoped
-                && effectiveAgentId != null && !effectiveAgentId.isBlank()
-                && sendCommand(effectiveAgentId, ACTION_RELEASE, state.getProjectKey(), null,
-                        QuarantineMethod.Mode.DEVICE, null);
+        final boolean delivered = false;
 
         log.info("released {} by={} delivered={}", display, operator, delivered);
 
@@ -316,14 +376,14 @@ public class QuarantineService {
                 display,
                 "QuarantineRelease",
                 "Agent " + display + " 격리 해제"
-                        + (delivered ? " (명령 전달됨)" : " (⚠️ 명령 미전달 — 장치 미연결)"),
+                        + (delivered ? " (명령 전달됨)" : " (정책 동기화 대기)"),
                 operator,
                 "{\"agent_id\":\"" + display + "\",\"delivered\":" + delivered + "}");
 
         notificationService.notifyQuietly(
                 "SECURITY",
                 delivered ? "info" : "warning",
-                "Agent 격리 해제: " + display,
+                "Agent 격리 해제 요청: " + display,
                 delivered
                         ? "장치 " + display + " 의 격리를 해제했습니다. 정상 정책이 다시 적용됩니다."
                         : "장치 " + display + " 의 격리를 해제했으나 명령이 전달되지 않았습니다. "
@@ -406,7 +466,7 @@ public class QuarantineService {
         if (state.getScope() == QuarantineState.Scope.CONNECTION) {
             return "위반 장치 " + display + " 의 연결 "
                     + (state.getTargetCidr() == null ? "(대상 미지정)" : state.getTargetCidr())
-                    + " 을(를) 차단했습니다. (방화벽 규칙 — 인터페이스는 유지)";
+                    + " 의 차단을 요청했습니다. 장비의 적용 확인을 기다립니다.";
         }
         return delivered
                 ? "위반 장치 " + display + " 를 격리했습니다. 해당 장치의 트래픽이 차단됩니다."
@@ -453,13 +513,15 @@ public class QuarantineService {
     private Optional<QuarantineState> findActive(String agentId, Integer nodeId) {
         if (agentId != null && !agentId.isBlank()) {
             final Optional<QuarantineState> byAgent =
-                    repository.findByAgentIdAndReleasedAtIsNull(agentId);
+                    repository.findAllByAgentIdAndReleasedAtIsNull(agentId).stream()
+                            .filter(row -> row.getScope() != QuarantineState.Scope.CONNECTION).findFirst();
             if (byAgent.isPresent()) {
                 return byAgent;
             }
         }
         if (nodeId != null) {
-            return repository.findByNodeIdAndReleasedAtIsNull(nodeId);
+            return repository.findAllByNodeIdAndReleasedAtIsNull(nodeId).stream()
+                    .filter(row -> row.getScope() != QuarantineState.Scope.CONNECTION).findFirst();
         }
         return Optional.empty();
     }
@@ -503,40 +565,6 @@ public class QuarantineService {
         }
     }
 
-    private boolean sendCommand(String agentId, String action, String projectKey, String reason,
-                                QuarantineMethod.Mode mode, String targetCidr) {
-        if (agentId == null || agentId.isBlank()) {
-            // Agent 가 없는 장비(REST 전용)는 명령을 보낼 대상이 없습니다.
-            return false;
-        }
-        final ObjectNode payload = JSON.objectNode();
-        payload.put("action", action);
-        payload.put("agent_id", agentId);
-        // ⚠️ Agent 가 방식에 따라 다르게 동작하도록 scope 를 실어 보냅니다.
-        //   SUBNET 은 "인터페이스를 내리지 말고 규칙만 반영" 이라는 뜻입니다.
-        payload.put("scope", mode == QuarantineMethod.Mode.SUBNET ? "connection" : "node");
-        if (targetCidr != null && !targetCidr.isBlank()) {
-            payload.put("target_cidr", targetCidr);
-        }
-        if (projectKey != null) {
-            payload.put("project_id", projectKey);
-        }
-        if (reason != null && !reason.isBlank()) {
-            payload.put("reason", reason);
-        }
-        payload.put("issued_at", Instant.now().toString());
-
-        final Envelope envelope = Envelope.of(Envelope.Types.COMMAND);
-        envelope.setAgent_id(agentId);
-        envelope.setPayload(payload);
-
-        final boolean delivered = registry.sendTo(agentId, envelope);
-        if (!delivered) {
-            log.warn("quarantine {} command NOT delivered to agent {} (not connected)", action, agentId);
-        }
-        return delivered;
-    }
-
     //  조회
 
     @Transactional(readOnly = true)
@@ -544,7 +572,7 @@ public class QuarantineService {
         if (agentId == null || agentId.isBlank()) {
             return false;
         }
-        return repository.findByAgentIdAndReleasedAtIsNull(agentId).isPresent();
+        return activeStates(agentId).stream().anyMatch(state -> state.getScope() != QuarantineState.Scope.CONNECTION);
     }
 
     @Transactional(readOnly = true)
@@ -629,8 +657,9 @@ public class QuarantineService {
 
     @Transactional(readOnly = true)
     public Set<String> quarantinedNodeAgentIds() {
-        return listActive(null).stream()
+        return java.util.stream.Stream.concat(listActive(null).stream(), pendingReleases(null).stream())
                 .filter(row -> !"CONNECTION".equals(row.get("scope")))
+                .filter(row -> Boolean.TRUE.equals(row.get("blocked")))
                 .map(row -> (String) row.get("agent_id"))
                 .filter(id -> id != null && !id.isBlank())
                 .collect(java.util.stream.Collectors.toSet());
@@ -648,6 +677,16 @@ public class QuarantineService {
             result.add(toSummary(row));
         }
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> pendingReleases(String projectKey) {
+        return repository.findByReleasedAtIsNotNullAndApplyStatusInOrderByQuarantinedAtDesc(
+                List.of("PENDING", "FAILED"), PageRequest.of(0, HISTORY_LIMIT)).stream()
+                .filter(row -> projectKey == null || projectKey.equals(row.getProjectKey()))
+                .filter(row -> reconciliationStates(row.getAgentId()).stream()
+                        .anyMatch(current -> java.util.Objects.equals(row.getId(), current.getId())))
+                .map(this::toSummary).toList();
     }
 
     @Transactional(readOnly = true)
@@ -670,26 +709,21 @@ public class QuarantineService {
 
         if (!delivered) {
             if (state.getScope() == QuarantineState.Scope.CONNECTION) {
-                body.put("warning", "방화벽 연결 격리입니다. 규칙은 서버가 정책 푸시로 "
-                        + "내려보내며, 장치가 연결되면 적용됩니다.");
+                body.put("warning", "연결 격리 요청이 대기 중입니다. 정책 동기화로 "
+                        + "전달하며, 장비의 적용 확인이 필요합니다.");
             } else {
 
-                body.put("warning", "장치가 연결되어 있지 않아 명령이 전달되지 않았습니다. "
-                        + "장치가 재접속하면 차단 정책이 자동 적용됩니다.");
+                body.put("warning", "명령을 정책 동기화 대기열에 등록했습니다. "
+                        + "정책 동기화 후 장비의 적용 결과를 확인하세요.");
             }
         }
 
         // Agent 가 ack 로 알려온 실제 적용 결과입니다.
         // (null 이면 아직 ack 가 오지 않았거나 구버전 Agent 입니다.)
-        final String ackKey = firstNonBlank(state.getAgentId(),
-                state.getNodeId() == null ? null : "node-" + state.getNodeId());
         final Map<String, Object> ack = ackFor(state);
         body.put("applied", ack == null ? null : ack.get("ok"));
         if (ack != null) {
             body.put("applied_detail", ack.get("detail"));
-            body.put("available", ack.get("available"));
-            body.put("blocked", ack.get("blocked"));
-            body.put("preserved", ack.get("preserved"));
         }
         body.put("connected", state.getAgentId() != null
                 && registry.connectedAgentIds().contains(state.getAgentId()));
@@ -710,6 +744,10 @@ public class QuarantineService {
         entry.put("released_at", row.getReleasedAt() == null ? null : row.getReleasedAt().toInstant().toString());
         entry.put("released_by", row.getReleasedBy());
         entry.put("active", row.isActive());
+        entry.put("request_id", row.getRequestId());
+        entry.put("status", row.getApplyStatus() == null ? "PENDING" : row.getApplyStatus());
+        entry.put("blocked", Boolean.TRUE.equals(row.getConfirmedBlocked()));
+        entry.put("confirmed_at", row.getConfirmedAt() == null ? null : row.getConfirmedAt().toInstant().toString());
         final Map<String, Object> ack = ackFor(row);
         entry.put("applied", ack == null ? null : ack.get("ok"));
         entry.put("applied_detail", ack == null ? null : ack.get("detail"));
@@ -717,70 +755,86 @@ public class QuarantineService {
     }
 
     private Map<String, Object> ackFor(QuarantineState state) {
-        final String agentId = state.getAgentId();
-        if (agentId == null || agentId.isBlank()) return null;
-        if (state.getScope() != QuarantineState.Scope.CONNECTION) return lastAck.get(agentId);
-        final var ack = lastAck.get(agentId + ":" + state.getTargetCidr());
-        return ack != null && java.util.Objects.equals(ack.get("state_id"), state.getId()) ? ack : null;
+        if (state.getApplyStatus() == null || "PENDING".equals(state.getApplyStatus())) return null;
+        final Map<String, Object> ack = new LinkedHashMap<>();
+        ack.put("ok", "APPLIED".equals(state.getApplyStatus()));
+        ack.put("detail", state.getApplyDetail());
+        return ack;
     }
 
+    @Transactional(readOnly = true)
+    public List<QuarantineState> reconciliationStates(String agentId) {
+        final Map<Long, QuarantineState> rows = new LinkedHashMap<>();
+        for (final var row : repository.findByAgentIdOrderByQuarantinedAtDesc(agentId, PageRequest.of(0, HISTORY_LIMIT)))
+            rows.put(row.getId(), row);
+        for (final var row : activeStates(agentId)) rows.put(row.getId(), row);
+        final Map<String, QuarantineState> current = new LinkedHashMap<>();
+        rows.values().stream().sorted(java.util.Comparator.comparing(QuarantineState::getId).reversed())
+                .forEach(row -> current.putIfAbsent(row.getScope() + ":" + row.getTargetCidr(), row));
+        return new ArrayList<>(current.values());
+    }
+
+    @Transactional(readOnly = true)
+    public String planRevision(String agentId) {
+        final String input = reconciliationStates(agentId).stream()
+                .sorted(java.util.Comparator.comparing(QuarantineState::getId))
+                .map(row -> row.getId() + ":" + row.getRequestId() + ":" + row.isActive())
+                .collect(java.util.stream.Collectors.joining("|"));
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> topologyState(String projectKey, String agentId, String cidr) {
+        return org.sonar.sonarvalidator_backend.Service.quarantine.QuarantineTopologyView.summarize(
+                projectKey, cidr, agentId == null ? List.of() : reconciliationStates(agentId));
+    }
+
+    @Transactional
     public void recordAck(String agentId, JsonNode payload) {
-        if (agentId == null || agentId.isBlank() || payload == null || !payload.isObject()) {
-            return;
-        }
-
+        if (agentId == null || agentId.isBlank() || payload == null || !payload.isObject()) return;
         final String action = text(payload, "action");
-        if ("subnet-quarantine".equals(action) && payload.path("targets").isArray()) {
-            final var active = activeConnectionStates(agentId);
-            for (final JsonNode target : payload.path("targets")) {
-                for (final var state : active) {
-                    if (!java.util.Objects.equals(state.getTargetCidr(), target.path("cidr").asText())
-                            || state.getId() == null || state.getId() != target.path("id").asLong(-1)) continue;
-                    final Map<String, Object> record = new LinkedHashMap<>();
-                    record.put("state_id", state.getId());
-                    record.put("ok", payload.path("ok").asBoolean(false));
-                    record.put("detail", text(payload, "detail"));
-                    lastAck.put(agentId + ":" + state.getTargetCidr(), record);
-                }
+        final boolean connection = "subnet-quarantine".equals(action);
+        if (!connection && !ACTION_QUARANTINE.equals(action) && !ACTION_RELEASE.equals(action)) return;
+        lockAgent(agentId);
+        final var states = reconciliationStates(agentId);
+        if (connection) {
+            if (!planRevision(agentId).equals(text(payload, "revision"))) return;
+        } else if (text(payload, "request_id") == null) return;
+        for (final var state : states) {
+            if (connection != (state.getScope() == QuarantineState.Scope.CONNECTION)) continue;
+            if (!connection && (!java.util.Objects.equals(state.getRequestId(), text(payload, "request_id"))
+                    || !java.util.Objects.equals(state.isActive() ? ACTION_QUARANTINE : ACTION_RELEASE, action))) continue;
+            final boolean ok = payload.path("ok").asBoolean(false);
+            final String nextStatus = ok ? "APPLIED" : "FAILED";
+            final boolean changed = !nextStatus.equals(state.getApplyStatus());
+            final String detail = text(payload, "detail");
+            final String limitedDetail = detail == null ? null : detail.substring(0, Math.min(1000, detail.length()));
+            if (!changed && java.util.Objects.equals(state.getApplyDetail(), limitedDetail)
+                    && (!ok || java.util.Objects.equals(state.getConfirmedBlocked(), state.isActive()))) continue;
+            state.setApplyStatus(nextStatus);
+            state.setCommandDelivered(true);
+            state.setApplyDetail(limitedDetail);
+            if (ok) {
+                state.setConfirmedBlocked(state.isActive());
+                state.setConfirmedAt(new Date());
             }
-            return;
+            repository.save(state);
+            if (changed) log.info("격리 상태 확인: 노드={} 동작={} 결과={}", agentId,
+                    state.isActive() ? "격리" : "해제", nextStatus);
+            if (!ok && changed) notificationService.notifyQuietly("SECURITY", "critical",
+                    "Agent 격리 적용 실패: " + agentId, "장비의 적용 확인에 실패했습니다. 상세 로그를 확인하세요.",
+                    state.getProjectKey(), agentId, "quarantine", "/agent", "quarantine-ack-failed:" + agentId);
         }
-        // 격리/해제가 아닌 ack (예: 정책 적용 보고)는 여기서 다루지 않습니다.
-        if (action == null || !(action.equals(ACTION_QUARANTINE) || action.equals(ACTION_RELEASE))) {
-            return;
-        }
-
         final Map<String, Object> record = new LinkedHashMap<>();
         record.put("action", action);
-        record.put("ok", payload.has("ok") && payload.get("ok").isBoolean()
-                ? payload.get("ok").asBoolean() : null);
+        record.put("ok", payload.path("ok").asBoolean(false));
         record.put("detail", text(payload, "detail"));
-        record.put("available", strings(payload, "affected"));
-        record.put("blocked", strings(payload, "affected"));
-        record.put("preserved", strings(payload, "preserved"));
-        record.put("received_at", Instant.now().toString());
         lastAck.put(agentId, record);
-
-        final Object ok = record.get("ok");
-        if (Boolean.TRUE.equals(ok)) {
-            log.info("quarantine ack agent={} action={} affected={} preserved={}",
-                    agentId, action, record.get("affected"), record.get("preserved"));
-        } else {
-            // 적용 실패는 경고로 남깁니다. 운영자가 콘솔로 들어가야 할 수 있습니다.
-            log.warn("quarantine ack FAILED agent={} action={} detail={}",
-                    agentId, action, record.get("detail"));
-            notificationService.notifyQuietly(
-                    "SECURITY",
-                    "critical",
-                    "Agent 격리 적용 실패: " + agentId,
-                    "장치 " + agentId + " 에 격리 명령을 보냈으나 적용에 실패했습니다. "
-                            + "(" + record.get("detail") + ") 콘솔에서 직접 확인하세요.",
-                    null,
-                    agentId,
-                    "quarantine",
-                    "/agent",
-                    "quarantine-ack-failed:" + agentId);
-        }
     }
 
     public Map<String, Object> lastAck(String agentId) {

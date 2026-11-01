@@ -84,6 +84,15 @@ public class PolicyAdvice {
     @Column(name = "options_json", length = 8000)
     private String optionsJson;
 
+    @Column(name = "commands_json", length = 30000)
+    private String commandsJson;
+
+    @Column(name = "context_fingerprint", length = 64)
+    private String contextFingerprint;
+
+    @Column(name = "target_agent", length = 120)
+    private String targetAgent;
+
     @Column(name = "evidence_json", length = 4000)
     private String evidenceJson;
 

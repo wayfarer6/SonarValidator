@@ -26,6 +26,10 @@ public class TerminalAgentWebSocketHandler extends TextWebSocketHandler {
     private final ExpectedAgentRepository expectedAgents;
     private final AgentTerminalBroker broker;
     private final String sharedSecret;
+    private org.sonar.sonarvalidator_backend.Service.policy.AdviceExecutionService adviceExecutions;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setAdviceExecutions(org.sonar.sonarvalidator_backend.Service.policy.AdviceExecutionService service) { adviceExecutions=service; }
+
 
     public TerminalAgentWebSocketHandler(ObjectMapper objectMapper,
                                          ExpectedAgentRepository expectedAgents,
@@ -64,6 +68,14 @@ public class TerminalAgentWebSocketHandler extends TextWebSocketHandler {
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Agent is not registered to a project"));
                 return;
             }
+            Object bound = session.getAttributes().get("agentId");
+            if (bound != null && !bound.equals(agentId)) { session.close(CloseStatus.NOT_ACCEPTABLE); return; }
+            java.util.Set<String> operations = new java.util.HashSet<>();
+            if (json.path("advice_operations").isArray()) for (JsonNode item : json.path("advice_operations")) {
+                String operation = item.asString("");
+                if (org.sonar.sonarvalidator_backend.Policy.advice.AdviceActionCatalog.OPERATIONS.contains(operation)) operations.add(operation);
+            }
+            session.getAttributes().put("adviceOperations", java.util.Set.copyOf(operations));
             session.getAttributes().put("agentId", agentId);
             broker.registerAgent(agentId, session);
             return;
@@ -74,6 +86,11 @@ public class TerminalAgentWebSocketHandler extends TextWebSocketHandler {
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("terminal-hello required"));
             return;
         }
+        if ("advice-command-started".equals(type) || "advice-command-result".equals(type)) {
+            if (adviceExecutions != null) adviceExecutions.receive(id, session, json);
+            return;
+        }
+        if (!broker.isCurrentAgent(id, session)) { session.close(CloseStatus.NOT_ACCEPTABLE); return; }
         if (!"terminal-ready".equals(type) && !"terminal-output".equals(type)
                 && !"terminal-error".equals(type) && !"terminal-exit".equals(type)) {
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("unsupported terminal message"));
@@ -95,8 +112,9 @@ public class TerminalAgentWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         final Object agentId = session.getAttributes().get("agentId");
         if (agentId instanceof String id) {
+            if (adviceExecutions != null) adviceExecutions.disconnected(id, session);
             broker.agentClosed(id, session);
         }
-        log.info("terminal agent socket closed: session={} status={}", session.getId(), status);
+        log.debug("terminal agent socket closed: session={} status={}", session.getId(), status);
     }
 }

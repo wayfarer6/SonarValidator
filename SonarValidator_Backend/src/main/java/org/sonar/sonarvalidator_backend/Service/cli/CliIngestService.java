@@ -70,6 +70,7 @@ public class CliIngestService {
             errors.add("파싱은 됐지만 항목이 0건입니다. 대상(" + query + ")이 맞는지 확인하세요");
         }
         result.put("errors", errors);
+        result.put("accepted", errors.isEmpty());
 
         if (includeConfig) {
             // 계약 키를 씌운 payload 로 중립 설정까지 만듭니다. 소비자가 실제로 보게

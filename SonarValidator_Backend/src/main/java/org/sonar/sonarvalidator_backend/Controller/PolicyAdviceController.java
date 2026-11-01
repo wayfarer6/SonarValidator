@@ -39,6 +39,7 @@ public class PolicyAdviceController {
                                       @RequestBody(required = false) Map<String, Object> body,
                                       Authentication authentication) {
 
+        requireOperator(authentication);
         final Map<String, Object> safeBody = body == null ? Map.of() : body;
 
         final Long providerId = safeBody.get("provider_id") == null
@@ -56,7 +57,8 @@ public class PolicyAdviceController {
                 text(safeBody.get("dst_subnet")),
                 providerId,
                 text(safeBody.get("prompt")),
-                requestedBy);
+                requestedBy,
+                text(safeBody.get("agent_id")));
 
         notifyIfNoteworthy(projectId, result);
         return result;
@@ -65,9 +67,10 @@ public class PolicyAdviceController {
     @GetMapping("/{projectId}")
     public Map<String, Object> history(@PathVariable String projectId,
                                        @RequestParam(value = "rule_id", required = false) String ruleId,
-                                       @RequestParam(value = "limit", required = false) Integer limit) {
+                                       @RequestParam(value = "limit", required = false) Integer limit,
+                                       @RequestParam(value = "agent_id", required = false) String agentId) {
 
-        final List<Map<String, Object>> rows = advisorService.history(projectId, ruleId, limit);
+        final List<Map<String, Object>> rows = agentId == null || agentId.isBlank() ? advisorService.history(projectId, ruleId, limit) : advisorService.historyForAgent(projectId,agentId,limit);
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("project_id", projectId);
         body.put("total", rows.size());
@@ -79,10 +82,16 @@ public class PolicyAdviceController {
     public Map<String, Object> detail(@PathVariable String projectId,
                                       @PathVariable String adviceId) {
         final Map<String, Object> detail = advisorService.detail(adviceId);
-        if (detail == null) {
+        if (detail == null || !projectId.equals(detail.get("project_id"))) {
             throw new AdviceNotFoundRequest("조언을 찾을 수 없습니다: " + adviceId);
         }
         return detail;
+    }
+
+    public static void requireOperator(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getAuthorities().stream()
+                .noneMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_OPERATOR".equals(a.getAuthority())))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "운영자 권한이 필요합니다.");
     }
 
     private void notifyIfNoteworthy(String projectId, Map<String, Object> result) {

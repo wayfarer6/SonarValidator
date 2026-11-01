@@ -1,7 +1,9 @@
+#include "utils/log.hpp"
 #include "module/telemetry_module/telemetry_monitor.hpp"
+#include "components/telemetry/monitor_schedule.hpp"
 #include <chrono>
 #include <iostream>
-#include <thread>
+#include "utils/stop_wait.hpp"
 #include <nlohmann/json.hpp>
 #include "module/telemetry_module/command_collector.hpp"
 #include "database/database_service.hpp"
@@ -14,20 +16,6 @@
 #include "module/telemetry_module/telemetry_service.hpp"
 
 using Json = nlohmann::json;
-
-void TelemetryMonitor::SetMonitorInterval(std::chrono::seconds interval)
-{
-    const int seconds = static_cast<int>(interval.count());
-    if (seconds > 0)
-    {
-        interval_seconds_.store(seconds);
-    }
-}
-
-std::chrono::seconds TelemetryMonitor::GetMonitorInterval() const
-{
-    return std::chrono::seconds(interval_seconds_.load());
-}
 
 namespace
 {
@@ -112,12 +100,12 @@ void PersistSnapshot(DatabaseService& database_service,
             saved = telemetry_store::SaveArpTable(
                 database_service, agent_name, collected.arp, collected_at) && saved;
         }
-        if (!saved) std::cerr << "[TELEMETRY] local snapshot write failed\n";
+        if (!saved) SV_LOG_WARN << "[TELEMETRY] local snapshot write failed\n";
     }
     catch (const std::exception& ex)
     {
 
-        std::cerr << "[TELEMETRY] persist skipped: " << ex.what() << '\n';
+        SV_LOG_WARN << "[TELEMETRY] persist skipped: " << ex.what() << '\n';
     }
 }
 
@@ -155,17 +143,57 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
             config.GetServerIpv4(),
             static_cast<int>(config.GetServerPort()),
             "/api/v1/telemetry");
+        telemetry_service.SetStopToken(stop_token);
 
         const std::string agent_id =
             config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
 
+        using Clock = monitor_settings::Schedule::Clock;
+        monitor_settings::Schedule schedule(
+            monitor_settings::FromCache(LoadSetting(database_service, "monitor_interval_seconds")), Clock::now());
+        auto next_connect = Clock::now();
+
+        const auto apply_settings = [&](const Json& message) {
+            const auto update = monitor_settings::Parse(envelope::Payload(message));
+            if (!update || !schedule.Accepts(*update)) return;
+            Json reply{{"revision", update->revision}};
+            if (!SaveSetting(database_service, "monitor_interval_seconds", std::to_string(update->seconds))) {
+                reply["action"] = "monitor-interval-rejected";
+                reply["requested_interval_seconds"] = update->seconds;
+                reply["monitor_interval_seconds"] = schedule.Seconds();
+                reply["reason"] = "Prober could not persist the collection interval";
+            } else {
+                schedule.Apply(*update, Clock::now());
+                reply["action"] = "monitor-interval-applied";
+                reply["monitor_interval_seconds"] = schedule.Seconds();
+                SV_LOG_INFO << "수집 주기 변경: " << schedule.Seconds() << "초" << '\n';
+            }
+            telemetry_service.sendText(envelope::Make(envelope::kAck, agent_id,
+                envelope::DeviceTypeToString(config.GetDeviceType()), envelope::CorrelationId(message), reply).dump());
+        };
+
         FunctionalTelemetryObserver storage([&](const TelemetryEvent& event) {
             PersistSnapshot(database_service, event.agent_name, event.state, event.collected_at);
         });
+        auto next_summary = Clock::time_point::min();
+        bool transmission_failed = false;
         FunctionalTelemetryObserver network([&](const TelemetryEvent& event) {
             const auto report = envelope::Telemetry(event.agent_id, config.GetDeviceType(), event.payload);
-            if (!telemetry_service.sendRequest(report.dump(), "/api/v1/telemetry"))
-                std::cerr << "[TELEMETRY] server unavailable; snapshot retained in local SQLite\n";
+            if (!telemetry_service.IsConnected() || !telemetry_service.sendText(report.dump())) {
+                transmission_failed = true;
+                SV_LOG_WARN << "수집 전송 실패: 로컬 저장소에 보관 중";
+                return;
+            }
+            if (transmission_failed) {
+                SV_LOG_INFO << "수집 전송 복구";
+                transmission_failed = false;
+            }
+            if (Clock::now() >= next_summary) {
+                SV_LOG_INFO << "수집·전송 완료: 인터페이스="
+                            << event.payload.value("nic_status", Json::object()).value("interfaces", Json::array()).size()
+                            << " 경로=" << event.payload.value("route_status", Json::object()).value("routes", Json::array()).size();
+                next_summary = Clock::now() + std::chrono::minutes(5);
+            }
         });
         TelemetryEvents events;
         events.Subscribe(storage);
@@ -174,69 +202,47 @@ void TelemetryMonitor::Run(std::stop_token stop_token,
 
         while (!stop_token.stop_requested())
         {
-            const auto interval = std::chrono::seconds(interval_seconds_.load());
-            const auto deadline = std::chrono::steady_clock::now() + interval;
-
-            while (!stop_token.stop_requested() &&
-                   std::chrono::steady_clock::now() < deadline)
-            {
-                std::string instruction;
-                if (telemetry_service.tryReceiveText(instruction, std::chrono::milliseconds(200)))
-                {
-                    try
-                    {
-                        const Json message = Json::parse(instruction);
-
-                        const Json& payload = envelope::Payload(message);
-                        int seconds = 0;
-                        if (payload.contains("monitor_interval"))
-                        {
-                            seconds = payload.at("monitor_interval").get<int>();
-                        }
-                        else if (message.contains("monitor_interval"))
-                        {
-                            seconds = message["monitor_interval"].get<int>();
-                        }
-
-                        if (seconds > 0)
-                        {
-                            interval_seconds_.store(seconds);
-                            std::cout << "[TELEMETRY] monitor interval updated: "
-                                      << seconds << "s\n";
-                        }
-                        else
-                        {
-                            std::cout << "[TELEMETRY] server command: "
-                                      << envelope::Type(message) << '\n';
-                        }
-                    }
-                    catch (const std::exception&)
-                    {
+            if (!telemetry_service.IsConnected() && Clock::now() >= next_connect) {
+                if (telemetry_service.connect()) {
+                    schedule.Reconnected();
+                    auto hello = envelope::Hello(agent_id, config.GetDeviceType());
+                    hello["payload"]["channel"] = "telemetry";
+                    hello["payload"]["monitor_interval_seconds"] = schedule.Seconds();
+                    telemetry_service.sendText(hello.dump());
+                }
+                next_connect = Clock::now() + std::chrono::seconds(3);
+            }
+            if (stop_token.stop_requested()) break;
+            std::string instruction;
+            if (telemetry_service.IsConnected()) {
+                // Poll even when collection is due, so the initial hello can supply settings.
+                if (telemetry_service.tryReceiveText(instruction, std::chrono::milliseconds(200))) {
+                    try { apply_settings(Json::parse(instruction)); }
+                    catch (const std::exception& error) {
+                        SV_LOG_WARN << "[TELEMETRY] invalid settings message: " << error.what() << '\n';
                     }
                 }
-                else
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-                }
+            } else {
+                WaitForStop(stop_token, schedule.Wait(Clock::now()));
             }
-
-            if (stop_token.stop_requested())
-            {
-                break;
-            }
+            if (stop_token.stop_requested()) break;
+            if (!schedule.Due(Clock::now())) continue;
 
             auto collected = collector::CollectState(config, management_service, strategies_);
             if (stop_token.stop_requested()) break;
-
             auto body = BuildTelemetryPayload(config, collected);
-            const TelemetryEvent event{agent_id, config.GetAgentName(), telemetry_store::CurrentUtcTimestamp(),
+            const auto collected_at = telemetry_store::CurrentUtcTimestamp();
+            body["collected_at"] = collected_at;
+            body["monitor_interval_seconds"] = schedule.Seconds();
+            body["monitor_revision"] = schedule.Revision();
+            const TelemetryEvent event{agent_id, config.GetAgentName(), collected_at,
                                        std::move(collected), std::move(body)};
             events.Publish(event);
-
+            schedule.Collected(Clock::now());
         }
     }
     catch (const std::exception& ex)
     {
-        std::cerr << "[WARN] Telemetry monitor exception: " << ex.what() << '\n';
+        SV_LOG_WARN << "[WARN] Telemetry monitor exception: " << ex.what() << '\n';
     }
 }

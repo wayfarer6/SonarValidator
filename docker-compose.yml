@@ -15,7 +15,7 @@
 #    (backend 이미지가 그 베이스를 FROM 으로 쓰기 때문)
 #      docker compose --profile bootstrap build
 #    또는
-#      ./docker/scripts/build-all.sh
+#      ./dev.sh --build-images=stack
 # =============================================================================
 
 # compose 프로젝트 이름. 컨테이너/네트워크/볼륨 이름 앞에 붙는다.

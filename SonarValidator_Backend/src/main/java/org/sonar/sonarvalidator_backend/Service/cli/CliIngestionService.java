@@ -73,7 +73,7 @@ public class CliIngestionService {
                 continue;
             }
             result.set(target, parsed);
-            log.info("cli fallback parse ok: target={} vendor={} query={} key={} count={}",
+            log.debug("cli fallback parse ok: target={} vendor={} query={} key={} count={}",
                     target, resolved.displayName(), outcome.query(), outcome.contractKey(),
                     outcome.itemCount());
         }

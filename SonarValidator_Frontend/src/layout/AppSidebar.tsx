@@ -13,7 +13,6 @@ import {
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-// import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
   name: string;
@@ -325,5 +324,4 @@ const AppSidebar: React.FC = () => {
     </aside>
   );
 };
-// {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null} // 사이드바 위젯 제거
 export default AppSidebar;

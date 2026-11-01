@@ -1,17 +1,15 @@
+#include "utils/log.hpp"
+#include "components/advice/advice_job.hpp"
 #include "workers/TerminalAgentWorker.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <climits>
 #include <cstdlib>
-#include <deque>
-#include <functional>
 #include <iostream>
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <thread>
 
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
@@ -21,6 +19,8 @@
 
 #include "components/backend_communication/connect_with_timeout.hpp"
 #include "components/backend_communication/timed_websocket_operation.hpp"
+#include "components/backend_communication/timed_websocket_reader.hpp"
+#include "utils/stop_wait.hpp"
 #include "components/backend_communication/envelope.hpp"
 #include "components/terminal/terminal_session.hpp"
 
@@ -60,19 +60,14 @@ std::string Base64Encode(std::string_view input)
 
 } // namespace
 
-void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
+void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config, DatabaseService* database)
 {
     const std::string& configured_secret = config.GetTerminalSharedSecret();
     if (configured_secret.size() < 32)
     {
-        std::cerr << "[TERMINAL] disabled: TERMINAL_SHARED_SECRET (default.conf) or "
-                     "SONAR_TERMINAL_SHARED_SECRET (environment) must contain at least 32 "
-                     "characters; loaded length="
-                  << configured_secret.size()
-                  << " (default.conf 의 값은 값/주석 구분자(;, //) 앞까지만 읽습니다)\n";
+        SV_LOG_WARN << "터미널 사용 안 함: 인증 설정을 확인하세요";
         return;
     }
-    std::cerr << "[TERMINAL] shared secret loaded (length=" << configured_secret.size() << ")\n";
     const std::string& shared_secret = configured_secret;
     const std::string agent_id =
         config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
@@ -80,159 +75,118 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
     while (!stop_token.stop_requested())
     {
         TerminalSession shell;
+        net::io_context ioc;
+        tcp::resolver resolver(ioc);
+        websocket::stream<beast::tcp_stream> stream(ioc);
+        sonar::net::TimedWebSocketReader reader;
         try
         {
-            net::io_context ioc;
-            tcp::resolver resolver(ioc);
-            websocket::stream<beast::tcp_stream> stream(ioc);
             const auto endpoints = resolver.resolve(
                 config.GetServerIpv4(), std::to_string(config.GetServerPort()));
             const auto connect_error =
-                sonar::net::ConnectWithTimeout(stream, endpoints, std::chrono::seconds(5));
+                sonar::net::ConnectWithTimeout(stream, endpoints, std::chrono::seconds(5), stop_token);
             if (connect_error)
             {
                 throw boost::system::system_error(connect_error);
             }
 
             sonar::net::HandshakeWithTimeout(ioc, stream, config.GetServerIpv4(),
-                                              "/api/v1/terminal/agent", std::chrono::seconds(5));
-            std::cerr << "[TERMINAL] WebSocket handshake completed\n";
+                                              "/api/v1/terminal/agent", std::chrono::seconds(5), stop_token);
             stream.text(true);
-            std::cerr << "[TERMINAL] WebSocket text mode enabled\n";
             const Json hello{
                 {"type", "terminal-hello"},
                 {"agent_id", agent_id},
                 {"secret", shared_secret},
-                {"device_type", envelope::DeviceTypeToString(config.GetDeviceType())}};
+                {"device_type", envelope::DeviceTypeToString(config.GetDeviceType())},
+                {"advice_operations", database ? advice::Operations(config.GetProductName(),
+                    command_runner::RunWithStatus("command -v nft >/dev/null 2>&1",std::chrono::seconds(2),1024,stop_token).exit_code==0) : std::vector<std::string>{}}};
             const std::string hello_payload = hello.dump();
-            sonar::net::WriteWithTimeout(ioc, stream, hello_payload, std::chrono::seconds(5));
-            std::cerr << "[TERMINAL] terminal-hello sent\n";
+            sonar::net::WriteWithTimeout(ioc, stream, hello_payload, std::chrono::seconds(5), stop_token);
 
-            beast::flat_buffer read_buffer;
-            std::deque<std::shared_ptr<std::string>> write_queue;
-            std::size_t queued_bytes = 0;
-            bool writing = false;
-            bool disconnected = false;
-            std::function<void()> pump_write;
-            pump_write = [&]() {
-                if (writing || write_queue.empty() || disconnected)
-                {
-                    return;
+            const auto send = [&](const Json& message) {
+                if (message.value("type", std::string{}) == "advice-command-result") {
+                    SV_LOG_INFO << "장비 명령 결과: id=" << message.value("execution_id", std::string{})
+                                << " 상태=" << message.value("status", std::string{});
                 }
-                writing = true;
-                const auto payload = write_queue.front();
-                stream.async_write(net::buffer(*payload),
-                    [&, payload](const boost::system::error_code& error, std::size_t) {
-                        queued_bytes -= payload->size();
-                        if (!write_queue.empty() && write_queue.front() == payload)
-                        {
-                            write_queue.pop_front();
-                        }
-                        writing = false;
-                        if (error)
-                        {
-                            disconnected = true;
-                            return;
-                        }
-                        pump_write();
-                    });
-            };
-            const auto send = [&](Json message) {
-                auto payload = std::make_shared<std::string>(message.dump());
-                if (queued_bytes + payload->size() > 256 * 1024)
-                {
-                    disconnected = true;
-                    return;
-                }
-                queued_bytes += payload->size();
-                write_queue.push_back(std::move(payload));
-                pump_write();
+                sonar::net::WriteWithTimeout(ioc, stream, message.dump(),
+                                             std::chrono::seconds(5), stop_token);
             };
 
-            std::function<void()> read_next;
-            read_next = [&]() {
-                stream.async_read(read_buffer,
-                    [&](const boost::system::error_code& error, std::size_t) {
-                        if (error)
-                        {
-                            disconnected = true;
-                            return;
-                        }
-                        const std::string raw = beast::buffers_to_string(read_buffer.data());
-                        read_buffer.consume(read_buffer.size());
-                        try
-                        {
-                            const Json message = Json::parse(raw);
-                            const std::string type = message.value("type", std::string{});
-                            if (type == "terminal-open")
-                            {
-                                shell.Close();
-                                if (!shell.Open({"/bin/bash", "--login"}))
-                                {
-                                    send({{"type", "terminal-error"},
-                                          {"message", "Could not start /bin/bash"}});
-                                }
-                                else
-                                {
-                                    (void)shell.Resize(100, 30);
-                                    send({{"type", "terminal-ready"}});
-                                }
-                            }
-                            else if (type == "terminal-input" && shell.IsOpen())
-                            {
-                                const std::string data = message.value("data", std::string{});
-                                if (data.size() > 8192 || !shell.WriteRaw(data))
-                                {
-                                    shell.Close();
-                                    send({{"type", "terminal-error"},
-                                          {"message", "Could not write terminal input"}});
-                                    send({{"type", "terminal-exit"}});
-                                }
-                            }
-                            else if (type == "terminal-resize" && shell.IsOpen())
-                            {
-                                const auto cols = static_cast<unsigned short>(
-                                    std::clamp(message.value("cols", 80), 20, 300));
-                                const auto rows = static_cast<unsigned short>(
-                                    std::clamp(message.value("rows", 24), 5, 100));
-                                if (!shell.Resize(cols, rows))
-                                {
-                                    send({{"type", "terminal-error"},
-                                          {"message", "Could not resize terminal"}});
-                                }
-                            }
-                            else if (type == "terminal-close" && shell.IsOpen())
-                            {
-                                shell.Close();
-                                send({{"type", "terminal-exit"}});
-                            }
-                        }
-                        catch (const std::exception& error)
-                        {
-                            send({{"type", "terminal-error"},
-                                  {"message", std::string("Invalid terminal message: ") +
-                                                  error.what()}});
-                        }
-                        read_next();
-                    });
-            };
-            read_next();
-
-            while (!stop_token.stop_requested() && !disconnected)
+            // This thread owns the socket, reader and PTY. Process one message,
+            // then forward shell output; no recursive callbacks or write queue.
+            while (!stop_token.stop_requested())
             {
-                ioc.restart();
-                ioc.run_for(std::chrono::milliseconds(20));
+                std::string raw;
+                boost::system::error_code read_error;
+                const bool received = reader.ReadFor(ioc, stream, raw,
+                    std::chrono::milliseconds(20), read_error);
+                if (read_error) throw boost::system::system_error(read_error);
+                if (received)
+                {
+                    Json message;
+                    try { message = Json::parse(raw); }
+                    catch (const Json::exception&)
+                    {
+                        send({{"type", "terminal-error"}, {"message", "Invalid terminal JSON"}});
+                        continue;
+                    }
+                    if (!message.is_object())
+                    {
+                        send({{"type", "terminal-error"}, {"message", "Expected a terminal message object"}});
+                        continue;
+                    }
+                    const std::string type = message.value("type", std::string{});
+                    if (type == "advice-command") {
+                        if (database) advice::Handle(message, config, *database, advice::NativeRunner(config, stop_token), send, shell.IsOpen());
+                        else send({{"type","advice-command-result"},{"execution_id",message.value("execution_id",std::string{})},{"status","REJECTED"},{"verified",false},{"detail","Durable execution store is unavailable"}});
+                    }
+                    else if (type == "terminal-open")
+                    {
+                        shell.Close();
+                        if (!shell.Open({"/bin/bash", "--login"}))
+                            send({{"type", "terminal-error"}, {"message", "Could not start /bin/bash"}});
+                        else
+                        {
+                            (void)shell.Resize(100, 30);
+                            SV_LOG_INFO << "터미널 열기: 노드=" << agent_id;
+                            send({{"type", "terminal-ready"}});
+                        }
+                    }
+                    else if (type == "terminal-input" && shell.IsOpen())
+                    {
+                        const std::string data = message.value("data", std::string{});
+                        if (data.size() > 8192 || !shell.WriteRaw(data))
+                        {
+                            shell.Close();
+                            send({{"type", "terminal-error"}, {"message", "Could not write terminal input"}});
+                            send({{"type", "terminal-exit"}});
+                        }
+                    }
+                    else if (type == "terminal-resize" && shell.IsOpen())
+                    {
+                        const auto cols = static_cast<unsigned short>(
+                            std::clamp(message.value("cols", 80), 20, 300));
+                        const auto rows = static_cast<unsigned short>(
+                            std::clamp(message.value("rows", 24), 5, 100));
+                        if (!shell.Resize(cols, rows))
+                            send({{"type", "terminal-error"}, {"message", "Could not resize terminal"}});
+                    }
+                    else if (type == "terminal-close" && shell.IsOpen())
+                    {
+                        shell.Close();
+                        SV_LOG_INFO << "터미널 닫기: 노드=" << agent_id;
+                        send({{"type", "terminal-exit"}});
+                    }
+                }
                 if (shell.IsOpen())
                 {
-                    std::string output = shell.ReadAvailable(std::chrono::milliseconds(5), 8192);
+                    const std::string output = shell.ReadAvailable(std::chrono::milliseconds(5), 8192);
                     if (!output.empty())
-                    {
-                        send({{"type", "terminal-output"},
-                              {"data_base64", Base64Encode(output)}});
-                    }
+                        send({{"type", "terminal-output"}, {"data_base64", Base64Encode(output)}});
                     if (!shell.IsOpen())
                     {
                         shell.Close();
+                        SV_LOG_INFO << "터미널 닫기: 노드=" << agent_id;
                         send({{"type", "terminal-exit"}});
                     }
                 }
@@ -242,14 +196,12 @@ void TerminalAgentWorker(std::stop_token stop_token, const ProberConfig& config)
         {
             if (!stop_token.stop_requested())
             {
-                std::cerr << "[TERMINAL] Agent terminal channel disconnected after setup/write: "
+                SV_LOG_WARN << "[TERMINAL] Agent terminal channel disconnected after setup/write: "
                           << error.what() << '\n';
             }
         }
+        reader.Reset(ioc, stream);
         shell.Close();
-        if (!stop_token.stop_requested())
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-        }
+        WaitForStop(stop_token, std::chrono::seconds(2));
     }
 }

@@ -31,6 +31,7 @@ export default function NetworkTopologyMermaid({
   const topology = useApi(
     () => (activeProjectId ? getTopology(activeProjectId) : Promise.resolve(null)),
     [activeProjectId],
+    2000,
   );
 
   const chart = useMemo(() => topologyToMermaid(topology.data), [topology.data]);
@@ -65,7 +66,7 @@ export default function NetworkTopologyMermaid({
         ) : (
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {topology.data
-              ? `${topology.data.project_name} · 서브넷 ${topology.data.nodes.length}개 · 규칙 ${topology.data.edges.length}개`
+              ? `${topology.data.project_name} · 서브넷 ${topology.data.nodes.filter((node) => node.kind !== "device" && node.kind !== "internet").length}개 · 규칙 ${topology.data.edges.length}개`
               : ""}
           </span>
         )}
@@ -94,21 +95,25 @@ export default function NetworkTopologyMermaid({
           굵은 빨간 선 = 등급 건너뛰기(금지)
         </span>
         <span className="rounded border border-dashed border-red-900 bg-red-200 px-2 py-0.5 text-red-900 dark:bg-red-900/60 dark:text-red-100">
-          🛑 점선 = 격리 중
+          빨간 점선 = 격리 적용 확인
         </span>
       </div>
 
       {/* 격리 안내 — 격리된 장치는 연결이 끊긴 것처럼 보이므로 미리 설명합니다. */}
       {quarantinedCount > 0 && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-          서브넷 {quarantinedCount}개가 격리 중입니다. 해당 장치는 관리 경로를 제외한 모든
-          데이터 인터페이스가 내려가 있어 <b>연결이 끊긴 것처럼</b> 보입니다.
+          서브넷 {quarantinedCount}개가 격리 중입니다. 장비가 차단 적용을 확인한 상태입니다. 인터페이스 차단은 관측 연결선에,
+          ACL·방화벽 차단은 연결선의 차단 표시에 반영됩니다.
         </p>
       )}
 
+      <p className="text-xs text-gray-500" role="status" data-testid="topology-refresh-status">
+        {topology.error ? `갱신 실패 · 마지막 수신 결과 표시: ${topology.error}`
+          : `2초마다 자동 갱신 · ${topology.updatedAt ? new Date(topology.updatedAt).toLocaleTimeString("ko-KR") : "대기 중"}`}
+      </p>
       {/* 본문 */}
       <div className="rounded-xl bg-white py-4 dark:bg-gray-900">
-        {topology.error ? (
+        {topology.error && !topology.data ? (
           <p className="p-4 text-center text-xs text-gray-500 dark:text-gray-400">
             {topology.error}
           </p>

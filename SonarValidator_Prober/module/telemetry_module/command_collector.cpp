@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #include "module/telemetry_module/command_collector.hpp"
 
 #include <algorithm>
@@ -209,7 +210,7 @@ LineFacts ExtractLineFacts(const std::string& line)
         {
             if (facts.state.empty())
             {
-                facts.state = key;
+                facts.state = key == "administratively" ? "administratively down" : key;
             }
             continue;
         }
@@ -916,6 +917,41 @@ static CollectedState BuildBuiltinState(DeviceType device_type,
         }
     }
 
+    if (product == ProductKind::kArista) {
+        const Json status = Json::parse(output("show interfaces status | json"), nullptr, false);
+        if (status.is_object() && status.contains("interfaceStatuses") && status["interfaceStatuses"].is_object()) {
+            if (!state.nic.is_object()) state.nic = Json{{"interfaces", Json::array()}};
+            for (const auto& [name, port] : status["interfaceStatuses"].items()) {
+                auto& interfaces = state.nic["interfaces"];
+                auto found = std::find_if(interfaces.begin(), interfaces.end(), [&](const auto& item) {
+                    return item.value("name", "") == name;
+                });
+                if (found == interfaces.end()) {
+                    interfaces.push_back(Json{{"name", name}, {"addresses", Json::array()}});
+                    found = std::prev(interfaces.end());
+                }
+                const auto stateName = port.value("linkStatus", "unknown");
+                (*found)["state"] = stateName == "connected" ? "up" : stateName;
+            }
+            snapshot["nic_status"] = state.nic;
+            state.any_success = true;
+        }
+        const auto canonical = [](std::string name) {
+            if (name.starts_with("Et") && name.size() > 2 && std::isdigit(static_cast<unsigned char>(name[2])))
+                return std::string("Ethernet") + name.substr(2);
+            return name;
+        };
+        if (HasItems(state.trunk, "ports")) {
+            for (auto& port : state.trunk["ports"]) port["name"] = canonical(port.value("name", ""));
+            snapshot["trunk_status"] = state.trunk;
+        }
+        if (HasItems(state.vlan, "vlans")) {
+            for (auto& vlan : state.vlan["vlans"]) for (auto& name : vlan["ports"])
+                if (name.is_string()) name = canonical(name.get<std::string>());
+            snapshot["vlan_status"] = state.vlan;
+        }
+    }
+
     snapshot["vendor"] = cli_parser::VendorName(vendor);
     snapshot["product"] = product_name;
 
@@ -969,6 +1005,7 @@ const TelemetryStrategyRegistry& DefaultTelemetryStrategies() {
             {QueryChannel::Ios, "show ip route"}, {QueryChannel::Ios, "show ip arp"}});
         add("arista", ProductKind::kArista, {"Arista"}, {{QueryChannel::Arista, "show vlan brief"},
             {QueryChannel::Arista, "show ip interface brief"}, {QueryChannel::Arista, "show ip route"},
+            {QueryChannel::Arista, "show interfaces status | json"},
             {QueryChannel::Arista, "show interfaces switchport"}, {QueryChannel::Arista, "show arp"}});
         add("ovs", ProductKind::kOpenVSwitch, {"OpenVSwitch", "Open vSwitch"}, {{QueryChannel::Shell, "ovs-vsctl show"},
             {QueryChannel::Shell, "ovs-vsctl list port"}, {QueryChannel::Shell, "ip a"}, {QueryChannel::Shell, "ip -br addr show"}});
@@ -989,7 +1026,7 @@ CollectedState CollectState(const ProberConfig& config, DeviceCommandExecutor& d
     const auto product = config.GetProductName();
     const auto* strategy = strategies.Select(config.GetDeviceType(), product);
     if (!strategy) {
-        std::cerr << "[COLLECT] no unambiguous strategy for " << product << '\n';
+        SV_LOG_WARN << "[COLLECT] no unambiguous strategy for " << product << '\n';
         return {};
     }
     Outputs outputs;
@@ -1001,7 +1038,7 @@ CollectedState CollectState(const ProberConfig& config, DeviceCommandExecutor& d
                 case QueryChannel::Arista: outputs[query.command] = CleanAristaOutput(device.QueryAristaCli(query.command)); break;
             }
         } catch (const std::exception& error) {
-            std::cerr << "[COLLECT] " << query.command << ": " << error.what() << '\n';
+            SV_LOG_WARN << "[COLLECT] " << query.command << ": " << error.what() << '\n';
         }
     }
     return strategy->Parse(config.GetDeviceType(), product, outputs);

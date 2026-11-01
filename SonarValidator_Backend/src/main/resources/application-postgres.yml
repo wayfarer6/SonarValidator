@@ -35,7 +35,7 @@ spring:
     open-in-view: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         # 배치 INSERT 성능: 여러 행을 묶어 보냅니다.
         jdbc:
           batch_size: 50

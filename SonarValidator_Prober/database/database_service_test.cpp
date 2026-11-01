@@ -1,7 +1,6 @@
 #include "database/database_service.hpp"
 #include <atomic>
 #include <filesystem>
-#include <future>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -50,24 +49,38 @@ int main()
         }
         Check(failures == 0, "concurrent events lost writes");
         Check(LoadSetting(database,"3:19") == "committed", "last write not visible");
-        std::promise<void> entered, release;
-        auto released = release.get_future().share();
-        auto writer = std::async(std::launch::async, [&] {
-            return database.Execute([&](DbHandle& db) {
-                Check(sqlite3_exec(db.get(), "BEGIN; INSERT INTO settings VALUES('inflight','committed');",
-                    nullptr,nullptr,nullptr) == SQLITE_OK,"inflight begin");
-                entered.set_value();
-                released.wait();
-                Check(sqlite3_exec(db.get(),"COMMIT",nullptr,nullptr,nullptr)==SQLITE_OK,"inflight commit");
-                return DatabaseResult{{"ok"},"COMMIT"};
+        std::atomic<bool> entered{false}, release{false}, close_started{false}, closed{false};
+        bool committed = false;
+        std::jthread writer([&](std::stop_token stop) {
+            database.Execute([&](DbHandle& db) {
+                const bool begun = sqlite3_exec(db.get(),
+                    "BEGIN; INSERT INTO settings VALUES('inflight','committed');",
+                    nullptr, nullptr, nullptr) == SQLITE_OK;
+                entered = true;
+                while (!release && !stop.stop_requested())
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                committed = begun && sqlite3_exec(db.get(), "COMMIT", nullptr, nullptr, nullptr) == SQLITE_OK;
+                return DatabaseResult{};
             });
         });
-        entered.get_future().wait();
-        auto closer = std::async(std::launch::async, [&] { database.Close(); });
-        const bool waited = closer.wait_for(std::chrono::milliseconds(50)) == std::future_status::timeout;
-        release.set_value();
-        writer.get(); closer.get();
-        Check(waited,"close skipped an active transaction");
+        const auto wait_for = [](const std::atomic<bool>& flag) {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (!flag && std::chrono::steady_clock::now() < deadline)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            return flag.load();
+        };
+        const bool began = wait_for(entered);
+        if (!began) { release = true; writer.request_stop(); }
+        Check(began, "writer did not start");
+        std::jthread closer([&] { close_started = true; database.Close(); closed = true; });
+        const bool closing = wait_for(close_started);
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        const bool waited = !closed;
+        release = true;
+        writer.join();
+        closer.join();
+        Check(closing && waited, "close skipped an active transaction");
+        Check(committed, "in-flight transaction was not committed");
         Check(!SaveSetting(database,"after-close","rejected"), "write accepted after close");
         handle.reset();
         Check(sqlite3_open(path,&raw) == SQLITE_OK, "reopen database");

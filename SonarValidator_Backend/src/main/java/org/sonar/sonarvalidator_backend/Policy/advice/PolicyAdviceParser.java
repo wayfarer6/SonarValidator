@@ -2,6 +2,7 @@ package org.sonar.sonarvalidator_backend.Policy.advice;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
@@ -36,7 +37,35 @@ public class PolicyAdviceParser {
                 readStringList(root.path("evidence")),
                 root.path("needs_more_data").asBoolean(false),
                 true,
-                text);
+                text, readCommands(root.path("command_proposals")));
+    }
+
+    public List<AdviceCommandProposal> readCommands(JsonNode node) {
+        List<AdviceCommandProposal> commands = new ArrayList<>();
+        if (!node.isArray()) return commands;
+        for (JsonNode item : node) {
+            if (commands.size() >= 12) break;
+            if (!item.isObject()) continue;
+            String agent = item.path("agent_id").asString("");
+            if (agent.isBlank() || agent.length() > 120) continue;
+            Map<String, Object> args = new java.util.TreeMap<>();
+            JsonNode values = item.path("arguments");
+            if (values.isObject() && values.size() <= 6) values.properties().forEach(entry -> {
+                JsonNode value = entry.getValue();
+                if (value.isString() && value.asString().length() <= 128) args.put(entry.getKey(), value.asString());
+                else if (value.isIntegralNumber() && value.canConvertToInt()) args.put(entry.getKey(), value.asInt());
+                else args.put("_invalid_argument", "Unsupported argument value");
+            });
+            if (!values.isObject() || values.size() > 6) args.put("_invalid_argument", "Arguments must be a bounded object");
+            List<String> raw = readStringList(item.has("commands") ? item.path("commands") : item.path("suggested_commands")).stream().limit(12).map(v -> v.substring(0, Math.min(240, v.length()))).toList();
+            commands.add(new AdviceCommandProposal(agent, bounded(item, "title", 160), bounded(item, "reason", 1000),
+                    bounded(item, "operation", 80), Map.copyOf(args), raw));
+        }
+        return List.copyOf(commands);
+    }
+    private static String bounded(JsonNode node, String key, int max) {
+        String value = node.path(key).asString("");
+        return value.substring(0, Math.min(max, value.length()));
     }
 
     JsonNode tryParseJson(String text) {

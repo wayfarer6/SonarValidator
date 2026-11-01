@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #ifndef SONAR_VALIDATOR_PROBER_WORKERS_MANAGEMENT_WORKER_HPP_
 #define SONAR_VALIDATOR_PROBER_WORKERS_MANAGEMENT_WORKER_HPP_
 
@@ -5,7 +6,7 @@
 #include <iostream>
 #include <stop_token>
 #include <string>
-#include <thread>
+#include "utils/stop_wait.hpp"
 
 #include "components/policy/policy_receiver.hpp"
 #include "components/policy/quarantine_handler.hpp"
@@ -13,7 +14,6 @@
 #include "module/management_module/management_service.hpp"
 
 // 관리 스레드: 서버로부터 정책과 명령을 받아 장치에 적용합니다.
-
 
 void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
 {
@@ -23,16 +23,11 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
         "/api/v1/management");
     management_service.SetStopToken(stop_token);
 
-    // 에이전트 식별자: 설정의 AGENT_NAME을 우선 사용합니다.
-    // (AGENT_ID 는 아직 설정에 없으므로 비어 있을 수 있습니다.)
     const std::string agent_id =
         config.GetAgentId().empty() ? config.GetAgentName() : config.GetAgentId();
     management_service.SetAgentId(agent_id);
 
-    const auto retry_delay = [&] {
-        for (int i = 0; i < 30 && !stop_token.stop_requested(); ++i)
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    };
+    std::string previous_policy;
     while (!stop_token.stop_requested())
     {
         // 서버에 policy-request 봉투를 보내고 같은 correlation_id 의 응답을 기다립니다.
@@ -42,33 +37,34 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
 
         if (policy.is_null() || policy.is_boolean())
         {
-            retry_delay();
+            WaitForStop(stop_token, std::chrono::seconds(3));
             continue;
         }
 
-        std::cout << "[INFO] Management worker received policy: " << policy.dump() << '\n';
+        SV_LOG_DEBUG << "정책 수신: id=" << policy.value("policy_id", std::string{});
 
-        // 장치 유형(DeviceType)별로 정책 처리 함수를 분기합니다.
         const bool applied = ReceivePolicy(config, management_service, policy);
         const std::string policy_id = policy.value("policy_id", std::string{});
+        auto stable_policy = policy;
+        stable_policy.erase("valid_until");
+        const auto signature = stable_policy.dump();
+        if (!applied) { SV_LOG_WARN << "정책 처리 실패: id=" << policy_id; }
+        else if (signature != previous_policy) {
+            SV_LOG_INFO << "정책 처리 완료: id=" << policy_id;
+            previous_policy = signature;
+        }
         if (policy_id.empty())
         {
-            std::cerr << "[MGMT] policy response has no policy_id; result was not acknowledged\n";
+            SV_LOG_WARN << "[MGMT] policy response has no policy_id; result was not acknowledged\n";
         }
         else if (!management_service.ReportPolicyApplied(config.GetDeviceType(),
                                                           agent_id,
                                                           policy_id,
                                                           applied))
         {
-            std::cerr << "[MGMT] failed to report policy result: policy_id="
+            SV_LOG_WARN << "[MGMT] failed to report policy result: policy_id="
                       << policy_id << '\n';
         }
-
-
-
-
-
-
 
         const auto command_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
         while (!stop_token.stop_requested() &&
@@ -87,7 +83,7 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
             }
             catch (const std::exception&)
             {
-                std::cerr << "[MGMT] dropped non-JSON frame: " << raw << '\n';
+                SV_LOG_WARN << "관리 메시지 해석 실패: JSON 형식 오류" << '\n';
                 continue;
             }
 
@@ -97,10 +93,10 @@ void ManagementWorker(std::stop_token stop_token, const ProberConfig &config)
                 continue;
             }
 
-            std::cout << "[MGMT] received server push: " << envelope::Type(message) << '\n';
+            SV_LOG_DEBUG << "[MGMT] received server push: " << envelope::Type(message) << '\n';
         }
 
-        retry_delay();
+        WaitForStop(stop_token, std::chrono::seconds(3));
     }
 }
 

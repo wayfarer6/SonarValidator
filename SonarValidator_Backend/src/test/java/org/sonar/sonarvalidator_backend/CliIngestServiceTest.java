@@ -44,6 +44,14 @@ class CliIngestServiceTest {
     /* ==================== 계약 키 ==================== */
 
     @Test
+    void noParsedItemsCannotBeReportedAsAccepted() {
+        final var result = service.ingest(new CliIngestRequest("Ubuntu", "route", "unrecognized output"), true);
+        assertEquals(0, result.get("item_count"));
+        assertEquals(false, result.get("accepted"));
+        assertFalse(((List<?>) result.get("errors")).isEmpty());
+    }
+
+    @Test
     @DisplayName("route 원문 → route_status 키와 항목 수가 채워진다")
     void routeIntoContractKey() {
         final Map<String, Object> result = service.ingest(

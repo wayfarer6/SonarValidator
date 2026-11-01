@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #include "components/policy/policy_executor.hpp"
 #include <iostream>
 #include <limits>
@@ -20,7 +21,7 @@ bool PolicyExecutorRegistry::Apply(DeviceCommandExecutor& device, const PolicyCo
         } else if (strategy->Priority() == selected->Priority()) ambiguous = true;
     }
     if (!selected || ambiguous) {
-        std::cerr << "[POLICY] no unambiguous executor for " << command.product << '\n';
+        SV_LOG_WARN << "[POLICY] no unambiguous executor for " << command.product << '\n';
         return false;
     }
     PolicyCommand normalized = command;

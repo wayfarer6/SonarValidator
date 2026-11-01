@@ -38,7 +38,10 @@ public final class PolicyAdvicePromptBuilder {
             4. 보안을 약화시키는 조언(등급 강등, 금지 규칙 추가 없이 허용)은
                그 결과를 명시하고 대안을 함께 제시하세요.
             5. 근거가 부족하면 추측하지 말고, 무엇을 더 확인해야 하는지 쓰세요.
-            6. 반드시 아래 JSON 형식으로만 답하세요. 설명 문장이나 코드블록을
+            6. 설정 오류·수집 경고도 근거로 분석하고 명령 제안을 포함하세요. 명령은 자동 실행되지 않습니다.
+               지원되는 operation과 인자만 적용 후보가 됩니다. 근거 없는 write 명령은 제안하지 마세요.
+               이 엔진은 정책 헤더 공간만 검증하며 실제 경로·NAT·VRF 도달성 통과를 뜻하지 않습니다.
+            7. 반드시 아래 JSON 형식으로만 답하세요. 설명 문장이나 코드블록을
                덧붙이지 마세요.
 
             {
@@ -54,6 +57,11 @@ public final class PolicyAdvicePromptBuilder {
                   "operational_cost": "운영 부담 (재작업·중단·비용)",
                   "recommended": true
                 }
+              ],
+              "command_proposals": [
+                {"agent_id":"관측 목록의 장비 ID", "title":"실행 목적", "reason":"근거와 영향",
+                 "operation":"지원 실행 유형 또는 manual", "arguments":{},
+                 "commands":["장비에 맞는 실제 명령어 제안"]}
               ],
               "evidence": ["판단 근거가 된 위반/서브넷 (최대 5개, 원문 인용)"],
               "needs_more_data": false
@@ -82,6 +90,13 @@ public final class PolicyAdvicePromptBuilder {
         messages.add(Message.system(system.toString()));
 
         messages.add(Message.user(buildUserPrompt(context, focus, userPrompt)));
+        return messages;
+    }
+
+    public static List<Message> build(AiProvider provider, PolicyAdviceContext context,
+                                      ViolationBrief focus, String userPrompt, String deviceContext) {
+        List<Message> messages = new ArrayList<>(build(provider, context, focus, userPrompt));
+        if (deviceContext != null && !deviceContext.isBlank()) messages.add(Message.user(deviceContext));
         return messages;
     }
 

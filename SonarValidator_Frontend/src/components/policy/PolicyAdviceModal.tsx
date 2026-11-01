@@ -1,295 +1,42 @@
-import { useEffect, useState } from "react";
-import Badge from "../ui/badge/Badge";
-import Button from "../ui/button/Button";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "../ui/modal";
-import { ApiError } from "../../lib/api/client";
-import {
-  listEnabledAiProviders,
-  type ApiAiProvider,
-} from "../../lib/api/aiLogs";
-import {
-  listPolicyAdvices,
-  requestPolicyAdvice,
-  type ApiPolicyAdvice,
-} from "../../lib/api/policyAdvice";
+import { useAuth } from "../../context/AuthContext";
+import { listEnabledAiProviders, type ApiAiProvider } from "../../lib/api/aiLogs";
+import { listPolicyAdvices, requestPolicyAdvice, type ApiPolicyAdvice } from "../../lib/api/policyAdvice";
 import PolicyAdviceCard from "./PolicyAdviceCard";
 
-export default function PolicyAdviceModal({
-  isOpen,
-  onClose,
-  projectId,
-  ruleId,
-  srcSubnet,
-  dstSubnet,
-  violationLabel,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  projectId: string;
-  ruleId: string;
-  srcSubnet?: string | null;
-  dstSubnet?: string | null;
-  violationLabel?: string;
-}) {
-  const [providers, setProviders] = useState<ApiAiProvider[]>([]);
-  const [providerId, setProviderId] = useState<number | "">("");
-  const [prompt, setPrompt] = useState("");
-
-  const [history, setHistory] = useState<ApiPolicyAdvice[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-
-  const [fresh, setFresh] = useState<ApiPolicyAdvice | null>(null);
-  const [asking, setAsking] = useState(false);
-  const [askError, setAskError] = useState<string | null>(null);
-
-  // 모달이 열릴 때마다 공급자 목록과 이력을 가져옵니다.
-  // (닫힌 상태로 마운트되어 있을 수 있으므로 isOpen 을 의존성에 둡니다)
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let cancelled = false;
-
-    // 공급자 — 실패해도 조언 자체는 기본 공급자로 가능하므로 오류를 띄우지 않습니다.
-    listEnabledAiProviders()
-      .then((result) => {
-        if (cancelled) return;
-        setProviders(result.providers);
-        // 기본 공급자를 미리 선택합니다. 없으면 첫 번째.
-        const preset =
-          result.providers.find((item) => item.is_default) ??
-          result.providers[0];
-        if (preset) setProviderId(preset.id);
-      })
-      .catch(() => {
-        // 조용히 넘어갑니다. 조언 요청 시 서버가 사유를 알려 줍니다.
-      });
-
-    // 이력 — 먼저 보여줘 AI 재호출을 막습니다.
-    setHistoryLoading(true);
-    setHistoryError(null);
-    setFresh(null);
-    setAskError(null);
-
-    listPolicyAdvices(projectId, { ruleId, limit: 10 })
-      .then((result) => {
-        if (cancelled) return;
-        setHistory(result.advices);
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return;
-        setHistoryError(
-          cause instanceof ApiError ? cause.message : "이력을 불러오지 못했습니다.",
-        );
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setHistoryLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, projectId, ruleId]);
-
-  const ask = async () => {
-    if (asking) return;
-    setAsking(true);
-    setAskError(null);
-    try {
-      const result = await requestPolicyAdvice(projectId, {
-        rule_id: ruleId,
-        src_subnet: srcSubnet ?? null,
-        dst_subnet: dstSubnet ?? null,
-        provider_id: providerId === "" ? null : providerId,
-        prompt: prompt || null,
-      });
-
-      setFresh(result);
-      if (!result.succeeded) {
-        setAskError(result.error_message ?? "조언 요청에 실패했습니다.");
-      } else {
-        // 이력에도 반영합니다. 다시 부르지 않고 앞에 붙입니다.
-        setHistory((previous) => [result, ...previous]);
-      }
-    } catch (cause) {
-      setAskError(
-        cause instanceof ApiError
-          ? cause.message
-          : cause instanceof Error
-            ? cause.message
-            : "조언 요청에 실패했습니다.",
-      );
-    } finally {
-      setAsking(false);
-    }
+interface AdviceProps {projectId:string;ruleId?:string|null;agentId?:string|null;srcSubnet?:string|null;dstSubnet?:string|null;violationLabel?:string}
+export function PolicyAdvicePanel({projectId,ruleId,agentId,srcSubnet,dstSubnet,violationLabel}:AdviceProps) {
+  const {user}=useAuth();const canAsk=user?.role==="ADMIN"||user?.role==="OPERATOR";
+  const [providers,setProviders]=useState<ApiAiProvider[]>([]);const [providerId,setProviderId]=useState<number|"">("");
+  const generation=useRef(0);
+  const [prompt,setPrompt]=useState("");const [history,setHistory]=useState<ApiPolicyAdvice[]>([]);
+  const [loading,setLoading]=useState(true);const [asking,setAsking]=useState(false);const [error,setError]=useState<string|null>(null);
+  useEffect(()=>{let active=true;++generation.current;setAsking(false);setLoading(true);setHistory([]);setError(null);
+    Promise.all([listEnabledAiProviders(),listPolicyAdvices(projectId,{ruleId,agentId,limit:10})]).then(([p,h])=>{
+      if(!active)return;setProviders(p.providers);setProviderId((p.providers.find(v=>v.is_default)??p.providers[0])?.id??"");setHistory(h.advices);
+    }).catch(cause=>{if(active)setError(cause instanceof Error?cause.message:String(cause));}).finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[projectId,ruleId,agentId]);
+  const ask=async()=>{if(asking||providerId==="")return;const started=generation.current;setAsking(true);setError(null);
+    try{const advice=await requestPolicyAdvice(projectId,{rule_id:ruleId,agent_id:agentId,src_subnet:srcSubnet,dst_subnet:dstSubnet,provider_id:providerId,prompt:prompt||null});if(started!==generation.current)return;setHistory(rows=>[advice,...rows]);}
+    catch(cause){if(started===generation.current)setError(cause instanceof Error?cause.message:String(cause));}finally{if(started===generation.current)setAsking(false);}
   };
-
-  const noProviders = !historyLoading && providers.length === 0;
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      className="max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6"
-    >
-      {/* 헤더 */}
-      <div className="pr-10">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-          AI 정책 조언
-        </h3>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {violationLabel ?? `규칙 ${ruleId}`}
-        </p>
-        <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
-          이 위반을 어떻게 해결할지 AI 가 선택지와 트레이드오프를 제시합니다.
-          조언은 서버에 저장되므로 창을 닫아도 남습니다.
-        </p>
-      </div>
-
-      <div className="mt-4 space-y-4">
-        {/* 공급자 미등록 — 누르기 전에 알려 줍니다 */}
-        {noProviders && (
-          <div className="rounded-xl border border-warning-200 bg-warning-50 p-3 dark:border-warning-500/30 dark:bg-warning-500/10">
-            <p className="text-xs font-medium text-warning-700 dark:text-warning-400">
-              사용 중인 AI 공급자가 없습니다
-            </p>
-            <p className="mt-1 text-[11px] text-warning-600 dark:text-warning-500">
-              설정에서 AI 공급자를 등록하고 &lsquo;사용&rsquo;을 켜야 조언을
-              받을 수 있습니다. (로그 관리 화면의 AI 공급자 설정)
-            </p>
-          </div>
-        )}
-
-        {/* 요청 폼 */}
-        {!noProviders && (
-          <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400">
-                  AI 공급자
-                </span>
-                <select
-                  value={providerId}
-                  onChange={(event) =>
-                    setProviderId(
-                      event.target.value === "" ? "" : Number(event.target.value),
-                    )
-                  }
-                  className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                >
-                  {providers.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                      {item.is_default ? " (기본)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="flex min-w-[220px] flex-1 flex-col gap-1">
-                <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400">
-                  추가 질문 (선택)
-                </span>
-                <input
-                  type="text"
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  placeholder="예: 군사 보안 규정 관점에서 봐줘"
-                  className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                />
-              </label>
-
-              <Button
-                size="sm"
-                disabled={asking || providerId === ""}
-                onClick={ask}
-                title={
-                  providerId === ""
-                    ? "AI 공급자를 선택하세요"
-                    : "이 위반에 대한 새 조언을 요청합니다 (AI 호출 비용 발생)"
-                }
-              >
-                {asking
-                  ? "조언 생성 중..."
-                  : history.length > 0
-                    ? "다시 물어보기"
-                    : "조언 요청"}
-              </Button>
-            </div>
-            {history.length > 0 && (
-              <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
-                이미 받은 조언이 아래에 있습니다. 새로 물으면 AI 호출이 다시
-                발생합니다.
-              </p>
-            )}
-          </div>
-        )}
-
-        {askError && (
-          <div className="rounded-xl border border-error-200 bg-error-50 p-3 dark:border-error-500/30 dark:bg-error-500/10">
-            <p className="text-xs text-gray-700 dark:text-gray-300">{askError}</p>
-          </div>
-        )}
-
-        {/* 새 조언 (있으면 맨 위) */}
-        {fresh && (
-          <div>
-            <h4 className="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
-              방금 받은 조언
-            </h4>
-            <PolicyAdviceCard advice={fresh} />
-          </div>
-        )}
-
-        {/* 이력 */}
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-              이전 조언 {history.length > 0 ? `(${history.length})` : ""}
-            </h4>
-          </div>
-
-          {historyLoading && (
-            <p className="py-6 text-center text-xs text-gray-500 dark:text-gray-400">
-              이력을 불러오는 중...
-            </p>
-          )}
-
-          {historyError && (
-            <p className="rounded-lg border border-error-200 bg-error-50 p-2.5 text-xs text-error-600 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
-              {historyError}
-            </p>
-          )}
-
-          {!historyLoading && !historyError && history.length === 0 && (
-            <p className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
-              이 위반에 대한 조언이 아직 없습니다. 위 버튼으로 첫 조언을
-              요청하세요.
-            </p>
-          )}
-
-          {!historyLoading && history.length > 0 && (
-            <div className="space-y-3">
-              {history.map((item) => (
-                <div key={item.advice_id}>
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <Badge size="sm" color="light">
-                      {new Date(item.created_at).toLocaleString("ko-KR")}
-                    </Badge>
-                    {item.requested_by && (
-                      <span className="text-[11px] text-gray-400">
-                        {item.requested_by}
-                      </span>
-                    )}
-                  </div>
-                  <PolicyAdviceCard advice={item} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </Modal>
-  );
+  return <section className="space-y-4" data-testid="ai-advice-panel">
+    <header><h3 className="text-lg font-semibold dark:text-white">AI 진단·명령 제안</h3><p className="mt-1 text-xs text-gray-500">{violationLabel??(agentId?`${agentId} 설정 오류·수집 경고 분석`:ruleId?`규칙 ${ruleId}`:"프로젝트 정책 분석")}</p><p className="mt-2 text-xs text-gray-500">서버가 다시 계산한 정책 위반과 수집된 설정을 근거로 조언합니다. 실제 패킷 도달성 판정을 대신하지 않습니다.</p></header>
+    {loading&&<p className="text-sm text-gray-500">AI 설정과 이력을 불러오는 중...</p>}
+    {!loading&&!providers.length&&<p className="rounded-lg bg-warning-50 p-3 text-sm text-warning-700">활성 AI 공급자가 없습니다. 로그 관리의 AI 공급자 설정에서 연결을 등록하세요.</p>}
+    {canAsk&&providers.length>0&&<div className="space-y-3 rounded-xl border p-4 dark:border-gray-700">
+      <label className="block text-xs dark:text-gray-200">AI 공급자<select aria-label="AI 공급자" disabled={asking} className="mt-2 w-full rounded-lg border bg-white p-2 text-sm dark:bg-gray-900" value={providerId} onChange={e=>setProviderId(Number(e.target.value))}>{providers.map(v=><option key={v.id} value={v.id}>{v.name} · {v.model}</option>)}</select></label>
+      <label className="block text-xs dark:text-gray-200">오류 상황·추가 질문<textarea aria-label="AI 추가 질문" rows={2} maxLength={2000} disabled={asking} value={prompt} onChange={e=>setPrompt(e.target.value)} placeholder="예: VLAN이 누락돼 통신이 안 됩니다. 확인 명령과 수정 방법을 제안해 주세요." className="mt-2 w-full rounded-lg border bg-white p-2 text-sm dark:bg-gray-900"/></label>
+      <button type="button" disabled={asking||providerId===""} onClick={()=>void ask()} className="rounded-lg bg-brand-500 px-4 py-2 text-sm text-white disabled:opacity-40">{asking?"AI 진단 중...":"AI 진단·명령 요청"}</button>
+      <p className="text-xs text-gray-500">선택한 공급자로 프로젝트 대역과 장비 설정 요약을 전송합니다. 요청할 때마다 AI 호출이 발생합니다.</p>
+    </div>}
+    {error&&<p role="alert" className="text-sm text-error-600">{error}</p>}
+    {!loading&&!history.length&&<p className="py-4 text-sm text-gray-500">저장된 AI 조언이 없습니다.</p>}
+    {history.map(advice=><div key={advice.advice_id}><p className="mb-2 text-xs text-gray-500">{new Date(advice.created_at).toLocaleString("ko-KR")} · {advice.requested_by}</p><PolicyAdviceCard advice={advice}/></div>)}
+  </section>;
+}
+export default function PolicyAdviceModal(props:AdviceProps&{isOpen:boolean;onClose:()=>void}) {
+  return <Modal isOpen={props.isOpen} onClose={props.onClose} className="mx-4 max-h-[90vh] w-full max-w-4xl overflow-y-auto p-6">{props.isOpen&&<PolicyAdvicePanel {...props}/>}</Modal>;
 }

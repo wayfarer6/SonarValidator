@@ -1,3 +1,5 @@
+import { ErrorDetailsButton } from "../common/LogDetails";
+import AdviceCommandList from "./AdviceCommandList";
 import Badge from "../ui/badge/Badge";
 import { adviceRiskColor } from "../../lib/api/policyAdvice";
 import type { ApiPolicyAdvice } from "../../lib/api/policyAdvice";
@@ -25,8 +27,9 @@ export default function PolicyAdviceCard({
           )}
         </div>
         <p className="mt-2 text-xs text-gray-700 dark:text-gray-300">
-          {advice.error_message}
+          AI 진단을 완료하지 못했습니다.
         </p>
+        <div className="mt-3"><ErrorDetailsButton title="AI 진단 오류 상세" details={advice.error_message} /></div>
         <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
           AI 공급자 설정(모델명·API Key·서버 기동)을 확인하세요.
         </p>
@@ -164,6 +167,8 @@ export default function PolicyAdviceCard({
           </div>
         </div>
       )}
+
+      <AdviceCommandList advice={advice} />
 
       {advice.evidence.length > 0 && (
         <div className="mt-4">

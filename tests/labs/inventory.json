@@ -1,0 +1,305 @@
+{
+  "gns3_project_id": "35aab08c-8191-4798-8d55-cdb28274d8fd",
+  "labs": {
+    "lab1": {
+      "project_id": "PRJ-86F69C4D",
+      "title": "Lab1 · Cisco EEM",
+      "server_ip": "192.168.148.180",
+      "management_prefix": "192.168.144.0/20",
+      "nodes": [
+        "455edfed-cfef-4210-88ca-7f7ca72e4043",
+        "7316a25b-419f-4caf-82c2-63278b46ea6d"
+      ],
+      "agents": [
+        {
+          "id": "Lab1-R1",
+          "type": "Router",
+          "host": "192.168.148.181",
+          "user": "guestshell",
+          "port": 2222,
+          "profile": "ios",
+          "root": "/home/guestshell/sonar",
+          "console": 5028,
+          "gns3_node": "455edfed-cfef-4210-88ca-7f7ca72e4043"
+        },
+        {
+          "id": "Lab1-R2",
+          "type": "Router",
+          "host": "192.168.148.182",
+          "user": "guestshell",
+          "port": 2222,
+          "profile": "ios",
+          "root": "/home/guestshell/sonar",
+          "console": 5030,
+          "gns3_node": "7316a25b-419f-4caf-82c2-63278b46ea6d"
+        }
+      ],
+      "cidrs": [
+        "10.10.20.0/24",
+        "192.168.42.0/24",
+        "192.168.100.0/24"
+      ],
+      "settings_agent": "Lab1-R1",
+      "terminal_agent": "Lab1-R2",
+      "ai_agent": "Lab1-R1",
+      "ai_prompt": "MOCK_DIAGNOSTIC",
+      "ai_command": "show ip route",
+      "demo_cidr": "10.10.20.0/24",
+      "isolation_cases": [
+        {
+          "id": "r1-wan",
+          "agent": "Lab1-R1",
+          "cidr": "192.168.42.0/24",
+          "probe": "Lab1-R1",
+          "destination": "192.168.42.1",
+          "interface_down": true
+        },
+        {
+          "id": "r2-transit",
+          "agent": "Lab1-R2",
+          "cidr": "10.10.20.0/24",
+          "probe": "Lab1-R2",
+          "destination": "192.168.42.1",
+          "interface_down": true
+        }
+      ],
+      "presentation": {
+        "case_id": "r2-transit",
+        "title": "R2 경유 데이터망의 침해 징후",
+        "incident": "R2 경유 구간에서 의심스러운 외부 연결이 보고되었다고 가정합니다. 자동 침해 탐지는 구현 범위가 아니며 운영자가 격리를 결정합니다."
+      }
+    },
+    "lab2": {
+      "project_id": "PRJ-LAB2",
+      "title": "Lab2 · API 방화벽과 VLAN20",
+      "server_ip": "192.168.150.10",
+      "management_prefix": "192.168.150.0/24",
+      "nodes": [
+        "68eef751-4f5a-4c13-a654-ce6f6d17c56b",
+        "08e805ca-38fc-4f93-9674-695b38b9f3a7",
+        "d46d34d4-aa6a-45f4-a3ad-6677e1dc40e7",
+        "27c4a0be-35b8-4232-a521-b097e3bd7956"
+      ],
+      "agents": [
+        {
+          "id": "Lab2-R1",
+          "type": "Router",
+          "host": "192.168.150.1",
+          "user": "guestshell",
+          "port": 2222,
+          "profile": "ios",
+          "root": "/home/guestshell/sonar",
+          "console": 5008,
+          "gns3_node": "68eef751-4f5a-4c13-a654-ce6f6d17c56b"
+        },
+        {
+          "id": "Lab2-SW1",
+          "type": "Switch",
+          "host": "192.168.150.3",
+          "user": "admin",
+          "port": 22,
+          "profile": "eos",
+          "root": "/mnt/flash/sonar",
+          "gns3_node": "d46d34d4-aa6a-45f4-a3ad-6677e1dc40e7"
+        },
+        {
+          "id": "Lab2-Ubuntu",
+          "type": "VM",
+          "host": "192.168.150.4",
+          "user": "root",
+          "port": 22,
+          "profile": "ubuntu",
+          "root": "/etc/sonar-validator",
+          "gns3_node": "27c4a0be-35b8-4232-a521-b097e3bd7956"
+        }
+      ],
+      "firewall": {
+        "id": "Lab2-OPNsense",
+        "host": "192.168.150.2",
+        "min_rules": 3
+      },
+      "cidrs": [
+        "10.20.0.0/30",
+        "10.20.20.0/24"
+      ],
+      "settings_agent": "Lab2-Ubuntu",
+      "terminal_agent": "Lab2-SW1",
+      "ai_agent": "Lab2-SW1",
+      "ai_prompt": "MOCK_VLANS",
+      "ai_command": "show vlan",
+      "demo_cidr": "10.20.20.0/24",
+      "isolation_cases": [
+        {
+          "id": "router-transit",
+          "agent": "Lab2-R1",
+          "cidr": "10.20.0.0/30",
+          "probe": "Lab2-Ubuntu",
+          "destination": "https://example.com",
+          "interface_down": true
+        },
+        {
+          "id": "arista-vlan20",
+          "agent": "Lab2-SW1",
+          "cidr": "",
+          "probe": "Lab2-Ubuntu",
+          "destination": "https://example.com",
+          "interface_down": true
+        }
+      ],
+      "presentation": {
+        "case_id": "arista-vlan20",
+        "title": "VLAN20 단말의 침해 확산 방지",
+        "incident": "VLAN20 Ubuntu에서 의심스러운 외부 연결이 보고되었다고 가정합니다. 이번 시연은 Arista 장치 범위를 선택하므로 관리 포트를 제외한 데이터 포트 전체를 격리합니다."
+      }
+    },
+    "lab3": {
+      "project_id": "PRJ-LAB3",
+      "title": "Lab3 · 방화벽 뒤의 두 내부망",
+      "server_ip": "192.168.151.10",
+      "management_prefix": "192.168.151.0/24",
+      "nodes": [
+        "8e884678-a714-4ed2-80be-7c3ab3398012",
+        "49038cbf-c15f-4480-801b-9582f4a1aa33",
+        "55f0ce8f-dfd2-4e68-a2c3-f6aacd7a491d"
+      ],
+      "agents": [
+        {
+          "id": "Lab3-Ubuntu-A",
+          "type": "VM",
+          "host": "10.30.10.10",
+          "user": "root",
+          "port": 22,
+          "jump": "root@192.168.151.2",
+          "profile": "ubuntu",
+          "root": "/etc/sonar-validator",
+          "gns3_node": "49038cbf-c15f-4480-801b-9582f4a1aa33"
+        },
+        {
+          "id": "Lab3-Ubuntu-B",
+          "type": "VM",
+          "host": "10.30.20.10",
+          "user": "root",
+          "port": 22,
+          "jump": "root@192.168.151.2",
+          "profile": "ubuntu",
+          "root": "/etc/sonar-validator",
+          "gns3_node": "55f0ce8f-dfd2-4e68-a2c3-f6aacd7a491d"
+        }
+      ],
+      "firewall": {
+        "id": "Lab3-OPNsense",
+        "host": "192.168.151.2",
+        "min_rules": 9
+      },
+      "cidrs": [
+        "10.30.10.0/24",
+        "10.30.20.0/24"
+      ],
+      "settings_agent": "Lab3-Ubuntu-A",
+      "terminal_agent": "Lab3-Ubuntu-A",
+      "ai_agent": "Lab3-Ubuntu-B",
+      "ai_prompt": "MOCK_DIAGNOSTIC",
+      "ai_command": "ip -j route show",
+      "demo_cidr": "10.30.10.0/24",
+      "isolation_cases": [
+        {
+          "id": "ubuntu-a",
+          "agent": "Lab3-Ubuntu-A",
+          "cidr": "",
+          "probe": "Lab3-Ubuntu-A",
+          "destination": "https://example.com",
+          "interface_down": false
+        },
+        {
+          "id": "ubuntu-b",
+          "agent": "Lab3-Ubuntu-B",
+          "cidr": "",
+          "probe": "Lab3-Ubuntu-B",
+          "destination": "https://example.com",
+          "interface_down": false
+        }
+      ],
+      "presentation": {
+        "case_id": "ubuntu-a",
+        "title": "방화벽 뒤 Ubuntu A의 외부 연결 차단",
+        "incident": "방화벽 뒤 Ubuntu A의 침해 징후를 가정합니다. A의 IPv4 데이터 통신을 차단하고 방화벽을 경유한 관리 SSH를 유지합니다. B는 별도 대역의 노드입니다."
+      }
+    },
+    "lab4": {
+      "project_id": "PRJ-LAB4",
+      "title": "Lab4 · FRR와 OVS VLAN40",
+      "server_ip": "192.168.152.10",
+      "management_prefix": "192.168.152.0/24",
+      "nodes": [
+        "dd4f4ef7-5f1e-4799-a66a-bbf99943dbec",
+        "d7dc8aec-ee32-490f-93eb-a14673b40e24",
+        "c721530f-4dc0-4ec7-98ac-b17641fe863f"
+      ],
+      "agents": [
+        {
+          "id": "Lab4-FRR",
+          "type": "Router",
+          "host": "192.168.152.1",
+          "user": "root",
+          "port": 22,
+          "profile": "frr",
+          "root": "/etc/sonar-validator",
+          "gns3_node": "dd4f4ef7-5f1e-4799-a66a-bbf99943dbec"
+        },
+        {
+          "id": "Lab4-OVS",
+          "type": "Switch",
+          "host": "192.168.152.2",
+          "user": "root",
+          "port": 22,
+          "profile": "ovs",
+          "root": "/etc/switch/sonar",
+          "gns3_node": "d7dc8aec-ee32-490f-93eb-a14673b40e24"
+        },
+        {
+          "id": "Lab4-Ubuntu",
+          "type": "VM",
+          "host": "192.168.152.3",
+          "user": "root",
+          "port": 22,
+          "profile": "ubuntu",
+          "root": "/etc/sonar-validator",
+          "gns3_node": "c721530f-4dc0-4ec7-98ac-b17641fe863f"
+        }
+      ],
+      "cidrs": [
+        "10.40.40.0/24"
+      ],
+      "settings_agent": "Lab4-FRR",
+      "terminal_agent": "Lab4-OVS",
+      "ai_agent": "Lab4-OVS",
+      "ai_prompt": "MOCK_VLANS",
+      "ai_command": "ovs-vsctl",
+      "demo_cidr": "10.40.40.0/24",
+      "isolation_cases": [
+        {
+          "id": "frr-forwarding",
+          "agent": "Lab4-FRR",
+          "cidr": "",
+          "probe": "Lab4-Ubuntu",
+          "destination": "https://example.com",
+          "interface_down": false
+        },
+        {
+          "id": "ovs-vlan40",
+          "agent": "Lab4-OVS",
+          "cidr": "",
+          "probe": "Lab4-Ubuntu",
+          "destination": "https://example.com",
+          "interface_down": false
+        }
+      ],
+      "presentation": {
+        "case_id": "frr-forwarding",
+        "title": "FRR 경유 서비스망의 외부 연결 차단",
+        "incident": "서비스망의 의심스러운 외부 연결을 가정합니다. FRR의 전용 차단 체인으로 데이터 전달을 차단하고 인터페이스·경로·NAT를 보존합니다."
+      }
+    }
+  },
+  "suggested_ubuntu_image": "sonar-validator/ubuntu-prober:lab-20261101"
+}

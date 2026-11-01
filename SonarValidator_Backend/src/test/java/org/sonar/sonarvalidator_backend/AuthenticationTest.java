@@ -290,6 +290,43 @@ class AuthenticationTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void viewerCanReadButCannotChangeInfrastructureOrDownloadCredentials() throws Exception {
+        final String name = "regression-viewer";
+        if (userService.findByUsername(name) == null)
+            userService.create(name, "viewer-password-1234", null, User.Role.VIEWER);
+        final var session = (org.springframework.mock.web.MockHttpSession)
+                loginAndGetSession(name, "viewer-password-1234");
+        mockMvc.perform(get("/api/v1/projects").session(session)).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/projects").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content("{}")).andExpect(status().isForbidden());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(
+                "/api/v1/projects/nonexistent").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content("{}")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/policy/push/nonexistent").session(session))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/quarantine/nonexistent").session(session))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(
+                "/api/v1/agents/expected/nonexistent").session(session)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/agents/download/nonexistent?project_id=none").session(session))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/projects/draft/validation").session(session)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"subnets\":[],\"rules\":[]}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/users/me/password").session(session)
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cliCapabilitiesDoNotReturnInventedRouteOutput() throws Exception {
+        final var session = (org.springframework.mock.web.MockHttpSession) loginAndGetSession("admin", "admin");
+        mockMvc.perform(get("/api/v1/cli/targets").session(session))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.example").doesNotExist())
+                .andExpect(jsonPath("$.targets").isArray());
+    }
+
     private void createUserIfAbsent(String username, String password) {
         if (userService.findByUsername(username) == null) {
             userService.create(username, password, null, User.Role.OPERATOR);

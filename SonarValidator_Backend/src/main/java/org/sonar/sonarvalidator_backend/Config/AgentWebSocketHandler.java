@@ -37,9 +37,10 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        session.getAttributes().put("wrapped", toWrapped(session));
+        session.getAttributes().put("wrapped",
+                new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MS, SEND_BUFFER_LIMIT));
         // hello 를 보내기 전까지 agent_id 를 모르므로 여기서는 등록하지 않습니다.
-        log.info("agent socket opened: session={} remote={}",
+        log.debug("agent socket opened: session={} remote={}",
                 session.getId(), session.getRemoteAddress());
     }
 
@@ -51,12 +52,12 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
             request = objectMapper.readValue(raw, Envelope.class);
         } catch (RuntimeException ex) {
             log.warn("invalid envelope from session {}: {}", session.getId(), ex.getMessage());
-            send(session, Envelope.error(null, "invalid JSON envelope: " + ex.getMessage()));
+            registry.send(session, Envelope.error(null, "invalid JSON envelope: " + ex.getMessage()));
             return;
         }
 
         if ("unknown".equals(request.getType())) {
-            send(session, Envelope.error(request.getCorrelation_id(),
+            registry.send(session, Envelope.error(request.getCorrelation_id(),
                     "missing or empty 'type' field"));
             return;
         }
@@ -73,13 +74,13 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         }
 
         if (response != null) {
-            send(session, response);
+            registry.send(session, response);
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        log.info("agent socket closed: session={} status={}", session.getId(), status);
+        log.debug("agent socket closed: session={} status={}", session.getId(), status);
         registry.unregister(session);
     }
 
@@ -88,30 +89,4 @@ public class AgentWebSocketHandler extends TextWebSocketHandler {
         log.warn("transport error on session {}: {}", session.getId(), exception.getMessage());
     }
 
-    private void send(WebSocketSession session, Envelope envelope) {
-        try {
-            final String json = objectMapper.writeValueAsString(envelope);
-            final WebSocketSession target = wrapped(session);
-            synchronized (session) {
-                if (target.isOpen()) {
-                    target.sendMessage(new TextMessage(json));
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("failed to send {} to session {}: {}",
-                    envelope.getType(), session.getId(), ex.getMessage());
-        }
-    }
-
-    private WebSocketSession wrapped(WebSocketSession session) {
-        final Object existing = session.getAttributes().get("wrapped");
-        if (existing instanceof WebSocketSession wrappedSession) {
-            return wrappedSession;
-        }
-        return toWrapped(session);
-    }
-
-    private WebSocketSession toWrapped(WebSocketSession session) {
-        return new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MS, SEND_BUFFER_LIMIT);
-    }
 }

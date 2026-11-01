@@ -79,7 +79,7 @@ public class OfflineSnapshotService {
             serverWarnings.add("업로드된 파일이 없습니다. (form 필드 이름은 'files' 여야 합니다)");
         }
 
-        log.info("offline snapshot import: received={} accepted={} rejected={}",
+        log.info("오프라인 가져오기 완료: 파일={} 반영={} 거부={}",
                 files.size(), accepted, rejected);
 
         return new ImportResult(files.size(), accepted, rejected, results, serverWarnings);
@@ -95,7 +95,6 @@ public class OfflineSnapshotService {
                 return rejected(fileName, errors, warnings);
             }
 
-            // 1) 스키마 확인 — 다른 JSON 을 올렸을 때 명확히 알려 줍니다.
             final String schema = document.path("schema").asString("");
             if (!SCHEMA_NAME.equals(schema)) {
                 errors.add("schema 불일치: 기대 '" + SCHEMA_NAME + "', 실제 '" + schema + "'");
@@ -109,7 +108,6 @@ public class OfflineSnapshotService {
                         + ")보다 높습니다. 아는 필드만 반영했습니다.");
             }
 
-            // 2) payload 확인 — 실제 설정이 들어 있는 곳입니다.
             final JsonNode payload = document.path("payload");
             if (payload.isMissingNode() || payload.isNull() || !payload.isObject()) {
                 errors.add("payload 가 없거나 객체가 아닙니다.");
@@ -143,19 +141,6 @@ public class OfflineSnapshotService {
             final NeutralDeviceConfig config =
                     router.acceptOfflineTelemetry(agentId, product, payload);
             warnings.addAll(config.getWarnings());
-
-            // 5) 변환 결과가 완전히 비었으면 실패로 알립니다.
-            //    (파서가 선택됐지만 payload 키가 전부 낯설었던 경우)
-            final boolean empty = config.getInterfaces().isEmpty()
-                    && config.getRoutes().isEmpty()
-                    && config.getVlans().isEmpty()
-                    && config.getFirewallRules().isEmpty()
-                    && config.getBridges().isEmpty();
-            if (empty) {
-                errors.add("파서 '" + config.getFormat() + "' 가 아무 항목도 해석하지 못했습니다. "
-                        + "payload 키가 Agent 버전과 맞는지 확인하세요. keys=" + payload.size());
-                return rejected(fileName, errors, warnings);
-            }
 
             log.info("offline snapshot accepted: file={} agent={} product={} format={} "
                             + "ifaces={} routes={} vlans={} rules={}",
@@ -193,7 +178,7 @@ public class OfflineSnapshotService {
 
         final byte[] bytes;
         try {
-            bytes = stream.readAllBytes();
+            bytes = stream.readNBytes((int) MAX_SNAPSHOT_BYTES + 1);
         } catch (IOException ex) {
             errors.add("파일을 읽지 못했습니다: " + ex.getMessage());
             return null;

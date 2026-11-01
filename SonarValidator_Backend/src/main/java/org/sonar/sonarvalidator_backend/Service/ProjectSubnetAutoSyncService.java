@@ -47,7 +47,10 @@ public class ProjectSubnetAutoSyncService implements TelemetryObserver {
 
     @Transactional
     public boolean syncForAgent(String agentId, NeutralDeviceConfig config) {
-        if (agentId == null || agentId.isBlank() || config == null) {
+        if (agentId == null || agentId.isBlank() || config == null
+                || !config.isDiscoveryComplete()
+                || (config.getInterfaces().isEmpty() && config.getVlans().isEmpty()
+                    && config.getBridges().isEmpty())) {
             return false;
         }
         try {
@@ -107,6 +110,7 @@ public class ProjectSubnetAutoSyncService implements TelemetryObserver {
                 // 운영자가 지정한 등급과 이름은 유지합니다.
                 draft.setZoneClass(previous.getZoneClass() == ZoneClass.OPEN ? null : previous.getZoneClass());
                 draft.setNetworkRole(previous.getNetworkRole());
+                draft.setAllowedPeers(previous.getAllowedPeers());
                 if (previous.getName() != null && !previous.getName().isBlank()) {
                     draft.setName(previous.getName());
                 }
@@ -120,6 +124,15 @@ public class ProjectSubnetAutoSyncService implements TelemetryObserver {
                 draft.setZoneClass(null);
             }
             merged.add(draft);
+        }
+
+        // IOS brief output retains the configured host IP while its connected route/mask disappears on shutdown.
+        for (final var previous : previousAuto.values()) {
+            final boolean addressStillConfigured = config.getInterfaces().values().stream()
+                    .flatMap(iface -> iface.getAddresses().stream())
+                    .filter(address -> address != null && !address.contains("/") && !address.contains(":"))
+                    .anyMatch(address -> isManagement(address + "/32", Set.of(previous.getCidr())));
+            if (addressStillConfigured) merged.add(previous);
         }
 
         final Map<String, PolicySubnet> uniqueIdentity = new LinkedHashMap<>();
@@ -139,7 +152,7 @@ public class ProjectSubnetAutoSyncService implements TelemetryObserver {
         project.replacePolicy(deduped, null);
         project.setUpdatedAt(new Date());
         projects.save(project);
-        log.info("subnets auto-synced: agent={} project={} subnets={} (added/changed {})",
+        log.info("서브넷 갱신: 노드={} 프로젝트={} 서브넷={} 변경={}",
                 agentId, projectKey, deduped.size(), deduped.size() - (existing.size() - previousAuto.size()));
         return true;
     }

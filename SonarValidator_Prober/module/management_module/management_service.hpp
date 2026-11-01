@@ -2,7 +2,9 @@
 #define SONAR_VALIDATOR_PROBER_MANAGEMENT_SERVICE_HPP_
 
 #include <chrono>
+#include <deque>
 #include <stop_token>
+#include <memory>
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
@@ -15,9 +17,7 @@
 #include "components/policy/policy_command.hpp"
 #include "module/configuration_module/prober_config.hpp"
 #include "components/device/command_executor.hpp"
-#include "components/terminal/terminal_session.hpp"
 #include "components/policy/policy_executor.hpp"
-#include <thread>
 namespace beast = boost::beast;
 namespace net = boost::asio;
 namespace websocket = beast::websocket;
@@ -61,13 +61,16 @@ public:
 
     std::string QueryAristaCli(const std::string& command) override;
 
-    std::string CliCommand(const std::vector<std::string>& argv, const std::string& command) override;
     bool ApplyPolicyCommand(const PolicyCommand& command);
     void RegisterPolicyExecutor(std::shared_ptr<const PolicyExecutor> strategy) {
         policy_executors_.Register(std::move(strategy));
     }
 
 private:
+    bool ReadFrame(std::string&, std::chrono::milliseconds);
+    bool PreserveCommand(const std::string&, const nlohmann::json&);
+    std::deque<std::string> pending_commands_;
+
     std::string ResolveAgentId(const std::string& device_id) const;
 
     std::string host_{};                              // 서버 호스트
@@ -75,10 +78,9 @@ private:
     std::string target_{};                            // WebSocket 경로
     net::io_context ioc_;                             // Boost.Asio I/O 컨텍스트
     tcp::resolver resolver_;                          // DNS 리졸버
-    websocket::stream<beast::tcp_stream> stream_;     // WebSocket 스트림
+    using Stream = websocket::stream<beast::tcp_stream>;
+    std::unique_ptr<Stream> stream_;     // WebSocket 스트림
     sonar::net::TimedWebSocketReader reader_;
-    TerminalSession cli_session_;
-    std::string cli_program_;
     PolicyExecutorRegistry policy_executors_ = DefaultPolicyExecutors();
     bool connected_;                                  // 연결 상태
     bool hello_sent_{false};                          // hello 봉투 전송 여부

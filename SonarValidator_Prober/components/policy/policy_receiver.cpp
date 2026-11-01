@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #include "components/policy/policy_receiver.hpp"
 
 #include <iostream>
@@ -28,19 +29,19 @@ bool ReceivePolicy(const ProberConfig& config,
                                                           &acl_error);
             if (!acl_command)
             {
-                std::cerr << "[POLICY] Rejected ACL apply: " << acl_error << '\n';
+                SV_LOG_WARN << "[POLICY] Rejected ACL apply: " << acl_error << '\n';
                 applied = false;
             }
             else if (!management_service.ApplyPolicyCommand(*acl_command))
             {
-                std::cerr << "[POLICY] ACL apply failed for product "
+                SV_LOG_WARN << "[POLICY] ACL apply failed for product "
                           << acl_command->product << '\n';
                 applied = false;
             }
         }
 
-        if (!policy.contains("subnet_quarantine") ||
-            !quarantine::ReconcileSubnets(config, management_service, policy.at("subnet_quarantine")))
+        if (policy.contains("quarantine_plan") &&
+            !quarantine::ReconcilePlan(config, management_service, policy.at("quarantine_plan")))
         {
             applied = false;
         }
@@ -62,13 +63,13 @@ bool ReceivePolicy(const ProberConfig& config,
                                         &error);
     if (!command)
     {
-        std::cerr << "[POLICY] Rejected policy: " << error << '\n';
+        SV_LOG_WARN << "[POLICY] Rejected policy: " << error << '\n';
         return false;
     }
     const bool applied = management_service.ApplyPolicyCommand(*command);
     if (!applied)
     {
-        std::cerr << "[POLICY] Policy command failed for product "
+        SV_LOG_WARN << "[POLICY] Policy command failed for product "
                   << command->product << '\n';
     }
     return applied;

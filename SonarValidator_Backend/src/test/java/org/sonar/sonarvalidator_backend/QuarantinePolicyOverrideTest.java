@@ -78,6 +78,8 @@ class QuarantinePolicyOverrideTest {
                     case "findByReleasedAtIsNullOrderByQuarantinedAtDesc" -> rows.stream()
                             .filter(s -> s.getReleasedAt() == null)
                             .toList();
+                    case "findByAgentIdOrderByQuarantinedAtDesc" -> rows.stream()
+                            .filter(row -> java.util.Objects.equals(row.getAgentId(), args[0])).toList();
                     case "count" -> (long) rows.size();
                     default -> UNHANDLED;
                 });
@@ -119,9 +121,9 @@ class QuarantinePolicyOverrideTest {
 
         final ObjectNode policy = policyUnderTest.forAgent(DeviceType.VM, "ATICS-agent");
 
-        assertEquals(true, policy.get("quarantined").asBoolean(), "격리 표시");
-        assertEquals("node", policy.get("quarantine_scope").asText(), "범위=노드");
-        assertNull(policy.get("quarantine_target_cidr"), "노드 격리는 대상 대역 없음");
+        assertEquals("quarantine", policy.path("quarantine_plan").path("node").path("action").asText());
+        assertEquals(rows.getFirst().getRequestId(), policy.path("quarantine_plan").path("node").path("request_id").asText());
+        assertFalse(policy.has("quarantined"), "기본 정책과 격리 계획은 별도로 집행");
     }
 
     @Test
@@ -132,20 +134,11 @@ class QuarantinePolicyOverrideTest {
 
         final ObjectNode policy = policyUnderTest.forAgent(DeviceType.FIREWALL, "GNS3.Firewall");
 
-        assertEquals(true, policy.get("quarantined").asBoolean(), "격리 표시");
-        assertEquals("connection", policy.get("quarantine_scope").asText(), "범위=연결");
-        assertEquals("10.0.9.0/24",
-                policy.get("quarantine_target_cidr").asText(), "대상 대역 기록");
-
-        final var targets = policy.get("subnet_quarantine");
+        final var targets = policy.path("quarantine_plan").path("targets");
         assertEquals(1, targets.size());
-        assertEquals("10.0.9.0/24", targets.get(0).get("cidr").asText());
-        assertEquals(0, policy.get("policies").size(), "No nft command sent to an unrelated platform");
-
-        // 문구가 "전부 차단" 이 아니어야 합니다 — 운영자가 오해하면 위험합니다.
-        final String note = policy.get("quarantine_note").asText();
-        assertTrue(note.contains("10.0.9.0/24"), "대상 대역 안내: " + note);
-        assertFalse(note.contains("모든 전달 트래픽"), "전체 차단 문구가 아님: " + note);
+        assertEquals("10.0.9.0/24", targets.get(0).path("cidr").asText());
+        assertFalse(policy.has("subnet_quarantine"), "구버전 집행 경로로 중복 전송하지 않음");
+        assertEquals(quarantineService.planRevision("GNS3.Firewall"), policy.path("quarantine_plan").path("revision").asText());
     }
 
     @Test
@@ -171,21 +164,23 @@ class QuarantinePolicyOverrideTest {
         policyUnderTest.delegate.setAutomaticEnforcementEnabled(false);
         seedQuarantine("switch", 7, QuarantineState.Scope.CONNECTION, "10.0.9.0/24");
         seedQuarantine("switch", 7, QuarantineState.Scope.CONNECTION, "10.0.10.0/24");
-        assertEquals(2, policyUnderTest.forAgent(DeviceType.SWITCH, "switch").path("subnet_quarantine").size());
+        assertEquals(2, policyUnderTest.forAgent(DeviceType.SWITCH, "switch").path("quarantine_plan").path("targets").size());
         rows.get(0).setReleasedAt(new Date());
         final var remaining = policyUnderTest.forAgent(DeviceType.SWITCH, "switch");
-        assertEquals(1, remaining.path("subnet_quarantine").size());
-        assertEquals("10.0.10.0/24", remaining.path("subnet_quarantine").get(0).path("cidr").asText());
+        assertEquals(1, remaining.path("quarantine_plan").path("targets").size());
+        assertEquals("10.0.10.0/24", remaining.path("quarantine_plan").path("targets").get(0).path("cidr").asText());
         assertEquals(0, remaining.path("policies").size());
         rows.get(1).setReleasedAt(new Date());
         final var released = policyUnderTest.forAgent(DeviceType.SWITCH, "switch");
-        assertTrue(released.path("subnet_quarantine").isArray());
-        assertEquals(0, released.path("subnet_quarantine").size());
+        assertTrue(released.path("quarantine_plan").path("targets").isArray());
+        assertEquals(0, released.path("quarantine_plan").path("targets").size());
     }
 
     private void seedQuarantine(String agentId, Integer nodeId,
                                 QuarantineState.Scope scope, String target) {
         final QuarantineState state = new QuarantineState();
+        state.setId((long) rows.size()+1);
+        state.setRequestId(java.util.UUID.randomUUID().toString());
         state.setAgentId(agentId);
         state.setNodeId(nodeId);
         state.setScope(scope);

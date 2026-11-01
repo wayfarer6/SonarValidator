@@ -12,7 +12,6 @@ public:
     std::string RunCommandOutput(const std::string& command) override { calls.push_back(command); return "custom-output"; }
     std::string ExecuteIosCli(const std::vector<std::string>& commands) override { calls.insert(calls.end(), commands.begin(), commands.end()); return {}; }
     std::string QueryAristaCli(const std::string& command) override { calls.push_back(command); return {}; }
-    std::string CliCommand(const std::vector<std::string>&, const std::string& command) override { calls.push_back(command); return {}; }
 };
 int main() {
     RecordingDevice device;

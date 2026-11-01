@@ -6,10 +6,6 @@
 
 #include "components/device/device_type.hpp"
 
-
-
-
-
 class ProberConfig
 {
 public:
@@ -36,15 +32,6 @@ public:
     void SetTerminalSharedSecret(std::string terminal_shared_secret);
     void DetectTerminalSharedSecret();
 
-
-
-
-
-
-
-
-
-
     const std::string &GetManagementPrefixes() const;
     void SetManagementPrefixes(std::string management_prefixes);
     void DetectManagementPrefixes();
@@ -69,9 +56,6 @@ public:
     void DetectServerPort();
     bool DetectDeviceType();
     void DetectProductName();
-
-
-
 
     static std::string DetectAgentName();
 

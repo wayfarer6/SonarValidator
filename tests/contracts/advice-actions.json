@@ -1,0 +1,70 @@
+[
+  {
+    "product": "Cisco Catalyst 8000v",
+    "operation": "inspect_routes",
+    "arguments": {},
+    "commands": [
+      "show ip route"
+    ],
+    "verification": []
+  },
+  {
+    "product": "Arista vEOS",
+    "operation": "ensure_vlan",
+    "arguments": {
+      "vlan_id": 3999,
+      "name": "SONAR_TEST"
+    },
+    "commands": [
+      "configure terminal",
+      "vlan 3999",
+      "name SONAR_TEST",
+      "end"
+    ],
+    "verification": [
+      "show vlan id 3999"
+    ]
+  },
+  {
+    "product": "Cisco IOS XE",
+    "operation": "set_interface_description",
+    "arguments": {
+      "interface": "GigabitEthernet2",
+      "description": "Lab Transit"
+    },
+    "commands": [
+      "configure terminal",
+      "interface GigabitEthernet2",
+      "description Lab Transit",
+      "end"
+    ],
+    "verification": [
+      "show running-config interface GigabitEthernet2"
+    ]
+  },
+  {
+    "product": "OpenvSwitch",
+    "operation": "inspect_vlans",
+    "arguments": {},
+    "commands": [
+      "ovs-vsctl --format=json --columns=name,tag,trunks list Port"
+    ],
+    "verification": []
+  },
+  {
+    "product": "Linux nftables",
+    "operation": "block_forward_ipv4",
+    "arguments": {
+      "source": "10.90.0.0/24",
+      "destination": "10.91.0.0/24",
+      "protocol": "tcp",
+      "port": 443
+    },
+    "commands": [
+      "table inet sonar_ai_7826b3056db4 { chain forward { type filter hook forward priority -150; policy accept; ip saddr 10.90.0.0/24 ip daddr 10.91.0.0/24 tcp dport 443 counter drop comment \"sonar-ai-managed\"; } }"
+    ],
+    "verification": [
+      "nft -j list table inet sonar_ai_7826b3056db4"
+    ]
+  }
+]

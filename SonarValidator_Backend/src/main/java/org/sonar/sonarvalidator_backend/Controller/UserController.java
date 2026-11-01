@@ -76,7 +76,7 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "비밀번호 변경에 실패했습니다."));
         }
-        log.info("password changed via API: username={}", username);
+        log.debug("password changed via API: username={}", username);
         return ResponseEntity.ok(Map.of("message", "비밀번호가 변경되었습니다."));
     }
 

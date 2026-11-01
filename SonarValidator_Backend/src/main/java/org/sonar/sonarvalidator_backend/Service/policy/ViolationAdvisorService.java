@@ -47,6 +47,10 @@ public class ViolationAdvisorService {
     private final PolicyAdviceParser parser;
     private final PolicyAdviceRepository repository;
     private final ObjectMapper mapper = new ObjectMapper();
+    private AdviceCommandContext commandContext;
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setCommandContext(AdviceCommandContext context) { this.commandContext = context; }
+
 
     public ViolationAdvisorService(ProjectService projectService,
                                    AiProviderService providerService,
@@ -60,7 +64,6 @@ public class ViolationAdvisorService {
         this.repository = repository;
     }
 
-    @Transactional
     public Map<String, Object> advise(String projectKey,
                                       String ruleId,
                                       String srcSubnet,
@@ -69,6 +72,11 @@ public class ViolationAdvisorService {
                                       String userPrompt,
                                       String requestedBy) {
 
+        return advise(projectKey, ruleId, srcSubnet, dstSubnet, providerId, userPrompt, requestedBy, null);
+    }
+
+    public Map<String, Object> advise(String projectKey, String ruleId, String srcSubnet, String dstSubnet,
+                                      Long providerId, String userPrompt, String requestedBy, String targetAgent) {
         final long startedAt = System.currentTimeMillis();
 
         // 1) 판정은 항상 서버가 다시 한다. (프론트가 보낸 텍스트를 신뢰하지 않음)
@@ -76,6 +84,7 @@ public class ViolationAdvisorService {
         final SegmentationBddEngine.Report report = projectService.validateStored(projectKey);
 
         final PolicyAdviceContext context = PolicyAdviceContext.of(project, report);
+        final AdviceCommandContext.Snapshot commandSnapshot = commandContext == null ? null : commandContext.snapshot(project, targetAgent);
         final ViolationBrief focus = context.findBrief(ruleId, srcSubnet, dstSubnet);
 
         final String scope = (ruleId == null || ruleId.isBlank()) ? "project" : "violation";
@@ -85,6 +94,8 @@ public class ViolationAdvisorService {
                 .substring(0, 8).toUpperCase(Locale.ROOT));
         record.setProjectKey(projectKey);
         record.setProjectName(project.getName());
+        record.setTargetAgent(targetAgent);
+        record.setContextFingerprint(commandSnapshot == null ? null : commandSnapshot.fingerprint());
         record.setRuleId(ruleId == null || ruleId.isBlank() ? null : ruleId.trim());
         record.setScope(scope);
         record.setViolationCount(context.totalViolationCount());
@@ -117,7 +128,7 @@ public class ViolationAdvisorService {
 
         // 3) 프롬프트를 조립하고 호출합니다.
         final List<Message> messages =
-                PolicyAdvicePromptBuilder.build(provider, context, focus, userPrompt);
+                PolicyAdvicePromptBuilder.build(provider, context, focus, userPrompt, commandSnapshot == null ? null : commandSnapshot.prompt());
 
         log.info("policy advice started: id={} project={} rule={} scope={} violations={}/{} provider={}",
                 record.getAdviceId(), projectKey, record.getRuleId(), scope,
@@ -146,8 +157,12 @@ public class ViolationAdvisorService {
         record.setRootCause(truncate(answer.rootCause(), 8000));
         record.setPolicyAdvice(truncate(answer.policyAdvice(), 4000));
         record.setOptionsJson(writeOptions(answer.options()));
+        String commandsJson = mapper.writeValueAsString(answer.commands().stream().map(c -> c.toView()).toList());
+        if (commandsJson.length() > 28000) {
+            record.setCommandsJson("[]"); record.setNeedsMoreData(true);
+        } else record.setCommandsJson(commandsJson);
         record.setEvidenceJson(writeJsonList(answer.evidence()));
-        record.setNeedsMoreData(answer.needsMoreData());
+        record.setNeedsMoreData(Boolean.TRUE.equals(record.getNeedsMoreData()) || answer.needsMoreData());
 
         final PolicyAdvice saved = repository.save(record);
 
@@ -174,6 +189,12 @@ public class ViolationAdvisorService {
                                 : repository.findAllByOrderByCreatedAtDesc(pageable);
 
         return rows.stream().map(this::toView).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> historyForAgent(String projectKey, String agentId, Integer limit) {
+        int size = limit == null || limit <= 0 ? DEFAULT_HISTORY : Math.min(MAX_HISTORY, limit);
+        return repository.findByProjectKeyAndTargetAgentOrderByCreatedAtDesc(projectKey, agentId, PageRequest.of(0,size)).stream().map(this::toView).toList();
     }
 
     @Transactional(readOnly = true)
@@ -216,6 +237,11 @@ public class ViolationAdvisorService {
         view.put("error_message", record.getErrorMessage());
         view.put("created_at", Timestamps.iso(record.getCreatedAt()));
         view.put("structured", Boolean.TRUE.equals(record.getStructured()));
+        view.put("target_agent", record.getTargetAgent());
+        if (commandContext != null && record.getCommandsJson() != null) {
+            var commands = parser.readCommands(mapper.readTree(record.getCommandsJson()));
+            view.put("command_proposals", commandContext.views(projectService.getByKey(record.getProjectKey()), record, commands));
+        }
         return view;
     }
 

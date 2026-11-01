@@ -26,6 +26,7 @@ export default function LatestTopologyCard() {
   const topology = useApi(
     () => (latest ? getTopology(latest.project_id) : Promise.resolve(null)),
     [latest?.project_id],
+    2000,
   );
 
   const chart = useMemo(() => topologyToMermaid(topology.data), [topology.data]);
@@ -59,8 +60,9 @@ export default function LatestTopologyCard() {
         <span className="rounded bg-green-100 px-2 py-0.5 text-green-700 dark:bg-green-900/40 dark:text-green-300">Open</span>
       </div>
 
+      {topology.error && topology.data && <p role="status" className="text-xs text-amber-700">갱신 실패 · 마지막 수신 결과를 표시합니다.</p>}
       <div className="min-h-[260px] flex-1 rounded-xl border border-gray-100 bg-gray-50/60 p-2 dark:border-gray-800 dark:bg-gray-900/40">
-        {topology.error ? (
+        {topology.error && !topology.data ? (
           <p className="p-4 text-center text-xs text-gray-500 dark:text-gray-400">
             {topology.error}
           </p>

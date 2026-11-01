@@ -19,6 +19,8 @@ public class AgentTerminalBroker {
 
     private final Map<String, WebSocketSession> agents = new ConcurrentHashMap<>();
     private final Map<String, WebSocketSession> browsers = new ConcurrentHashMap<>();
+    private record ActionReservation(String id, long until) {}
+    private final Map<String, ActionReservation> activeActions = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
 
     public AgentTerminalBroker(ObjectMapper objectMapper) {
@@ -34,7 +36,7 @@ public class AgentTerminalBroker {
         if (browser != null) {
             sendAgent(agentId, Map.of("type", "terminal-open"));
         }
-        log.info("terminal agent connected: {}", agentId);
+        log.debug("terminal agent connected: {}", agentId);
         return true;
     }
 
@@ -47,6 +49,8 @@ public class AgentTerminalBroker {
             log.warn("terminal browser rejected: no open agent session for {}", agentId);
             return false;
         }
+        synchronized (agent) {
+        if (hasActiveAction(agentId)) return false;
         final WebSocketSession previous = browsers.putIfAbsent(agentId, session);
         if (previous != null) {
             if (previous.isOpen()) {
@@ -59,11 +63,13 @@ public class AgentTerminalBroker {
         }
         send(session, Map.of("type", "terminal-status", "status", "connecting"));
         if (sendAgent(agentId, Map.of("type", "terminal-open"))) {
+            log.info("터미널 열기: 노드={}", agentId);
             return true;
         }
         browsers.remove(agentId, session);
         log.warn("terminal browser rejected: could not send terminal-open to agent {}", agentId);
         return false;
+        }
     }
 
     public void fromBrowser(String agentId, Map<String, Object> message) {
@@ -79,6 +85,7 @@ public class AgentTerminalBroker {
 
     public void browserClosed(String agentId, WebSocketSession session) {
         if (browsers.remove(agentId, session)) {
+            log.info("터미널 닫기: 노드={}", agentId);
             sendAgent(agentId, Map.of("type", "terminal-close"));
         }
     }
@@ -99,6 +106,42 @@ public class AgentTerminalBroker {
         if (agents.remove(agentId, session)) {
             fromAgent(agentId, Map.of("type", "terminal-error",
                     "message", "Agent terminal connection closed"));
+        }
+    }
+
+    private boolean hasActiveAction(String agentId) {
+        var reservation = activeActions.get(agentId);
+        if (reservation != null && reservation.until() < System.currentTimeMillis()) {
+            activeActions.remove(agentId, reservation); return false;
+        }
+        return reservation != null;
+    }
+    public WebSocketSession actionSession(String agentId) {
+        WebSocketSession session = agents.get(agentId);
+        return session != null && session.isOpen() ? session : null;
+    }
+    public boolean isCurrentAgent(String agentId, WebSocketSession session) {
+        return actionSession(agentId) == session;
+    }
+    public boolean supportsAction(String agentId, String operation) {
+        WebSocketSession session = actionSession(agentId);
+        return session != null && session.getAttributes().get("adviceOperations") instanceof java.util.Set<?> values && values.contains(operation);
+    }
+    public boolean reserveAction(String agentId, WebSocketSession expected, String executionId) {
+        synchronized (expected) {
+            WebSocketSession browser = browsers.get(agentId);
+            return isCurrentAgent(agentId, expected) && (browser == null || !browser.isOpen())
+                    && !hasActiveAction(agentId)
+                    && activeActions.putIfAbsent(agentId, new ActionReservation(executionId, System.currentTimeMillis()+120_000)) == null;
+        }
+    }
+    public void releaseAction(String agentId, String executionId) {
+        activeActions.computeIfPresent(agentId, (key, value) -> value.id().equals(executionId) ? null : value);
+    }
+    public boolean sendAction(String agentId, WebSocketSession expected, String executionId, Map<String, Object> message) {
+        synchronized (expected) {
+            var reservation = activeActions.get(agentId);
+            return isCurrentAgent(agentId, expected) && reservation != null && executionId.equals(reservation.id()) && send(expected, message);
         }
     }
 

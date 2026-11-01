@@ -1,3 +1,4 @@
+import { errorLog, formatErrorDetails, requestErrorMessage } from "../errors";
 
 function currentHostname(): string {
   if (typeof window !== "undefined" && window.location?.hostname) {
@@ -22,11 +23,21 @@ export class ApiError extends Error {
 
   readonly body: unknown;
 
+  readonly details: string;
+
   constructor(status: number, message: string, body?: unknown) {
-    super(message);
+    super(requestErrorMessage(status, message));
     this.name = "ApiError";
     this.status = status;
     this.body = body;
+    this.details = formatErrorDetails(body ?? message);
+  }
+
+  record(method: string, path: string): this {
+    if (!(this.status === 401 && path === "/api/v1/auth/me")) {
+      errorLog.record({ summary: this.message, details: this.details, status: this.status, method, path });
+    }
+    return this;
   }
 
   get isNotFound(): boolean {
@@ -90,7 +101,6 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const payloadBody = body === undefined ? undefined : JSON.stringify(body);
 
   const attempts = Math.max(0, retries) + 1;
-  let lastError: ApiError | null = null;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     // 요청마다 새 컨트롤러가 필요합니다. abort 된 컨트롤러는 재사용할 수 없습니다.
@@ -98,6 +108,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const timer = setTimeout(() => controller.abort(new RequestTimeoutError()), timeoutMs);
 
     let response: Response;
+    let text: string;
     try {
       response = await fetch(url, {
         method,
@@ -107,45 +118,40 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         body: payloadBody,
         signal: controller.signal,
       });
+      text = await response.text();
     } catch (cause) {
       clearTimeout(timer);
-      // 시간 초과(AbortError + 표식) 또는 네트워크 실패입니다.
-      lastError = new ApiError(
-        0,
-        `백엔드에 연결할 수 없습니다 (${API_BASE_URL}). 서버가 실행 중인지 확인하세요.`,
-        cause,
-      );
       if (attempt < attempts) {
         await delay(RETRY_BASE_DELAY_MS * attempt);
         continue;
       }
-      throw lastError;
+      const message = method !== "GET" ? "응답을 확인하지 못했습니다. 실행 이력을 확인하세요." : controller.signal.aborted ? "요청 시간이 초과됐습니다." : "서버에 연결할 수 없습니다.";
+      throw new ApiError(0, message, { message, cause }).record(method, path);
     }
     clearTimeout(timer);
 
-    const text = await response.text();
     const payload = text ? safeParse(text) : null;
 
     if (!response.ok) {
       const detail =
-        (payload && typeof payload === "object" && "message" in payload
-          ? String((payload as { message: unknown }).message)
+        (payload && typeof payload === "object" && ("message" in payload || "detail" in payload)
+          ? String((payload as { message?: unknown; detail?: unknown }).message ?? (payload as { detail?: unknown }).detail)
           : null) ?? `${response.status} ${response.statusText}`;
       // 500/502/503/504 는 백엔드가 기동 중일 때 흔하므로 재시도합니다.
       // 4xx 는 요청 자체의 문제라 다시 보내도 같은 결과입니다.
       if (response.status >= 500 && attempt < attempts) {
-        lastError = new ApiError(response.status, detail, payload);
         await delay(RETRY_BASE_DELAY_MS * attempt);
         continue;
       }
-      throw new ApiError(response.status, detail, payload);
+      throw new ApiError(response.status, detail, payload ?? text).record(method, path);
     }
 
+    if (/\/auth\/(login|logout)$/.test(path)) errorLog.clear();
     return payload as T;
   }
 
   // 위 루프는 항상 return 하거나 throw 합니다. 여기는 타입 만족용입니다.
-  throw lastError ?? new ApiError(0, `요청에 실패했습니다 (${API_BASE_URL}).`);
+  throw new ApiError(0, "요청을 완료하지 못했습니다.").record(method, path);
 }
 
 function safeParse(text: string): unknown {

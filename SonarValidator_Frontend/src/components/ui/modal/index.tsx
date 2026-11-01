@@ -1,12 +1,15 @@
 import { useRef, useEffect } from "react";
 
+const openModals: symbol[] = [];
+let originalOverflow = "";
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   className?: string;
   children: React.ReactNode;
-  showCloseButton?: boolean; // New prop to control close button visibility
-  isFullscreen?: boolean; // Default to false for backwards compatibility
+  showCloseButton?: boolean;
+  isFullscreen?: boolean;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -14,14 +17,15 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   children,
   className,
-  showCloseButton = true, // Default to true for backwards compatibility
+  showCloseButton = true,
   isFullscreen = false,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const modalId = useRef(Symbol("modal"));
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && openModals[openModals.length - 1] === modalId.current) {
         onClose();
       }
     };
@@ -36,14 +40,15 @@ export const Modal: React.FC<ModalProps> = ({
   }, [isOpen, onClose]);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-
+    if (!isOpen) return;
+    const id = modalId.current;
+    if (openModals.length === 0) originalOverflow = document.body.style.overflow;
+    openModals.push(id);
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = "unset";
+      const index = openModals.indexOf(id);
+      if (index >= 0) openModals.splice(index, 1);
+      if (openModals.length === 0) document.body.style.overflow = originalOverflow;
     };
   }, [isOpen]);
 
@@ -55,7 +60,7 @@ export const Modal: React.FC<ModalProps> = ({
     ) ?? []).filter(element => element.getClientRects().length > 0);
     candidates()[0]?.focus();
     const trap = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
+      if (event.key !== "Tab" || openModals[openModals.length - 1] !== modalId.current) return;
       const items = candidates();
       const first = items[0];
       const last = items[items.length - 1];
@@ -95,6 +100,7 @@ export const Modal: React.FC<ModalProps> = ({
         {showCloseButton && (
           <button
             onClick={onClose}
+            aria-label="모달 닫기"
             className="absolute right-3 top-3 z-999 flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6 sm:h-11 sm:w-11"
           >
             <svg

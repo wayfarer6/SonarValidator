@@ -30,5 +30,8 @@ public interface QuarantineStateRepository extends JpaRepository<QuarantineState
     List<QuarantineState> findByProjectKeyAndReleasedAtIsNullOrderByQuarantinedAtDesc(
             String projectKey, Pageable pageable);
 
+    List<QuarantineState> findByReleasedAtIsNotNullAndApplyStatusInOrderByQuarantinedAtDesc(
+            List<String> statuses, Pageable pageable);
+
     List<QuarantineState> findByAgentIdOrderByQuarantinedAtDesc(String agentId, Pageable pageable);
 }

@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #include "database/telemetry_store.hpp"
 
 #include <chrono>
@@ -512,7 +513,7 @@ bool SaveRouteStatus(DatabaseService& database_service,
     }
     catch (const std::exception& exception)
     {
-        std::cerr << "[WARN] route status save skipped: " << exception.what() << '\n';
+        SV_LOG_WARN << "[WARN] route status save skipped: " << exception.what() << '\n';
         return false;
     }
 }
@@ -537,7 +538,7 @@ bool SaveNicInfo(DatabaseService& database_service,
     }
     catch (const std::exception& exception)
     {
-        std::cerr << "[WARN] nic info save skipped: " << exception.what() << '\n';
+        SV_LOG_WARN << "[WARN] nic info save skipped: " << exception.what() << '\n';
         return false;
     }
 }
@@ -557,7 +558,7 @@ bool SaveVlanStatus(DatabaseService& database_service,
     }
     catch (const std::exception& exception)
     {
-        std::cerr << "[WARN] vlan status save skipped: " << exception.what() << '\n';
+        SV_LOG_WARN << "[WARN] vlan status save skipped: " << exception.what() << '\n';
         return false;
     }
 }
@@ -577,7 +578,7 @@ bool SaveTrunkStatus(DatabaseService& database_service,
     }
     catch (const std::exception& exception)
     {
-        std::cerr << "[WARN] trunk status save skipped: " << exception.what() << '\n';
+        SV_LOG_WARN << "[WARN] trunk status save skipped: " << exception.what() << '\n';
         return false;
     }
 }
@@ -597,7 +598,7 @@ bool SaveArpTable(DatabaseService& database_service,
     }
     catch (const std::exception& exception)
     {
-        std::cerr << "[WARN] arp table save skipped: " << exception.what() << '\n';
+        SV_LOG_WARN << "[WARN] arp table save skipped: " << exception.what() << '\n';
         return false;
     }
 }

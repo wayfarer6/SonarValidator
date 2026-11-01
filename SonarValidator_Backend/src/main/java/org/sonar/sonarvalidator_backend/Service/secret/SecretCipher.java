@@ -34,8 +34,6 @@ public class SecretCipher {
 
     private SecretKey key;
 
-    private boolean usingEphemeralKey;
-
     private final SecureRandom random = new SecureRandom();
 
     public SecretCipher(@Value("${sonar.secret.key:}") String configuredKey) {
@@ -44,35 +42,24 @@ public class SecretCipher {
 
     @PostConstruct
     void init() {
-        if (configuredKey != null && !configuredKey.isBlank()) {
-            try {
-                final byte[] raw = Base64.getDecoder().decode(configuredKey.trim());
-                if (raw.length != KEY_LENGTH_BYTES) {
-                    throw new IllegalArgumentException(
-                            "key must be " + KEY_LENGTH_BYTES + " bytes, got " + raw.length);
-                }
-                this.key = new SecretKeySpec(raw, "AES");
-                this.usingEphemeralKey = false;
-                log.info("secret cipher initialized with configured key");
-                return;
-            } catch (RuntimeException ex) {
-                log.error("sonar.secret.key is invalid ({}); falling back to ephemeral key. "
-                        + "Generate one with: openssl rand -base64 32", ex.getMessage());
-            }
-        } else {
-            log.warn("sonar.secret.key is not set; using an ephemeral key. "
-                    + "Encrypted values will NOT survive a restart. "
-                    + "Set SONAR_SECRET_KEY for production.");
+        if (configuredKey == null || configuredKey.isBlank()) {
+            throw new IllegalStateException("SONAR_SECRET_KEY must be a persistent Base64-encoded 32-byte key");
         }
-
-        final byte[] generated = new byte[KEY_LENGTH_BYTES];
-        random.nextBytes(generated);
-        this.key = new SecretKeySpec(generated, "AES");
-        this.usingEphemeralKey = true;
+        final byte[] raw;
+        try {
+            raw = Base64.getDecoder().decode(configuredKey.trim());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException("SONAR_SECRET_KEY must be valid Base64", ex);
+        }
+        if (raw.length != KEY_LENGTH_BYTES) {
+            throw new IllegalStateException("SONAR_SECRET_KEY must decode to 32 bytes");
+        }
+        this.key = new SecretKeySpec(raw, "AES");
+        log.debug("secret cipher initialized with configured key");
     }
 
     public boolean isUsingEphemeralKey() {
-        return usingEphemeralKey;
+        return false;
     }
 
     public String encrypt(String plaintext) {

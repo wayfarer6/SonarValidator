@@ -180,16 +180,11 @@ class QuarantineServiceTest {
 
         final Map<String, Object> result = service.isolate("ATICS-agent", "PRJ-1", "테스트", "tester");
 
-        assertEquals(1, sent.size(), "명령 1건 전송");
-        final Envelope envelope = sent.get(0);
-        assertEquals(Envelope.Types.COMMAND, envelope.getType());
-        assertEquals("ATICS-agent", envelope.getAgent_id());
-        // ⚠️ Agent 의 quarantine::kIsolate 와 같아야 합니다.
-        assertEquals("quarantine", envelope.payloadOrEmpty().get("action").asString());
-        assertEquals("PRJ-1", envelope.payloadOrEmpty().get("project_id").asString());
-        assertEquals("테스트", envelope.payloadOrEmpty().get("reason").asString());
-
-        assertEquals(Boolean.TRUE, result.get("delivered"), "delivered=true");
+        assertTrue(sent.isEmpty(), "구버전 인터페이스 명령을 푸시하지 않음");
+        assertEquals("PENDING", result.get("status"));
+        assertNotNull(result.get("request_id"));
+        assertEquals(Boolean.FALSE, result.get("blocked"));
+        assertEquals(Boolean.FALSE, result.get("delivered"));
         assertTrue((Boolean) result.get("active"), "격리 중으로 표시");
         assertFalse((Boolean) result.get("retry"), "첫 격리이므로 retry=false");
         // ack 가 아직 없으므로 "실패" 가 아니라 "모름" 이어야 합니다.
@@ -207,7 +202,7 @@ class QuarantineServiceTest {
         // 상태는 저장되어야 합니다. 재접속 시 차단 정책을 받아야 하므로.
         assertTrue((Boolean) result.get("active"), "미연결이어도 격리 상태는 저장");
         assertNotNull(result.get("warning"), "운영자가 이유를 알 수 있어야 함");
-        assertTrue(String.valueOf(result.get("warning")).contains("재접속"),
+        assertTrue(String.valueOf(result.get("warning")).contains("정책"),
                 "재접속 시 적용된다는 안내 포함");
 
         assertEquals(1, complianceRows.size(), "이력 1건");
@@ -225,7 +220,7 @@ class QuarantineServiceTest {
         final Map<String, Object> second = service.isolate("VDI-1-agent", "PRJ-1", "2차", "tester");
 
         assertEquals(1, quarantineRows.size(), "행은 1개만 (중복 생성 금지)");
-        assertEquals(2, sent.size(), "명령은 다시 전송 (전달 누락 대비)");
+        assertTrue(sent.isEmpty(), "정책 재동기화로 처리");
         assertEquals(Boolean.TRUE, second.get("retry"), "retry=true 로 구분");
     }
 
@@ -252,9 +247,9 @@ class QuarantineServiceTest {
 
         final Map<String, Object> result = service.release("AFCCS-agent", "tester2");
 
-        assertEquals(1, sent.size(), "release 명령 1건");
-        assertEquals("release", sent.get(0).payloadOrEmpty().get("action").asString());
-        assertEquals(Boolean.TRUE, result.get("delivered"));
+        assertTrue(sent.isEmpty(), "해제도 버전 정책으로 동기화");
+        assertEquals("PENDING", result.get("status"));
+        assertNull(result.get("applied"));
         assertFalse((Boolean) result.get("active"), "더 이상 격리 중이 아님");
         assertEquals("tester2", result.get("released_by"));
         assertNotNull(result.get("released_at"), "해제 시각 기록");
@@ -359,7 +354,8 @@ class QuarantineServiceTest {
         assertEquals("CONNECTION", byAgent.get("scope"), "연결 단위로 기록");
         assertEquals("10.0.9.0/24", byAgent.get("target_cidr"), "대상 대역 기록");
         assertEquals(Boolean.TRUE, byAgent.get("active"), "격리 상태 저장");
-        assertTrue(service.isQuarantined("GNS3.Firewall"), "격리 중");
+        assertTrue(service.isSubnetQuarantined("GNS3.Firewall", "10.0.9.0/24"));
+        assertFalse(service.isQuarantined("GNS3.Firewall"), "연결 격리를 노드 전체 격리로 오인하지 않음");
 
         // 경고는 있어야 합니다. (방화벽 격리의 성질을 운영자가 알아야 함)
         assertNotNull(byAgent.get("warnings"), "경고 포함");
@@ -417,7 +413,7 @@ class QuarantineServiceTest {
                 "2개 인터페이스를 내렸습니다", List.of("eth1 (10.20.111.1/24)"),
                 List.of("eth7 (172.16.255.5/24)")));
 
-        final Map<String, Object> result = service.isolate("TOD-Cam-agent", "PRJ-1", null, "tester");
+        final Map<String, Object> result = service.listActive("PRJ-1").getFirst();
         assertEquals(Boolean.TRUE, result.get("applied"), "applied=true");
         assertTrue(String.valueOf(result.get("applied_detail")).contains("2개"),
                 "detail 전달됨");
@@ -426,11 +422,11 @@ class QuarantineServiceTest {
     @Test
     @DisplayName("ack 실패는 applied=false 이고 critical 알림을 남긴다")
     void ackFailureProducesCriticalNotification() {
-        connected.add("FW-1");
-        service.isolate("FW-1", "PRJ-1", null, "tester");
+        connected.add("VM-failure");
+        service.isolate("VM-failure", "PRJ-1", null, "tester");
         notificationRows.clear();
 
-        service.recordAck("FW-1", ack("quarantine", false,
+        service.recordAck("VM-failure", ack("quarantine", false,
                 "관리 경로를 찾지 못해 격리를 중단했습니다", List.of(), List.of()));
 
         assertEquals(1, notificationRows.size(), "실패 알림 1건");
@@ -527,12 +523,71 @@ class QuarantineServiceTest {
 
     //  테스트 도우미
 
-    private static JsonNode ack(String action, boolean ok, String detail,
+    @Test
+    void staleIsolationAckCannotConfirmReleaseOrASecondIsolation() {
+        service.isolate("VM-a", "PRJ-1", null, "tester");
+        final var first = ack("quarantine", true, "confirmed", List.of(), List.of());
+        service.recordAck("VM-a", first);
+        assertEquals(true, service.topologyState("PRJ-1", "VM-a", "10.0.1.0/24").get("quarantined"));
+        service.release("VM-a", "tester");
+        service.recordAck("VM-a", first);
+        assertEquals("PENDING", service.history("VM-a").getFirst().get("status"));
+        assertEquals(true, service.topologyState("PRJ-1", "VM-a", "10.0.1.0/24").get("quarantined"));
+        service.recordAck("VM-a", ack("release", false, "failed", List.of(), List.of()));
+        assertEquals("FAILED", service.topologyState("PRJ-1", "VM-a", "10.0.1.0/24").get("quarantine_status"));
+        service.recordAck("VM-a", ack("release", true, "restored", List.of(), List.of()));
+        assertEquals(false, service.topologyState("PRJ-1", "VM-a", "10.0.1.0/24").get("quarantined"));
+        service.isolate("VM-a", "PRJ-1", null, "tester");
+        service.recordAck("VM-a", first);
+        assertNull(service.listActive("PRJ-1").getFirst().get("applied"));
+        assertEquals(false, service.topologyState("PRJ-1", "VM-a", "10.0.1.0/24").get("quarantined"));
+    }
+
+    @Test
+    void subnetReleaseRequiresTheNewSnapshotRevisionEvenWhenTheTargetListIsEmpty() {
+        service.isolate("GNS3.Firewall", null, "PRJ-1", null, "tester", "10.0.9.0/24");
+        final var applied = JsonMapper.builder().build().createObjectNode();
+        applied.put("action", "subnet-quarantine"); applied.put("ok", true);
+        applied.put("revision", service.planRevision("GNS3.Firewall"));
+        service.recordAck("GNS3.Firewall", applied);
+        assertEquals(true, service.topologyState("PRJ-1", "GNS3.Firewall", "10.0.9.0/24").get("quarantined"));
+        service.release("GNS3.Firewall", null, "tester", "10.0.9.0/24");
+        service.recordAck("GNS3.Firewall", applied);
+        assertEquals("PENDING", service.history("GNS3.Firewall").getFirst().get("status"));
+        applied.put("revision", service.planRevision("GNS3.Firewall"));
+        service.recordAck("GNS3.Firewall", applied);
+        assertEquals(false, service.topologyState("PRJ-1", "GNS3.Firewall", "10.0.9.0/24").get("quarantined"));
+        assertEquals("APPLIED", service.history("GNS3.Firewall").getFirst().get("status"));
+    }
+
+    @Test
+    void apiOnlyFirewallRejectsUnsupportedEnforcementInsteadOfReportingQueuedOrApplied() {
+        service.setApiCredentials(of(org.sonar.sonarvalidator_backend.Repository.OPNsenseCredentialRepository.class,
+                (method, args) -> "existsByNodeId".equals(method) ? true : UNHANDLED));
+        final var result = service.isolate("GNS3.Firewall", 7, "PRJ-1", null, "tester", "10.0.9.0/24");
+        assertEquals(true, result.get("rejected"));
+        assertEquals(false, result.get("applied"));
+        assertTrue(quarantineRows.isEmpty());
+    }
+
+    @Test
+    void aNewRequestDoesNotForgetPreviouslyConfirmedBlockingWhileReleaseIsPending() {
+        service.isolate("VM-a", "PRJ-1", null, "tester");
+        service.recordAck("VM-a", ack("quarantine", true, "confirmed", List.of(), List.of()));
+        service.release("VM-a", "tester");
+        service.isolate("VM-a", "PRJ-1", null, "tester");
+        final var state = service.topologyState("PRJ-1", "VM-a", "10.0.1.0/24");
+        assertEquals(true, state.get("quarantined"));
+        assertEquals("PENDING", state.get("quarantine_status"));
+    }
+
+    private JsonNode ack(String action, boolean ok, String detail,
                                 List<String> affected, List<String> preserved) {
         final var node = JsonMapper.builder().build().createObjectNode();
         if (action != null) {
             node.put("action", action);
         }
+        if (!quarantineRows.isEmpty()) node.put("request_id", quarantineRows.getLast().getRequestId());
         node.put("ok", ok);
         node.put("detail", detail);
         final var affectedArray = node.putArray("affected");

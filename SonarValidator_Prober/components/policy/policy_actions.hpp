@@ -19,7 +19,6 @@ private:
     bool RunCommand(const std::string& command) { return device_.RunCommand(command); }
     std::string RunCommandOutput(const std::string& command) { return device_.RunCommandOutput(command); }
     std::string ExecuteIosCli(const std::vector<std::string>& commands) { return device_.ExecuteIosCli(commands); }
-    std::string CliCommand(const std::vector<std::string>& argv, const std::string& command) { return device_.CliCommand(argv, command); }
     bool ApplyCiscoRouterAcl(const nlohmann::json& policy);
     bool ApplyFrrRouterAcl(const nlohmann::json& policy);
     bool ApplyOpenVSwitchAcl(const nlohmann::json& policy);

@@ -1,9 +1,12 @@
+#include "components/policy/ios_acl_target.hpp"
+#include "utils/log.hpp"
 #include <algorithm>
 #include "components/policy/policy_actions.hpp"
 #include "components/policy/policy_executor.hpp"
 #include "components/policy/policy_json.hpp"
 #include "components/policy/acl_commands.hpp"
 #include "components/terminal/ios_snapshot.hpp"
+#include "components/terminal/arista_cli.hpp"
 #include "utils/runtime_environment.hpp"
 #include <chrono>
 #include <cctype>
@@ -33,262 +36,9 @@ constexpr auto ReadAclName = &acl::ReadName;
 
 constexpr auto ReadApplyTarget = &acl::ReadApplyTarget;
 
-std::string IosApplyDir()
-{
-    return runtime_environment::DataDirectory() + "/ios_apply";
-}
-
-std::string Fingerprint(const std::string& text)
-{
-    unsigned long long hash = 5381ULL;
-    for (const unsigned char ch : text)
-    {
-        hash = (hash * 33ULL) ^ ch;
-    }
-    char buffer[17]{};
-    std::snprintf(buffer, sizeof(buffer), "%016llx", hash);
-    return buffer;
-}
-
-std::string ReadStateValue(const std::string& path, const std::string& key)
-{
-    std::ifstream input(path);
-    if (!input)
-    {
-        return {};
-    }
-    const std::string prefix = key + "=";
-    std::string line;
-    while (std::getline(input, line))
-    {
-        if (line.rfind(prefix, 0) == 0)
-        {
-            return line.substr(prefix.size());
-        }
-    }
-    return {};
-}
-
-bool WriteIosAclRequest(const std::vector<std::string>& commands)
-{
-    const std::string dir = IosApplyDir();
-    if (::mkdir(dir.c_str(), 0775) != 0 && errno != EEXIST)
-    {
-        std::cerr << "[POLICY] cannot create IOS apply dir: " << dir
-                  << " (" << std::strerror(errno) << ")\n";
-        return false;
-    }
-
-    std::string body;
-    for (const auto& command : commands)
-    {
-        body += command;
-        body += '\n';
-    }
-
-    const std::string target = dir + "/acl_desired.cmd";
-    const std::string tmp = target + ".tmp";
-    {
-        std::ofstream output(tmp, std::ios::trunc);
-        if (!output)
-        {
-            std::cerr << "[POLICY] cannot write IOS apply file: " << tmp << '\n';
-            return false;
-        }
-        output << "# fingerprint=" << Fingerprint(body) << '\n';
-        output << body;
-        output.flush();
-        if (!output)
-        {
-            std::cerr << "[POLICY] IOS apply file write failed: " << tmp << '\n';
-            return false;
-        }
-    }
-    if (std::rename(tmp.c_str(), target.c_str()) != 0)
-    {
-        std::cerr << "[POLICY] cannot publish IOS apply file: " << target << '\n';
-        return false;
-    }
-
-    const std::string applied = ReadStateValue(dir + "/acl_applied.state", "applied");
-    const std::string pending = ReadStateValue(dir + "/acl_applied.state", "pending");
-    const std::string desired = Fingerprint(body);
-    if (!pending.empty() && applied != pending)
-    {
-        std::cerr << "[POLICY] IOS ACL queued but device has NOT applied the previous "
-                     "request (EEM apply may be down): desired="
-                  << desired << " pending=" << pending << " applied=" << applied << '\n';
-    }
-    std::cout << "[POLICY] IOS ACL queued for EEM apply: fingerprint=" << desired
-              << " commands=" << commands.size() << '\n';
-    return true;
-}
-
-std::string ReadIosCliSnapshot(const std::string& script)
-{
-    return ios_snapshot::Read(runtime_environment::DataDirectory(), script);
-}
-
-bool ParseIpv4(const std::string& text, unsigned int& value)
-{
-    unsigned int address = 0;
-    int octets = 0;
-    int shift = 24;
-    std::size_t index = 0;
-
-    while (index <= text.size())
-    {
-        const std::size_t dot = text.find('.', index);
-        const std::string part = text.substr(
-            index, dot == std::string::npos ? std::string::npos : dot - index);
-        if (part.empty())
-        {
-            return false;
-        }
-        int octet = 0;
-        for (const char ch : part)
-        {
-            if (std::isdigit(static_cast<unsigned char>(ch)) == 0)
-            {
-                return false;
-            }
-            octet = (octet * 10) + (ch - '0');
-        }
-        if (octet > 255 || shift < 0)
-        {
-            return false;
-        }
-        address |= static_cast<unsigned int>(octet) << shift;
-        ++octets;
-        shift -= 8;
-
-        if (dot == std::string::npos)
-        {
-            break;
-        }
-        index = dot + 1;
-    }
-
-    if (octets != 4)
-    {
-        return false;
-    }
-    value = address;
-    return true;
-}
-
-bool IpInCidr(const std::string& address, const std::string& cidr)
-{
-    const std::size_t slash = cidr.find('/');
-    if (slash == std::string::npos)
-    {
-        return false;
-    }
-
-    unsigned int host = 0;
-    unsigned int base = 0;
-    if (!ParseIpv4(address, host) || !ParseIpv4(cidr.substr(0, slash), base))
-    {
-        return false;
-    }
-
-    int prefix = 0;
-    const std::string prefix_text = cidr.substr(slash + 1);
-    if (prefix_text.empty() || prefix_text.size() > 2)
-    {
-        return false;
-    }
-    for (const char ch : prefix_text)
-    {
-        if (std::isdigit(static_cast<unsigned char>(ch)) == 0)
-        {
-            return false;
-        }
-        prefix = (prefix * 10) + (ch - '0');
-    }
-    if (prefix > 32)
-    {
-        return false;
-    }
-
-    const unsigned int mask = (prefix == 0) ? 0u : (0xffffffffu << (32 - prefix));
-    return (host & mask) == (base & mask);
-}
-
-std::vector<std::pair<std::string, std::string>> ReadIosInterfaces()
-{
-    std::vector<std::pair<std::string, std::string>> interfaces;
-
-    const std::string snapshot = ReadIosCliSnapshot("show ip interface brief");
-    if (snapshot.empty())
-    {
-        return interfaces;
-    }
-
-    std::istringstream stream(snapshot);
-    std::string line;
-    bool header_seen = false;
-    while (std::getline(stream, line))
-    {
-        if (!header_seen)
-        {
-            header_seen = line.rfind("Interface", 0) == 0;
-            continue;
-        }
-        std::istringstream fields(line);
-        std::string name;
-        std::string address;
-        if (!(fields >> name >> address))
-        {
-            continue;
-        }
-        unsigned int ignored = 0;
-        if (!ParseIpv4(address, ignored))
-        {
-            continue;
-        }
-        interfaces.emplace_back(name, address);
-    }
-    return interfaces;
-}
-
-std::string ResolveIosBindInterface(const std::string& hint, const std::string& subnet_cidr)
-{
-    const auto interfaces = ReadIosInterfaces();
-    if (interfaces.empty())
-    {
-        std::cerr << "[POLICY] IOS interface table unavailable (EEM snapshot missing); "
-                     "ACL will be created without interface binding\n";
-        return {};
-    }
-
-    if (!subnet_cidr.empty())
-    {
-        for (const auto& [name, address] : interfaces)
-        {
-            if (IpInCidr(address, subnet_cidr))
-            {
-                std::cout << "[POLICY] IOS bind interface " << name << " (holds "
-                          << subnet_cidr << ")\n";
-                return name;
-            }
-        }
-    }
-
-    if (!hint.empty())
-    {
-        for (const auto& [name, address] : interfaces)
-        {
-            if (name == hint)
-            {
-                return name;
-            }
-        }
-        std::cerr << "[POLICY] server interface hint '" << hint
-                  << "' does not exist on this device; not binding\n";
-    }
-    return {};
-}
+using ios_acl_target::ParseIpv4;
+using ios_acl_target::IpInCidr;
+using ios_acl_target::ResolveIosBindInterface;
 
 std::string VtyshCommand(const std::vector<std::string>& lines)
 {
@@ -349,11 +99,11 @@ std::string PolicyActions::PrimaryInterface()
             continue;
         }
         primary_interface_ = name;
-        std::cout << "[POLICY] primary interface resolved: " << name << '\n';
+        SV_LOG_DEBUG << "[POLICY] primary interface resolved: " << name << '\n';
         return primary_interface_;
     }
 
-    std::cerr << "[POLICY] could not resolve primary interface\n";
+    SV_LOG_WARN << "[POLICY] could not resolve primary interface\n";
     return {};
 }
 
@@ -380,7 +130,7 @@ bool PolicyActions::ApplyAddressesWithIp(const Json& policy,
         const Json& settings = entry.value();
         if (!settings.is_object() || name.empty())
         {
-            std::cerr << "[POLICY] skipping unresolvable interface '" << entry.key() << "'\n";
+            SV_LOG_WARN << "[POLICY] skipping unresolvable interface '" << entry.key() << "'\n";
             all_ok = false;
             continue;
         }
@@ -391,19 +141,19 @@ bool PolicyActions::ApplyAddressesWithIp(const Json& policy,
                 "ip addr replace " + address + " dev " + name;
             if (!RunCommand(script))
             {
-                std::cerr << "[POLICY] failed to set address " << address
+                SV_LOG_WARN << "[POLICY] failed to set address " << address
                           << " on " << name << '\n';
                 all_ok = false;
             }
             else
             {
-                std::cout << "[POLICY] address " << address << " on " << name << '\n';
+                SV_LOG_DEBUG << "[POLICY] address " << address << " on " << name << '\n';
             }
         }
 
         if (!RunCommand("ip link set " + name + " up"))
         {
-            std::cerr << "[POLICY] failed to bring up " << name << '\n';
+            SV_LOG_WARN << "[POLICY] failed to bring up " << name << '\n';
             all_ok = false;
         }
 
@@ -422,13 +172,13 @@ bool PolicyActions::ApplyAddressesWithIp(const Json& policy,
                     "ip route replace " + to + " via " + via + " dev " + name;
                 if (!RunCommand(script))
                 {
-                    std::cerr << "[POLICY] failed to add route " << to
+                    SV_LOG_WARN << "[POLICY] failed to add route " << to
                               << " via " << via << '\n';
                     all_ok = false;
                 }
                 else
                 {
-                    std::cout << "[POLICY] route " << to << " via " << via << '\n';
+                    SV_LOG_DEBUG << "[POLICY] route " << to << " via " << via << '\n';
                 }
             }
         }
@@ -468,7 +218,7 @@ bool PolicyActions::ApplyOpenVSwitchPolicy(const Json& policy)
             const std::string bridge = ReadApplyTarget(policy);
             if (src.empty() || dst.empty() || bridge.empty())
             {
-                std::cerr << "[POLICY] OVS ACL needs source/destination/bridge\n";
+                SV_LOG_WARN << "[POLICY] OVS ACL needs source/destination/bridge\n";
                 return false;
             }
 
@@ -511,7 +261,7 @@ bool PolicyActions::ApplyOpenVSwitchPolicy(const Json& policy)
             const std::string bridge = ReadApplyTarget(policy);
             if (bridge.empty())
             {
-                std::cerr << "[POLICY] OVS ACL remove without bridge name\n";
+                SV_LOG_WARN << "[POLICY] OVS ACL remove without bridge name\n";
                 return false;
             }
             return RunCommand("ovs-ofctl -O OpenFlow13 del-flows " + bridge +
@@ -520,7 +270,8 @@ bool PolicyActions::ApplyOpenVSwitchPolicy(const Json& policy)
     }
     if (command == "get")
     {
-        std::cout << RunCommandOutput("ovs-vsctl show");
+        const auto diagnostic_output = RunCommandOutput("ovs-vsctl show");
+        SV_LOG_DEBUG << diagnostic_output;
         return true;
     }
     if (command == "apply")
@@ -535,36 +286,45 @@ bool PolicyActions::ApplyOpenVSwitchAcl(const Json& policy)
     const std::string bridge = ReadApplyTarget(policy);
     if (bridge.empty())
     {
-        std::cerr << "[POLICY] OVS ACL apply without bridge name\n";
+        SV_LOG_WARN << "[POLICY] OVS ACL apply without bridge name\n";
         return false;
     }
 
     const std::vector<AclEntry> entries = ReadAclEntries(policy);
 
-    const std::string delete_command =
-        "ovs-ofctl -O OpenFlow13 del-flows " + bridge + " cookie=" + kAclCookie + "/-1";
-    if (!RunCommand(delete_command))
-    {
-        std::cerr << "[POLICY] OVS flow cleanup failed on bridge " << bridge << '\n';
+    std::string bundle = "flow delete cookie=" + std::string(kAclCookie) + "/0xffffffffffffffff\n";
+    for (const auto& entry : entries) {
+        bundle += "flow add cookie=" + std::string(kAclCookie) + ",priority=" + std::to_string(kAclPriority)
+            + ",ip,nw_src=" + entry.source + ",nw_dst=" + entry.destination + ",actions=drop\n";
+    }
+    if (!RunCommand("printf %s " + ShellQuote(bundle) + " | ovs-ofctl -O OpenFlow14 bundle "
+                    + ShellQuote(bridge) + " -")) {
+        SV_LOG_WARN << "OVS 정책 교체 실패: 기존 flow 유지";
         return false;
     }
-
-    for (const auto& entry : entries)
-    {
-        const std::string add_command =
-            "ovs-ofctl -O OpenFlow13 add-flow " + bridge +
-            " cookie=" + kAclCookie + ",priority=" + std::to_string(kAclPriority) +
-            ",ip,nw_src=" + entry.source + ",nw_dst=" + entry.destination +
-            ",actions=drop";
-        if (!RunCommand(add_command))
-        {
-            std::cerr << "[POLICY] OVS flow add failed: " << entry.source << " -> "
-                      << entry.destination << '\n';
-            return false;
-        }
+    const auto observed = RunCommandOutput("ovs-ofctl -O OpenFlow14 dump-flows " + ShellQuote(bridge)
+                                          + " cookie=" + kAclCookie + "/0xffffffffffffffff");
+    if (observed.empty()) return false;
+    std::vector<std::string> flows;
+    std::istringstream flowOutput(observed);
+    std::string line;
+    while (std::getline(flowOutput, line))
+        if (line.find("cookie=") != std::string::npos) flows.push_back(line);
+    if (flows.size() != entries.size()) return false;
+    const auto ovsAddress = [](std::string cidr) {
+        if (cidr.ends_with("/32")) cidr.resize(cidr.size() - 3);
+        return cidr;
+    };
+    for (const auto& entry : entries) {
+        const bool present = std::any_of(flows.begin(), flows.end(), [&](const auto& flow) {
+            return flow.find("nw_src=" + ovsAddress(entry.source) + ",") != std::string::npos
+                && flow.find("nw_dst=" + ovsAddress(entry.destination) + " ") != std::string::npos
+                && flow.find("actions=drop") != std::string::npos;
+        });
+        if (!present) return false;
     }
 
-    std::cout << "[POLICY] OVS ACL applied: bridge=" << bridge
+    SV_LOG_DEBUG << "[POLICY] OVS ACL applied: bridge=" << bridge
               << " entries=" << entries.size() << '\n';
     return true;
 }
@@ -573,42 +333,46 @@ bool PolicyActions::ApplyAristaSwitchPolicy(const Json& policy)
 {
     const std::string command = policy_json::AsString(policy, "command");
     const std::string interface = policy_json::AsString(policy, "interface",
-                                                        policy_json::AsString(policy, "port"));
-
-    if (command == "on")
+                                                       policy_json::AsString(policy, "port"));
+    std::vector<std::string> commands{"configure terminal"};
+    if (command == "on" || command == "off")
     {
-        return !CliCommand({"FastCli"}, "enable\nconfigure\ninterface " + interface + "\nno shutdown").empty();
+        if (!arista_cli::ValidName(interface)) return false;
+        commands.push_back("interface " + interface);
+        commands.push_back(command == "on" ? "no shutdown" : "shutdown");
     }
-    if (command == "off")
+    else if (command == "create")
     {
-        return !CliCommand({"FastCli"}, "enable\nconfigure\ninterface " + interface + "\nshutdown").empty();
-    }
-    if (command == "create")
-    {
-        const std::string vlan_id = policy_json::AsString(policy, "vlan_id");
-        if (!vlan_id.empty())
+        const std::string vlan = policy_json::AsString(policy, "vlan_id");
+        if (!vlan.empty())
         {
-            return !CliCommand({"FastCli"}, "enable\nconfigure\nvlan " + vlan_id).empty();
+            if (!arista_cli::ValidVlan(vlan)) return false;
+            commands.push_back("vlan " + vlan);
         }
-
-        const std::string acl_name = policy_json::AsString(policy, "acl_name");
-        if (!acl_name.empty())
+        else
         {
-            return !CliCommand({"FastCli"}, "enable\nconfigure\nip access-list " + acl_name).empty();
+            const std::string acl = policy_json::AsString(policy, "acl_name");
+            if (!arista_cli::ValidName(acl)) return false;
+            commands.push_back("ip access-list " + acl);
         }
     }
-    if (command == "get")
+    else if (command == "get")
     {
-        std::cout << CliCommand({"FastCli"}, "show running-config");
+        const std::string output = device_.QueryAristaCli("show running-config");
+        if (output.empty()) return false;
+        SV_LOG_DEBUG << output;
         return true;
     }
-    return false;
+    else return false;
+
+    commands.push_back("end");
+    return RunCommand(arista_cli::BuildCommand(commands));
 }
 
 bool PolicyActions::ApplyCiscoSwitchPolicy(const Json& policy)
 {
     (void)policy;
-    std::cerr << "[POLICY] Cisco switch is not supported yet (only Cisco 8000v)\n";
+    SV_LOG_WARN << "[POLICY] Cisco switch is not supported yet (only Cisco 8000v)\n";
     return false;
 }
 
@@ -679,7 +443,8 @@ bool PolicyActions::ApplyCiscoRouterPolicy(const Json& policy)
             {
                 for (const auto& syntax : policy_json::AsStringList(target, "command_syntax"))
                 {
-                    std::cout << ExecuteIosCli({syntax});
+                    const auto diagnostic_output = ExecuteIosCli({syntax});
+                    SV_LOG_DEBUG << diagnostic_output;
                 }
             }
             return true;
@@ -701,34 +466,43 @@ bool PolicyActions::ApplyCiscoRouterAcl(const Json& policy)
     const std::string acl_name = ReadAclName(policy);
     if (acl_name.empty())
     {
-        std::cerr << "[POLICY] IOS ACL apply without rule_target.acl_name\n";
+        SV_LOG_WARN << "[POLICY] IOS ACL apply without rule_target.acl_name\n";
         return false;
     }
 
     const std::string hint = ReadApplyTarget(policy);
     const std::string subnet_cidr = policy_json::AsString(policy, "subnet_cidr");
 
-    const std::string interface_name = ResolveIosBindInterface(hint, subnet_cidr);
+    const std::string interface_name = ResolveIosBindInterface(
+        ExecuteIosCli({"show ip interface brief"}), hint, subnet_cidr);
+    if (interface_name.empty()) {
+        SV_LOG_WARN << "Cisco ACL 거부: 적용 인터페이스를 하나로 확인할 수 없음";
+        return false;
+    }
     const std::vector<AclEntry> entries = ReadAclEntries(policy);
 
     const std::vector<std::string> commands =
         acl::BuildIosAclCommands(acl_name, interface_name, entries);
 
     const std::string output = ExecuteIosCli(commands);
-    if (output.empty())
-    {
-        if (WriteIosAclRequest(commands))
-        {
-            std::cerr << "[POLICY] IOS ACL request queued; device application is unconfirmed\n";
-            return false;
-        }
-        std::cerr << "[POLICY] IOS ACL apply failed: acl=" << acl_name
-                  << " entries=" << entries.size() << " (direct and queued both failed)\n";
-        return false;
+    if (output.empty()) return false;
+    const auto binding = ExecuteIosCli({"show running-config interface " + interface_name});
+    if (binding.empty()) return false;
+    const bool bound = binding.find("ip access-group " + acl_name + " in") != std::string::npos;
+    if (entries.empty()) return !bound;
+    if (!bound) return false;
+    const auto observed = ExecuteIosCli({"show ip access-lists " + acl_name});
+    if (observed.empty() || observed.find("permit ip any any") == std::string::npos) return false;
+    const auto endpoint = [](const std::string& address, const std::string& wildcard) {
+        if (wildcard == "255.255.255.255") return std::string("any");
+        if (wildcard == "0.0.0.0") return std::string("host ") + address;
+        return address + " " + wildcard;
+    };
+    for (const auto& entry : entries) {
+        const auto expected = "deny ip " + endpoint(entry.source, entry.source_wildcard)
+            + " " + endpoint(entry.destination, entry.destination_wildcard);
+        if (observed.find(expected) == std::string::npos) return false;
     }
-    std::cout << "[POLICY] IOS ACL applied directly: acl=" << acl_name
-              << " entries=" << entries.size()
-              << " interface=" << (interface_name.empty() ? "<none>" : interface_name) << '\n';
     return true;
 }
 
@@ -779,7 +553,8 @@ bool PolicyActions::ApplyFrrRouterPolicy(const Json& policy)
     }
     if (command == "get")
     {
-        std::cout << RunCommandOutput("vtysh -c 'show ip route'");
+        const auto diagnostic_output = RunCommandOutput("vtysh -c 'show ip route'");
+        SV_LOG_DEBUG << diagnostic_output;
         return true;
     }
     if (command == "apply")
@@ -801,7 +576,7 @@ bool PolicyActions::ApplyFrrRouterAcl(const Json& policy)
     const std::string acl_name = ReadAclName(policy);
     if (acl_name.empty())
     {
-        std::cerr << "[POLICY] FRR ACL apply without rule_target.acl_name\n";
+        SV_LOG_WARN << "[POLICY] FRR ACL apply without rule_target.acl_name\n";
         return false;
     }
 
@@ -813,11 +588,11 @@ bool PolicyActions::ApplyFrrRouterAcl(const Json& policy)
     const bool ok = RunCommand(VtyshCommand(lines));
     if (!ok)
     {
-        std::cerr << "[POLICY] FRR ACL apply failed: acl=" << acl_name
+        SV_LOG_WARN << "[POLICY] FRR ACL apply failed: acl=" << acl_name
                   << " entries=" << entries.size() << '\n';
         return false;
     }
-    std::cout << "[POLICY] FRR ACL applied: acl=" << acl_name
+    SV_LOG_DEBUG << "[POLICY] FRR ACL applied: acl=" << acl_name
               << " entries=" << entries.size() << '\n';
     return true;
 }
@@ -831,7 +606,7 @@ bool PolicyActions::ApplyNftablesPolicy(const Json& policy)
         const std::string log_feature = policy_json::AsString(policy, "log_feature");
         if (!log_feature.empty())
         {
-            std::cerr << "[POLICY] nftables log feature requested: " << log_feature << '\n';
+            SV_LOG_WARN << "[POLICY] nftables log feature requested: " << log_feature << '\n';
             return true;
         }
 
@@ -921,7 +696,8 @@ bool PolicyActions::ApplyNftablesPolicy(const Json& policy)
     }
     if (command == "get")
     {
-        std::cout << RunCommandOutput("nft list ruleset");
+        const auto diagnostic_output = RunCommandOutput("nft list ruleset");
+        SV_LOG_DEBUG << diagnostic_output;
         return true;
     }
     return false;
@@ -942,7 +718,7 @@ bool PolicyActions::ApplyVmPolicy(const Json& policy)
 
     if (interface.empty())
     {
-        std::cerr << "[POLICY] VM policy has no interface\n";
+        SV_LOG_WARN << "[POLICY] VM policy has no interface\n";
         return false;
     }
 
@@ -956,7 +732,8 @@ bool PolicyActions::ApplyVmPolicy(const Json& policy)
     }
     if (command == "get")
     {
-        std::cout << RunCommandOutput("ip addr show " + interface);
+        const auto diagnostic_output = RunCommandOutput("ip addr show " + interface);
+        SV_LOG_DEBUG << diagnostic_output;
         return true;
     }
     return false;
@@ -967,14 +744,14 @@ bool PolicyActions::ApplyNetplanPolicy(const Json& policy, const std::string& co
     const auto config = policy.find("network_config");
     if (config == policy.end() || !config->is_object())
     {
-        std::cerr << "[POLICY] netplan policy has no network_config\n";
+        SV_LOG_WARN << "[POLICY] netplan policy has no network_config\n";
         return false;
     }
 
     const auto ethernets = config->find("ethernets");
     if (ethernets == config->end() || !ethernets->is_object() || ethernets->empty())
     {
-        std::cerr << "[POLICY] netplan network_config has no ethernets\n";
+        SV_LOG_WARN << "[POLICY] netplan network_config has no ethernets\n";
         return false;
     }
 
@@ -997,7 +774,7 @@ bool PolicyActions::ApplyNetplanPolicy(const Json& policy, const std::string& co
 
     if (!HasCommand("netplan"))
     {
-        std::cout << "[POLICY] netplan not installed; applying addresses via ip\n";
+        SV_LOG_INFO << "[POLICY] netplan not installed; applying addresses via ip\n";
         return ApplyAddressesWithIp(policy, ethernets, command);
     }
 
@@ -1072,11 +849,11 @@ bool PolicyActions::ApplyNetplanPolicy(const Json& policy, const std::string& co
     const bool ok = RunCommand(script);
     if (ok)
     {
-        std::cout << "[POLICY] netplan policy applied (" << target << ")\n";
+        SV_LOG_DEBUG << "[POLICY] netplan policy applied (" << target << ")\n";
     }
     else
     {
-        std::cerr << "[POLICY] netplan policy failed; keeping previous config\n";
+        SV_LOG_WARN << "[POLICY] netplan policy failed; keeping previous config\n";
     }
     return ok;
 }

@@ -3,6 +3,7 @@ package org.sonar.sonarvalidator_backend.Service;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
@@ -15,11 +16,11 @@ public class AgentTelemetryStore {
 
     private final Map<String, JsonNode> lastTelemetry = new ConcurrentHashMap<>();
 
-    private final Map<String, NeutralDeviceConfig> lastConfig = new ConcurrentHashMap<>();
+    private record AcceptedSnapshot(JsonNode payload, NeutralDeviceConfig config, boolean offline, Instant observedAt) {}
+
+    private final Map<String, AcceptedSnapshot> accepted = new ConcurrentHashMap<>();
 
     private final Map<String, Instant> lastSeen = new ConcurrentHashMap<>();
-
-    private final Set<String> offlineOrigins = ConcurrentHashMap.newKeySet();
 
     //  기록
 
@@ -40,16 +41,29 @@ public class AgentTelemetryStore {
         if (agentId == null) {
             return;
         }
-        lastConfig.put(agentId, config);
-        offlineOrigins.remove(agentId);
+        accepted.compute(agentId, (id, previous) -> new AcceptedSnapshot(
+                previous == null ? null : previous.payload(), config, false, Instant.now()));
     }
 
     public void putOfflineConfig(String agentId, NeutralDeviceConfig config) {
-        if (agentId == null) {
-            return;
-        }
-        lastConfig.put(agentId, config);
-        offlineOrigins.add(agentId);
+        if (agentId == null) return;
+        accepted.compute(agentId, (id, previous) -> new AcceptedSnapshot(
+                previous == null ? null : previous.payload(), config, true, Instant.now()));
+    }
+
+    public void putAcceptedSnapshot(String agentId, JsonNode payload, NeutralDeviceConfig config, boolean offline) {
+        accepted.put(agentId, new AcceptedSnapshot(payload.deepCopy(), config, offline, Instant.now()));
+        putTelemetry(agentId, payload);
+    }
+
+    public Instant observedAtOf(String agentId) {
+        final var snapshot = accepted.get(agentId);
+        return snapshot == null ? null : snapshot.observedAt();
+    }
+
+    public JsonNode acceptedPayloadOf(String agentId) {
+        final var snapshot = accepted.get(agentId);
+        return snapshot == null ? null : snapshot.payload();
     }
 
     //  조회
@@ -59,11 +73,13 @@ public class AgentTelemetryStore {
     }
 
     public NeutralDeviceConfig configOf(String agentId) {
-        return lastConfig.get(agentId);
+        final var snapshot = accepted.get(agentId);
+        return snapshot == null ? null : snapshot.config();
     }
 
     public Map<String, NeutralDeviceConfig> allConfigs() {
-        return Map.copyOf(lastConfig);
+        return accepted.entrySet().stream().collect(Collectors.toUnmodifiableMap(
+                Map.Entry::getKey, entry -> entry.getValue().config()));
     }
 
     public Set<String> allTelemetryAgentIds() {
@@ -75,7 +91,8 @@ public class AgentTelemetryStore {
     }
 
     public boolean isOfflineOrigin(String agentId) {
-        return offlineOrigins.contains(agentId);
+        final var snapshot = accepted.get(agentId);
+        return snapshot != null && snapshot.offline();
     }
 
 
@@ -84,10 +101,9 @@ public class AgentTelemetryStore {
             return false;
         }
         final boolean telemetry = lastTelemetry.remove(agentId) != null;
-        final boolean config = lastConfig.remove(agentId) != null;
+        final boolean config = accepted.remove(agentId) != null;
         final boolean seen = lastSeen.remove(agentId) != null;
-        final boolean offline = offlineOrigins.remove(agentId);
-        return telemetry || config || seen || offline;
+        return telemetry || config || seen;
     }
 
     public int pruneUnseenSince(Instant cutoff) {
@@ -107,7 +123,7 @@ public class AgentTelemetryStore {
 
     public String summary() {
         return "telemetry=" + lastTelemetry.size()
-                + " config=" + lastConfig.size()
-                + " offline=" + offlineOrigins.size();
+                + " config=" + accepted.size()
+                + " offline=" + accepted.values().stream().filter(AcceptedSnapshot::offline).count();
     }
 }

@@ -14,13 +14,17 @@ public record PolicyAdviceAnswer(String riskLevel,
                                  List<String> evidence,
                                  boolean needsMoreData,
                                  boolean structured,
-                                 String raw) {
+                                 String raw, List<AdviceCommandProposal> commands) {
+
+    public PolicyAdviceAnswer(String riskLevel, String summary, String rootCause, String policyAdvice,
+            List<PolicyAdviceOption> options, List<String> evidence, boolean needsMoreData, boolean structured, String raw) {
+        this(riskLevel, summary, rootCause, policyAdvice, options, evidence, needsMoreData, structured, raw, List.of());
+    }
 
     private static final int MAX_STORED_RAW = 30_000;
 
     public static PolicyAdviceAnswer unstructured(String raw) {
-        return new PolicyAdviceAnswer(null, null, null, null,
-                List.of(), List.of(), false, false, raw);
+        return new PolicyAdviceAnswer(null, null, null, null, List.of(), List.of(), false, false, raw, List.of());
     }
 
     public Map<String, Object> toView() {
@@ -41,6 +45,7 @@ public record PolicyAdviceAnswer(String riskLevel,
             optionViews.add(entry);
         }
         view.put("options", optionViews);
+        view.put("command_proposals", commands.stream().map(AdviceCommandProposal::toView).toList());
         view.put("evidence", evidence);
         view.put("needs_more_data", needsMoreData);
         view.put("structured", structured);

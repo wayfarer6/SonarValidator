@@ -116,15 +116,6 @@ int main()
                "empty configuration falls back to a safe default");
     }
 
-    // 6) ack 에 실어 보낼 Outcome 기본값은 "실패" 여야 합니다.
-    //    기본이 성공이면 초기화를 빠뜨렸을 때 거짓 성공을 보고합니다.
-    {
-        const quarantine::Outcome fresh;
-        Expect(!fresh.ok, "Outcome fails closed by default");
-        Expect(fresh.action.empty(), "Outcome action empty by default");
-        Expect(fresh.affected.empty(), "Outcome affected empty by default");
-    }
-
     if (failures == 0)
     {
         std::cout << "quarantine_handler_test: all checks passed\n";

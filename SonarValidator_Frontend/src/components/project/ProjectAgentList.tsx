@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useApi } from "../../hooks/useApi";
-import { deleteExpectedAgent, listAgentOverview } from "../../lib/api";
+import { listAgentOverview } from "../../lib/api";
 
-const NodeConnectionModal = lazy(() => import("./NodeConnectionModal"));
+const NodeSettingsModal = lazy(() => import("./NodeSettingsModal"));
 
 const AgentTerminal = lazy(() => import("./AgentTerminal"));
 
@@ -10,42 +10,15 @@ export default function ProjectAgentList({ projectId }: { projectId: string }) {
   const { data, loading, error, reload } = useApi(
     () => listAgentOverview(projectId),
     [projectId],
+    15000,
   );
-  useEffect(() => {
-    const timer = window.setInterval(reload, 15000);
-    return () => window.clearInterval(timer);
-  }, [reload]);
-  const [removing, setRemoving] = useState<string | null>(null);
-  const [removeError, setRemoveError] = useState<string | null>(null);
-  const [connectionAgentId, setConnectionAgentId] = useState<string | null>(null);
+  const [settingsAgentId, setSettingsAgentId] = useState<string | null>(null);
   const [terminalAgentId, setTerminalAgentId] = useState<string | null>(null);
 
   const projectAgents = (data?.agents ?? []).filter(
     (agent) => agent.expected && agent.project_id === projectId,
   );
 
-  const removeAgent = async (agentId: string) => {
-    if (
-      !window.confirm(
-        `${agentId}를 이 프로젝트의 Agent 목록에서 제거할까요?\n실행 중인 연결과 수집 이력은 유지됩니다.`,
-      )
-    ) {
-      return;
-    }
-
-    setRemoving(agentId);
-    setRemoveError(null);
-    try {
-      await deleteExpectedAgent(agentId, projectId);
-      reload();
-    } catch (cause) {
-      setRemoveError(
-        cause instanceof Error ? cause.message : "프로젝트에서 Agent를 제거하지 못했습니다.",
-      );
-    } finally {
-      setRemoving(null);
-    }
-  };
 
   return (
     <section className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700">
@@ -76,22 +49,18 @@ export default function ProjectAgentList({ projectId }: { projectId: string }) {
           Agent 목록을 불러오지 못했습니다: {error}
         </p>
       )}
-      {removeError && (
-        <p className="mb-2 text-xs text-error-600 dark:text-error-400">
-          {removeError}
-        </p>
-      )}
       {!loading && !error && projectAgents.length === 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400">
           이 프로젝트에 등록된 Agent가 없습니다. Add Agent에서 Agent를 등록하고 다운로드하세요.
         </p>
       )}
 
-      {connectionAgentId && <Suspense fallback={<p>연결 관리 화면을 여는 중...</p>}>
-        <NodeConnectionModal projectId={projectId} agentId={connectionAgentId}
-          expectedIp={projectAgents.find(agent => agent.agent_id === connectionAgentId)?.expected_ip}
-          connected={Boolean(projectAgents.find(agent => agent.agent_id === connectionAgentId)?.connected)}
-          onClose={() => setConnectionAgentId(null)} />
+      {settingsAgentId && <Suspense fallback={<p>노드 설정을 여는 중...</p>}>
+        <NodeSettingsModal projectId={projectId} agentId={settingsAgentId}
+          expectedIp={projectAgents.find(agent => agent.agent_id === settingsAgentId)?.expected_ip}
+          connected={Boolean(projectAgents.find(agent => agent.agent_id === settingsAgentId)?.connected)}
+          onClose={() => setSettingsAgentId(null)} onSaved={reload}
+          onRemoved={() => { setSettingsAgentId(null); if (terminalAgentId === settingsAgentId) setTerminalAgentId(null); reload(); }} />
       </Suspense>}
 
       {projectAgents.length > 0 && (
@@ -109,14 +78,14 @@ export default function ProjectAgentList({ projectId }: { projectId: string }) {
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {agent.device_type ?? agent.node_type ?? "장치"} ·{" "}
-                    {agent.connected || agent.api_managed ? "온라인" : "오프라인"}
+                    {agent.connected || agent.api_managed ? "온라인" : "오프라인"} · 수집 설정 {agent.monitor_interval_seconds ?? 30}초
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button type="button" aria-label={`${agent.agent_id} 연결 관리`}
-                    onClick={() => setConnectionAgentId(agent.agent_id)}
+                  <button type="button" aria-label={`${agent.agent_id} 노드 설정`}
+                    onClick={() => setSettingsAgentId(agent.agent_id)}
                     className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-600">
-                    연결 관리
+                    노드 설정
                   </button>
                   <button
                     type="button"
@@ -129,14 +98,7 @@ export default function ProjectAgentList({ projectId }: { projectId: string }) {
                   >
                     {terminalAgentId === agent.agent_id ? "터미널 닫기" : "터미널 열기"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void removeAgent(agent.agent_id)}
-                    disabled={removing !== null}
-                    className="rounded-lg border border-error-300 px-3 py-1.5 text-xs font-medium text-error-600 hover:bg-error-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-error-500/40 dark:text-error-400 dark:hover:bg-error-500/10"
-                  >
-                    {removing === agent.agent_id ? "제거 중..." : "프로젝트에서 제거"}
-                  </button>
+
                 </div>
               </div>
               {terminalAgentId === agent.agent_id && (

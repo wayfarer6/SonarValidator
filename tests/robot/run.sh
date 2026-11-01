@@ -33,8 +33,32 @@ else
   headless=${SONAR_HEADLESS:-true}
 fi
 suite="$here/suites/lab_ui.robot"
+if [[ "$scenario" == deployment ]]; then
+  suite="$here/suites/agent_deployment.robot"
+  scenario=all
+fi
+if [[ "$scenario" == regressions ]]; then
+  suite="$here/suites/bug_regressions.robot"
+  scenario=all
+fi
+if [[ "$scenario" == features ]]; then
+  suite="$here/suites/lab_features.robot"
+  scenario=all
+fi
+if [[ "$scenario" == ai ]]; then
+  suite="$here/suites/ai_advice.robot"
+  scenario=all
+fi
 if [[ "$scenario" == shutdown ]]; then
   suite="$here/suites/prober_shutdown.robot"
+  scenario=all
+fi
+if [[ "$scenario" == isolation ]]; then
+  suite="$here/suites/isolation_topology.robot"
+  scenario=Q01_Isolate_Observe_And_Release
+fi
+if [[ "$scenario" == presentation ]]; then
+  suite="$here/suites/presentation_demo.robot"
   scenario=all
 fi
 run_id=$(date -u +%Y%m%dT%H%M%SZ)
@@ -43,8 +67,14 @@ labs=("$lab")
 status=0
 for item in "${labs[@]}"; do
   output=${ROBOT_OUTPUT_DIR:-$repo/test-results/robot/$run_id}/$item
+  [[ -z ${SONAR_ISOLATION_CASE_ID:-} ]] || output="$output/$SONAR_ISOLATION_CASE_ID"
   args=(--outputdir "$output" --name "SonarValidator-$item" --variable "LAB:$item"
     --variable "HEADLESS:$headless" --variable "SLOW_MO:$slow" --variable "STEP_PAUSE:$pause")
+  if [[ -n ${SONAR_ISOLATION_AGENT:-} ]]; then
+    args+=(--variable "ISOLATION_AGENT:$SONAR_ISOLATION_AGENT" --variable "ISOLATION_CIDR:${SONAR_ISOLATION_CIDR:-}"
+      --variable "PROBE_AGENT:$SONAR_ISOLATION_PROBE" --variable "PROBE_DESTINATION:$SONAR_ISOLATION_DESTINATION"
+      --variable "INTERFACE_DOWN:${SONAR_ISOLATION_INTERFACE_DOWN:-false}")
+  fi
   [[ "$scenario" == all ]] || args+=(--test "$scenario")
   "$venv/bin/robot" "${args[@]}" "$suite" || status=1
   echo "Report: $output/report.html"

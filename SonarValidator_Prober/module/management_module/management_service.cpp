@@ -1,9 +1,12 @@
+#include "utils/log.hpp"
 #include "module/management_module/management_service.hpp"
 #include "components/backend_communication/connect_with_timeout.hpp"
 #include "components/backend_communication/timed_websocket_operation.hpp"
 #include "components/terminal/command_runner.hpp"
 #include "components/terminal/ios_cli.hpp"
+#include "components/terminal/arista_cli.hpp"
 #include "components/terminal/ios_snapshot.hpp"
+#include "components/terminal/ios_eem_bridge.hpp"
 #include "utils/runtime_environment.hpp"
 #include <iostream>
 #include <utility>
@@ -13,14 +16,13 @@ using runtime_environment::ShellQuote;
 ManagementService::ManagementService() : ManagementService("", 0, "") {}
 
 ManagementService::ManagementService(std::string host, int port, std::string target)
-    : host_(std::move(host)), port_(port), target_(std::move(target)), ioc_(), resolver_(ioc_), stream_(ioc_), connected_(false)
+    : host_(std::move(host)), port_(port), target_(std::move(target)), ioc_(), resolver_(ioc_), stream_(std::make_unique<Stream>(ioc_)), connected_(false)
 {
 }
 
 ManagementService::~ManagementService()
 {
-    cli_session_.Close();
-    reader_.Reset(ioc_, stream_);
+    reader_.Reset(ioc_, *stream_);
 }
 
 bool ManagementService::connect()
@@ -32,27 +34,29 @@ bool ManagementService::connect()
             return false;
         }
 
-        reader_.Reset(ioc_, stream_);
+        reader_.Reset(ioc_, *stream_);
+        stream_ = std::make_unique<Stream>(ioc_);
         hello_sent_ = false;
         auto const results = resolver_.resolve(host_, std::to_string(port_));
 
         const boost::system::error_code ec =
-            sonar::net::ConnectWithTimeout(stream_, results, kConnectTimeout, stop_token_);
+            sonar::net::ConnectWithTimeout(*stream_, results, kConnectTimeout, stop_token_);
         if (ec)
         {
             throw boost::system::system_error(ec);
         }
 
-        sonar::net::HandshakeWithTimeout(ioc_, stream_, host_, target_, kHandshakeTimeout);
+        sonar::net::HandshakeWithTimeout(ioc_, *stream_, host_, target_, kHandshakeTimeout, stop_token_);
 
         connected_ = true;
+        SV_LOG_INFO << "관리 서버 연결: " << host_ << ':' << port_;
         return true;
     }
     catch (const std::exception& error)
     {
-        std::cerr << "[MGMT] connection failed: " << host_ << ':' << port_
+        SV_LOG_WARN << "[MGMT] connection failed: " << host_ << ':' << port_
                   << target_ << " (" << error.what() << ")\n";
-        reader_.Reset(ioc_, stream_);
+        reader_.Reset(ioc_, *stream_);
         connected_ = false;
         return false;
     }
@@ -72,7 +76,7 @@ bool ManagementService::SendEnvelope(const nlohmann::json& message)
 
     try
     {
-        sonar::net::WriteWithTimeout(ioc_, stream_, message.dump(), kConnectTimeout);
+        sonar::net::WriteWithTimeout(ioc_, *stream_, message.dump(), kConnectTimeout, stop_token_);
         return true;
     }
     catch (...)
@@ -84,9 +88,31 @@ bool ManagementService::SendEnvelope(const nlohmann::json& message)
 
 bool ManagementService::TryReceive(std::string& message, std::chrono::milliseconds timeout)
 {
+    if (!pending_commands_.empty()) {
+        message = std::move(pending_commands_.front());
+        pending_commands_.pop_front();
+        return true;
+    }
+    return ReadFrame(message, timeout);
+}
+
+bool ManagementService::PreserveCommand(const std::string& raw, const Json& message)
+{
+    if (!envelope::IsType(message, envelope::kCommand)) return true;
+    if (pending_commands_.size() >= 32) {
+        SV_LOG_WARN << "관리 명령 대기 한도 초과: 재접속 후 정책 재조회";
+        connected_ = false;
+        return false;
+    }
+    pending_commands_.push_back(raw);
+    return true;
+}
+
+bool ManagementService::ReadFrame(std::string& message, std::chrono::milliseconds timeout)
+{
     if (!connected_) return false;
     boost::system::error_code ec;
-    const bool received = reader_.ReadFor(ioc_, stream_, message, timeout, ec);
+    const bool received = reader_.ReadFor(ioc_, *stream_, message, timeout, ec);
     if (ec) connected_ = false;
     return received;
 }
@@ -127,21 +153,22 @@ nlohmann::json ManagementService::fetchPolicy(const DeviceType device_type,
         while (!stop_token.stop_requested() && connected_ &&
                std::chrono::steady_clock::now() < greeting_deadline)
         {
-            if (TryReceive(greeting, std::chrono::milliseconds(200))) { received = true; break; }
+            if (ReadFrame(greeting, std::chrono::milliseconds(200))) { received = true; break; }
         }
         if (received)
         {
             try
             {
                 const Json reply = Json::parse(greeting);
+                if (!PreserveCommand(greeting, reply)) return {};
                 if (envelope::IsType(reply, envelope::kError))
                 {
-                    std::cerr << "[MGMT] hello rejected: " << envelope::ErrorText(reply) << '\n';
+                    SV_LOG_WARN << "[MGMT] hello rejected: " << envelope::ErrorText(reply) << '\n';
                 }
             }
             catch (const std::exception&)
             {
-                std::cerr << "[MGMT] hello reply was not JSON\n";
+                SV_LOG_WARN << "[MGMT] hello reply was not JSON\n";
             }
         }
     }
@@ -166,7 +193,7 @@ nlohmann::json ManagementService::fetchPolicy(const DeviceType device_type,
         std::string raw;
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
             deadline - std::chrono::steady_clock::now());
-        if (!TryReceive(raw, std::min(remaining, std::chrono::milliseconds(200))))
+        if (!ReadFrame(raw, std::min(remaining, std::chrono::milliseconds(200))))
         {
             if (!connected_) break;
             continue;
@@ -179,19 +206,19 @@ nlohmann::json ManagementService::fetchPolicy(const DeviceType device_type,
         }
         catch (const std::exception&)
         {
-            std::cerr << "[MGMT] dropped non-JSON frame: " << raw << '\n';
+            SV_LOG_WARN << "관리 메시지 해석 실패: JSON 형식 오류" << '\n';
             continue;
         }
 
         if (envelope::CorrelationId(reply) != correlation_id)
         {
-            std::cout << "[MGMT] ignored out-of-band envelope: " << envelope::Type(reply) << '\n';
+            if (!PreserveCommand(raw, reply)) return {};
             continue;
         }
 
         if (envelope::IsType(reply, envelope::kError))
         {
-            std::cerr << "[MGMT] policy request failed: " << envelope::ErrorText(reply) << '\n';
+            SV_LOG_WARN << "[MGMT] policy request failed: " << envelope::ErrorText(reply) << '\n';
             return {};
         }
 
@@ -200,10 +227,10 @@ nlohmann::json ManagementService::fetchPolicy(const DeviceType device_type,
             return envelope::Payload(reply);
         }
 
-        std::cerr << "[MGMT] unexpected reply type: " << envelope::Type(reply) << '\n';
+        SV_LOG_WARN << "[MGMT] unexpected reply type: " << envelope::Type(reply) << '\n';
     }
 
-    std::cerr << "[MGMT] policy response timeout (correlation_id=" << correlation_id << ")\n";
+    SV_LOG_WARN << "정책 응답 대기 시간 초과";
     return {};
 }
 
@@ -235,12 +262,12 @@ bool ManagementService::RunCommand(const std::string& command)
         command_runner::RunWithStatus(command, kCommandTimeout, 4 * 1024 * 1024, stop_token_);
     if (!result.completed)
     {
-        std::cerr << "[COMMAND] execution timed out or failed to complete\n";
+        SV_LOG_WARN << "[COMMAND] execution timed out or failed to complete\n";
         return false;
     }
     if (result.exit_code != 0)
     {
-        std::cerr << "[COMMAND] execution failed with exit code " << result.exit_code << '\n';
+        SV_LOG_DEBUG << "[COMMAND] execution failed with exit code " << result.exit_code << '\n';
         return false;
     }
     return true;
@@ -252,11 +279,11 @@ std::string ManagementService::RunCommandOutput(const std::string& command)
         command_runner::RunWithStatus(command, kCommandTimeout, 4 * 1024 * 1024, stop_token_);
     if (!result.completed)
     {
-        std::cerr << "[COMMAND] output command timed out or failed to complete\n";
+        SV_LOG_WARN << "[COMMAND] output command timed out or failed to complete\n";
     }
     else if (result.exit_code != 0)
     {
-        std::cerr << "[COMMAND] output command failed with exit code "
+        SV_LOG_WARN << "[COMMAND] output command failed with exit code "
                   << result.exit_code << '\n';
     }
     return result.output;
@@ -268,10 +295,16 @@ bool ManagementService::ApplyPolicyCommand(const PolicyCommand& command) {
 
 std::string ManagementService::QueryAristaCli(const std::string& command)
 {
-    const std::string script = "enable\n" + command + "\n";
-    const std::string pipeline =
-        "printf '%s' '" + script + "' | timeout 20 FastCli 2>&1";
-    return RunCommandOutput(pipeline);
+    const std::string invocation = arista_cli::BuildCommand({command});
+    if (invocation.empty()) return {};
+    const auto result = command_runner::RunWithStatus(
+        invocation, kCommandTimeout, 4 * 1024 * 1024, stop_token_);
+    if (!result.completed || result.exit_code != 0)
+    {
+        SV_LOG_WARN << "[ARISTA] query failed or was interrupted: " << command << '\n';
+        return {};
+    }
+    return result.output;
 }
 
 std::string ManagementService::ExecuteIosCli(const std::vector<std::string>& cli_commands)
@@ -280,43 +313,14 @@ std::string ManagementService::ExecuteIosCli(const std::vector<std::string>& cli
     const auto script = ios_cli::BuildScript(cli_commands);
     if (script.empty()) return {};
 
-    const auto check = ios_snapshot::ReadOrExecute(runtime_environment::DataDirectory(), script, [&] {
-        return RunCommandOutput("dohost " + ShellQuote(script));
-    });
+    const auto check = ios_eem_bridge::Available()
+        ? ios_cli::CheckOutput(ios_eem_bridge::Execute(cli_commands, stop_token_))
+        : ios_snapshot::ReadOrExecute(runtime_environment::DataDirectory(), script, [&] {
+            return RunCommandOutput("dohost " + ShellQuote(script));
+        });
     if (check.session_unavailable)
-        std::cerr << "[IOS] IOSP session unavailable and no valid EEM snapshot: " << script << '\n';
+        SV_LOG_WARN << "Cisco 수집 실패: IOS 세션과 유효한 EEM 스냅샷 없음" << '\n';
     else if (check.failed)
-        std::cerr << "[IOS] command failed or returned no usable output: " << script << '\n';
+        SV_LOG_WARN << "Cisco 명령 실패: 사용 가능한 출력 없음" << '\n';
     return check.text;
-}
-
-
-std::string ManagementService::CliCommand(const std::vector<std::string>& argv,
-                                          const std::string& command)
-{
-    if (argv.empty())
-    {
-        return {};
-    }
-
-    // 세션이 없거나 다른 프로그램이면 새로 엽니다.
-    if (!cli_session_.IsOpen() || cli_program_ != argv[0])
-    {
-        cli_session_.Close();
-        cli_program_.clear();
-        if (!cli_session_.Open(argv))
-        {
-            std::cerr << "[CLI] failed to open session for " << argv[0] << '\n';
-            return {};
-        }
-        cli_program_ = argv[0];
-        // 초기 배너/프롬프트를 소비합니다.
-        cli_session_.ReadAvailable(std::chrono::milliseconds(300));
-    }
-
-    if (!cli_session_.Write(command))
-    {
-        return {};
-    }
-    return cli_session_.ReadAvailable(std::chrono::milliseconds(300));
 }

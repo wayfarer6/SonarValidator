@@ -12,6 +12,7 @@ public interface PolicyAdviceRepository extends JpaRepository<PolicyAdvice, Long
     Optional<PolicyAdvice> findByAdviceId(String adviceId);
 
     List<PolicyAdvice> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    List<PolicyAdvice> findByProjectKeyAndTargetAgentOrderByCreatedAtDesc(String projectKey, String targetAgent, Pageable pageable);
 
     List<PolicyAdvice> findByProjectKeyOrderByCreatedAtDesc(String projectKey, Pageable pageable);
 

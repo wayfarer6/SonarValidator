@@ -8,7 +8,7 @@ const LEVEL_LABEL: Record<number, string> = {
 };
 
 export function sanitizeMermaidId(id: string): string {
-  return id.replace(/[^A-Za-z0-9_]/g, "_");
+  return "n_" + Array.from(id, (character) => character.codePointAt(0)!.toString(16)).join("_");
 }
 
 export function topologyToMermaid(data: ApiTopology | null): string {
@@ -17,12 +17,13 @@ export function topologyToMermaid(data: ApiTopology | null): string {
     return 'flowchart TD\n  Empty["서브넷이 없습니다"]';
   }
 
-  const lines: string[] = ["flowchart TD"];
+  const lines: string[] = ["flowchart LR"];
 
   // ⚠️ 인터넷은 프로젝트의 "대역" 이 아니라 경계 바깥입니다. 존 서브그래프에
   //    넣으면 "Open Zone 안에 인터넷" 처럼 보여 의미가 뒤바뀝니다.
   const internetNodes = data.nodes.filter(isInternet);
-  const zoneNodes = data.nodes.filter((node) => !isInternet(node));
+  const deviceNodes = data.nodes.filter((node) => node.kind === "device");
+  const zoneNodes = data.nodes.filter((node) => !isInternet(node) && node.kind !== "device");
 
   // 등급별 서브그래프로 묶어 존 경계를 시각화합니다.
   const byLevel = new Map<number | null, typeof data.nodes>();
@@ -47,10 +48,15 @@ export function topologyToMermaid(data: ApiTopology | null): string {
       lines.push(`    ${sanitizeMermaidId(node.id)}${nodeShape(node, label)}`);
     }
     lines.push("  end");
+    if (level === null) lines.push(`  style ${groupId} fill:#f8fafc,stroke:#cbd5e1,color:#475569;`);
   }
 
   // 인터넷은 존 밖에 원형(지구본)으로 둡니다.
   for (const node of internetNodes) {
+    lines.push(`  ${sanitizeMermaidId(node.id)}${nodeShape(node, nodeLabel(node, false))}`);
+  }
+
+  for (const node of deviceNodes) {
     lines.push(`  ${sanitizeMermaidId(node.id)}${nodeShape(node, nodeLabel(node, false))}`);
   }
 
@@ -72,7 +78,7 @@ export function topologyToMermaid(data: ApiTopology | null): string {
         : edge.forbidden
           ? "==>"
           : "-->";
-    const label = edge.internet
+    const label = edge.blocked ? "차단 확인" : edge.layer === "L2" ? `VLAN ${edge.vlan_id ?? ""}` : edge.internet
       ? "인터넷"
       : observed
         ? "라우팅"
@@ -80,7 +86,9 @@ export function topologyToMermaid(data: ApiTopology | null): string {
           ? `:${edge.port}`
           : "전체";
     lines.push(`  ${sourceId} ${arrow}|${label}| ${targetId}`);
-    if (edge.forbidden) {
+    if (edge.blocked) {
+      linkStyles.push(`  linkStyle ${linkIndex} stroke:#991b1b,stroke-width:3px,stroke-dasharray:2 4;`);
+    } else if (edge.forbidden) {
       linkStyles.push(
         `  linkStyle ${linkIndex} stroke:#dc2626,stroke-width:3px;`,
       );
@@ -107,7 +115,7 @@ export function topologyToMermaid(data: ApiTopology | null): string {
 }
 
 function levelClass(level: number | null): string {
-  return level === 3 ? "confidential" : level === 2 ? "sensitive" : "open";
+  return level === null ? "unclassified" : level === 3 ? "confidential" : level === 2 ? "sensitive" : "open";
 }
 
 const QUARANTINE_CLASS_DEF =
@@ -132,27 +140,42 @@ function nodeShape(node: ApiTopology["nodes"][number], label: string): string {
 }
 
 function nodeClass(node: ApiTopology["nodes"][number]): string {
+  if (node.quarantine_status === "FAILED") return "failed";
+  if (node.quarantine_status === "PENDING") return "pending";
   if (node.quarantined) return "quarantined";
+  if (node.observed_up === false) return "down";
+  if (node.config_stale || node.connected === false) return "stale";
   if (isInternet(node)) return "internet";
-  return levelClass(node.level);
+  return node.kind === "device" ? "device" : levelClass(node.level);
 }
 
-const QUARANTINE_MARK = "🛑 ";
 
 function nodeLabel(
   node: ApiTopology["nodes"][number],
   includeCidr: boolean,
 ): string {
   // 인터넷은 대역이 없으므로 CIDR 줄을 만들지 않습니다.
-  const name =
-    includeCidr && node.cidr ? `${node.label}<br/>${node.cidr}` : node.label;
-  return node.quarantined ? `${QUARANTINE_MARK}${name}` : name;
+  const escapeLabel = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "#quot;")
+    .replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/[\r\n]/g, " ");
+  const name = includeCidr && node.cidr
+    ? `${escapeLabel(node.label)}<br/>${escapeLabel(node.cidr)}` : escapeLabel(node.label);
+  if (node.quarantine_status === "FAILED") return `${name}<br/>적용 실패`;
+  if (node.quarantine_status === "PENDING") return `${name}<br/>${node.quarantine_requested ? "격리" : "해제"} 확인 대기`;
+  if (node.quarantined) return `${name}<br/>격리 적용 확인`;
+  if (node.config_stale || node.connected === false) return `${name}<br/>수집 대기 · 이전 상태`;
+  return node.observed_up === false ? `${name}<br/>관측 연결 없음` : name;
 }
 
 const CLASS_DEFS = [
   "  classDef confidential fill:#fee2e2,stroke:#dc2626,stroke-width:2px;",
   "  classDef sensitive fill:#f3e8ff,stroke:#9333ea,stroke-width:2px;",
   "  classDef open fill:#dcfce7,stroke:#16a34a,stroke-width:2px;",
+  "  classDef pending fill:#fef3c7,stroke:#d97706,stroke-dasharray:5 3;",
+  "  classDef failed fill:#fff7ed,stroke:#ea580c,stroke-width:3px;",
+  "  classDef down fill:#f1f5f9,stroke:#94a3b8,stroke-dasharray:3 3,color:#64748b;",
+  "  classDef stale fill:#f8fafc,stroke:#94a3b8,stroke-dasharray:5 3,color:#64748b;",
+  "  classDef device fill:#e2e8f0,stroke:#475569,stroke-width:2px;",
+  "  classDef unclassified fill:#f8fafc,stroke:#64748b,stroke-width:2px;",
   QUARANTINE_CLASS_DEF,
   INTERNET_CLASS_DEF,
 ];
@@ -190,7 +213,7 @@ export function topologyToDetailedMermaid(data: ApiTopology | null): string {
         : edge.forbidden
           ? "==>"
           : "-->";
-    const label = edge.internet
+    const label = edge.blocked ? "차단 확인" : edge.layer === "L2" ? `VLAN ${edge.vlan_id ?? ""}` : edge.internet
       ? "인터넷"
       : observed
         ? "라우팅"
@@ -198,7 +221,9 @@ export function topologyToDetailedMermaid(data: ApiTopology | null): string {
           ? `:${edge.port}`
           : "전체";
     lines.push(`  ${sourceId} ${arrow}|${label}| ${targetId}`);
-    if (edge.forbidden) {
+    if (edge.blocked) {
+      linkStyles.push(`  linkStyle ${linkIndex} stroke:#991b1b,stroke-width:3px,stroke-dasharray:2 4;`);
+    } else if (edge.forbidden) {
       linkStyles.push(
         `  linkStyle ${linkIndex} stroke:#dc2626,stroke-width:3px;`,
       );
@@ -266,7 +291,7 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
     // "이 존에 격리된 서브넷이 2개" 는 존 단위 그림에서 놓치기 쉬운 정보입니다.
     const detail =
       isolated > 0
-        ? `${count}개 · ${QUARANTINE_MARK}${isolated}개 격리`
+        ? `${count}개 · ${isolated}개 격리 확인`
         : `${count}개`;
     const label = `${name}<br/>${detail}`;
     const shape = level === 3 ? `{{"${label}"}}` : `["${label}"]`;
@@ -284,14 +309,19 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
   // 인터넷 간선은 존으로 접지 않고 "존 → 인터넷" 으로 따로 그립니다.
   const zoneEdges = new Set<string>();
   const zoneForbidden = new Set<string>();
+  const zoneBlocked = new Set<string>();
+  const zoneUnblocked = new Set<string>();
   const internetFromZones = new Set<string>();
   const internetForbidden = new Set<string>();
+  const internetBlocked = new Set<string>();
+  const internetUnblocked = new Set<string>();
   for (const edge of data.edges) {
     if (edge.internet) {
       // 노출된 서브넷의 존을 찾아 그 존에서 인터넷으로 잇습니다.
       const zone = levelOf.get(edge.source);
       if (zone === undefined) continue;
       internetFromZones.add(String(zone));
+      (edge.blocked ? internetBlocked : internetUnblocked).add(String(zone));
       if (edge.forbidden) internetForbidden.add(String(zone));
       continue;
     }
@@ -301,6 +331,7 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
     if (src === dst) continue;
     const key = `${src}->${dst}`;
     zoneEdges.add(key);
+    (edge.blocked ? zoneBlocked : zoneUnblocked).add(key);
     if (edge.forbidden) zoneForbidden.add(key);
   }
 
@@ -310,8 +341,9 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
     const [src, dst] = key.split("->");
     const forbidden = zoneForbidden.has(key);
     const arrow = forbidden ? "==>" : "-->";
+    const state = zoneBlocked.has(key) ? (zoneUnblocked.has(key) ? "일부 차단" : "차단 확인") : "구성 연결";
     lines.push(
-      `  ${zoneNodeId(toLevel(src))} ${arrow}|${forbidden ? "등급 건너뜀" : "허용"}| ${zoneNodeId(toLevel(dst))}`,
+      `  ${zoneNodeId(toLevel(src))} ${arrow}|${forbidden ? "등급 건너뜀 · " : ""}${state}| ${zoneNodeId(toLevel(dst))}`,
     );
     if (forbidden) {
       linkStyles.push(
@@ -326,7 +358,7 @@ export function topologyToZoneMermaid(data: ApiTopology | null): string {
     for (const zone of internetFromZones) {
       const forbidden = internetForbidden.has(zone);
       lines.push(
-        `  ${zoneNodeId(toLevel(zone))} -.->|${forbidden ? "인터넷 노출" : "인터넷"}| ${sanitizeMermaidId(internetNode.id)}`,
+        `  ${zoneNodeId(toLevel(zone))} -.->|${internetBlocked.has(zone) ? (internetUnblocked.has(zone) ? "일부 차단" : "차단 확인") : forbidden ? "인터넷 노출" : "인터넷"}| ${sanitizeMermaidId(internetNode.id)}`,
       );
       if (forbidden) {
         linkStyles.push(

@@ -38,7 +38,7 @@ flowchart LR
 
 ## 검증
 
-`tests/prober/run.sh`는 DB·PTY·IOS 출력·EEM 파일 읽기·동시 게시를 검사합니다. `tests/prober/run-cisco-eem-service.sh <빌드 디렉터리>`는 현재 CMake 생산 객체를 재사용해 실제 ManagementService를 가짜 dohost와 연결합니다. 실제 장비에 정책을 보내지 않습니다. 원래 CMake의 사용자 변경과 테스트 타깃 구성은 유지합니다.
+`./SonarValidator_Prober/build.sh`는 DB·PTY·IOS 출력·EEM 파일 읽기·동시 게시와 ManagementService 통합을 전체 CTest로 검사합니다. 특정 통합만 재검사할 때는 `ctest --test-dir <빌드 디렉터리> --output-on-failure -R ios_eem_service_test`를 사용합니다. dohost는 가짜 실행 파일로 대체하며 실제 장비에 정책을 보내지 않습니다.
 
 실제 장비는 EEM 이벤트 이력, 원본과 캐시 mtime·헤더 일치, Backend의 인터페이스·라우트 수신을 함께 확인합니다. 이벤트 이력 success만으로 파일 내용까지 정상이라고 판단하지 않습니다.
 

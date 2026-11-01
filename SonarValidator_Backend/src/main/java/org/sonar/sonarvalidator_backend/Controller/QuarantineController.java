@@ -88,6 +88,7 @@ public class QuarantineController {
         //   노드 번호도 함께 알아야 합니다.
         body.put("node_ids", nodeIds);
         body.put("quarantined", active);
+        body.put("pending_releases", quarantineService.pendingReleases(projectId));
         return body;
     }
 

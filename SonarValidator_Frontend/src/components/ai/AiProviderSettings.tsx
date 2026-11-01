@@ -1,3 +1,5 @@
+import { compactText } from "../../lib/errors";
+import { ErrorDetailsButton } from "../common/LogDetails";
 import { useEffect, useState } from "react";
 import Badge from "../ui/badge/Badge";
 import Button from "../ui/button/Button";
@@ -284,7 +286,7 @@ export default function AiProviderSettings() {
                     }`}
                   >
                     {status.ok ? "✓ " : "✗ "}
-                    {status.message}
+                    {status.ok ? compactText(status.message) : "AI 공급자 연결에 실패했습니다."}
                     {provider.last_checked_at && !check && (
                       <span className="ml-2 text-gray-400">
                         ({new Date(provider.last_checked_at).toLocaleString()})
@@ -292,6 +294,7 @@ export default function AiProviderSettings() {
                     )}
                   </p>
                 )}
+                {status && !status.ok && <div className="mt-2"><ErrorDetailsButton title="AI 공급자 연결 오류 상세" details={status.message} /></div>}
               </div>
             );
           })}

@@ -46,6 +46,9 @@ public class ExpectedAgentService {
         final Date now = new Date();
         final ExpectedAgent entity = repository.findByAgentId(id).orElseGet(ExpectedAgent::new);
 
+        if (entity.getProjectKey() != null && !entity.getProjectKey().equals(projectKey)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "다른 프로젝트에 등록된 Agent 이름입니다. 별도 이름을 사용하세요.");
+        }
         entity.setAgentId(id);
         entity.setProjectKey(projectKey);
         entity.setDeviceType(resolveDeviceType(deviceType, id));
@@ -61,7 +64,7 @@ public class ExpectedAgentService {
         entity.setUpdatedAt(now);
 
         final ExpectedAgent saved = repository.save(entity);
-        log.info("expected agent registered: id={} project={} type={}", id, projectKey, saved.getDeviceType());
+        log.info("장비 등록: 노드={} 프로젝트={} 종류={}", id, projectKey, saved.getDeviceType());
         return saved;
     }
 
@@ -77,7 +80,7 @@ public class ExpectedAgentService {
     public void delete(String agentId) {
         repository.findByAgentId(agentId).ifPresent(entity -> {
             repository.delete(entity);
-            log.info("expected agent removed: id={}", agentId);
+            log.info("장비 등록 해제: 노드={}", agentId);
         });
     }
 
@@ -91,7 +94,7 @@ public class ExpectedAgentService {
                     HttpStatus.NOT_FOUND, "Agent is not registered in this project");
         }
         repository.delete(entity);
-        log.info("expected agent removed from project: id={} project={}", agentId, projectKey);
+        log.info("장비 등록 해제: 노드={} 프로젝트={}", agentId, projectKey);
     }
 
     @Transactional
@@ -115,6 +118,7 @@ public class ExpectedAgentService {
             entry.put("device_type", item.getDeviceType());
             entry.put("node_type", item.getNodeType());
             entry.put("expected_ip", item.getExpectedIp());
+            entry.put("monitor_interval_seconds", item.getMonitorIntervalSeconds());
             entry.put("registered_at", item.getCreatedAt());
             entry.put("connected", connected.contains(key));
             entry.put("telemetry_seen", seen.contains(key));

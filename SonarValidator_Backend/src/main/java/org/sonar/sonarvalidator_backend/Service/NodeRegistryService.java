@@ -49,7 +49,7 @@ public class NodeRegistryService implements TelemetryObserver {
             // 유형이 비어 있으면 식별자 관례로 추론합니다.
             applyType(created, config);
             final Configuration saved = repository.save(created);
-            log.info("node registered: id={} agent={} type={}",
+            log.info("장비 식별: id={} 노드={} 종류={}",
                     saved.getNodeId(), key, saved.getDeviceType());
             return saved;
         } catch (RuntimeException ex) {
@@ -83,7 +83,7 @@ public class NodeRegistryService implements TelemetryObserver {
                 applyType(node, null);
             }
             final Configuration saved = repository.save(node);
-            log.info("node registered: id={} agent={} type={}",
+            log.info("장비 식별: id={} 노드={} 종류={}",
                     saved.getNodeId(), key, saved.getDeviceType());
             return saved;
         } catch (RuntimeException ex) {

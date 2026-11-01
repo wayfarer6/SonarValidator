@@ -7,6 +7,12 @@ import java.util.Map;
 
 public class NeutralDeviceConfig {
 
+    private boolean discoveryComplete = true;
+
+    public boolean isDiscoveryComplete() { return discoveryComplete; }
+    public void setDiscoveryComplete(boolean value) { discoveryComplete = value; }
+
+
     public static class InterfaceConfig {
         private String name;
         private String description;

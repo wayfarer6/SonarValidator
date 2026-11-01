@@ -1,6 +1,8 @@
-import { apiRequest, API_BASE_URL } from "./client";
+import { bundleFileName, bundleDownloadError } from "./download";
+import { apiRequest, API_BASE_URL, ApiError } from "./client";
 import type {
   ApiAgentList,
+  ApiMonitorSettings,
   ApiAgentOverviewList,
   ApiComplianceChanges,
   ApiDiscoveredDevices,
@@ -87,9 +89,10 @@ export function pruneStaleAgents(
 
 export function getAgentDownloadInfo(
   agentId: string,
-  options?: { nodeType?: string; serverIp?: string; serverPort?: string },
+  options: { projectId: string; nodeType?: string },
 ): Promise<{
   agent_id: string;
+  project_id: string;
   node_type: string;
   server_ip: string;
   server_port: number;
@@ -102,53 +105,43 @@ export function getAgentDownloadInfo(
     params: {
       agent_id: agentId,
       node_type: options?.nodeType,
-      server_ip: options?.serverIp,
-      server_port: options?.serverPort,
+      project_id: options.projectId,
     },
   });
 }
 
 export async function downloadAgent(
   agentId: string,
-  options?: {
+  options: {
+    projectId: string;
     nodeType?: string;
-    serverIp?: string;
-    serverPort?: string;
     dataDirectory?: string;
   },
 ): Promise<{ fileName: string; blob: Blob }> {
   const params = new URLSearchParams();
   if (options?.nodeType) params.set("node_type", options.nodeType);
-  if (options?.serverIp) params.set("server_ip", options.serverIp);
-  // ⚠️ 포트를 보내지 않으면 서버 설정값(server.port)이 들어갑니다.
-  //    화면 미리보기와 실제 파일의 포트가 어긋나는 원인이었습니다.
-  if (options?.serverPort) params.set("server_port", options.serverPort);
+  params.set("project_id", options.projectId);
   if (options?.dataDirectory) params.set("data_directory", options.dataDirectory);
 
   const query = params.toString();
   const path = `/api/v1/agents/download/${encodeURIComponent(agentId)}${query ? `?${query}` : ""}`;
 
   // apiRequest 는 JSON 을 기대하므로 tar.gz 에는 쓸 수 없습니다. 직접 fetch 합니다.
-  const response = await fetch(`${API_BASE_URL}${path}`, { credentials: "include" });
+  const response = await fetch(`${API_BASE_URL}${path}`, { credentials: "include" }).catch((cause: unknown) => {
+    throw new ApiError(0, "서버에 연결할 수 없습니다.", cause).record("GET", path);
+  });
   if (!response.ok) {
-    // 서버가 보낸 사유를 최대한 읽어 오류 메시지에 넣습니다.
-    let detail = `${response.status}`;
-    try {
-      const text = await response.text();
-      if (text) detail += ` — ${text.slice(0, 200)}`;
-    } catch {
-      // 본문을 못 읽어도 상태 코드는 남깁니다.
-    }
-    throw new Error(`Agent 다운로드를 완료하지 못했습니다 (${detail})`);
+    const text = await response.text();
+    throw new ApiError(response.status, bundleDownloadError(response.status, text), text).record("GET", path);
   }
 
-  const disposition = response.headers.get("Content-Disposition") ?? "";
-  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-  const fileName = match
-    ? decodeURIComponent(match[1])
-    : `sonar-agent-${agentId}.tar.gz`;
+  const fileName = bundleFileName(response.headers.get("Content-Disposition") ?? "", `sonar-agent-${agentId}.tar.gz`);
 
-  return { fileName, blob: await response.blob() };
+  try {
+    return { fileName, blob: await response.blob() };
+  } catch (cause) {
+    throw new ApiError(0, "다운로드 응답을 받지 못했습니다.", cause).record("GET", path);
+  }
 }
 
 // 정책
@@ -257,4 +250,17 @@ export function getQuarantineStatus(agentId: string): Promise<ApiQuarantineStatu
   return apiRequest<ApiQuarantineStatus>(
     `/api/v1/quarantine/${encodeURIComponent(agentId)}`,
   );
+}
+
+export function getMonitorSettings(agentId: string, projectId: string): Promise<ApiMonitorSettings> {
+  return apiRequest(`/api/v1/agents/${encodeURIComponent(agentId)}/monitor-settings`, {
+    params: { project_id: projectId },
+  });
+}
+
+export function updateMonitorSettings(agentId: string, projectId: string, seconds: number, revision: number): Promise<ApiMonitorSettings> {
+  return apiRequest(`/api/v1/agents/${encodeURIComponent(agentId)}/monitor-settings`, {
+    method: "PUT", params: { project_id: projectId },
+    body: { monitor_interval_seconds: seconds, revision },
+  });
 }

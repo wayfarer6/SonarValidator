@@ -191,7 +191,7 @@ public class NotificationService {
             notification.setRead(true);
         }
         repository.saveAll(unread);
-        log.info("marked {} notifications as read", unread.size());
+        log.info("알림 읽음 처리: {}건", unread.size());
         return unread.size();
     }
 
@@ -205,14 +205,14 @@ public class NotificationService {
     public void delete(String notificationId) {
         final Notification notification = findByPublicId(notificationId);
         repository.delete(notification);
-        log.info("notification deleted: {}", notificationId);
+        log.info("알림 삭제: id={}", notificationId);
     }
 
     @Transactional
     public int deleteAll() {
         final long count = repository.count();
         repository.deleteAll();
-        log.info("deleted all {} notifications", count);
+        log.info("전체 알림 삭제: {}건", count);
         return (int) count;
     }
 

@@ -29,9 +29,9 @@ int main()
   Write(output,"");Check(service.ExecuteIosCli({"show version"}).empty(),"blank direct output reported as success");
   fs::rename(root/"saved",root/"ios_cli/show_ip_interface_brief.out");Write(output,"Unexpected Error\n");
   const nlohmann::json policy={{"command","apply"},{"subnet_cidr","10.10.20.0/24"},{"rule_target",{{"acl_name","SONAR_EEM_TEST"}}}};
-  Check(!service.ApplyPolicyCommand(PolicyCommand{DeviceType::kRouter, "Cisco", PolicyAction::kApply, policy}),"queued request reported as applied");
-  const auto queued=Read(root/"ios_apply/acl_desired.cmd");
-  Check(queued.find("interface GigabitEthernet2\n")!=std::string::npos,"header loss prevented subnet interface resolution");
+  Check(!service.ApplyPolicyCommand(PolicyCommand{DeviceType::kRouter, "Cisco", PolicyAction::kApply, policy}),"failed CLI application reported as applied");
+  Check(Read(calls).find("interface GigabitEthernet2")!=std::string::npos,"header loss prevented subnet interface resolution");
+  Check(!fs::exists(root/"ios_apply/acl_desired.cmd"),"failed ACL left an untracked asynchronous request");
   Write(output,"configured\n");
   Check(service.ExecuteIosCli({"configure terminal","interface GigabitEthernet2","no shutdown"})=="configured\n","direct configuration regression");
   std::stop_source stop;service.SetStopToken(stop.get_token());stop.request_stop();

@@ -56,7 +56,7 @@ public class AgentStatusController {
 
     @GetMapping
     public Map<String, Object> list() {
-        final java.util.Set<String> quarantined = quarantineService.quarantinedAgentIds();
+        final java.util.Set<String> quarantined = quarantineService.quarantinedNodeAgentIds();
         final List<Map<String, Object>> agents = new ArrayList<>();
         for (String agentId : registry.connectedAgentIds()) {
             final Map<String, Object> entry = new LinkedHashMap<>();
@@ -104,7 +104,7 @@ public class AgentStatusController {
         body.put("total_policy_requests", router.policyRequestCount());
         body.put("server_time", Instant.now().toString());
         body.put("agents", new ArrayList<>(registry.connectedAgentIds()));
-        final java.util.Set<String> quarantined = quarantineService.quarantinedAgentIds();
+        final java.util.Set<String> quarantined = quarantineService.quarantinedNodeAgentIds();
         body.put("quarantined_count", quarantined.size());
         body.put("quarantined", quarantined);
         body.putAll(ExpectedAgentService.toResponse(

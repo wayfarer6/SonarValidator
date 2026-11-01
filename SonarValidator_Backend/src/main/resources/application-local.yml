@@ -23,7 +23,7 @@ spring:
     open-in-view: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
 
   # H2 웹 콘솔: http://localhost:3000/h2-console
   # JDBC URL 에는 위 datasource.url 과 동일한 값을 넣으세요.

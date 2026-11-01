@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #include "database/database_service.hpp"
 #include <iostream>
 
@@ -35,7 +36,7 @@ bool RunDatabaseWrite(DatabaseService& database,
     }
     catch (const std::exception& error)
     {
-        std::cerr << "[DATABASE] write failed: " << error.what() << '\n';
+        SV_LOG_WARN << "[DATABASE] write failed: " << error.what() << '\n';
         return false;
     }
 }

@@ -5,29 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node --test scripts/*.test.mjs",
+    "test": "node --test scripts/*.test.mjs ../tests/frontend/*.test.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@fullcalendar/core": "^6.1.15",
-    "@fullcalendar/daygrid": "^6.1.15",
-    "@fullcalendar/interaction": "^6.1.15",
-    "@fullcalendar/list": "^6.1.15",
-    "@fullcalendar/react": "^6.1.15",
-    "@fullcalendar/timegrid": "^6.1.15",
-    "@react-jvectormap/core": "^1.0.4",
-    "@react-jvectormap/world": "^1.1.2",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
-    "apexcharts": "^4.1.0",
     "clsx": "^2.1.1",
     "flatpickr": "^4.6.13",
     "jspdf": "^4.2.1",
     "mermaid": "^12.0.0",
     "react": "^19.0.0",
-    "react-apexcharts": "^1.7.0",
     "react-cookie": "^8.1.2",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
@@ -36,7 +26,6 @@
     "react-helmet-async": "^2.0.5",
     "react-router": "^7.1.5",
     "react-router-dom": "^7.18.3",
-    "swiper": "^11.2.3",
     "tailwind-merge": "^3.0.1"
   },
   "devDependencies": {

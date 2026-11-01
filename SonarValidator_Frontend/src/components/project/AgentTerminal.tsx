@@ -30,6 +30,7 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
 
     const terminal = new Terminal({
       cursorBlink: true,
+      disableStdin: true,
       convertEol: true,
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: 13,
@@ -48,6 +49,8 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
     const socket = new WebSocket(socketUrl);
     let disposed = false;
     let terminalErrorReceived = false;
+    let shellReady = false;
+    let shellExited = false;
     const sendResize = () => {
       if (socket.readyState === WebSocket.OPEN) {
         fit.fit();
@@ -76,6 +79,10 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
           const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
           terminal.write(bytes);
         } else if (message.type === "terminal-ready") {
+          shellReady = true;
+          shellExited = false;
+          terminal.options.disableStdin = false;
+          terminal.focus();
           setStatus("연결됨");
           terminal.write("\r\n\x1b[32mAgent shell connected\x1b[0m\r\n");
           sendResize();
@@ -83,9 +90,14 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
           setStatus(message.status === "connecting" ? "셸 시작 중" : message.status ?? "연결 중");
         } else if (message.type === "terminal-error") {
           terminalErrorReceived = true;
+          shellReady = false;
+          terminal.options.disableStdin = true;
           setStatus("오류");
           terminal.write(`\r\n\x1b[31m${message.message ?? "Terminal error"}\x1b[0m\r\n`);
         } else if (message.type === "terminal-exit") {
+          shellExited = true;
+          shellReady = false;
+          terminal.options.disableStdin = true;
           setStatus("셸 종료됨");
         }
       } catch {
@@ -94,8 +106,10 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
       }
     });
     socket.addEventListener("close", () => {
+      shellReady = false;
       if (!disposed) {
-        if (!terminalErrorReceived) {
+        terminal.options.disableStdin = true;
+        if (!terminalErrorReceived && !shellExited) {
           setStatus("연결 종료");
           terminal.writeln("\r\n\x1b[31mTerminal connection closed. Refresh to reconnect.\x1b[0m");
         }
@@ -105,7 +119,7 @@ export default function AgentTerminal({ projectId, agentId, onClose }: AgentTerm
       if (!disposed) setStatus("WebSocket 연결 오류");
     });
     const inputSubscription = terminal.onData((data) => {
-      if (socket.readyState === WebSocket.OPEN) {
+      if (shellReady && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "input", data }));
       }
     });

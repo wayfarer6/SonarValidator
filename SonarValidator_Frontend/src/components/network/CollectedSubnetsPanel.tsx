@@ -134,7 +134,7 @@ export default function CollectedSubnetsPanel({
       </div>
 
       <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-        장치에서 수집한 대역은 <b>자동으로 프로젝트 서브넷에 반영</b>됩니다(등급 Open).
+        장치에서 수집한 대역은 <b>자동으로 프로젝트 서브넷에 반영</b>됩니다(등급 미분류).
         관리망과 주소 없는 VLAN 은 제외되며, 등급은 편집 화면에서 올리세요.
       </p>
 

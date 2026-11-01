@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import Badge from "../ui/badge/Badge";
 import Branch_Divider from "../common/Branch_Divider";
 import OPNsenseConfigModal from "../opnsense/OPNsenseConfigModal";
 import { downloadAgent, registerExpectedAgent } from "../../lib/api";
-import { getProject, updateProject } from "../../lib/api/projects";
+import { getProject } from "../../lib/api/projects";
 import { useApi } from "../../hooks/useApi";
 
 
@@ -67,8 +68,6 @@ export const AGENT_DEVICE_TYPES: AgentDeviceType[] = [
 export interface AgentDeployCardProps {
   projectId?: string;
   onClose: () => void;
-  initialServerIp?: string;
-  initialServerPort?: string;
   onCredentialSaved?: () => void;
   onImportOffline?: () => void;
 }
@@ -88,6 +87,7 @@ function DeviceCard({
     <button
       type="button"
       onClick={onSelect}
+      aria-label={`선택: ${device.label}`}
       title={
         device.opensCredentialModal
           ? "클릭하면 API Key / Secret 을 등록하는 화면이 열립니다"
@@ -126,8 +126,6 @@ function DeviceCard({
 export default function AgentDeployCard({
   projectId,
   onClose,
-  initialServerIp,
-  initialServerPort,
   onCredentialSaved,
   onImportOffline,
 }: AgentDeployCardProps) {
@@ -135,35 +133,10 @@ export default function AgentDeployCard({
     () => (projectId ? getProject(projectId) : Promise.resolve(null)),
     [projectId],
   );
-  // Management Server 접속 정보. 프로버가 텔레메트리를 보낼 대상입니다.
   const [expectedDeviceIp, setExpectedDeviceIp] = useState("");
-  const [managementServerIPAddr, setManagementServerIPAddr] = useState(
-    initialServerIp ?? "",
-  );
-  const [managementServerPort, setManagementServerPort] = useState(
-    initialServerPort ?? "3000",
-  );
-  const [editingServer, setEditingServer] = useState(!initialServerIp);
-  const [serverIpDraft, setServerIpDraft] = useState(initialServerIp ?? "");
-  const [serverPortDraft, setServerPortDraft] = useState(initialServerPort ?? "3000");
-  const [savingServer, setSavingServer] = useState(false);
-  const [serverSaveError, setServerSaveError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const settings = projectSettings.data;
-    if (settings) {
-      const serverIp = settings.management_server_ip ?? initialServerIp ?? "";
-      const serverPort =
-        settings.management_server_port?.toString() ?? initialServerPort ?? "3000";
-      setManagementServerIPAddr(serverIp);
-      setManagementServerPort(serverPort);
-      setServerIpDraft(serverIp);
-      setServerPortDraft(serverPort);
-      if (settings.management_server_ip) {
-        setEditingServer(false);
-      }
-    }
-  }, [projectSettings.data, initialServerIp, initialServerPort]);
+  const managementServerIPAddr = projectSettings.data?.management_server_ip?.trim() ?? "";
+  const managementServerPort = projectSettings.data?.management_server_port?.toString() ?? "";
+  const serverReady = !!managementServerIPAddr && !!managementServerPort && !projectSettings.loading && !projectSettings.error;
 
   // 선택한 장비 (라벨로 보관해 장비 목록이 바뀌어도 깨지지 않게 합니다)
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
@@ -197,10 +170,10 @@ export default function AgentDeployCard({
   );
 
   const configPreview = useMemo(() => {
-    const serverIp = managementServerIPAddr.trim() || "localhost";
-    const serverPort = managementServerPort.trim() || "3000";
+    const serverIp = managementServerIPAddr || "<프로젝트에서 설정>";
+    const serverPort = managementServerPort || "<프로젝트에서 설정>";
     return [
-      "# agent 생성시 서버측에서 ip, port 인증서 등을 지정함",
+
       `SERVER_IP=${serverIp};`,
       `SERVER_PORT=${serverPort};`,
       `NODE_TYPE=${selected?.nodeType ?? "VM"};`,
@@ -208,45 +181,9 @@ export default function AgentDeployCard({
     ].join("\n");
   }, [managementServerIPAddr, managementServerPort, selected, agentName]);
 
-  const saveServerSettings = async () => {
-    const serverIp = serverIpDraft.trim();
-    const serverPort = serverPortDraft.trim();
-    if (!/^\d+$/.test(serverPort) || Number(serverPort) < 1 || Number(serverPort) > 65535) {
-      setServerSaveError("관리 서버 포트는 1에서 65535 사이의 숫자로 입력하세요.");
-      return;
-    }
-
-    setSavingServer(true);
-    setServerSaveError(null);
-    try {
-      if (projectId) {
-        await updateProject(projectId, {
-          management_server_ip: serverIp,
-          management_server_port: Number(serverPort),
-        });
-      }
-      setManagementServerIPAddr(serverIp);
-      setManagementServerPort(serverPort);
-      setEditingServer(false);
-    } catch (cause) {
-      setServerSaveError(
-        cause instanceof Error ? cause.message : "Management Server 설정을 저장하지 못했습니다.",
-      );
-    } finally {
-      setSavingServer(false);
-    }
-  };
-
-  const cancelServerEdit = () => {
-    setServerIpDraft(managementServerIPAddr);
-    setServerPortDraft(managementServerPort);
-    setServerSaveError(null);
-    setEditingServer(false);
-  };
-
   const handleDownloadBundle = async () => {
     const agentId = agentName.trim();
-    if (agentId === "" || bundleState === "downloading") {
+    if (agentId === "" || !projectId || !serverReady || bundleState === "downloading") {
       return;
     }
 
@@ -255,9 +192,7 @@ export default function AgentDeployCard({
     try {
       const { fileName, blob } = await downloadAgent(agentId, {
         nodeType: selected?.nodeType,
-        // 비워 두면 서버 기본값을 씁니다. 입력했다면 그 값을 우선합니다.
-        serverIp: managementServerIPAddr.trim() || undefined,
-        serverPort: managementServerPort.trim() || undefined,
+        projectId,
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -284,6 +219,9 @@ export default function AgentDeployCard({
     }
     setSelectedLabel(device.label);
     setAgentName("");
+    setExpectedDeviceIp("");
+    setBundleState("idle");
+    setBundleError(null);
     setRegisterState("idle");
     setRegisterError(null);
   };
@@ -317,7 +255,7 @@ export default function AgentDeployCard({
   };
 
   return (
-    <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50 lg:p-6">
+    <div data-testid="agent-deploy-card" className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50 lg:p-6">
       {/* 헤더 */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-3 dark:border-gray-700">
         <div className="flex flex-wrap items-center gap-2">
@@ -341,95 +279,15 @@ export default function AgentDeployCard({
         네트워크 장비 유형을 선택하세요
       </p>
 
-      {/* Management Server 접속 정보 — 프로버가 이 주소로 텔레메트리를 보냅니다. */}
-      <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/60">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-            Management Server
+      <div data-testid="deployment-server" className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4 text-sm dark:border-gray-700">
+        <div>
+          <p className="text-xs text-gray-500">프로젝트 관리 서버</p>
+          <p className="mt-1 font-mono text-gray-800 dark:text-gray-200">
+            {projectSettings.loading ? "불러오는 중..." : serverReady ? `${managementServerIPAddr}:${managementServerPort}` : "프로젝트 편집에서 주소와 포트를 설정하세요"}
           </p>
-          {!editingServer && (
-            <button
-              type="button"
-              onClick={() => {
-                setServerIpDraft(managementServerIPAddr);
-                setServerPortDraft(managementServerPort);
-                setServerSaveError(null);
-                setEditingServer(true);
-              }}
-              aria-label="Management Server 주소 수정"
-              title="주소와 포트 수정"
-              className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-600 dark:hover:bg-gray-700"
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-                <path d="M14.69 2.86a1.8 1.8 0 0 1 2.55 2.55L8.1 14.55l-3.44.9.9-3.44 9.13-9.15Zm-10.5 10.1-.5 1.9 1.9-.5 8.08-8.08-1.4-1.4-8.08 8.08Z" />
-                <path d="M3 17h14v1H3z" />
-              </svg>
-            </button>
-          )}
+          {projectSettings.error && <p role="alert" className="mt-1 text-xs text-error-600">{projectSettings.error}</p>}
         </div>
-        {editingServer ? (
-          <>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <input
-                type="text"
-                value={serverIpDraft}
-                onChange={(event) => setServerIpDraft(event.target.value)}
-                placeholder="Management Server IP"
-                aria-label="Management Server IP"
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
-              />
-              <input
-                type="text"
-                inputMode="numeric"
-                value={serverPortDraft}
-                onChange={(event) => setServerPortDraft(event.target.value)}
-                placeholder="Management Server Port"
-                aria-label="Management Server Port"
-                className="w-full rounded-lg border border-gray-300 bg-transparent px-3.5 py-2.5 text-sm text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-white"
-              />
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void saveServerSettings()}
-                disabled={savingServer}
-                className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
-              >
-                {savingServer ? "저장 중..." : projectId ? "저장" : "적용"}
-              </button>
-              {managementServerIPAddr && (
-                <button
-                  type="button"
-                  onClick={cancelServerEdit}
-                  disabled={savingServer}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  취소
-                </button>
-              )}
-              {!projectId && (
-                <span className="text-[11px] text-gray-500">
-                  프로젝트를 선택하지 않아 저장되지 않습니다.
-                </span>
-              )}
-            </div>
-          </>
-        ) : (
-          <p className="font-mono text-sm text-gray-800 dark:text-gray-200">
-            {managementServerIPAddr || "서버 기본 주소"}:{managementServerPort}
-          </p>
-        )}
-        {projectSettings.error && (
-          <p className="mt-2 text-xs text-error-600 dark:text-error-400">
-            프로젝트 서버 설정을 불러오지 못했습니다: {projectSettings.error}
-          </p>
-        )}
-        {serverSaveError && (
-          <p className="mt-2 text-xs text-error-600 dark:text-error-400">{serverSaveError}</p>
-        )}
-        <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
-          저장된 프로젝트 주소가 Agent 설정과 다운로드에 자동 반영됩니다.
-        </p>
+        {projectId && <Link to={`/project/editor/${encodeURIComponent(projectId)}#management-server`} className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">프로젝트 설정</Link>}
       </div>
 
       {/* 장비 카드 그리드 */}
@@ -472,6 +330,7 @@ export default function AgentDeployCard({
                   setAgentName(e.target.value);
                   setRegisterState("idle");
                 }}
+                aria-label="Agent 이름"
                 placeholder="예: VDI-1-agent"
                 className="min-w-[200px] flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-xs text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               />
@@ -506,10 +365,11 @@ export default function AgentDeployCard({
               <p className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
                 배포 예정 등록은 프로젝트가 있어야 합니다. 프로젝트 목록에서{" "}
                 <b>Add Agent</b> 로 들어오면 그 프로젝트에 장비가 등록됩니다.
-                여기서는 설정이 채워진 Agent 파일만 다운로드할 수 있습니다.
+                먼저 소속 프로젝트를 선택하세요.
               </p>
             )}
 
+            <p className="mt-2 text-[11px] text-gray-500">새 Agent는 먼저 등록하세요. 재배포할 때는 기존 이름과 장비 유형을 사용하세요.</p>
             {registerState === "done" && (
               <p className="mt-2 text-[11px] text-success-600 dark:text-success-400">
                 ✓ <span className="font-mono">{agentName.trim()}</span> 을(를) 배포
@@ -553,7 +413,7 @@ export default function AgentDeployCard({
             <button
               type="button"
               onClick={handleDownloadBundle}
-              disabled={agentName.trim() === "" || bundleState === "downloading"}
+              disabled={agentName.trim() === "" || !serverReady || bundleState === "downloading"}
               title={
                 agentName.trim() === ""
                   ? "Agent 이름을 먼저 입력하세요 (배포 예정 등록 이름과 같아야 합니다)"
@@ -577,9 +437,7 @@ export default function AgentDeployCard({
               <code className="font-mono">tar -xzf sonar-agent-*.tar.gz</code> 로 풀면{" "}
               <span className="font-mono">Installer/</span> 폴더가 나옵니다. 그 안의{" "}
               <span className="font-mono">README.txt</span> 를 순서대로 따르세요.
-              스테이징된 바이너리({" "}
-              <span className="font-mono">sonar_validator_prober</span>
-              {" "})가 있으면 다운로드 파일에 함께 들어갑니다.
+              실행 파일과 SQLite 템플릿도 포함되어 있습니다.
             </p>
           )}
           {bundleState === "error" && (

@@ -34,6 +34,12 @@ public class NetworkTopologyController {
     private final AgentSessionRegistry registry;
 
     private final QuarantineService quarantineService;
+    private org.sonar.sonarvalidator_backend.Repository.ExpectedAgentRepository expectedAgents;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setExpectedAgents(org.sonar.sonarvalidator_backend.Repository.ExpectedAgentRepository expectedAgents) {
+        this.expectedAgents = expectedAgents;
+    }
 
     public NetworkTopologyController(ProjectService projectService,
                                      AgentMessageRouterService router,
@@ -62,19 +68,21 @@ public class NetworkTopologyController {
             }
         }
 
-        final Set<String> quarantinedAgents = quarantineService.quarantinedNodeAgentIds();
-        // ⚠️ DB Design v1.5 — Agent 없는 장비(방화벽)는 agent_id 가 없으므로
-        //   노드 번호로 격리 여부를 판단해야 합니다.
-        final Set<Integer> quarantinedNodes = quarantineService.quarantinedNodeIds();
-
+        final Set<String> assigned = new java.util.LinkedHashSet<>();
+        final Map<String, Integer> intervals = new LinkedHashMap<>();
+        if (expectedAgents != null) expectedAgents.findByProjectKeyOrderByCreatedAtDesc(projectId)
+                .forEach(agent -> {
+                    assigned.add(agent.getAgentId());
+                    intervals.put(agent.getAgentId(), agent.getMonitorIntervalSeconds());
+                });
+        final Map<String, NeutralDeviceConfig> projectConfigs = new LinkedHashMap<>();
+        router.allConfigs().forEach((agentId, config) -> {
+            if (assigned.contains(agentId) || project.getSubnets().stream().anyMatch(subnet -> agentId.equalsIgnoreCase(subnet.getAgentId())))
+                projectConfigs.put(agentId, config);
+        });
         final List<Map<String, Object>> nodes = new ArrayList<>();
         for (final PolicySubnet subnet : project.toPolicySubnets()) {
             final String agentId = subnet.getAgentId();
-            // ⚠️ Agent 식별자는 운영자가 적어 넣은 값이라 대소문자가 섞입니다.
-            //    (VDI-1 / vdi-1) 그래서 관대하게 비교합니다.
-                final boolean quarantined = agentId != null && (
-                    quarantinedAgents.stream().anyMatch(id -> id != null && id.equalsIgnoreCase(agentId))
-                    || quarantineService.isSubnetQuarantined(agentId, subnet.getCidr()));
             final Map<String, Object> node = new LinkedHashMap<>();
             node.put("id", subnet.getId());
             node.put("label", subnet.getName() == null ? subnet.getId() : subnet.getName());
@@ -86,7 +94,15 @@ public class NetworkTopologyController {
             node.put("kind", ObservedConnectivity.KIND_SUBNET);
             // 격리 여부와 연결 여부를 함께 실어 보냅니다. 프론트는
             // quarantined 를 최우선으로 빨간색 처리합니다.
-            node.put("quarantined", quarantined);
+            node.putAll(quarantineService.topologyState(projectId, agentId, subnet.getCidr()));
+            final var config = projectConfigs.get(agentId);
+            node.put("observed_up", config == null ? null : ObservedConnectivity.isSubnetObserved(config, subnet.getCidr()));
+            node.put("last_seen", agentId == null ? null : router.lastSeenOf(agentId));
+            final var observedAt = agentId == null ? null : router.observedAtOf(agentId);
+            node.put("observed_at", observedAt);
+            node.put("config_stale", observedAt == null || observedAt.isBefore(java.time.Instant.now()
+                    .minusSeconds(Math.max(120, 3L * intervals.getOrDefault(agentId, 30) + 10)))
+                    || (assigned.contains(agentId) && !registry.connectedAgentIds().contains(agentId)));
             node.put("connected", agentId != null && registry.connectedAgentIds().contains(agentId));
             nodes.add(node);
         }
@@ -128,7 +144,7 @@ public class NetworkTopologyController {
         }
 
         for (final ObservedConnectivity.Link link
-                : ObservedConnectivity.betweenSubnetsOfEachDevice(project, router.allConfigs())) {
+                : ObservedConnectivity.betweenSubnetsOfEachDevice(project, projectConfigs)) {
             final Map<String, Object> edge = new LinkedHashMap<>();
             edge.put("rule_id", null);
             edge.put("source", link.sourceId());
@@ -146,8 +162,37 @@ public class NetworkTopologyController {
             edges.add(edge);
         }
 
-        final Set<String> exposedAgents = ObservedConnectivity.internetExposedAgents(router.allConfigs());
-        if (!exposedAgents.isEmpty()) {
+        for (final var entry : projectConfigs.entrySet()) {
+            final String agentId = entry.getKey();
+            final var config = entry.getValue();
+            final String type = config.getDeviceType();
+            if (type == null || !type.equalsIgnoreCase("SWITCH")) continue;
+            final var links = ObservedConnectivity.vlanAttachments(project, agentId, config);
+            if (links.isEmpty()) continue;
+            final String id = "device:" + agentId;
+            final Map<String, Object> node = new LinkedHashMap<>();
+            node.put("id", id); node.put("label", agentId); node.put("cidr", null);
+            node.put("agent_id", agentId); node.put("level", null); node.put("subnet_class", null);
+            node.put("kind", "device"); node.put("connected", registry.connectedAgentIds().contains(agentId));
+            node.put("observed_at", router.observedAtOf(agentId));
+            node.put("config_stale", !registry.connectedAgentIds().contains(agentId));
+            node.put("observed_up", links.stream().anyMatch(ObservedConnectivity.VlanAttachment::up));
+            node.putAll(quarantineService.topologyState(projectId, agentId, null));
+            nodes.add(node);
+            for (final var link : links) {
+                if (!link.up()) continue;
+                final Map<String, Object> edge = new LinkedHashMap<>();
+                edge.put("source", id); edge.put("target", link.subnetId());
+                edge.put("agent_id", agentId); edge.put("vlan_id", link.vlanId());
+                edge.put("origin", "DISCOVERED"); edge.put("observed", true); edge.put("layer", "L2");
+                edge.put("forbidden", false); edge.put("severity", "OBSERVED");
+                edges.add(edge);
+            }
+        }
+
+        final Set<String> exposedAgents = ObservedConnectivity.internetExposedAgents(projectConfigs);
+        if (project.getSubnets().stream().anyMatch(subnet -> exposedAgents.contains(subnet.getAgentId())
+                && ObservedConnectivity.isSubnetObserved(projectConfigs.get(subnet.getAgentId()), subnet.getCidr()))) {
             final Map<String, Object> internetNode = new LinkedHashMap<>();
             internetNode.put("id", ObservedConnectivity.INTERNET_NODE_ID);
             internetNode.put("label", ObservedConnectivity.INTERNET_NODE_LABEL);
@@ -164,7 +209,8 @@ public class NetworkTopologyController {
 
             for (final ProjectSubnet subnet : project.getSubnets()) {
                 final String agentId = subnet.getAgentId();
-                if (agentId == null || !exposedAgents.contains(agentId)) {
+                if (agentId == null || !exposedAgents.contains(agentId)
+                        || !ObservedConnectivity.isSubnetObserved(projectConfigs.get(agentId), subnet.getCidr())) {
                     continue;
                 }
                 final ZoneClass zone = subnet.getZoneClass();
@@ -189,6 +235,14 @@ public class NetworkTopologyController {
             }
         }
 
+        final Map<String, Map<String, Object>> nodeStates = new LinkedHashMap<>();
+        nodes.forEach(node -> nodeStates.put((String) node.get("id"), node));
+        for (final var edge : edges) {
+            final var source = nodeStates.get(edge.get("source"));
+            final var target = nodeStates.get(edge.get("target"));
+            edge.put("blocked", (source != null && Boolean.TRUE.equals(source.get("quarantined")))
+                    || (target != null && Boolean.TRUE.equals(target.get("quarantined"))));
+        }
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("project_id", projectId);
         body.put("project_name", project.getName());
@@ -202,7 +256,7 @@ public class NetworkTopologyController {
         // 구분해 그릴 수 있도록 범례도 함께 싣습니다.
         body.put("edge_legend", List.of(
                 Map.of("kind", "policy", "label", "정책 규칙", "dashed", false),
-                Map.of("kind", "observed", "label", "수집된 실제 연결(라우팅)", "dashed", true)));
+                Map.of("kind", "observed", "label", "수집된 경로·VLAN 연결", "dashed", true)));
         return body;
     }
 

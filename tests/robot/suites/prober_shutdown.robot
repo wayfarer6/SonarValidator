@@ -16,10 +16,11 @@ S06_Active_Shell_SIGTERM_And_EEM_Recovery
     END
     &{targets}=    Create Dictionary    Lab1-R1=192.168.148.181    Lab1-R2=192.168.148.182
     FOR    ${agent}    ${ip}    IN    &{targets}
+        Observe Terminal Output
         Scene    ${agent} · 터미널 실행 중 SIGTERM과 EEM 복구
+        Reset Terminal Output
         Show And Click    css=[data-testid="node-${agent}"] >> role=button[name="터미널 열기"]
-        Wait For Elements State    css=.xterm-helper-textarea    attached
-        Focus    css=.xterm-helper-textarea
+        Wait For Shell Prompt
         Keyboard Input    type    (trap '' HUP TERM; exec -a sonar-terminal-job sleep 120) & echo SHUTDOWN_JOB_READY    delay=30ms
         Press Keys    css=.xterm-helper-textarea    Enter
         Sleep    1s

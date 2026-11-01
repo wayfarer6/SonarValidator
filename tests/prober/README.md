@@ -1,11 +1,17 @@
-# Prober lifecycle regression tests
+# Prober 회귀 검사
 
-Run `./tests/prober/run.sh` in WSL/Linux with g++, SQLite development headers and nlohmann/json installed. Build artifacts use a temporary directory removed at exit. This runner leaves the existing CMake configuration unchanged.
+저장소 루트의 빌드 진입점 하나로 configure/build/전체 CTest를 실행합니다.
 
-- DB events: no worker thread, callback on the producing thread, 80 concurrent writes, close/reopen durability and rejected writes after close.
-- Telemetry store: parsed NIC/routes/VLAN/trunk/ARP data and a deliberately rejected row that rolls back the batch.
-- PTY lifecycle: input/output, resize, EOF, inherited descriptor isolation, 30 open/close cycles, background job termination, exited shell with a background PTY holder, input backpressure and no remaining descriptors/direct children.
+```sh
+./SonarValidator_Prober/build.sh
+```
 
-These are local component tests. Run Robot S03 and device reboot checks separately for the deployed static binary.
+이미 빌드한 디렉터리에서 특정 회귀만 실행할 수도 있습니다.
 
-Cisco/EEM 회귀에는 `ios-cli`, `ios-snapshot`, `ios-snapshot-publisher.sh`가 포함됩니다. 헤더·캐시 우선·TTL·오류·동시 게시와 원본 시각 보존을 확인합니다. 실제 ManagementService 통합은 `./tests/prober/run-cisco-eem-service.sh /tmp/sonar-lab1-static-build`로 실행하며 CMake 빌드의 컴파일·링크 인자를 재사용합니다. 테스트의 dohost는 임시 가짜 실행 파일이며 실제 라우터 설정은 변경하지 않습니다.
+```sh
+ctest --test-dir SonarValidator_Prober/build --output-on-failure -R 'database_service|telemetry_store|terminal_session|ios_'
+```
+
+DB 이벤트·트랜잭션, PTY 입출력·종료·자식 정리, IOS CLI·스냅샷·동시 게시, ManagementService/EEM 통합은 같은 CMake 테스트 목록에서 관리합니다. `ios-snapshot-publisher.sh`는 실제 Cisco 게시 스크립트의 원본 시각 보존·유효성·동시 게시를 검사하는 CTest 테스트입니다. dohost는 임시 가짜 명령으로 대체합니다.
+
+실제 장비의 부팅·SSH·수집 검증은 Robot 시나리오를 사용합니다. 별도의 C++ 컴파일 래퍼는 두지 않습니다.

@@ -50,4 +50,17 @@ int main() {
     Require(timed_out && std::chrono::steady_clock::now() - write_start < 1s,
             "non-reading peer cannot hang WebSocket write");
     server.request_stop();
+    server.join();
+
+    Stream cancelled_stream(context);
+    Require(!sonar::net::ConnectWithTimeout(cancelled_stream, endpoints, 1s), "connect for cancellation test");
+    auto silent_peer = acceptor.accept();
+    std::stop_source stop;
+    std::jthread cancel([&] { std::this_thread::sleep_for(50ms); stop.request_stop(); });
+    const auto cancel_start = std::chrono::steady_clock::now();
+    bool cancelled = false;
+    try { sonar::net::HandshakeWithTimeout(context, cancelled_stream, "localhost", "/", 5s, stop.get_token()); }
+    catch (const boost::system::system_error& e) { cancelled = e.code() == net::error::operation_aborted; }
+    Require(cancelled && std::chrono::steady_clock::now() - cancel_start < 500ms,
+            "stop interrupts a silent handshake without waiting for its timeout");
 }

@@ -207,4 +207,62 @@ class ObservedConnectivityTest {
         assertThat(ObservedConnectivity.internetExposedAgents(null)).isEmpty();
         assertThat(ObservedConnectivity.hasDefaultRoute(null)).isFalse();
     }
+
+    @Test
+    void downInterfaceDoesNotRecreateAnObservedEdgeFromItsAddressOrStaleRoute() {
+        final var config = config("eth0=10.1.0.1/24", "eth1=10.2.0.1/24");
+        final var project = project(subnet("A", "10.1.0.0/24", ZoneClass.OPEN, "R"),
+                subnet("B", "10.2.0.0/24", ZoneClass.OPEN, "R"));
+        route(config, "connected", "10.2.0.0/24", "directly connected");
+        assertThat(ObservedConnectivity.betweenSubnetsOfEachDevice(project, Map.of("R", config))).hasSize(1);
+        config.getInterfaces().get("eth1").setAdminState("down");
+        assertThat(ObservedConnectivity.betweenSubnetsOfEachDevice(project, Map.of("R", config))).isEmpty();
+        assertThat(ObservedConnectivity.isSubnetObserved(config, "10.2.0.0/24")).isFalse();
+        config.getInterfaces().get("eth1").setAdminState("up");
+        assertThat(ObservedConnectivity.betweenSubnetsOfEachDevice(project, Map.of("R", config))).hasSize(1);
+    }
+
+    @Test
+    void defaultRouteOnDownUplinkIsNotInternetEvidence() {
+        final var config = config("eth0=192.0.2.2/24");
+        route(config, "static", "0.0.0.0/0", "192.0.2.1");
+        assertThat(ObservedConnectivity.hasDefaultRoute(config)).isTrue();
+        config.getInterfaces().get("eth0").setOperState("DOWN");
+        assertThat(ObservedConnectivity.hasDefaultRoute(config)).isFalse();
+        config.getInterfaces().get("eth0").setOperState("UP");
+        assertThat(ObservedConnectivity.hasDefaultRoute(config)).isTrue();
+    }
+
+    @Test
+    void vlanChildOfDownParentAndUnselectedRoutesAreNotEvidence() {
+        final var config = config("eth0=192.0.2.2/24", "eth0.20=10.20.0.1/24");
+        config.getInterfaces().get("eth0.20").setParent("eth0");
+        config.getInterfaces().get("eth0").setAdminState("down");
+        assertThat(ObservedConnectivity.isSubnetObserved(config, "10.20.0.0/24")).isFalse();
+        route(config, "static", "0.0.0.0/0", "198.51.100.1");
+        config.getRoutes().getLast().setSelected(false);
+        assertThat(ObservedConnectivity.hasDefaultRoute(config)).isFalse();
+    }
+    @Test
+    void vlanBridgeAttachmentRequiresExplicitAssociationAndTwoObservedActivePorts() {
+        final var switchConfig = config();
+        switchConfig.interfaceOrCreate("Ethernet1").setOperState("up");
+        switchConfig.interfaceOrCreate("Ethernet2").setOperState("up");
+        switchConfig.vlanOrCreate(20).getMembers().addAll(List.of("Et1", "Et2"));
+        final var subnet = subnet("data", "10.20.20.0/24", ZoneClass.OPEN, "Ubuntu");
+        final var project = project(subnet);
+        assertThat(ObservedConnectivity.vlanAttachments(project, "switch", switchConfig)).isEmpty();
+        subnet.setVlanId(20);
+        assertThat(ObservedConnectivity.vlanAttachments(project, "switch", switchConfig)).singleElement()
+                .satisfies(link -> assertThat(link.up()).isTrue());
+        switchConfig.interfaceOrCreate("Ethernet2").setOperState("notconnect");
+        assertThat(ObservedConnectivity.vlanAttachments(project, "switch", switchConfig)).singleElement()
+                .satisfies(link -> assertThat(link.up()).isFalse());
+        switchConfig.interfaceOrCreate("Ethernet2").setOperState("up");
+        switchConfig.interfaceOrCreate("Ethernet2").setAdminState("down");
+        assertThat(ObservedConnectivity.vlanAttachments(project, "switch", switchConfig)).singleElement()
+                .satisfies(link -> assertThat(link.up()).isFalse());
+        assertThat(ObservedConnectivity.isSubnetObserved(switchConfig, "10.20.20.0/24")).isFalse();
+    }
+
 }

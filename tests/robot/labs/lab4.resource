@@ -1,6 +1,6 @@
 *** Variables ***
-${LAB_TITLE}           Lab 4 · FRR / OVS / Ubuntu
-${PROJECT_ID}          %{SONAR_LAB4_PROJECT_ID=}
+${LAB_TITLE}           Lab4 · FRR와 OVS VLAN40
+${PROJECT_ID}          %{SONAR_LAB4_PROJECT_ID=PRJ-LAB4}
 ${MANAGEMENT_SERVER}   192.168.152.10
-@{EXPECTED_AGENTS}
-@{EXPECTED_CIDRS}
+@{EXPECTED_AGENTS}     Lab4-FRR    Lab4-OVS    Lab4-Ubuntu
+@{EXPECTED_CIDRS}      10.40.40.0/24

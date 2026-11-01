@@ -22,92 +22,55 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  ANTLR4_VERSION: '4.13.2'
-  ANTLR4_RUNTIME_ROOT: ${{ github.workspace }}/.antlr4-install
-
 jobs:
   build:
-    name: cmake build + ctest
+    name: CMake + CTest (${{ matrix.mode }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: default
+            static: 'OFF'
+            linker: ''
+          - mode: static
+            static: 'ON'
+            linker: '-static'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install build dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential g++ cmake \
-            libsqlite3-dev libssl-dev \
-            libboost-dev nlohmann-json3-dev \
-            curl unzip
-
-      - name: Cache ANTLR4 C++ runtime
-        id: antlr-cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.ANTLR4_RUNTIME_ROOT }}
-          key: antlr4-cxx-runtime-${{ env.ANTLR4_VERSION }}-${{ runner.os }}
-
-      - name: Build ANTLR4 C++ runtime
-        if: steps.antlr-cache.outputs.cache-hit != 'true'
+            build-essential cmake pkg-config libsqlite3-dev libssl-dev \
+            libboost-dev nlohmann-json3-dev
+      - name: Guard ordinary builds against generator or Homebrew use
         run: |
-          set -eu
-          curl -fsSL -o /tmp/antlr4-cxx.zip \
-            "https://www.antlr.org/download/antlr4-cpp-runtime-${ANTLR4_VERSION}-source.zip"
-          rm -rf /tmp/antlr4-src
-          unzip -q /tmp/antlr4-cxx.zip -d /tmp/antlr4-src
-          cd /tmp/antlr4-src
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="${ANTLR4_RUNTIME_ROOT}"
-          cmake --build build --parallel "$(nproc)"
-          cmake --install build
-
-      - name: Verify ANTLR4 runtime layout
-        run: |
-          test -f "${ANTLR4_RUNTIME_ROOT}/lib/libantlr4-runtime.a" \
-            || { echo "::error::libantlr4-runtime.a 없음"; ls -R "${ANTLR4_RUNTIME_ROOT}"; exit 1; }
-          test -d "${ANTLR4_RUNTIME_ROOT}/include/antlr4-runtime" \
-            || { echo "::error::include/antlr4-runtime 없음"; exit 1; }
-
-      - name: Verify committed ANTLR parsers
-        run: |
-          count=$(find SonarValidator_Prober/components/parser/generated/grammar \
-            -name '*Parser.cpp' 2>/dev/null | wc -l)
-          echo "커밋된 Parser.cpp: ${count}개"
-          if [ "$count" -eq 0 ]; then
-            echo "::error::생성된 ANTLR 파서가 커밋되어 있지 않습니다."
-            echo "components/parser/cmake/regenerate_parser.sh 로 생성 후 커밋하세요."
-            exit 1
-          fi
-
+          mkdir -p "$RUNNER_TEMP/sonar-tool-guards"
+          for tool in brew java; do
+            printf '#!/bin/sh\necho "%s" >> "%s"\nexit 95\n' "$tool" "$RUNNER_TEMP/sonar-tools-called" > "$RUNNER_TEMP/sonar-tool-guards/$tool"
+            chmod +x "$RUNNER_TEMP/sonar-tool-guards/$tool"
+          done
+          echo "$RUNNER_TEMP/sonar-tool-guards" >> "$GITHUB_PATH"
+          cmp SonarValidator_Prober/third_party/antlr4-runtime/LICENSE.txt \
+            SonarValidator_Backend/src/main/resources/agent-licenses/antlr4-runtime-LICENSE.txt
       - name: Configure
-        working-directory: SonarValidator_Prober
         run: |
-          cmake -B build \
+          cmake -S SonarValidator_Prober -B build-prober \
             -DCMAKE_BUILD_TYPE=Release \
-            -DANTLR4_HOME="${ANTLR4_RUNTIME_ROOT}"
-
+            -DSONAR_STATIC_LINK=${{ matrix.static }} \
+            '-DCMAKE_EXE_LINKER_FLAGS=${{ matrix.linker }}'
       - name: Build
-        working-directory: SonarValidator_Prober
-        run: cmake --build build --parallel "$(nproc)"
-
-      - name: Run tests
-        working-directory: SonarValidator_Prober
-        run: ctest --test-dir build --output-on-failure --no-tests=error
-
-      - name: Test summary
-        if: always()
-        working-directory: SonarValidator_Prober
         run: |
-          if [ -f build/Testing/Temporary/LastTest.log ]; then
-            passed=$(grep -c '^ *[0-9]*/[0-9]* Test.*Passed' build/Testing/Temporary/LastTest.log || true)
-            failed=$(grep -c '^ *[0-9]*/[0-9]* Test.*Failed' build/Testing/Temporary/LastTest.log || true)
-            echo "### Prober 테스트 결과" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "- 통과: **${passed}** / 실패: **${failed}**" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          cmake --build build-prober --parallel 2
+          test ! -e "$RUNNER_TEMP/sonar-tools-called"
+      - name: Run complete regression suite
+        run: ctest --test-dir build-prober --output-on-failure --no-tests=error --output-junit test-results.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prober-tests-${{ matrix.mode }}
+          path: build-prober/test-results.xml

@@ -128,8 +128,14 @@ export interface ApiTopologyNode {
   agent_id: string | null;
   manually_edited: boolean;
   quarantined?: boolean;
+  quarantine_requested?: boolean;
+  quarantine_status?: "NONE" | "PENDING" | "APPLIED" | "FAILED";
+  observed_up?: boolean | null;
+  config_stale?: boolean;
+  observed_at?: string | null;
+  last_seen?: string | null;
   connected?: boolean;
-  kind?: "subnet" | "internet";
+  kind?: "subnet" | "internet" | "device";
 }
 
 export interface ApiTopologyEdge {
@@ -140,6 +146,9 @@ export interface ApiTopologyEdge {
   target_cidr?: string | null;
   origin?: "MANUAL" | "DISCOVERED";
   observed?: boolean;
+  blocked?: boolean;
+  layer?: "L2";
+  vlan_id?: number;
   internet?: boolean;
   agent_id?: string | null;
   port: number | null;
@@ -218,6 +227,19 @@ export interface ApiAgentList {
   agents: ApiAgentSummary[];
 }
 
+export interface ApiMonitorSettings {
+  agent_id: string;
+  monitor_interval_seconds: number;
+  revision: number;
+  collector_connected: boolean;
+  reported_interval_seconds: number | null;
+  applied_revision: number | null;
+  applied_at: string | null;
+  status: "applied" | "pending" | "offline" | "error";
+  error: string | null;
+  delivered?: boolean;
+}
+
 export interface ApiAgentOverview {
   agent_id: string;
   project_id: string | null;
@@ -230,6 +252,7 @@ export interface ApiAgentOverview {
   expected: boolean;
   state: "connected" | "telemetry-only" | "silent" | "unregistered";
   api_managed?: boolean;
+  monitor_interval_seconds?: number;
 }
 
 export interface ApiAgentOverviewList {
@@ -331,6 +354,9 @@ export interface ApiComplianceChanges {
 // 격리 (Quarantine)
 
 export interface ApiQuarantineState {
+  status?: "PENDING" | "APPLIED" | "FAILED";
+  request_id?: string;
+  confirmed_at?: string | null;
   agent_id: string;
   node_id?: number | null;
   project_id: string | null;
@@ -368,6 +394,7 @@ export interface ApiQuarantineList {
   total: number;
   agent_ids: string[];
   quarantined: ApiQuarantineState[];
+  pending_releases?: ApiQuarantineState[];
 }
 
 export interface ApiQuarantineStatus {

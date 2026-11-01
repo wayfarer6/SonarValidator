@@ -95,6 +95,29 @@ class ProjectSubnetAutoSyncServiceTest {
     }
 
     @Test
+    void firstPartialSnapshotAfterRestartPreservesStoredSubnets() {
+        expectAgentInProject("Arista-Switch");
+        service.syncForAgent("Arista-Switch", aristaConfig());
+        final var before = project.toPolicySubnets().stream().map(PolicySubnet::getCidr).toList();
+        final var parser = new org.sonar.sonarvalidator_backend.Service.DeviceConfigService(List.of(
+                new org.sonar.sonarvalidator_backend.Model.Config.Vendors.AristaSwitchConfigParser()));
+        final var partial = parser.parse("Arista-Switch", "Arista", tools.jackson.databind.json.JsonMapper.builder()
+                .build().readTree("{\"nic_status\":{\"interfaces\":[{\"name\":\"Ethernet1\"}]}}"));
+        assertFalse(partial.isDiscoveryComplete());
+        assertFalse(service.syncForAgent("Arista-Switch", partial));
+        assertEquals(before, project.toPolicySubnets().stream().map(PolicySubnet::getCidr).toList());
+    }
+
+    @Test
+    void emptyFailedCollectionDoesNotRemoveExistingSubnets() {
+        expectAgentInProject("Arista-Switch");
+        service.syncForAgent("Arista-Switch", aristaConfig());
+        final var before = project.toPolicySubnets().stream().map(PolicySubnet::getCidr).toList();
+        assertFalse(service.syncForAgent("Arista-Switch", new NeutralDeviceConfig()));
+        assertEquals(before, project.toPolicySubnets().stream().map(PolicySubnet::getCidr).toList());
+    }
+
+    @Test
     @DisplayName("수집된 대역이 자동으로 프로젝트 서브넷이 된다 (등급 Open)")
     void createsSubnetsFromCollectedTelemetry() {        expectAgentInProject("Arista-Switch");
         assertTrue(service.syncForAgent("Arista-Switch", aristaConfig()));
@@ -303,6 +326,36 @@ class ProjectSubnetAutoSyncServiceTest {
         subnetOf("10.0.9.0/24").setZoneClass(ZoneClass.OPEN);
         service.syncForAgent("Arista-Switch", aristaConfig());
         assertNull(subnetOf("10.0.9.0/24").getZoneClass());
+    }
+
+    @Test
+    void ciscoShutdownRetainsConfiguredSubnetAndPolicyMetadataUntilAnExplicitAddressChange() {
+        expectAgentInProject("Cisco-Router");
+        final var up = new NeutralDeviceConfig();
+        up.setDiscoveryComplete(true);
+        address(up, "GigabitEthernet3", "192.0.2.254/24");
+        service.syncForAgent("Cisco-Router", up);
+        final var original = subnetOf("192.0.2.0/24");
+        assertNotNull(original);
+        original.setZoneClass(ZoneClass.SENSITIVE);
+        original.setName("WAN under test");
+        original.setAllowedPeerList(List.of("peer-policy"));
+        final var down = new NeutralDeviceConfig();
+        down.setDiscoveryComplete(true);
+        address(down, "GigabitEthernet3", "192.0.2.254");
+        down.interfaceOrCreate("GigabitEthernet3").setOperState("administratively down");
+        service.syncForAgent("Cisco-Router", down);
+        assertEquals(original.getSubnetId(), subnetOf("192.0.2.0/24").getSubnetId());
+        assertEquals("WAN under test", subnetOf("192.0.2.0/24").getName());
+        assertEquals(ZoneClass.SENSITIVE, subnetOf("192.0.2.0/24").getZoneClass());
+        assertEquals(List.of("peer-policy"), subnetOf("192.0.2.0/24").allowedPeerList());
+        service.syncForAgent("Cisco-Router", up);
+        assertEquals(List.of("peer-policy"), subnetOf("192.0.2.0/24").allowedPeerList());
+        up.interfaceOrCreate("GigabitEthernet3").getAddresses().clear();
+        address(up, "GigabitEthernet3", "198.51.100.254/24");
+        service.syncForAgent("Cisco-Router", up);
+        assertNull(subnetOf("192.0.2.0/24"));
+        assertNotNull(subnetOf("198.51.100.0/24"));
     }
 
 }

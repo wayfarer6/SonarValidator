@@ -29,6 +29,7 @@ class TelemetryObserverTest {
     void liveAndOfflineTelemetryUseTheSameExtensionPoint() {
         var parser = mock(DeviceConfigService.class);
         var config = new NeutralDeviceConfig(); config.setFormat("custom");
+        config.interfaceOrCreate("eth0").getAddresses().add("10.0.0.1/24");
         when(parser.parse(eq("node"), eq("custom"), any(JsonNode.class))).thenReturn(config);
         var router = new AgentMessageRouterService(mock(AgentSessionRegistry.class), mock(PolicyRegistryService.class),
                 parser, null, null, null);

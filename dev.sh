@@ -10,6 +10,9 @@
 #
 # 사용법:
 #   ./dev.sh                 # 프론트 + 백엔드(디버그) 둘 다 실행
+#   ./dev.sh --build-images # GNS3용 Ubuntu/OVS/방화벽 이미지 빌드만 수행
+#   ./dev.sh --build-images=ubuntu # ubuntu / openvswitch / firewall 개별 빌드
+#   ./dev.sh --build-images=stack # JDK 기반 이미지 + Backend/Frontend 빌드
 #   ./dev.sh --no-debug      # 디버그 포트 없이 실행
 #   ./dev.sh --backend-only  # 백엔드만
 #   ./dev.sh --frontend-only # 프론트만
@@ -34,6 +37,7 @@ RUN_BACKEND=1
 RUN_FRONTEND=1
 DO_INSTALL=1
 DEBUG=1
+BUILD_IMAGES=""
 
 c_reset=$'\033[0m'; c_dim=$'\033[2m'; c_cyan=$'\033[36m'
 c_green=$'\033[32m'; c_yellow=$'\033[33m'; c_red=$'\033[31m'
@@ -42,6 +46,9 @@ usage() { awk 'NR>2 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "${BASH_SO
 
 for arg in "$@"; do
   case "$arg" in
+    --build-images)  BUILD_IMAGES=all ;;
+    --build-images=*) BUILD_IMAGES="${arg#*=}"
+      [ -n "$BUILD_IMAGES" ] || { printf "이미지 대상을 지정하세요: all, ubuntu, openvswitch, firewall, stack\n" >&2; exit 2; } ;;
     --backend-only)  RUN_FRONTEND=0 ;;
     --frontend-only) RUN_BACKEND=0 ;;
     --no-install)    DO_INSTALL=0 ;;
@@ -54,6 +61,50 @@ done
 log()  { printf '%s[dev]%s %s\n' "$c_cyan" "$c_reset" "$*"; }
 warn() { printf '%s[dev]%s %s\n' "$c_yellow" "$c_reset" "$*"; }
 die()  { printf '%s[dev]%s %s\n' "$c_red" "$c_reset" "$*" >&2; exit 1; }
+
+build_images() {
+  local target="$1" image directory tag
+  local -a tags build_args
+  case "$target" in
+    all|ubuntu|openvswitch|firewall|stack) ;;
+    *) die "이미지 대상은 all, ubuntu, openvswitch, firewall, stack 중 하나입니다: $target" ;;
+  esac
+  command -v docker >/dev/null 2>&1 || die "docker 를 찾을 수 없습니다."
+  docker info >/dev/null 2>&1 || die "Docker 데몬에 연결할 수 없습니다. GNS3 compute 서버의 Docker를 사용하세요."
+  if [ "$target" = stack ]; then
+    local base_image="${BASE_IMAGE:-sonar-validator/jdk26-base:26.0.2.1}"
+    local image_tag="${IMAGE_TAG:-latest}"
+    docker build --tag "$base_image" --file "$ROOT/docker/base/Dockerfile" "$ROOT/docker/base"
+    docker build --tag "sonar-validator/backend:$image_tag" --file "$ROOT/docker/backend/Dockerfile" \
+      --build-arg "BASE_IMAGE=$base_image" --build-arg "SKIP_TESTS=${SKIP_TESTS:-true}" "$ROOT"
+    docker build --tag "sonar-validator/frontend:$image_tag" --file "$ROOT/docker/frontend/Dockerfile" "$ROOT"
+    log "애플리케이션 이미지 빌드 완료."
+    return
+  fi
+  for image in ubuntu openvswitch firewall; do
+    [ "$target" = all ] || [ "$target" = "$image" ] || continue
+    case "$image" in
+      ubuntu)
+        tags=(sonar-validator/ubuntu-container:latest) ;;
+      openvswitch)
+        tags=(openvswitch-modified/openvswitch:latest openvswitch-container:latest) ;;
+      firewall)
+        tags=(firewall-alpine-linux-based/firewall:latest alpine-firewall:latest firewall-alpine-linux-baed/firewall:latest) ;;
+    esac
+    build_args=()
+    for tag in "${tags[@]}"; do build_args+=(--tag "$tag"); done
+    directory="$ROOT/docker/gns3"
+    log "GNS3 이미지 빌드: ${tags[*]}"
+    docker build "${build_args[@]}" --file "$directory/$image/Dockerfile" "$directory"
+    docker image inspect --format "${tags[0]} {{.Id}}" "${tags[0]}"
+  done
+  log "이미지 빌드 완료. 기존 GNS3 컨테이너와 영속 볼륨은 유지됩니다."
+}
+
+if [ -n "$BUILD_IMAGES" ]; then
+  build_images "$BUILD_IMAGES"
+  exit 0
+fi
 
 port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 
@@ -77,14 +128,22 @@ if [ "$RUN_BACKEND" = 1 ]; then
     [ -f "$PROBER_DIR/CMakeLists.txt" ] || die "Prober 소스 디렉터리를 찾을 수 없습니다: $PROBER_DIR"
     command -v cmake >/dev/null 2>&1 || die "cmake 가 없어 Agent 바이너리를 준비할 수 없습니다."
     log "Agent 바이너리가 stage 에 없어 Prober 를 빌드합니다..."
-    cmake -S "$PROBER_DIR" -B "$PROBER_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release
-    cmake --build "$PROBER_BUILD_DIR" --parallel "${BUILD_JOBS:-4}" --target sonar_validator_prober
+    cmake -S "$PROBER_DIR" -B "$PROBER_BUILD_DIR" -DCMAKE_BUILD_TYPE=Release \
+      -DSONAR_STATIC_LINK=ON -DCMAKE_EXE_LINKER_FLAGS=-static
+    cmake --build "$PROBER_BUILD_DIR" --parallel "${BUILD_JOBS:-2}" --target sonar_validator_prober
+    mkdir -p "$STAGE_DIR"
+    install -m 755 "$PROBER_BUILD_DIR/sonar_validator_prober" "$STAGE_DIR/sonar_validator_prober"
   fi
-  mkdir -p "$STAGE_DIR"
-  install -m 755 "$PROBER_BUILD_DIR/sonar_validator_prober" "$STAGE_DIR/sonar_validator_prober"
   if [ -f "$PROBER_DIR/Installer/default_template.sqlite" ]; then
     install -m 644 "$PROBER_DIR/Installer/default_template.sqlite" "$STAGE_DIR/default_template.sqlite"
   fi
+  for asset in Installer.sh restart.sh sonar_cli_bridge.tcl systemd/sonar_validator_prober.service systemd/sonar_validator_prober-cisco.service rc-service/sonar_validator_prober; do
+    if [ -f "$PROBER_DIR/Installer/$asset" ]; then
+      mkdir -p "$STAGE_DIR/$(dirname "$asset")"
+      case "$asset" in *.sh|rc-service/*) asset_mode=755 ;; *) asset_mode=644 ;; esac
+      install -m "$asset_mode" "$PROBER_DIR/Installer/$asset" "$STAGE_DIR/$asset"
+    fi
+  done
 fi
 
 if [ "$RUN_FRONTEND" = 1 ]; then

@@ -72,7 +72,7 @@ public class AuthController {
                     HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
 
             userService.recordLoginSuccess(userService.findByUsername(username));
-            log.info("login success: username={} session={}", username, session.getId());
+            log.info("로그인 완료: 사용자={}", username);
 
             final Map<String, Object> body2 = new LinkedHashMap<>();
             body2.put("authenticated", true);

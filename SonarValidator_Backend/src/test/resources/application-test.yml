@@ -23,3 +23,8 @@ spring:
   h2:
     console:
       enabled: false
+
+# Fixed test-only key; production must supply SONAR_SECRET_KEY.
+sonar:
+  secret:
+    key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=

@@ -4,7 +4,7 @@ import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import Button from "../components/ui/button/Button";
-import { Modal } from "../components/ui/modal";
+import IsolationModal from "../components/agent/IsolationModal";
 import { useApi } from "../hooks/useApi";
 import {
   getAllDiscoveredDevices,
@@ -23,9 +23,9 @@ import type { ApiDiscoveredDevice, ApiQuarantineState, ApiTopologyNode } from ".
 
 export default function Agent() {
   const navigate = useNavigate();
-  const overview = useApi(() => listAgentOverview(), []);
-  const discovered = useApi(() => getAllDiscoveredDevices(), []);
-  const quarantine = useApi(() => listQuarantined(), []);
+  const overview = useApi(() => listAgentOverview(), [], 5000);
+  const discovered = useApi(() => getAllDiscoveredDevices(), [], 5000);
+  const quarantine = useApi(() => listQuarantined(), [], 2000);
   const projects = useApi(() => listProjects(), []);
   const apiNodes = useApi(() => listCredentials(), []);
 
@@ -42,7 +42,7 @@ export default function Agent() {
   const [quarantining, setQuarantining] = useState<string | null>(null);
   const [isolationRow, setIsolationRow] = useState<Row | null>(null);
   const [isolationSubnets, setIsolationSubnets] = useState<ApiTopologyNode[]>([]);
-  const [selectedCidr, setSelectedCidr] = useState("");
+  const [selectedCidr, setSelectedCidr] = useState<string | null>(null);
   const [loadingIsolationSubnets, setLoadingIsolationSubnets] = useState(false);
   const [quarantineMessage, setQuarantineMessage] = useState<string | null>(null);
   const [quarantineError, setQuarantineError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export default function Agent() {
   );
   const connectionQuarantinesByAgent = useMemo(() => {
     const result = new Map<string, ApiQuarantineState[]>();
-    for (const state of quarantine.data?.quarantined ?? []) {
+    for (const state of [...(quarantine.data?.quarantined ?? []), ...(quarantine.data?.pending_releases ?? [])]) {
       if (state.scope !== "CONNECTION" || !state.target_cidr) continue;
       const states = result.get(state.agent_id) ?? [];
       states.push(state);
@@ -63,6 +63,11 @@ export default function Agent() {
     }
     return result;
   }, [quarantine.data]);
+
+  const nodeQuarantines = useMemo(() => new Map(
+    [...(quarantine.data?.quarantined ?? []), ...(quarantine.data?.pending_releases ?? [])]
+      .filter((state) => state.scope !== "CONNECTION").map((state) => [state.agent_id, state]),
+  ), [quarantine.data]);
 
   const configByAgent = useMemo(() => {
     const map = new Map<string, ApiDiscoveredDevice>();
@@ -188,6 +193,7 @@ export default function Agent() {
       overview.reload();
       discovered.reload();
       quarantine.reload();
+      projects.reload();
       // reload 는 비동기 resolve 를 돌려주지 않으므로 한 박자 뒤 시각을 찍습니다.
       await new Promise((resolve) => setTimeout(resolve, 400));
       setLastRefreshedAt(new Date());
@@ -275,8 +281,8 @@ export default function Agent() {
         const result = await releaseQuarantine(agentId, undefined, targetCidr);
         setQuarantineMessage(
           result.released === false
-            ? `${targetCidr} 는 격리 중이 아니어서 아무것도 하지 않았습니다.`
-            : `${agentId} 의 ${targetCidr} 격리 해제를 요청했습니다. 다음 정책 수신 때 차단 규칙이 제거됩니다.`,
+            ? `${targetCidr || "장치"}는 격리 중이 아니어서 아무것도 하지 않았습니다.`
+            : `${agentId}의 ${targetCidr || "장치 전체"} 격리 해제를 요청했습니다. 다음 정책 수신 때 차단 규칙이 제거됩니다.`,
         );
       }
       // 서버가 확정한 상태를 다시 받아 화면을 맞춥니다.
@@ -293,11 +299,11 @@ export default function Agent() {
 
   const openIsolationModal = async (row: Row) => {
     if (!row.projectId) {
-      setQuarantineError(`${row.agentId}: 프로젝트에 연결된 Agent만 서브넷 격리할 수 있습니다.`);
+      setQuarantineError(`${row.agentId}: 프로젝트에 연결된 Agent만 격리를 요청할 수 있습니다.`);
       return;
     }
     setIsolationRow(row);
-    setSelectedCidr("");
+    setSelectedCidr(null);
     setIsolationSubnets([]);
     setLoadingIsolationSubnets(true);
     setQuarantineError(null);
@@ -306,7 +312,7 @@ export default function Agent() {
       const ownedSubnets = topology.nodes
         .filter((node) => node.agent_id?.toLowerCase() === row.agentId.toLowerCase())
         .filter((node) => node.cidr?.trim());
-      setIsolationSubnets(ownedSubnets);
+      setIsolationSubnets(row.deviceType?.toUpperCase() === "VM" ? [] : ownedSubnets);
     } catch (err) {
       setQuarantineError(err instanceof Error ? err.message : "프로젝트 서브넷을 불러오지 못했습니다.");
     } finally {
@@ -317,18 +323,18 @@ export default function Agent() {
   const closeIsolationModal = () => {
     if (quarantining !== null) return;
     setIsolationRow(null);
-    setSelectedCidr("");
+    setSelectedCidr(null);
     setIsolationSubnets([]);
   };
 
   const submitSubnetIsolation = async () => {
-    if (!isolationRow || !selectedCidr) return;
+    if (!isolationRow || selectedCidr === null) return;
     await handleQuarantine(isolationRow.agentId, selectedCidr, true, isolationRow.projectId);
     closeIsolationModal();
   };
 
   const canIsolateSubnet = (row: Row) =>
-    ["SWITCH", "ROUTER", "FIREWALL"].includes((row.deviceType ?? "").toUpperCase());
+    ["SWITCH", "ROUTER", "FIREWALL", "VM"].includes((row.deviceType ?? "").toUpperCase());
 
   function describeIsolation(agentId: string, targetCidr: string, result: ApiQuarantineState): string {
 
@@ -341,10 +347,10 @@ export default function Agent() {
     const parts: string[] = [];
     parts.push(result.retry
       ? `${targetCidr} 는 이미 격리 중입니다.`
-      : `${agentId} 의 ${targetCidr} 격리를 요청했습니다.`);
+      : `${agentId}의 ${targetCidr || "장치 전체"} 격리를 요청했습니다.`);
 
     if (result.scope === "CONNECTION") {
-      parts.push(result.applied === true ? "Agent가 VLAN 격리를 적용했습니다." : "Agent의 다음 정책 수신과 적용 확인을 기다립니다.");
+      parts.push(result.applied === true ? "장비가 격리를 적용했습니다." : result.applied === false ? "장비 적용에 실패했습니다. 상세 로그를 확인하세요." : "정책 동기화와 장비의 적용 확인을 기다립니다.");
     } else if (result.delivered === false) {
       parts.push(
         "정책 명령은 지금 전달되지 않았습니다. Agent 가 다시 연결되면 정책 요청 때 반영됩니다.",
@@ -402,7 +408,7 @@ export default function Agent() {
           />
           <SummaryCard
             label="격리된 서브넷"
-            value={(quarantine.data?.quarantined ?? []).filter((state) => state.scope === "CONNECTION").length}
+            value={(quarantine.data?.quarantined ?? []).filter((state) => state.scope === "CONNECTION" && state.applied === true).length}
             hint="운영자가 VLAN 단위로 차단"
             color="error"
           />
@@ -542,7 +548,7 @@ export default function Agent() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-gray-600 dark:divide-gray-700 dark:text-gray-300">
                   {visibleRows.map((row) => (
-                    <tr key={row.agentId}>
+                    <tr key={row.agentId} data-testid={`agent-row-${row.agentId}`}>
                       <td className="p-3">
                         <div className="flex flex-col">
                           <span className="font-medium text-gray-800 dark:text-white/90">
@@ -599,31 +605,31 @@ export default function Agent() {
                       <td className="p-3">
                         {/* 표시와 해제는 활성 격리의 실제 범위(CIDR)를 따릅니다. */}
                         <div className="flex flex-col gap-1.5">
-                          {quarantinedIds.has(row.agentId) ? (
+                          {nodeQuarantines.has(row.agentId) ? (
                             <>
-                              <Badge size="sm" color="error">
-                                전체 장치 격리
+                              <Badge size="sm" color={nodeQuarantines.get(row.agentId)?.status === "APPLIED" ? "error" : "warning"}>
+                                장치 {nodeQuarantines.get(row.agentId)?.active ? "격리" : "해제"} · {nodeQuarantines.get(row.agentId)?.status === "APPLIED" ? "적용 확인" : nodeQuarantines.get(row.agentId)?.status === "FAILED" ? "적용 실패" : "확인 대기"}
                               </Badge>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 disabled={quarantining !== null}
-                                title="기존 전체 장치 격리 해제는 아래 정책 화면에서 처리합니다"
-                                onClick={() => setQuarantineMessage("기존 전체 장치 격리의 해제는 장치 명령 경로를 사용하므로, 프로젝트 정책 화면에서 해제하세요.")}
+                                title="이번 격리에서 변경한 포트·규칙을 복원합니다"
+                                onClick={() => void handleQuarantine(row.agentId, "", false, row.projectId)}
                               >
-                                범위 확인 필요
+                                장치 격리 해제
                               </Button>
                             </>
                           ) : null}
                           {(connectionQuarantinesByAgent.get(row.agentId) ?? []).map((state) => (
                             <div key={`${row.agentId}:${state.target_cidr}`} className="flex flex-wrap items-center gap-2">
                               <Badge size="sm" color={state.applied === true ? "error" : "warning"}>
-                                {state.target_cidr} · {state.applied === true ? "적용 확인" : state.applied === false ? "적용 실패" : "적용 대기"}
+                                {state.target_cidr} · {state.active ? "격리" : "해제"} {state.applied === true ? "적용 확인" : state.applied === false ? "적용 실패" : "확인 대기"}
                               </Badge>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                disabled={quarantining !== null}
+                                disabled={quarantining !== null || (!state.active && state.status === "PENDING")}
                                 onClick={() => void handleQuarantine(row.agentId, state.target_cidr!, false, row.projectId)}
                               >
                                 {quarantining === `${row.agentId}:${state.target_cidr}` ? "해제 중..." : "서브넷 해제"}
@@ -638,7 +644,7 @@ export default function Agent() {
                               title={!row.projectId ? "프로젝트에 연결된 Agent만 서브넷을 선택할 수 있습니다" : "격리할 VLAN 서브넷을 선택합니다"}
                               onClick={() => void openIsolationModal(row)}
                             >
-                              서브넷 격리
+                              격리 설정
                             </Button>
                           )}
                           {!quarantinedIds.has(row.agentId) && !canIsolateSubnet(row) && (
@@ -668,12 +674,10 @@ export default function Agent() {
                       <td className="p-3 text-xs">
                         {row.projectId ? (
                           <div className="flex flex-col">
-                            <span className="font-medium text-gray-700 dark:text-gray-200">
-                              {row.projectName ?? "프로젝트 이름 확인 불가"}
-                            </span>
-                            <span className="font-mono text-[10px] text-gray-400">
-                              {row.projectId}
-                            </span>
+                            <Link to={`/project/editor/${encodeURIComponent(row.projectId)}`} aria-label={`${row.projectName ?? row.projectId} 프로젝트로 이동`} className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline dark:text-brand-400">
+                              {row.projectName ?? row.projectId}<span aria-hidden="true">↗</span>
+                            </Link>
+                            <span className="font-mono text-[10px] text-gray-400">{row.projectId}</span>
                           </div>
                         ) : (
                           <span className="text-gray-400">미지정</span>
@@ -694,57 +698,11 @@ export default function Agent() {
           )}
         </div>
       </div>
-      <Modal
-        isOpen={isolationRow !== null}
-        onClose={closeIsolationModal}
-        className="max-w-lg p-6"
-      >
-        <div className="space-y-5">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">격리할 VLAN 서브넷 선택</h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {isolationRow?.hostname ?? isolationRow?.agentId}가 관리하는 서브넷 하나의 송수신을 차단합니다.
-            </p>
-          </div>
-          {loadingIsolationSubnets ? (
-            <p className="py-6 text-center text-sm text-gray-500">서브넷 목록을 불러오는 중...</p>
-          ) : isolationSubnets.length > 0 ? (
-            <fieldset className="max-h-72 space-y-2 overflow-y-auto">
-              <legend className="sr-only">격리 대상 서브넷</legend>
-              {isolationSubnets.map((subnet) => (
-                <label key={subnet.id} className="flex cursor-pointer items-start gap-3 rounded border border-gray-200 p-3 dark:border-gray-700">
-                  <input
-                    type="radio"
-                    name="isolation-subnet"
-                    value={subnet.cidr}
-                    checked={selectedCidr === subnet.cidr}
-                    onChange={() => setSelectedCidr(subnet.cidr)}
-                    className="mt-1"
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-gray-800 dark:text-gray-100">{subnet.label || subnet.cidr}</span>
-                    <span className="block font-mono text-xs text-gray-500">{subnet.cidr}</span>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
-          ) : (
-            <p className="rounded border border-warning-200 bg-warning-50 p-3 text-sm text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-200">
-              이 Agent에 연결된 서브넷이 없습니다. 장치 전체를 격리하는 동작으로 대체하지 않습니다.
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="outline" onClick={closeIsolationModal} disabled={quarantining !== null}>취소</Button>
-            <Button
-              size="sm"
-              onClick={() => void submitSubnetIsolation()}
-              disabled={!selectedCidr || loadingIsolationSubnets || quarantining !== null}
-            >
-              {quarantining ? "요청 중..." : "선택한 서브넷 격리"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <IsolationModal
+        agent={isolationRow} subnets={isolationSubnets} selectedCidr={selectedCidr}
+        loading={loadingIsolationSubnets} submitting={quarantining !== null}
+        onSelect={setSelectedCidr} onClose={closeIsolationModal} onSubmit={submitSubnetIsolation}
+      />
     </>
   );
 }

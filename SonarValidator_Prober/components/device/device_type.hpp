@@ -3,10 +3,6 @@
 
 #include <cstdint>
 
-
-
-
-
 enum class DeviceType : std::uint8_t
 {
     kSwitch,

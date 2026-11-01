@@ -65,6 +65,7 @@ export default function TopologyRulePreview() {
   const topology = useApi(
     () => (projectId ? getTopology(projectId) : Promise.resolve(null)),
     [projectId],
+    2000,
   );
 
   const violations = useApi(
@@ -135,8 +136,9 @@ export default function TopologyRulePreview() {
           </div>
         )}
 
+      {topology.error && topology.data && <p role="status" className="text-xs text-amber-700">갱신 실패 · 마지막 수신 결과를 표시합니다.</p>}
         {/* 로딩/오류 */}
-        {topology.error ? (
+        {topology.error && !topology.data ? (
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
             {topology.error}
           </div>

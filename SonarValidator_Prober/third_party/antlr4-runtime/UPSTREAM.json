@@ -1,0 +1,8 @@
+{
+  "version": "4.13.2",
+  "url": "https://www.antlr.org/download/antlr4-cpp-runtime-4.13.2-source.zip",
+  "archive_sha256": "0ed13668906e86dbc0dcddf30fdee68c10203dea4e83852b4edb810821bee3c4",
+  "license": "BSD-3-Clause",
+  "included": "runtime/src .cpp/.h files (unmodified), LICENSE.txt, VERSION",
+  "source_files": 307
+}

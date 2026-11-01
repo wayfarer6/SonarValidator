@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ErrorDetailsButton } from "./LogDetails";
 import { renderMermaid } from "../../lib/mermaid";
 
 
@@ -9,21 +10,23 @@ const ZOOM_STEP = 0.25;
 
 const FALLBACK_RATIO = 0.6;
 
-function prepareSvg(rawSvg: string): { svg: string; ratio: number } {
+function prepareSvg(rawSvg: string): { svg: string; ratio: number; width: number } {
   const openTagMatch = rawSvg.match(/<svg\b[^>]*>/i);
   if (!openTagMatch) {
-    return { svg: rawSvg, ratio: FALLBACK_RATIO };
+    return { svg: rawSvg, ratio: FALLBACK_RATIO, width: 0 };
   }
 
   const openTag = openTagMatch[0];
 
   // viewBox 에서 본질 크기를 얻습니다. (예: "4 4 552 466.37")
   let ratio = FALLBACK_RATIO;
+  let width = 0;
   const viewBoxMatch = openTag.match(/viewBox="([^"]+)"/i);
   if (viewBoxMatch) {
     const parts = viewBoxMatch[1].trim().split(/[\s,]+/).map(Number);
     if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
       ratio = parts[3] / parts[2];
+      width = parts[2];
     }
   }
 
@@ -38,7 +41,7 @@ function prepareSvg(rawSvg: string): { svg: string; ratio: number } {
       '<svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet"',
     );
 
-  return { svg: rawSvg.replace(openTag, newOpenTag), ratio };
+  return { svg: rawSvg.replace(openTag, newOpenTag), ratio, width };
 }
 
 interface MermaidDiagramProps {
@@ -46,6 +49,7 @@ interface MermaidDiagramProps {
   className?: string;
   showZoomControls?: boolean;
   minHeight?: number;
+  maxHeight?: number;
 }
 
 export default function MermaidDiagram({
@@ -53,13 +57,14 @@ export default function MermaidDiagram({
   className = "",
   showZoomControls = true,
   minHeight,
+  maxHeight = 560,
 }: MermaidDiagramProps) {
   const [rawSvg, setRawSvg] = useState("");
   const [error, setError] = useState("");
 
   const [scale, setScale] = useState(1);
 
-  const [baseWidth, setBaseWidth] = useState(0);
+  const [availableWidth, setAvailableWidth] = useState(0);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -114,7 +119,7 @@ export default function MermaidDiagram({
     const measure = () => {
       const width = wrapper.clientWidth;
       if (width > 0) {
-        setBaseWidth((previous) => (previous === width ? previous : width));
+        setAvailableWidth((previous) => (previous === width ? previous : width));
       }
     };
 
@@ -128,6 +133,8 @@ export default function MermaidDiagram({
 
   // SVG 수정과 기준 높이 계산을 렌더 시점에 확정합니다. (effect 불필요)
   const prepared = useMemo(() => prepareSvg(rawSvg), [rawSvg]);
+
+  const baseWidth = Math.min(availableWidth, prepared.width || availableWidth, maxHeight / prepared.ratio);
 
   const baseHeight = useMemo(() => {
     if (baseWidth <= 0) return 0;
@@ -255,7 +262,8 @@ export default function MermaidDiagram({
   if (error) {
     return (
       <div className="p-4 text-xs text-red-600 dark:text-red-400">
-        다이어그램 렌더링 실패: {error}
+        <p>다이어그램을 표시할 수 없습니다.</p>
+        <ErrorDetailsButton title="다이어그램 오류" details={error} />
       </div>
     );
   }
@@ -305,9 +313,9 @@ export default function MermaidDiagram({
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        style={minHeight ? { minHeight } : undefined}
+        style={{ minHeight, maxHeight }}
         // 확대 상태에서는 grab 커서로 이동 가능함을 알립니다.
-        className={`flex justify-center overflow-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
+        className={`block overflow-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
           scale > 1 ? "cursor-grab active:cursor-grabbing" : ""
         } ${className}`}
         aria-label="네트워크 다이어그램"
@@ -318,7 +326,7 @@ export default function MermaidDiagram({
         <div
           style={
             ready
-              ? { width: baseWidth * scale, height: baseHeight * scale }
+              ? { width: baseWidth * scale, height: baseHeight * scale, margin: "0 auto" }
               : undefined
           }
         >

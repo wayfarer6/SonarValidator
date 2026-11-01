@@ -1,4 +1,6 @@
-import { useMemo } from "react";
+import { LogDetailsModal } from "../common/LogDetails";
+import { compactText, deviceLogDetails, type LogDetail } from "../../lib/errors";
+import { useMemo, useState } from "react";
 import { FileTextIcon } from "../../icons";
 import { useApi } from "../../hooks/useApi";
 import { getLogSummary, listLogs } from "../../lib/api/aiLogs";
@@ -29,6 +31,7 @@ function formatTime(iso: string) {
 
 // 로그 현황 카드 (레벨별 집계 + 최근 로그)
 export default function LogStatusCard() {
+  const [detail, setDetail] = useState<LogDetail | null>(null);
   const summary = useApi(() => getLogSummary(), []);
   const logs = useApi(() => listLogs({ limit: 20 }), []);
 
@@ -89,8 +92,9 @@ export default function LogStatusCard() {
                 </span>
               </div>
               <p className="mt-1.5 text-xs leading-snug text-gray-500 dark:text-gray-400">
-                {log.message ?? log.raw}
+                {compactText(log.message ?? log.raw)}
               </p>
+              <button type="button" className="mt-2 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400" onClick={() => setDetail(deviceLogDetails(log))}>상세 보기</button>
             </div>
           );
         })}
@@ -103,6 +107,7 @@ export default function LogStatusCard() {
           <p className="py-6 text-center text-xs text-gray-400">로그가 없습니다.</p>
         )}
       </div>
+      <LogDetailsModal detail={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }

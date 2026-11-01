@@ -35,26 +35,13 @@ FROM ${BUILDER_IMAGE} AS prober-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates build-essential g++ cmake \
-      curl unzip \
+      pkg-config \
       libsqlite3-dev libssl-dev \
       libboost-dev nlohmann-json3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
-
-# ANTLR4 C++ 런타임을 받아 빌드합니다.
-# 버전은 프로버의 생성 소스와 반드시 같아야 합니다.
-ARG ANTLR4_VERSION=4.13.2
-RUN mkdir -p /opt/antlr4-install && \
-    curl -fsSL -o /tmp/antlr4-cxx.zip \
-      "https://www.antlr.org/download/antlr4-cpp-runtime-${ANTLR4_VERSION}-source.zip" && \
-    unzip -q /tmp/antlr4-cxx.zip -d /tmp/antlr4-src && \
-    cd /tmp/antlr4-src && \
-    cmake -B build \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/opt/antlr4-install && \
-    cmake --build build --parallel $(nproc) && \
-    cmake --install build
+ARG BUILD_JOBS=2
 
 # Prober 소스를 복사하고 정적 바이너리를 빌드합니다.
 COPY SonarValidator_Prober/ ./
@@ -62,11 +49,10 @@ COPY SonarValidator_Prober/ ./
 RUN cmake -S . -B build_static \
       -DCMAKE_BUILD_TYPE=Release \
       -DSONAR_STATIC_LINK=ON \
-  -DCMAKE_EXE_LINKER_FLAGS=-static \
-      -DANTLR4_RUNTIME_ROOT=/opt/antlr4-install && \
-    cmake --build build_static --target installer_bundle --parallel $(nproc) && \
+      -DCMAKE_EXE_LINKER_FLAGS=-static && \
+    cmake --build build_static --target installer_bundle --parallel "${BUILD_JOBS}" && \
     mkdir -p /tmp/sonar_stage && \
-    cp -R Installer/Installer.sh Installer/default_template.sqlite Installer/sonar_validator_prober Installer/systemd Installer/rc-service /tmp/sonar_stage/ && \
+    cp -R Installer/Installer.sh Installer/sonar_cli_bridge.tcl Installer/default_template.sqlite Installer/sonar_validator_prober Installer/systemd Installer/rc-service Installer/licenses /tmp/sonar_stage/ && \
     ls -la /tmp/sonar_stage/
 
 # Backend builder 스테이지

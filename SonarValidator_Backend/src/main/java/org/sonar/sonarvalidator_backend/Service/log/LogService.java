@@ -126,7 +126,7 @@ public class LogService {
             repository.saveAll(toSave);
         }
 
-        log.info("logs ingested: agent={} received={} inserted={} duplicated={} skipped={}",
+        log.debug("logs ingested: agent={} received={} inserted={} duplicated={} skipped={}",
                 agentId, lines.size(), inserted, duplicated, skipped);
 
         result.put("received", lines.size());

@@ -48,10 +48,6 @@ public class CliIngestController {
             vendors.add(vendor.name());
         }
         body.put("vendors", vendors);
-        body.put("example", Map.of(
-                "product", "Ubuntu",
-                "target", "route",
-                "raw", "default via 10.99.10.1 dev eth0 proto static"));
         return body;
     }
 

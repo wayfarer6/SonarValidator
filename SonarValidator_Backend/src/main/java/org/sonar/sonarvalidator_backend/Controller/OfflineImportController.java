@@ -198,7 +198,7 @@ public class OfflineImportController {
                 .map(OfflineSnapshotService.SnapshotResult::agent_id)
                 .toList());
 
-        log.info("offline import response: received={} accepted={} rejected={}",
+        log.debug("offline import response: received={} accepted={} rejected={}",
                 body.get("received"), body.get("accepted"), rejected);
         return body;
     }

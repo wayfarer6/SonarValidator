@@ -1,3 +1,4 @@
+import { errorLog } from "../errors";
 import { apiRequest } from "./client";
 
 
@@ -158,8 +159,10 @@ export function deleteAiProvider(id: number): Promise<{ deleted: boolean }> {
 }
 
 export function checkAiProvider(id: number): Promise<ApiAiCheckResult> {
-  return apiRequest<ApiAiCheckResult>(`/api/v1/ai/providers/${id}/check`, {
-    method: "POST",
+  const path = `/api/v1/ai/providers/${id}/check`;
+  return apiRequest<ApiAiCheckResult>(path, { method: "POST" }).then(result => {
+    if (!result.ok) errorLog.record({ summary: "AI 공급자 연결에 실패했습니다.", details: result, method: "POST", path, status: 200 });
+    return result;
   });
 }
 
@@ -260,9 +263,9 @@ export interface ApiAnalyzeRequest {
 export function analyzeLogs(
   request: ApiAnalyzeRequest,
 ): Promise<ApiLogAnalysis> {
-  return apiRequest<ApiLogAnalysis>("/api/v1/logs/analyze", {
-    method: "POST",
-    body: request,
+  return apiRequest<ApiLogAnalysis>("/api/v1/logs/analyze", { method: "POST", body: request }).then(result => {
+    if (!result.succeeded) errorLog.record({ summary: "AI 로그 분석에 실패했습니다.", details: result, method: "POST", path: "/api/v1/logs/analyze", status: 200 });
+    return result;
   });
 }
 

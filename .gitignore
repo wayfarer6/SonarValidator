@@ -117,3 +117,10 @@ __pycache__/
 test-results/
 
 /SonarValidator_Prober/Installer/sonar_validator_prober
+
+# JVM build products and Windows download metadata
+*.class
+/SonarValidator_Backend/bin/
+*:Zone.Identifier
+
+/SonarValidator_Prober/Installer/licenses/

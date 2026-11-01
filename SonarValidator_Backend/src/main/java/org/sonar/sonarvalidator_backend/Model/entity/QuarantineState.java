@@ -74,6 +74,21 @@ public class QuarantineState {
     @Column(name = "released_by", length = 120)
     private String releasedBy;
 
+    @Column(name = "request_id", length = 36)
+    private String requestId;
+
+    @Column(name = "apply_status", length = 20)
+    private String applyStatus;
+
+    @Column(name = "apply_detail", length = 1000)
+    private String applyDetail;
+
+    @Column(name = "confirmed_blocked")
+    private Boolean confirmedBlocked;
+
+    @Column(name = "confirmed_at")
+    private Date confirmedAt;
+
     public boolean isActive() {
         return releasedAt == null;
     }

@@ -2,275 +2,108 @@ package org.sonar.sonarvalidator_backend.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.DatagramSocket;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.sonar.sonarvalidator_backend.Repository.ExpectedAgentRepository;
+import org.sonar.sonarvalidator_backend.Repository.ProjectRepository;
+import org.sonar.sonarvalidator_backend.Policy.PacketVariables;
 
 @Service
 public class AgentBundleService {
-
     private static final Logger log = LoggerFactory.getLogger(AgentBundleService.class);
-
     private static final String BUNDLE_ROOT = "Installer";
-
     private final String stageDirectory;
-
-    private final String serverIp;
-
-    private final int serverPort;
-
-    private final String managementInterface;
-
-    private final List<String> managementCidrs;
     private final String terminalSharedSecret;
+    private final ExpectedAgentRepository expectedAgents;
+    private final ProjectRepository projects;
 
-    public AgentBundleService(
-            @Value("${sonar.deploy.stage-dir:/tmp/sonar_stage}") String stageDirectory,
-
-
-
-            @Value("${sonar.deploy.server-ip:}") String serverIp,
-            @Value("${server.port:3000}") int serverPort,
-            @Value("${sonar.deploy.management-interface:}") String managementInterface,
-
-
-
-            @Value("${sonar.site.management-prefix:}") String managementCidrs,
-            @Value("${sonar.terminal.shared-secret:}") String terminalSharedSecret) {
+    public AgentBundleService(@Value("${sonar.deploy.stage-dir:/tmp/sonar_stage}") String stageDirectory,
+            @Value("${sonar.terminal.shared-secret:}") String terminalSharedSecret,
+            ExpectedAgentRepository expectedAgents, ProjectRepository projects) {
         this.stageDirectory = stageDirectory;
-        this.serverIp = serverIp == null ? "" : serverIp.trim();
-        this.serverPort = serverPort;
-        this.managementInterface = managementInterface == null ? "" : managementInterface.trim();
-        this.managementCidrs = (managementCidrs == null || managementCidrs.isBlank())
-                ? List.of()
-                : List.of(managementCidrs.split("\\s*,\\s*"));
         this.terminalSharedSecret = terminalSharedSecret;
+        this.expectedAgents = expectedAgents;
+        this.projects = projects;
     }
 
-    List<String> DetectLocalAddresses() {
-        try {
-            final String defaultRouteIface = DefaultRouteInterface();
-            final List<String> preferred = new ArrayList<>();
-            final List<String> fallback = new ArrayList<>();
+    private record BundleSettings(String ip, int port, String nodeType, String projectId, String managementPrefix) {}
 
-            final Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                final NetworkInterface nic = interfaces.nextElement();
-                if (!nic.isUp() || nic.isLoopback() || nic.isVirtual()) {
-                    continue;
-                }
-
-                // 관리 인터페이스를 지정했으면 그것만 봅니다.
-                if (!managementInterface.isBlank()
-                        && !managementInterface.equals(nic.getName())) {
-                    continue;
-                }
-
-                final Enumeration<InetAddress> addresses = nic.getInetAddresses();
-                while (addresses.hasMoreElements()) {
-                    final InetAddress address = addresses.nextElement();
-                    if (!(address instanceof Inet4Address)
-                            || address.isLoopbackAddress()
-                            || address.isLinkLocalAddress()) {
-                        continue;
-                    }
-
-                    final String host = address.getHostAddress();
-                    if (preferred.contains(host) || fallback.contains(host)) {
-                        continue;
-                    }
-
-                    // 관리 대역으로 지정된 주소는 최우선입니다.
-                    if (!managementCidrs.isEmpty() && MatchesAnyCidr(host, managementCidrs)) {
-                        preferred.add(0, host);
-                    }
-                    else if (!nic.getName().equals(defaultRouteIface)) {
-                        preferred.add(host);
-                    }
-                    else {
-                        fallback.add(host);
-                    }
-                }
-            }
-
-            final List<String> result = new ArrayList<>(preferred);
-            result.addAll(fallback);
-            return result;
-        } catch (SocketException ex) {
-            log.warn("local address detection failed: {}", ex.getMessage());
-            return List.of();
+    private BundleSettings settings(String agentId, String requestedType, String projectId) {
+        final var agent = expectedAgents.findByAgentId(agentId).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.CONFLICT, "먼저 프로젝트에 Agent를 등록하세요."));
+        if (projectId == null || !projectId.equals(agent.getProjectKey())) throw new ResponseStatusException(
+                HttpStatus.CONFLICT, "Agent가 선택한 프로젝트에 소속되어 있지 않습니다.");
+        final var project = projects.findByProjectKey(projectId).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.CONFLICT, "Agent의 소속 프로젝트를 확인하세요."));
+        final String ip = ManagementServerAddress.normalize(project.getManagementServerIp());
+        final Integer port = project.getManagementServerPort();
+        if (ip == null ||
+                port == null || port < 1 || port > 65535) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "프로젝트 편집에서 관리 서버 주소와 포트를 저장하세요.");
         }
+        final String configuredType = agent.getNodeType() == null ? agent.getDeviceType() : agent.getNodeType();
+        final AgentNodeType type = java.util.Arrays.stream(AgentNodeType.values()).filter(t -> t.matches(configuredType))
+                .findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "등록된 장비 유형을 확인하세요."));
+        if (requestedType != null && !requestedType.isBlank() && !type.matches(requestedType)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "선택한 유형이 등록된 Agent 유형과 다릅니다.");
+        }
+        if (agentId == null || !agentId.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,119}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agent 이름에 사용할 수 없는 문자가 있습니다.");
+        }
+        final String prefix = project.getManagementPrefix() == null ? "" : project.getManagementPrefix().trim();
+        for (String value : prefix.split(",")) {
+            if (!value.isBlank()) PacketVariables.parseCidr(value.trim());
+        }
+        return new BundleSettings(ip, port, type.canonical(), project.getProjectKey(), prefix);
     }
 
-    String DefaultRouteInterface() {
-        try (DatagramSocket socket = new DatagramSocket()) {
-            // 라우팅 결정만 필요하므로 실제로 보내지 않습니다(DNS 불필요).
-            socket.connect(InetAddress.getByName("203.0.113.1"), 9);  // TEST-NET-3
-            final InetAddress local = socket.getLocalAddress();
-            if (local == null || local.isAnyLocalAddress()) {
-                return "";
-            }
-            for (final NetworkInterface nic : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (Collections.list(nic.getInetAddresses()).contains(local)) {
-                    return nic.getName();
-                }
-            }
-        } catch (IOException ex) {
-            log.debug("default route interface detection failed: {}", ex.getMessage());
-        }
-        return "";
-    }
-
-    static boolean MatchesAnyCidr(String host, List<String> cidrs) {
-        try {
-            final byte[] target = InetAddress.getByName(host).getAddress();
-            for (final String cidr : cidrs) {
-                final int slash = cidr.indexOf('/');
-                if (slash < 0) {
-                    continue;
-                }
-                final byte[] network = InetAddress.getByName(cidr.substring(0, slash)).getAddress();
-                final int prefix = Integer.parseInt(cidr.substring(slash + 1).trim());
-                if (network.length != target.length || prefix < 0 || prefix > 32) {
-                    continue;
-                }
-
-                int bits = prefix;
-                boolean same = true;
-                for (int i = 0; i < target.length && same; i++) {
-                    final int take = Math.min(8, Math.max(0, bits));
-                    final int mask = take == 0 ? 0 : (0xFF << (8 - take)) & 0xFF;
-                    if ((target[i] & mask) != (network[i] & mask)) {
-                        same = false;
-                    }
-                    bits -= 8;
-                }
-                if (same) {
-                    return true;
-                }
-            }
-        } catch (Exception ex) {
-            log.debug("cidr match failed for {}: {}", host, ex.getMessage());
-        }
-        return false;
-    }
-
-    ResolvedServer resolveServer(String overrideIp, String overridePort) {
-        final int port = resolvePort(overridePort);
-
-        final String explicit = blankToNull(overrideIp);
-        if (explicit != null) {
-            return new ResolvedServer(explicit, port, "request", List.of());
-        }
-        if (!serverIp.isBlank()) {
-            return new ResolvedServer(serverIp, port, "config", List.of());
-        }
-        final List<String> detected = DetectLocalAddresses();
-        if (!detected.isEmpty()) {
-            return new ResolvedServer(detected.get(0), port, "detected", detected);
-        }
-        return new ResolvedServer("127.0.0.1", port, "fallback", List.of());
-    }
-
-    private int resolvePort(String overridePort) {
-        final String raw = blankToNull(overridePort);
-        if (raw == null) {
-            return serverPort;
-        }
-        try {
-            final int parsed = Integer.parseInt(raw.trim());
-            if (parsed < 1 || parsed > 65535) {
-                log.warn("server_port override out of range, using {}: {}",
-                        serverPort, raw);
-                return serverPort;
-            }
-            return parsed;
-        } catch (NumberFormatException ex) {
-            log.warn("server_port override is not a number, using {}: {}",
-                    serverPort, raw);
-            return serverPort;
-        }
-    }
-
-    record ResolvedServer(String ip, int port, String source, List<String> candidates) {
-    }
-
-    public byte[] build(String agentId, String nodeType, String serverIpOverride,
-                        String serverPortOverride, String dataDirectory) {
+    public byte[] build(String agentId, String nodeType, String projectId, String dataDirectory) {
         if (terminalSharedSecret == null || terminalSharedSecret.trim().length() < 32) {
-            throw new IllegalStateException(
-                    "sonar.terminal.shared-secret must contain at least 32 characters to build an Agent bundle");
+            throw new IllegalStateException("sonar.terminal.shared-secret must contain at least 32 characters");
         }
-        final String type = normalizeNodeType(nodeType);
-        final ResolvedServer resolved = resolveServer(serverIpOverride, serverPortOverride);
-        final String ip = resolved.ip();
-        final int port = resolved.port();
-        final Path proberBinary = Path.of(stageDirectory, "sonar_validator_prober");
-        if (!Files.isRegularFile(proberBinary) || !Files.isReadable(proberBinary)) {
-            throw new IllegalStateException("Required Agent binary is missing or unreadable: "
-                + proberBinary);
+        if (dataDirectory != null && (dataDirectory.contains(";") || dataDirectory.contains("\n") || dataDirectory.contains("\r"))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "데이터 경로에 사용할 수 없는 문자가 있습니다.");
         }
-
+        final BundleSettings resolved = settings(agentId, nodeType, projectId);
+        for (String name : List.of("sonar_validator_prober", "default_template.sqlite")) {
+            if (!Files.isReadable(Path.of(stageDirectory, name))) throw new IllegalStateException("Required Agent asset is missing: " + name);
+        }
         try {
             final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            // ⚠️ tar → gzip → buffer 순서로 close 되어야 gzip 트레일러(CRC·길이)가
-            //    마지막에 기록됩니다. 안쪽부터 닫히도록 중첩 try 를 씁니다.
             try (GzipCompressorOutputStream gzip = new GzipCompressorOutputStream(buffer);
                  TarArchiveOutputStream tar = new TarArchiveOutputStream(gzip)) {
-
-                // ⚠️ 긴 파일 이름을 허용합니다. 기본값(POSIX)에서는 100자를 넘는
-                //    이름이 조용히 잘려 장비에서 다른 이름으로 풀립니다.
                 tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX);
-                // 긴 링크 이름도 마찬가지입니다.
                 tar.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_POSIX);
-
-                put(tar, "default.conf", defaultConf(ip, port, type, agentId, dataDirectory,
-                    terminalSharedSecret) + "MANAGEMENT_PREFIX=" + String.join(",", managementCidrs) + ";\n");
-                put(tar, "README.txt", readme(agentId, type, ip, port));
+                put(tar, "default.conf", defaultConf(resolved.ip(), resolved.port(), resolved.nodeType(), agentId,
+                    dataDirectory, terminalSharedSecret) + "MANAGEMENT_PREFIX=" + resolved.managementPrefix() + ";\n");
+                put(tar, "README.txt", readme(agentId, resolved.nodeType(), resolved.ip(), resolved.port()));
                 putFile(tar, "sonar_validator_prober");
-                putOptionalFile(tar, "Installer.sh");
-                putOptionalFile(tar, "restart.sh");
-                putOptionalFile(tar, "default_template.sqlite");
-                putOptionalFile(tar, "systemd/sonar_validator_prober.service");
-                putOptionalFile(tar, "systemd/sonar_validator_prober-cisco.service");
-                putOptionalFile(tar, "rc-service/sonar_validator_prober");
-
-                // ⚠️ finish() 는 필수입니다. tar 는 마지막에 1024바이트 0 블록을
-                //    쓰는데, 이것이 없으면 일부 tar 가 "Unexpected EOF" 로 거부합니다.
+                putFile(tar, "default_template.sqlite");
+                try (var notice = AgentBundleService.class.getResourceAsStream("/agent-licenses/antlr4-runtime-LICENSE.txt")) {
+                    if (notice == null) throw new IOException("ANTLR license resource is missing");
+                    putBytes(tar, "licenses/antlr4-runtime-LICENSE.txt", notice.readAllBytes());
+                }
+                for (String name : List.of("Installer.sh", "restart.sh", "sonar_cli_bridge.tcl", "systemd/sonar_validator_prober.service",
+                        "systemd/sonar_validator_prober-cisco.service", "rc-service/sonar_validator_prober")) putOptionalFile(tar, name);
                 tar.finish();
             }
-
-
-
-
-            final byte[] bundle = buffer.toByteArray();
-            log.info("agent download generated: agent={} type={} server={}:{} format=tar.gz bytes={}",
-                    agentId, type, ip, port, bundle.length);
-            return bundle;
-
+            return buffer.toByteArray();
         } catch (IOException ex) {
-            // 번들 생성 실패는 복구 불가한 서버 측 문제입니다.
-            // 빈 파일을 내려주면 운영자가 그것을 설치하려다 원인을 알 수 없습니다.
-            throw new IllegalStateException("agent download generation failed: " + ex.getMessage(), ex);
+            throw new IllegalStateException("Agent bundle generation failed", ex);
         }
     }
 
@@ -308,75 +141,43 @@ public class AgentBundleService {
     }
 
     private String readme(String agentId, String nodeType, String ip, int port) {
-        final AgentNodeType type = AgentNodeType.parse(nodeType);
-        final String how = type.prepareNote();
-        final String canonical = type.canonical();
-
         return """
-                SonarValidator Agent 설치 안내
-                ==============================
+                SonarValidator Prober
+                Agent: %s
+                Type: %s
+                Project server: %s:%d
 
-                Agent 이름 : %s
-                장치 유형  : %s
-                서버 주소  : %s:%d
-                ⚠️ 이 이름과 장치 유형은 서버에 이미 등록되어 있습니다.
-                   바꾸면 서버가 다른 장치로 인식합니다.
+                서버 주소와 포트는 프로젝트 편집에서 저장한 값입니다.
+                주소를 바꿨다면 새 번들을 다운로드하고 기존 Prober를 정상 종료한 뒤 갱신하세요.
 
-                0. 번들 풀기
-                ------------
-                  tar -xzf sonar-agent-%s.tar.gz
-                  cd Installer
-                (장비에 unzip 이 없어도 됩니다 — tar·gzip 은 기본 포함입니다)
+                1. SSH/SCP로 번들을 장비의 쓰기 가능한 경로에 전송합니다.
+                2. tar -xzf sonar-agent-%s.tar.gz
+                   cd Installer
+                3. Linux systemd/OpenRC 신규 설치:
+                   sudo sh Installer.sh
+                4. 수동 실행 또는 init 없는 컨테이너:
+                   chmod 600 default.conf
+                   mkdir -p data
+                   SONAR_CONFIG_PATH="$PWD/default.conf" \
+                   SONAR_TEMPLATE_PATH="$PWD/default_template.sqlite" \
+                   SONAR_DATA_DIR="$PWD/data" ./sonar_validator_prober
 
-                1. 바이너리 준비
-                -----------------
-                이 번들에는 설정·스크립트와 함께 스테이징된 정적 바이너리
-                {@code sonar_validator_prober} 가 포함될 수 있습니다.
-                바이너리가 없다면 서버 배포 단계에서 스테이징이 누락된 것이므로,
-                먼저 정적 빌드를 만들고 /tmp/sonar_stage 에 넣어 주세요:
+                바이너리, default.conf, SQLite 템플릿을 같은 Installer 디렉터리에서 사용합니다.
+                기존 DB를 삭제하지 마세요. 갱신 전 기존 프로세스에 SIGTERM을 보내고
+                종료를 기다린 뒤 바이너리를 교체합니다. 같은 Agent를 두 개 실행하지 마세요.
+                초기 수집 주기는 30초이며 서버에 저장한 노드별 설정이 이후 반영됩니다.
 
-                  cd SonarValidator_Prober && cmake -S . -B build_static -DCMAKE_BUILD_TYPE=Release
-                  cmake --build build_static --target sonar_validator_prober
-                  cp build_static/sonar_validator_prober /tmp/sonar_stage/
-
-                장치에 이미 바이너리가 있으면 다음 단계로 바로 진행하세요.
-                (운영 환경에서 HTTP 다운로드를 쓸 수도 있지만, 번들 안에 포함된
-                 바이너리가 있으면 가장 단순하고 안전합니다)
-
-                2. 설정 배치
-                ------------
-                  mkdir -p /opt/sonar_validator/data
-                  cp default.conf /opt/sonar_validator/default.conf
-                  cp default_template.sqlite /opt/sonar_validator/
-                  rm -f /opt/sonar_validator/data/settings.conf
-
-                ⚠️ 기존 settings.conf 를 지워야 새 AGENT_NAME 이 반영됩니다.
-                   남아 있으면 예전 이름으로 접속해 배포 예정과 합쳐지지 않습니다.
-
-                3. 실행
-                -------
-                  cd /opt/sonar_validator
-                  SONAR_DATA_DIR=/opt/sonar_validator/data \\
-                  SONAR_TEMPLATE_PATH=/opt/sonar_validator/default_template.sqlite \\
-                  SONAR_CONFIG_PATH=/opt/sonar_validator/default.conf \\
-                    nohup ./sonar_validator_prober > run.log 2>&1 &
-
-                4. 재시작 (⚠️ SIGTERM 필수)
-                --------------------------
-                  sh restart.sh %s VM
-
-                kill -9 는 SQLite 에 hot journal 을 남겨 다음 기동이
-                "Runtime initialization failed" 로 실패합니다.
-
-                5. 장치별 참고
-                --------------
-                %s
-
-                6. 확인
-                -------
-                  30초 주기로 텔레메트리를 전송합니다.
-                  서버에서 GET /api/v1/agents/overview 로 "connected" 를 확인하세요.
-                """.formatted(agentId, canonical, ip, port, agentId, ip, agentId, how);
+                Cisco GuestShell/EOS/GNS3 컨테이너는 해당 장비의 영구 저장 경로와
+                기존 EEM·부팅 훅을 사용하세요. OPNsense는 Prober 대신 API 연결을 사용합니다.
+                Cisco의 dohost가 동작하지 않으면 sonar_cli_bridge.tcl을 GuestShell의
+                /bootflash/guest-share/sonar-cli/에 복사하고 IOS에서 다음을 등록하세요.
+                기존 EEM user policy 디렉터리가 있으면 그 경로를 보존하세요.
+                  event manager directory user policy bootflash:/guest-share/sonar-cli
+                  event manager policy sonar_cli_bridge.tcl type user authorization bypass
+                이 경로는 관리자용 공유 폴더이며 일반 사용자에게 쓰기 권한을 주지 마세요.
+                격리/해제는 요청만으로 성공하지 않으며 장비 상태 재조회 후 확인됩니다.
+                default.conf에는 인증 비밀값이 있으므로 공개하거나 녹화 화면에 출력하지 마세요.
+                """.formatted(agentId, nodeType, ip, port, agentId);
     }
 
     public static String normalizeNodeType(String nodeType) {
@@ -398,7 +199,7 @@ public class AgentBundleService {
                 || name.equals("rc-service/sonar_validator_prober");
         final TarArchiveEntry entry = new TarArchiveEntry(BUNDLE_ROOT + "/" + name);
         entry.setSize(content.length);
-        entry.setMode(executable ? 0755 : 0644);
+        entry.setMode(name.equals("default.conf") ? 0600 : executable ? 0755 : 0644);
         entry.setModTime(System.currentTimeMillis());
         tar.putArchiveEntry(entry);
         tar.write(content);
@@ -420,13 +221,13 @@ public class AgentBundleService {
         putBytes(tar, name, Files.readAllBytes(source));
     }
 
-    public Map<String, Object> describe(String agentId, String nodeType,
-                                        String serverIpOverride, String serverPortOverride) {
-        final ResolvedServer resolved = resolveServer(serverIpOverride, serverPortOverride);
+    public Map<String, Object> describe(String agentId, String nodeType, String projectId) {
+        final BundleSettings resolved = settings(agentId, nodeType, projectId);
 
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("agent_id", agentId);
-        body.put("node_type", normalizeNodeType(nodeType));
+        body.put("node_type", resolved.nodeType());
+        body.put("project_id", resolved.projectId());
         body.put("server_ip", resolved.ip());
         body.put("server_port", resolved.port());
         body.put("file_name", fileNameFor(agentId));
@@ -446,23 +247,19 @@ public class AgentBundleService {
             body.put("warning", "배포 자산이 스테이징되지 않았습니다: " + String.join(", ", missing)
                     + " (" + stageDirectory + " 를 확인하세요)");
             body.put("missing_assets", missing);
-            body.put("download_ready", !missing.contains("sonar_validator_prober"));
+            body.put("download_ready", !missing.contains("sonar_validator_prober") && !missing.contains("default_template.sqlite"));
         } else {
             body.put("download_ready", true);
         }
 
-        body.put("server_ip_source", resolved.source());
-        if (resolved.candidates().size() > 1) {
-            // 후보가 여럿이면 운영자가 어느 것이 맞는지 골라야 합니다.
-            body.put("server_ip_candidates", resolved.candidates());
-        }
+        body.put("server_ip_source", "project");
         return body;
     }
 
     private Map<String, Boolean> stagedAssets() {
         final Map<String, Boolean> result = new LinkedHashMap<>();
         for (final String name : new String[] {
-                "sonar_validator_prober", "default_template.sqlite", "Installer.sh", "restart.sh",
+                "sonar_validator_prober", "default_template.sqlite", "Installer.sh", "restart.sh", "sonar_cli_bridge.tcl",
                 "systemd/sonar_validator_prober.service", "systemd/sonar_validator_prober-cisco.service",
                 "rc-service/sonar_validator_prober"}) {
             result.put(name, Files.isRegularFile(Path.of(stageDirectory, name)));

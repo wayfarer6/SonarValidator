@@ -23,7 +23,7 @@ public class DeviceConfigService {
     public DeviceConfigService(List<DeviceConfigParser> parsers) {
         this.parsers = List.copyOf(parsers);
         this.registry = new StrategyRegistry<>(parsers, DeviceConfigParser::priority);
-        log.info("device config parsers registered: {}", this.parsers.size());
+        log.debug("device config parsers registered: {}", this.parsers.size());
     }
 
     public Optional<DeviceConfigParser> parserFor(String productName, String deviceType) {
@@ -46,6 +46,7 @@ public class DeviceConfigService {
         if (selected.isEmpty()) {
             log.warn("no config parser for product={} host={}; returning empty config", product, hostname);
             final NeutralDeviceConfig empty = new NeutralDeviceConfig();
+            empty.setDiscoveryComplete(false);
             empty.setHostname(hostname);
             empty.setProduct(product);
             empty.getWarnings().add("no parser matched product '" + product + "'");
@@ -55,6 +56,16 @@ public class DeviceConfigService {
         final DeviceConfigParser parser = selected.get();
         try {
             final NeutralDeviceConfig config = parser.parse(hostname, product, payload);
+            final List<String> capabilities = parser.capabilities();
+            final boolean complete = payload != null && (!capabilities.contains("interfaces")
+                        || payload.path("nic_status").path("interfaces").isArray())
+                    && (!capabilities.contains("routes")
+                        || payload.path("route_status").path("routes").isArray())
+                    && (!capabilities.contains("vlans")
+                        || payload.path("vlan_status").path("vlans").isArray());
+            config.setDiscoveryComplete(complete);
+            if (!complete) config.getWarnings().add(
+                    "Incomplete discovery: previously discovered project subnets retained");
             if (log.isDebugEnabled()) {
                 log.debug("parsed {} via {}: ifaces={} routes={} vlans={}",
                         hostname, parser.getClass().getSimpleName(),
@@ -67,6 +78,7 @@ public class DeviceConfigService {
             log.error("parser {} failed for host={} product={}: {}",
                     parser.getClass().getSimpleName(), hostname, product, ex.getMessage(), ex);
             final NeutralDeviceConfig failed = new NeutralDeviceConfig();
+            failed.setDiscoveryComplete(false);
             failed.setHostname(hostname);
             failed.setProduct(product);
             failed.getWarnings().add("parser error: " + ex.getClass().getSimpleName());

@@ -15,7 +15,7 @@ import CollectedSubnetsPanel from "../components/network/CollectedSubnetsPanel";
 export default function NetworkManagement() {
   const [searchParams] = useSearchParams();
   const projects = useApi(() => listProjects(), []);
-  const routes = useApi(() => listRouteTables(), []);
+  const routes = useApi(() => listRouteTables(), [], 2000);
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     searchParams.get("project_id"),
@@ -32,6 +32,7 @@ export default function NetworkManagement() {
         ? getTopology(activeProjectId)
         : Promise.resolve(null as ApiTopology | null),
     [activeProjectId],
+    2000,
   );
 
   const chart = useMemo(() => topologyToMermaid(topology.data), [topology.data]);
@@ -44,14 +45,17 @@ export default function NetworkManagement() {
         title="Network Management | SonarValidator"
         description="프로젝트 토폴로지와 장치별 라우팅 테이블"
       />
-      <PageBreadcrumb pageTitle="Networks" />
+      <PageBreadcrumb pageTitle="네트워크" />
 
       <div className="space-y-6">
+        <p role="status" data-testid="topology-refresh-status" className="text-xs text-gray-500">
+          {topology.error ? `갱신 실패 · 마지막 수신 결과 표시: ${topology.error}` : "토폴로지 · 2초마다 자동 갱신"}
+        </p>
         {/* 프로젝트 선택 */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              View Network
+              프로젝트 선택
             </h3>
             <div className="ml-auto flex flex-wrap gap-2">
               {(projects.data?.projects ?? []).map((project) => (
@@ -78,7 +82,7 @@ export default function NetworkManagement() {
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h4 className="text-sm font-semibold text-gray-800 dark:text-white/90">
-              Network Topology (CSO Security Zones)
+              네트워크 연결 상태
             </h4>
             {topology.data && (
               <div className="flex flex-wrap gap-2 text-[11px]">
@@ -164,7 +168,7 @@ export default function NetworkManagement() {
                   <svg width="34" height="8" aria-hidden="true">
                     <line x1="0" y1="4" x2="34" y2="4" stroke="#64748b" strokeWidth="2" strokeDasharray="5 4" />
                   </svg>
-                  장치가 실제로 라우팅하는 연결 (수집된 라우팅 테이블)
+                  수집된 경로·VLAN 연결 (통신 성공 여부는 별도 검사)
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <svg width="34" height="8" aria-hidden="true">
@@ -176,7 +180,7 @@ export default function NetworkManagement() {
 
               {/* 노드/간선 요약 */}
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Stat label="서브넷" value={topology.data.nodes.length} />
+                <Stat label="서브넷" value={topology.data.nodes.filter((node) => node.kind === "subnet").length} />
                 <Stat
                   label="연결 규칙"
                   value={topology.data.edges.filter((edge) => edge.observed !== true).length}

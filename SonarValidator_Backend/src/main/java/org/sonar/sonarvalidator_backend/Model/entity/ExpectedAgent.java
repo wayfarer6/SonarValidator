@@ -40,6 +40,12 @@ public class ExpectedAgent {
     @Column(name = "expected_ip", length = 60)
     private String expectedIp;
 
+    @Column(name = "monitor_interval_seconds", nullable = false, columnDefinition = "integer default 30")
+    private int monitorIntervalSeconds = 30;
+
+    @Column(name = "monitor_revision", nullable = false, columnDefinition = "bigint default 0")
+    private long monitorRevision = 0;
+
     @Column(length = 20)
     private String status = "Pending";
 

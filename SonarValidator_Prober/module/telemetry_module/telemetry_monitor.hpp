@@ -1,7 +1,6 @@
 #ifndef SONAR_VALIDATOR_PROBER_TELEMETRY_MONITOR_HPP_
 #define SONAR_VALIDATOR_PROBER_TELEMETRY_MONITOR_HPP_
 
-#include <atomic>
 #include <chrono>
 #include <stop_token>
 #include <string>
@@ -20,8 +19,6 @@ class TelemetryMonitor
 public:
     TelemetryMonitor() = default;
 
-    void SetMonitorInterval(std::chrono::seconds interval);
-    std::chrono::seconds GetMonitorInterval() const;
 
 
 
@@ -44,7 +41,6 @@ public:
                                                  const collector::TelemetryStrategyRegistry& strategies = collector::DefaultTelemetryStrategies());
 
 private:
-    std::atomic<int> interval_seconds_{30};
     std::vector<std::shared_ptr<TelemetryObserver>> observers_;
     collector::TelemetryStrategyRegistry strategies_ = collector::DefaultTelemetryStrategies();
 };

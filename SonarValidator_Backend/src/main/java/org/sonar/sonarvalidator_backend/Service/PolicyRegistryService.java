@@ -146,7 +146,9 @@ public class PolicyRegistryService {
             return policy;
         }
 
-        final ArrayNode targets = policy.putArray("subnet_quarantine");
+        final ObjectNode plan = policy.putObject("quarantine_plan");
+        plan.put("revision", quarantineService.planRevision(agentId));
+        final ArrayNode targets = plan.putArray("targets");
         final var states = quarantineService.activeStates(agentId);
         for (final var state : states) {
             if (state.getScope() != org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION) continue;
@@ -163,97 +165,18 @@ public class PolicyRegistryService {
                         }));
             }
         }
-        if (states.isEmpty()) {
-            return policy;
+        final var nodeState = quarantineService.reconciliationStates(agentId).stream()
+                .filter(state -> state.getScope() != org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION)
+                .max(java.util.Comparator.comparing(org.sonar.sonarvalidator_backend.Model.entity.QuarantineState::getId)).orElse(null);
+        if (nodeState != null) {
+            final ObjectNode node = plan.putObject("node");
+            node.put("action", nodeState.isActive() ? "quarantine" : "release");
+            node.put("scope", "node");
+            node.put("request_id", nodeState.getRequestId());
         }
-
-        final var connectionStates = states.stream()
-            .filter(state -> state.getScope()
-                == org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION)
-            .toList();
-        final boolean hasNodeScope = states.stream().anyMatch(state -> state.getScope()
-            != org.sonar.sonarvalidator_backend.Model.entity.QuarantineState.Scope.CONNECTION);
-        if (hasNodeScope) {
-            applyQuarantinePolicy(policy, agentId, false, null);
-            return policy;
-        }
-        if (connectionStates.isEmpty()) {
-            return policy;
-        }
-
-        final List<String> targetCidrs = connectionStates.stream()
-            .map(org.sonar.sonarvalidator_backend.Model.entity.QuarantineState::getTargetCidr)
-            .filter(cidr -> cidr != null && !cidr.isBlank())
-            .distinct()
-            .toList();
-        applyQuarantinePolicy(policy, agentId, true, targetCidrs);
         return policy;
     }
 
-    private void applyQuarantinePolicy(ObjectNode policy, String agentId,
-                                        boolean connectionScoped, List<String> targetCidrs) {
-        final String targets = targetCidrs == null ? "" : String.join(", ", targetCidrs);
-        // 차단 사실을 응답 자체에 남깁니다. Agent 로그와 서버 상태를 대조할 때
-
-        policy.put("quarantined", true);
-        policy.put("quarantine_scope", connectionScoped ? "connection" : "node");
-        if (connectionScoped && !targets.isBlank()) {
-            policy.put("quarantine_target_cidr", targets);
-        }
-        policy.put("quarantine_note", connectionScoped
-                ? "이 장치는 운영자에 의해 격리되었습니다. 대상 대역(" + targets
-                + ")의 송수신 연결만 차단됩니다."
-                : "이 장치는 운영자에 의해 격리되었습니다. 모든 전달 트래픽이 차단됩니다.");
-
-        final ObjectNode summary = policy.has("summary")
-                ? (ObjectNode) policy.get("summary")
-                : policy.putObject("summary");
-        summary.put("quarantined", true);
-        summary.put("source", "quarantine");
-
-        // 격리 의도를 가장 앞에 세웁니다.
-        final ArrayNode intents = policy.has("intents")
-                ? (ArrayNode) policy.get("intents")
-                : policy.putArray("intents");
-        final ObjectNode intent = JSON.objectNode();
-        intent.put("rule_id", "quarantine");
-        intent.put("direction", "both");
-        intent.put("action", "deny");
-        intent.put("reason", connectionScoped
-            ? "운영자 격리 — 대상 대역 " + targets + " 연결 차단"
-                : "운영자 격리 — 모든 트래픽 차단");
-        if (connectionScoped && !targets.isBlank()) {
-            final ArrayNode targetArray = intent.putArray("destination_subnet");
-            targetCidrs.forEach(targetArray::add);
-        }
-        intents.insert(0, intent);
-
-        if (connectionScoped) {
-            log.warn("policy for agent={} overridden to quarantine (connection-only targets={})",
-                    agentId, targets);
-            return;
-        }
-
-
-
-
-        if (policy.has("policies") && policy.get("policies").isArray()) {
-            for (final JsonNode node : policy.get("policies")) {
-                if (!node.isObject()) {
-                    continue;
-                }
-                final ObjectNode rule = (ObjectNode) node;
-                if (rule.has("action")) {
-                    rule.putArray("action").add("drop");
-                }
-                if (rule.has("rule_target") && rule.get("rule_target").isObject()) {
-                    ((ObjectNode) rule.get("rule_target")).putArray("chain_name").add("input");
-                }
-            }
-        }
-
-        log.warn("policy for agent={} overridden to quarantine (block-all)", agentId);
-    }
 
     public ObjectNode forDevice(DeviceType deviceType, String deviceId) {
         final DeviceType type = (deviceType == null) ? DeviceType.VM : deviceType;
@@ -354,7 +277,7 @@ public class PolicyRegistryService {
             policy.set("acl_apply", aclApply);
         }
 
-        log.info("policy built: project={} subnet={} type={} allowed={} denied={} rules={} acl={}",
+        log.debug("policy built: project={} subnet={} type={} allowed={} denied={} rules={} acl={}",
                 project.getProjectKey(), subnetId, type,
                 countAllowed(connections), countDenied(connections), policies.size(),
                 aclApply == null ? "none" : "applied");

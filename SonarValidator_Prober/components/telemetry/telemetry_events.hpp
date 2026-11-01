@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #ifndef SONAR_TELEMETRY_EVENTS_HPP_
 #define SONAR_TELEMETRY_EVENTS_HPP_
 #include <functional>
@@ -31,8 +32,8 @@ public:
     void Publish(const TelemetryEvent& event) const {
         for (auto* observer : observers_) {
             try { observer->OnTelemetry(event); }
-            catch (const std::exception& error) { std::cerr << "[TELEMETRY] observer failed: " << error.what() << '\n'; }
-            catch (...) { std::cerr << "[TELEMETRY] observer failed\n"; }
+            catch (const std::exception& error) { SV_LOG_WARN << "[TELEMETRY] observer failed: " << error.what() << '\n'; }
+            catch (...) { SV_LOG_WARN << "[TELEMETRY] observer failed\n"; }
         }
     }
 private:

@@ -121,7 +121,15 @@ public class SecurityConfig {
                         // CORS 사전 요청은 인증 없이 통과해야 합니다.
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_PATHS).permitAll()
-                        // 나머지 API 는 인증 필요
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agents/download/**", "/api/v1/agents/bundle/**")
+                            .hasAnyRole("ADMIN", "OPERATOR")
+                        .requestMatchers("/api/v1/users/me/**", "/api/v1/notifications/**").authenticated()
+                        .requestMatchers("/api/v1/users", "/api/v1/users/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/projects/*/validation", "/api/v1/cli/ingest").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/**").hasAnyRole("ADMIN", "OPERATOR")
+                        .requestMatchers(HttpMethod.PUT, "/api/**").hasAnyRole("ADMIN", "OPERATOR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/**").hasAnyRole("ADMIN", "OPERATOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/**").hasAnyRole("ADMIN", "OPERATOR")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .sessionManagement(session -> session

@@ -21,6 +21,7 @@ import tools.jackson.databind.json.JsonMapper;
 class OfflineSnapshotImportTest {
 
     private OfflineSnapshotService service;
+    private org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService router;
 
     @BeforeEach
     void setUp() {
@@ -29,7 +30,7 @@ class OfflineSnapshotImportTest {
                 new DeviceConfigService(parsers());
         final var registry = new org.sonar.sonarvalidator_backend.Service.AgentSessionRegistry(
                 JsonMapper.builder().build());
-        final var router = new org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService(
+        router = new org.sonar.sonarvalidator_backend.Service.AgentMessageRouterService(
                 registry,
                 new org.sonar.sonarvalidator_backend.Service.PolicyRegistryService(),
                 deviceConfigService,
@@ -306,6 +307,61 @@ class OfflineSnapshotImportTest {
         assertEquals(1, description.get("schema_version"));
         assertTrue(description.containsKey("max_bytes"));
         assertTrue(description.containsKey("supported_formats"));
+    }
+
+    @Test
+    void rejectedSnapshotPreservesAcceptedConfigAndOrigin() {
+        assertTrue(service.importContent("good.json", frrSnapshot()).accepted());
+        final var previousConfig = router.lastConfigOf("frr-1");
+        final var previousPayload = router.lastTelemetryOf("frr-1");
+        router.telemetryStore().putConfig("frr-1", previousConfig);
+        final var result = service.importContent("bad.json", """
+            {"schema":"sonar.offline.snapshot","agent_id":"frr-1","product":"FRR",
+             "payload":{"unexpected":true}}
+            """);
+        assertFalse(result.accepted());
+        org.junit.jupiter.api.Assertions.assertSame(previousConfig, router.lastConfigOf("frr-1"));
+        assertEquals(previousPayload, router.lastTelemetryOf("frr-1"));
+        assertFalse(router.isOfflineOrigin("frr-1"));
+    }
+
+    @Test
+    void oversizedStreamStopsReadingAtLimit() {
+        final long[] read = {0};
+        final var stream = new java.io.InputStream() {
+            @Override public int read() {
+                if (++read[0] > OfflineSnapshotService.MAX_SNAPSHOT_BYTES + 1)
+                    throw new AssertionError("read past snapshot byte limit");
+                return ' ';
+            }
+        };
+        final var result = service.importOne("large.json", stream);
+        assertFalse(result.accepted());
+        assertTrue(result.errors().stream().anyMatch(e -> e.contains("너무 큽니다")));
+        assertEquals(OfflineSnapshotService.MAX_SNAPSHOT_BYTES + 1, read[0]);
+    }
+
+    @Test
+    void partialAndFailedLiveUpdatesDoNotPublishOrReplaceAcceptedConfiguration() {
+        assertTrue(service.importContent("good.json", frrSnapshot()).accepted());
+        final var previous = router.lastConfigOf("frr-1");
+        final var observer = org.mockito.Mockito.mock(
+                org.sonar.sonarvalidator_backend.Service.telemetry.TelemetryObserver.class);
+        router.setTelemetryEvents(new org.sonar.sonarvalidator_backend.Service.telemetry.TelemetryEventPublisher(
+                List.of(observer)));
+        final var session = org.mockito.Mockito.mock(org.springframework.web.socket.WebSocketSession.class);
+        final var envelope = org.sonar.sonarvalidator_backend.Model.dto.Envelope.of("telemetry");
+        envelope.setAgent_id("frr-1");
+        envelope.setDevice_type("FRR");
+        for (String payload : List.of(
+                "{\"product\":\"FRR\",\"nic_status\":{\"interfaces\":[]}}",
+                "{\"product\":\"FRR\",\"route_status\":{\"routes\":[{\"prefix\":\"10.2.0.0/24\"}]}}",
+                "{\"product\":\"FRR\",\"nic_status\":{\"interfaces\":[]},\"route_status\":{\"routes\":[],\"parsed\":false}}")) {
+            envelope.setPayload(JsonMapper.builder().build().readTree(payload));
+            router.handle(session, envelope);
+            org.junit.jupiter.api.Assertions.assertSame(previous, router.lastConfigOf("frr-1"));
+        }
+        org.mockito.Mockito.verifyNoInteractions(observer);
     }
 
     private java.io.InputStream stream(String content) {

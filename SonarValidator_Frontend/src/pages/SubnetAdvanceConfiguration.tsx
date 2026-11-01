@@ -61,8 +61,8 @@ export default function SubnetAdvanceConfiguration() {
   return (
     <>
       <PageMeta
-        title="Subnet Advance Configuration | TailAdmin - React.js Admin Dashboard Template"
-        description="This is Subnet Advance Configuration page for TailAdmin"
+        title="서브넷 설정 | SonarValidator"
+        description="프로젝트 서브넷의 보안 등급과 역할을 설정합니다."
       />
       <PageBreadcrumb pageTitle="Subnet Advance Configuration" />
 

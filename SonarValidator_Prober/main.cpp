@@ -1,4 +1,4 @@
-#include <atomic>
+#include "utils/log.hpp"
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
@@ -31,7 +31,7 @@
 namespace fs = std::filesystem;
 using Json = nlohmann::json;
 
-std::atomic<bool> g_running{true};
+volatile std::sig_atomic_t g_stop_requested = 0;
 
 #ifdef SONAR_DEBUG_BUILD
 std::optional<fs::path> FindDebugProfile()
@@ -84,7 +84,7 @@ bool SetDebugEnvironmentDefault(const char* name, const fs::path& value)
         return true;
     }
 
-    std::cerr << "[ERROR] Debug 환경변수 설정 실패: " << name << '\n';
+    SV_LOG_WARN << "[ERROR] Debug 환경변수 설정 실패: " << name << '\n';
     return false;
 }
 
@@ -109,7 +109,7 @@ bool ApplyDebugDefaults()
         return false;
     }
 
-    std::cout << "[DEBUG] #DEBUG profile: " << *profile << '\n';
+    SV_LOG_DEBUG << "[DEBUG] #DEBUG profile: " << *profile << '\n';
     return true;
 }
 #endif
@@ -117,7 +117,7 @@ bool ApplyDebugDefaults()
 void signalHandler(int signum)
 {
     (void)signum;
-    g_running = false;
+    g_stop_requested = 1;
 }
 
 int main(int argc, char **argv)
@@ -128,7 +128,7 @@ int main(int argc, char **argv)
 
     const CliOptions options = CliOptions{}.ParseArgs(argc, argv);
     if (!options.error.empty()) {
-        std::cerr << "[ERROR] " << options.error << '\n';
+        SV_LOG_WARN << "[ERROR] " << options.error << '\n';
         return 2;
     }
     if (options.show_help)
@@ -160,14 +160,14 @@ int main(int argc, char **argv)
             config,
             database))
     {
-        std::cerr << "Runtime initialization failed\n";
-        std::cerr << "  data dir : " << data_directory << '\n';
-        std::cerr << "  template : " << sqlite_template_path << '\n';
-        std::cerr << "  (SONAR_CONFIG_PATH / SONAR_DATA_DIR / SONAR_TEMPLATE_PATH 로 경로를 지정할 수 있습니다)\n";
+        SV_LOG_ERROR << "초기화 실패: 저장소와 설정 경로를 확인하세요";
+        SV_LOG_DEBUG << "  data dir : " << data_directory << '\n';
+        SV_LOG_DEBUG << "  template : " << sqlite_template_path << '\n';
+        SV_LOG_DEBUG << "  (SONAR_CONFIG_PATH / SONAR_DATA_DIR / SONAR_TEMPLATE_PATH 로 경로를 지정할 수 있습니다)\n";
         return 1;
     }
 
-    std::cerr << "[CONFIG] agent=" << config.GetAgentName()
+    SV_LOG_INFO << "Prober 시작: 노드=" << config.GetAgentName()
               << " server=" << config.GetServerIpv4() << ':' << config.GetServerPort()
               << " product=" << config.GetProductName() << '\n';
 
@@ -181,8 +181,8 @@ int main(int argc, char **argv)
         const Json snapshot = TelemetryMonitor::CollectSnapshotDocument(config, export_service);
 
         const auto result = offline::ExportSnapshot(options.export_file, snapshot);
-        if (!result.saved) std::cerr << "[EXPORT] " << result.message << '\n';
-        else std::cout << "[EXPORT] " << result.path << '\n';
+        if (!result.saved) SV_LOG_WARN << "[EXPORT] " << result.message << '\n';
+        else SV_LOG_INFO << "[EXPORT] " << result.path << '\n';
         return result.saved ? 0 : 1;
     }
 
@@ -192,9 +192,9 @@ int main(int argc, char **argv)
                                   std::ref(config),
                                   std::ref(database_service));
     std::jthread management_thread(ManagementWorker, std::ref(config));
-    std::jthread terminal_thread(TerminalAgentWorker, std::ref(config));
+    std::jthread terminal_thread(TerminalAgentWorker, std::ref(config), &database_service);
 
-    while (g_running.load())
+    while (g_stop_requested == 0)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
@@ -208,6 +208,6 @@ int main(int argc, char **argv)
     terminal_thread.join();
     database_service.Close();
 
-    std::cout << "[INFO] Clean shutdown complete.\n";
+    SV_LOG_INFO << "Prober 종료 완료";
     return 0;
 }

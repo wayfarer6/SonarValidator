@@ -47,8 +47,8 @@ public final class ObservedConnectivity {
             if (route == null) {
                 continue;
             }
-            if (Boolean.TRUE.equals(route.getDefaultRoute())
-                    || "0.0.0.0/0".equals(route.getPrefix())) {
+            if (usableRoute(config, route) && (Boolean.TRUE.equals(route.getDefaultRoute())
+                    || "0.0.0.0/0".equals(route.getPrefix()))) {
                 return true;
             }
         }
@@ -131,6 +131,24 @@ public final class ObservedConnectivity {
         return result;
     }
 
+    public record VlanAttachment(String subnetId, int vlanId, boolean up) {}
+
+    public static List<VlanAttachment> vlanAttachments(Project project, String agentId, NeutralDeviceConfig config) {
+        final List<VlanAttachment> result = new ArrayList<>();
+        for (final var subnet : project.getSubnets()) {
+            final Integer vlanId = subnet.getVlanId();
+            if (vlanId == null || !config.getVlans().containsKey(vlanId)) continue;
+            final var vlan = config.getVlans().get(vlanId);
+            final long active = vlan.getMembers().stream().distinct().filter(name -> {
+                final String expanded = name.matches("Et[0-9].*") ? "Ethernet" + name.substring(2) : name;
+                return config.getInterfaces().keySet().stream().anyMatch(port -> port.equalsIgnoreCase(expanded))
+                        && isInterfaceUsable(config, expanded);
+            }).count();
+            result.add(new VlanAttachment(subnet.getSubnetId(), vlanId, active >= 2 && !isDown(vlan.getStatus())));
+        }
+        return result;
+    }
+
     private static NeutralDeviceConfig findConfig(Map<String, NeutralDeviceConfig> configs,
                                                  String agentId) {
         final NeutralDeviceConfig exact = configs.get(agentId);
@@ -150,7 +168,7 @@ public final class ObservedConnectivity {
 
         // 1) 라우팅 테이블 — directly connected / local 경로
         for (final NeutralDeviceConfig.RouteConfig route : config.getRoutes()) {
-            if (route == null) {
+            if (route == null || !usableRoute(config, route)) {
                 continue;
             }
             final String prefix = route.getPrefix();
@@ -169,7 +187,7 @@ public final class ObservedConnectivity {
 
         // 2) 인터페이스 주소 — 라우팅 테이블이 빈 장비를 위한 보완
         config.getInterfaces().forEach((name, iface) -> {
-            if (name == null || name.equalsIgnoreCase("lo")) {
+            if (name == null || name.equalsIgnoreCase("lo") || !isInterfaceUsable(config, name)) {
                 return;
             }
             for (final String address : iface.getAddresses()) {
@@ -182,6 +200,60 @@ public final class ObservedConnectivity {
 
         networks.remove("");
         return networks;
+    }
+
+    public static boolean isSubnetObserved(NeutralDeviceConfig config, String cidr) {
+        return config != null && cidr != null && isRouted(cidr, routedNetworks(config));
+    }
+
+    public static boolean isInterfaceUsable(NeutralDeviceConfig config, String name) {
+        return config == null || isInterfaceUsable(config, name, Set.of());
+    }
+
+    private static boolean isInterfaceUsable(NeutralDeviceConfig config, String name, Set<String> seen) {
+        if (name == null || name.isBlank()) return true;
+        final String key = name.toLowerCase(java.util.Locale.ROOT);
+        if (seen.contains(key)) return false;
+        final var iface = config.getInterfaces().entrySet().stream()
+                .filter(entry -> entry.getKey().equalsIgnoreCase(name)).map(Map.Entry::getValue)
+                .findFirst().orElse(null);
+        if (iface == null) return true;
+        if (isDown(iface.getAdminState()) || isDown(iface.getOperState())
+                || iface.getFlags().stream().anyMatch(flag -> "NO-CARRIER".equalsIgnoreCase(flag))) return false;
+        final Set<String> next = new LinkedHashSet<>(seen);
+        next.add(key);
+        return isInterfaceUsable(config, iface.getParent(), next);
+    }
+
+    private static boolean isDown(String state) {
+        if (state == null) return false;
+        final String normalized = state.trim().toLowerCase(java.util.Locale.ROOT).replace('_', '-');
+        return normalized.equals("down") || normalized.equals("administratively") || normalized.contains("administratively down")
+                || normalized.equals("lowerlayerdown") || normalized.equals("lower-layer-down")
+                || normalized.equals("notpresent") || normalized.equals("disabled")
+                || normalized.equals("notconnect") || normalized.equals("not-connected")
+                || normalized.equals("shutdown") || normalized.equals("inactive")
+                || normalized.equals("suspended") || normalized.equals("errdisabled");
+    }
+
+    private static boolean usableRoute(NeutralDeviceConfig config, NeutralDeviceConfig.RouteConfig route) {
+        if (route == null || Boolean.FALSE.equals(route.getSelected())) return false;
+        if (!isInterfaceUsable(config, route.getNextHopInterface())) return false;
+        if (route.getNextHopInterface() != null && !route.getNextHopInterface().isBlank()) return true;
+        final String prefix = normalize(route.getPrefix());
+        boolean known = false;
+        for (final var entry : config.getInterfaces().entrySet()) {
+            for (final String address : entry.getValue().getAddresses()) {
+                final String network = normalizedNetworkOf(address);
+                final boolean related = prefix.equals(network) || (route.getNextHop() != null
+                        && network != null && isRouted(route.getNextHop() + "/32", Set.of(network)));
+                if (related) {
+                    known = true;
+                    if (isInterfaceUsable(config, entry.getKey())) return true;
+                }
+            }
+        }
+        return !known;
     }
 
     private static boolean isRouted(String subnetCidr, Set<String> routed) {

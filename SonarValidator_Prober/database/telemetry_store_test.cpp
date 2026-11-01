@@ -1,6 +1,5 @@
 #include <cassert>
 #include <filesystem>
-#include <future>
 #include <iostream>
 #include <stop_token>
 #include <stdexcept>

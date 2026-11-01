@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
@@ -24,8 +24,13 @@ import {
   type ApiLogQuery,
 } from "../lib/api/aiLogs";
 import { ApiError } from "../lib/api/client";
+import { compactText, deviceLogDetails, errorLog, type LogDetail } from "../lib/errors";
+import { ErrorDetailsButton, LogDetailsModal, RequestErrorLog } from "../components/common/LogDetails";
 
 export default function LogManagement() {
+  const requestErrors = useSyncExternalStore(errorLog.subscribe, errorLog.getSnapshot, errorLog.getSnapshot);
+  const [source, setSource] = useState<"device" | "requests">("device");
+  const [detail, setDetail] = useState<LogDetail | null>(null);
   // 필터 상태
 
   const [projectId, setProjectId] = useState("");
@@ -143,10 +148,6 @@ export default function LogManagement() {
 
       setAnalysis(result);
 
-      // 서버가 실패를 200 으로 돌려주므로 여기서 다시 확인합니다.
-      if (!result.succeeded) {
-        setAnalysisError(result.error_message ?? "분석에 실패했습니다.");
-      }
     } catch (cause) {
       setAnalysisError(
         cause instanceof ApiError
@@ -180,8 +181,15 @@ export default function LogManagement() {
         description="장비 로그 조회와 AI 분석"
       />
       <PageBreadcrumb pageTitle="Log Management" />
-
-      <div className="space-y-5">
+      <div role="tablist" aria-label="로그 종류" className="mb-5 flex gap-2">
+        {([["device", "장비 로그"], ["requests", "요청 오류"]] as const).map(([value, label]) =>
+          <button key={value} type="button" role="tab" aria-selected={source === value} aria-controls={value + "-log-panel"}
+            onClick={() => setSource(value)} className={`rounded-lg px-4 py-2 text-sm font-medium ${source === value ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"}`}>
+            {label}{value === "requests" ? ` (${requestErrors.length})` : ""}
+          </button>)}
+      </div>
+      {source === "requests" ? <div role="tabpanel" id="requests-log-panel"><RequestErrorLog entries={requestErrors} onDetails={setDetail} /></div> :
+      <div role="tabpanel" id="device-log-panel" className="space-y-5">
         {/* 공급자 미등록 경고 — 분석을 누르기 전에 알려 줍니다. */}
         {!providers.loading && enabledProviders.length === 0 && (
           <div className="rounded-xl border border-warning-200 bg-warning-50 p-4 dark:border-warning-500/30 dark:bg-warning-500/10">
@@ -369,9 +377,9 @@ export default function LogManagement() {
                   선택 해제
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={logs.reload}>
+              <button type="button" data-testid="device-log-refresh" className="rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-300" onClick={logs.reload}>
                 새로고침
-              </Button>
+              </button>
             </div>
           </div>
 
@@ -382,7 +390,7 @@ export default function LogManagement() {
           )}
 
           {logs.error && (
-            <div className="rounded-xl border border-error-200 bg-error-50 p-4 dark:border-error-500/30 dark:bg-error-500/10">
+            <div role="alert" data-testid="device-log-error" className="rounded-xl border border-error-200 bg-error-50 p-4 dark:border-error-500/30 dark:bg-error-500/10">
               <p className="text-sm text-gray-800 dark:text-white/90">
                 {logs.offline
                   ? "백엔드에 연결할 수 없습니다"
@@ -432,15 +440,15 @@ export default function LogManagement() {
                     <th className="border-b p-3 font-medium dark:border-gray-600">
                       로그
                     </th>
-                    <th className="border-b p-3 font-medium dark:border-gray-600">
-                      표시
-                    </th>
+                    <th className="border-b p-3 font-medium dark:border-gray-600">상세</th>
+                    <th className="border-b p-3 font-medium dark:border-gray-600">표시</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-gray-600 dark:divide-gray-700 dark:text-gray-300">
                   {rows.map((log) => (
                     <tr
                       key={log.id}
+                      data-testid="device-log-row"
                       className={
                         selected.has(log.id)
                           ? "bg-brand-50/50 dark:bg-brand-500/10"
@@ -485,17 +493,20 @@ export default function LogManagement() {
                       <td className="max-w-[560px] p-3 align-top">
                         {log.message_id && (
                           <span className="mr-1.5 font-mono text-[11px] text-brand-600 dark:text-brand-400">
-                            {log.message_id}
+                            {compactText(log.message_id, "", 40)}
                           </span>
                         )}
                         <span className="break-words text-xs">
-                          {log.message || log.raw}
+                          {compactText(log.message || log.raw)}
                         </span>
                         {log.note && (
                           <span className="mt-1 block text-[10px] text-gray-400">
-                            메모: {log.note}
+                            메모: {compactText(log.note, "", 80)}
                           </span>
                         )}
+                      </td>
+                      <td className="whitespace-nowrap p-3 align-top">
+                        <button type="button" data-testid={`device-log-detail-${log.id}`} className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400" onClick={() => setDetail(deviceLogDetails(log))}>상세 보기</button>
                       </td>
                       <td className="p-3 align-top">
                         <button
@@ -635,7 +646,8 @@ export default function LogManagement() {
 
         {/* 공급자 설정 */}
         {showProviders && <AiProviderSettings />}
-      </div>
+      </div>}
+      <LogDetailsModal detail={detail} onClose={() => setDetail(null)} />
     </>
   );
 }
@@ -660,8 +672,9 @@ function AnalysisResult({ analysis }: { analysis: ApiLogAnalysis }) {
           )}
         </div>
         <p className="mt-2 text-xs text-gray-700 dark:text-gray-300">
-          {analysis.error_message}
+          AI 로그 분석에 실패했습니다.
         </p>
+        <div className="mt-3"><ErrorDetailsButton title="AI 로그 분석 오류 상세" details={analysis.error_message} /></div>
       </div>
     );
   }
@@ -827,7 +840,7 @@ function AnalysisHistory({
                   </Badge>
                 )}
                 <span className="min-w-0 flex-1 truncate text-xs text-gray-700 dark:text-gray-300">
-                  {item.summary ?? item.error_message ?? "(요약 없음)"}
+                  {compactText(item.summary ?? item.error_message, "(요약 없음)")}
                 </span>
                 <span className="text-[10px] text-gray-400">
                   {item.agent_id ?? "전체"} · {formatTime(item.created_at)}

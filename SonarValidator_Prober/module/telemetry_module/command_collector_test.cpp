@@ -600,6 +600,15 @@ int main()
     TestLinuxBriefFallback();
     TestCiscoRouter();
     TestAristaSwitch();
+    {
+        const auto state = collector::BuildStateFromOutputs(DeviceType::kSwitch, "Arista", {
+            {"show interfaces status | json", R"({"interfaceStatuses":{"Ethernet1":{"linkStatus":"connected"},"Ethernet2":{"linkStatus":"disabled"}}})"},
+            {"show vlan brief", "VLAN Name Status Ports\n20 LAB2_DATA active Et1, Et2\n"}});
+        assert(state.nic["interfaces"][0]["name"] == "Ethernet1");
+        assert(state.nic["interfaces"][0]["state"] == "up");
+        assert(state.nic["interfaces"][1]["state"] == "disabled");
+        assert(state.vlan["vlans"][0]["ports"][0] == "Ethernet1");
+    }
     TestFrrRouter();
     TestFirewall();
     TestNativeFirewallSets();

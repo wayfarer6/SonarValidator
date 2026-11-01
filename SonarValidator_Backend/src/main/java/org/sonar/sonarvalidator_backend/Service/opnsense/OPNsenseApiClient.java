@@ -15,7 +15,9 @@ import java.util.Map;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.X509ExtendedTrustManager;
+import javax.net.ssl.SSLEngine;
+import java.net.Socket;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +30,7 @@ import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class OPNsenseApiClient {
+    private final java.util.concurrent.atomic.AtomicBoolean insecureTlsReported = new java.util.concurrent.atomic.AtomicBoolean();
 
     private static final Logger log = LoggerFactory.getLogger(OPNsenseApiClient.class);
 
@@ -158,9 +161,7 @@ public class OPNsenseApiClient {
                     "OPNsense 접속 정보가 불완전합니다. URL/API Key/Secret 을 모두 입력하세요.");
         }
         final String url = connection.normalizedBaseUrl() + path;
-        final HttpClient client = buildClient(connection);
-
-        try {
+        try (final HttpClient client = buildClient(connection)) {
             final HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(REQUEST_TIMEOUT)
@@ -236,8 +237,8 @@ public class OPNsenseApiClient {
                 .followRedirects(HttpClient.Redirect.NEVER);
 
         if (connection.allowInsecureTls()) {
-            log.warn("OPNsense TLS verification is DISABLED for {} — "
-                    + "this must not be used in production", connection.normalizedBaseUrl());
+            if (insecureTlsReported.compareAndSet(false, true))
+                log.warn("OPNsense API 연결 설정: TLS 인증서 검증 생략 옵션 사용 중");
             try {
                 final SSLContext context = SSLContext.getInstance("TLS");
                 context.init(null, new TrustManager[] {TRUST_ALL}, new SecureRandom());
@@ -249,7 +250,7 @@ public class OPNsenseApiClient {
         return builder.build();
     }
 
-    private static final X509TrustManager TRUST_ALL = new X509TrustManager() {
+    private static final X509ExtendedTrustManager TRUST_ALL = new X509ExtendedTrustManager() {
         @Override
         public void checkClientTrusted(X509Certificate[] chain, String authType) {
             // 의도적으로 검증하지 않습니다. (allowInsecureTls 전용)
@@ -258,6 +259,26 @@ public class OPNsenseApiClient {
         @Override
         public void checkServerTrusted(X509Certificate[] chain, String authType) {
             // 의도적으로 검증하지 않습니다. (allowInsecureTls 전용)
+        }
+
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType, Socket socket) {
+            checkClientTrusted(chain, authType);
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType, Socket socket) {
+            checkServerTrusted(chain, authType);
+        }
+
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType, SSLEngine engine) {
+            checkClientTrusted(chain, authType);
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType, SSLEngine engine) {
+            checkServerTrusted(chain, authType);
         }
 
         @Override

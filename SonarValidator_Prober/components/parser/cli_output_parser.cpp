@@ -1,6 +1,7 @@
 #include "cli_output_parser.hpp"
 
 #include <algorithm>
+#include <arpa/inet.h>
 #include <cctype>
 #include <set>
 #include <sstream>
@@ -852,7 +853,11 @@ public:
                     {
                         if (tokens[j] == "is")
                         {
-                            gateway_of_last_resort = TrimPunct(tokens[j + 1]);
+                            const std::string candidate = TrimPunct(tokens[j + 1]);
+                            in_addr address{};
+                            gateway_of_last_resort.clear();
+                            if (::inet_pton(AF_INET, candidate.c_str(), &address) == 1)
+                                gateway_of_last_resort = candidate;
                             break;
                         }
                     }

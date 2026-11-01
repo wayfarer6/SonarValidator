@@ -214,7 +214,7 @@ export default function NetworkSegmentationRule() {
   return (
     <>
       <PageMeta
-        title="Add Network Segmentation Rule | TailAdmin"
+        title="망분리 규칙 | SonarValidator"
         description="Network Segmentation Rule Configuration with CSO (Confidential, Sensitive, Open)"
       />
       <PageBreadcrumb

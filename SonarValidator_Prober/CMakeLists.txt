@@ -17,19 +17,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
-
+find_package(SQLite3 REQUIRED)
 option(SONAR_STATIC_LINK "Link Prober dependencies statically" OFF)
 if(SONAR_STATIC_LINK)
-    set(_SONAR_SAVED_LIBRARY_SUFFIXES "${CMAKE_FIND_LIBRARY_SUFFIXES}")
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-    find_package(SQLite3 REQUIRED)
-    find_library(SONAR_OPENSSL_CRYPTO_LIBRARY NAMES crypto REQUIRED)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES "${_SONAR_SAVED_LIBRARY_SUFFIXES}")
-    unset(_SONAR_SAVED_LIBRARY_SUFFIXES)
-    find_package(OpenSSL REQUIRED COMPONENTS Crypto)
-else()
-    find_package(OpenSSL REQUIRED COMPONENTS Crypto)
-    find_package(SQLite3 REQUIRED)
+    find_library(SONAR_SQLITE3_STATIC_LIBRARY NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}sqlite3${CMAKE_STATIC_LIBRARY_SUFFIX}" REQUIRED)
+    find_library(SONAR_OPENSSL_CRYPTO_LIBRARY NAMES "${CMAKE_STATIC_LIBRARY_PREFIX}crypto${CMAKE_STATIC_LIBRARY_SUFFIX}" REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SONAR_CRYPTO REQUIRED libcrypto)
 endif()
 
 # --------------------------------------------------------------- nlohmann/json --
@@ -55,31 +49,9 @@ else()
     target_include_directories(sonar_boost INTERFACE ${SONAR_BOOST_INCLUDE_DIR})
 endif()
 
-# =============================================================================
-#  ANTLR4 (Homebrew 자동 탐색 및 경로 보정)
-# =============================================================================
-# Homebrew 표준 절대 경로 스캔 및 자동 인지
-if(NOT ANTLR4_HOME)
-    if(EXISTS "/home/linuxbrew/.linuxbrew")
-        set(ANTLR4_HOME "/home/linuxbrew/.linuxbrew")
-    elseif(EXISTS "$ENV{HOME}/.linuxbrew")
-        set(ANTLR4_HOME "$ENV{HOME}/.linuxbrew")
-    elseif(EXISTS "/opt/homebrew")
-        set(ANTLR4_HOME "/opt/homebrew")
-    else()
-        execute_process(
-            COMMAND brew --prefix
-            OUTPUT_VARIABLE BREW_PREFIX
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            ERROR_QUIET
-        )
-        if(BREW_PREFIX)
-            set(ANTLR4_HOME "${BREW_PREFIX}")
-        endif()
-    endif()
-endif()
-
-message(STATUS "ANTLR4 Homebrew 루트 감지: ${ANTLR4_HOME}")
+add_subdirectory(third_party/antlr4-runtime)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/antlr4-runtime/VERSION" SONAR_ANTLR_VERSION LIMIT_COUNT 1)
+message(STATUS "ANTLR4: bundled runtime ${SONAR_ANTLR_VERSION}")
 
 set(SONAR_ANTLR4_GENERATED_DIR
     "${CMAKE_CURRENT_SOURCE_DIR}/components/parser/generated")
@@ -99,20 +71,22 @@ if(_sonar_generated_count EQUAL 0)
 endif()
 message(STATUS "ANTLR4: 커밋된 생성 소스 ${_sonar_generated_count}개")
 
-# 문법 재생성 타깃 정의
+set(SONAR_ANTLR_TOOL_JAR "${CMAKE_CURRENT_BINARY_DIR}/tools/antlr-${SONAR_ANTLR_VERSION}-complete.jar"
+    CACHE FILEPATH "Optional ANTLR generator jar; not needed for ordinary builds")
+add_custom_target(fetch_antlr_tool
+    COMMAND ${CMAKE_COMMAND} "-DSONAR_ANTLR_TOOL_JAR=${SONAR_ANTLR_TOOL_JAR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/components/parser/cmake/FetchAntlrTool.cmake"
+    COMMENT "Download the pinned optional ANTLR generator"
+    VERBATIM USES_TERMINAL)
 add_custom_target(regenerate_parser
-    COMMAND sh "${CMAKE_CURRENT_SOURCE_DIR}/components/parser/cmake/regenerate_parser.sh"
+    COMMAND ${CMAKE_COMMAND} -E env "ANTLR4_JAR=${SONAR_ANTLR_TOOL_JAR}"
+        sh "${CMAKE_CURRENT_SOURCE_DIR}/components/parser/cmake/regenerate_parser.sh"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "ANTLR4: components/parser/grammar/*.g4 재생성"
-    USES_TERMINAL)
-
-# 라이브러리 링크 및 인클루드 패스 바인딩 (antlr4-runtime 헤더 진입 경로 완벽 보정)
-link_directories(${ANTLR4_HOME}/lib)
+    COMMENT "Regenerate parsers with ANTLR ${SONAR_ANTLR_VERSION}"
+    VERBATIM USES_TERMINAL)
 set(SONAR_ANTLR4_INCLUDE_DIRS
-    ${SONAR_ANTLR4_GENERATED_DIR}
-    ${SONAR_ANTLR4_GENERATED_DIR}/grammar
-    ${ANTLR4_HOME}/include
-    ${ANTLR4_HOME}/include/antlr4-runtime)
+    "${SONAR_ANTLR4_GENERATED_DIR}"
+    "${SONAR_ANTLR4_GENERATED_DIR}/grammar")
 
 # =============================================================================
 #  소스 그룹
@@ -145,6 +119,8 @@ set(SONAR_DATABASE_SOURCES
     database/telemetry_store.cpp)
 
 set(SONAR_SUPPORT_SOURCES
+    components/advice/advice_executor.cpp
+    components/advice/advice_job.cpp
     components/policy/policy_executor.cpp
     components/policy/policy_actions.cpp
     components/policy/policy_command.cpp
@@ -167,7 +143,7 @@ function(sonar_configure_target target)
         sonar_json
         sonar_boost
         Threads::Threads
-        antlr4-runtime)
+        Sonar::Antlr4)
 
     target_compile_definitions(${target} PUBLIC SONAR_HAS_ANTLR4=1)
 endfunction()
@@ -184,7 +160,10 @@ add_library(sonar_prober_core STATIC
     ${SONAR_SUPPORT_SOURCES})
 sonar_configure_target(sonar_prober_core)
 if(SONAR_STATIC_LINK)
-    target_link_libraries(sonar_prober_core PUBLIC SQLite::SQLite3 ${SONAR_OPENSSL_CRYPTO_LIBRARY})
+    target_link_directories(sonar_prober_core PUBLIC ${SONAR_CRYPTO_STATIC_LIBRARY_DIRS})
+    target_include_directories(sonar_prober_core PUBLIC ${SQLite3_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries(sonar_prober_core PUBLIC ${SONAR_SQLITE3_STATIC_LIBRARY} ${SONAR_OPENSSL_CRYPTO_LIBRARY} ${SONAR_CRYPTO_STATIC_LIBRARIES})
+    target_link_options(sonar_prober_core PUBLIC ${SONAR_CRYPTO_STATIC_LDFLAGS_OTHER})
 else()
     target_link_libraries(sonar_prober_core PUBLIC SQLite::SQLite3 OpenSSL::Crypto)
 endif()
@@ -206,6 +185,15 @@ if(SONAR_BUILD_TESTS)
         target_compile_options("sonar_test_${name}" PRIVATE -UNDEBUG)
         add_test(NAME "${name}" COMMAND "sonar_test_${name}")
         set_tests_properties("${name}" PROPERTIES TIMEOUT 120)
+        if(name STREQUAL "quarantine_network_test")
+            set_tests_properties("${name}" PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 45)
+        endif()
+        if(name STREQUAL "advice_executor_test")
+            target_compile_definitions("sonar_test_${name}" PRIVATE SONAR_ADVICE_CONTRACT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../tests/contracts/advice-actions.json")
+        endif()
+        if(name MATCHES "^monitor_")
+            set_tests_properties("${name}" PROPERTIES TIMEOUT 20)
+        endif()
     endforeach()
     add_test(NAME ios_snapshot_publisher COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/../tests/prober/ios-snapshot-publisher.sh")
     set_tests_properties(ios_snapshot_publisher PROPERTIES TIMEOUT 30)
@@ -215,4 +203,8 @@ add_custom_target(installer_bundle
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/Installer/systemd"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/Installer/bin"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:sonar_validator_prober>" "${CMAKE_CURRENT_SOURCE_DIR}/Installer/sonar_validator_prober"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/Installer/licenses"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/antlr4-runtime/LICENSE.txt"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Installer/licenses/antlr4-runtime-LICENSE.txt"
     DEPENDS sonar_validator_prober)

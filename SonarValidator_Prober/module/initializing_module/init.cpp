@@ -1,3 +1,4 @@
+#include "utils/log.hpp"
 #include "module/initializing_module/init.hpp"
 #include <iostream>
 #include <chrono>
@@ -231,11 +232,11 @@ bool AppInitializer::EnsureDataDirectory(const fs::path &path)
     if (error)
     {
         // 권한 부족 등으로 만들지 못한 경우, 원인을 남겨 진단을 돕습니다.
-        std::cerr << "Data directory unavailable: " << path
+        SV_LOG_WARN << "Data directory unavailable: " << path
                   << " (" << error.message() << ")" << '\n';
         return false;
     }
-    std::cout << "Data directory ready: " << path << '\n';
+    SV_LOG_DEBUG << "Data directory ready: " << path << '\n';
     return true;
 }
 
@@ -265,8 +266,8 @@ bool AppInitializer::InitializeConfig(const fs::path &path, ProberConfig &config
     }
     catch (const std::exception &e)
     {
-        std::cout << " Cant create config directories because of authority" << '\n';
-        std::cout << "Error: " << e.what() << '\n';
+        SV_LOG_ERROR << " Cant create config directories because of authority" << '\n';
+        SV_LOG_DEBUG << "Error: " << e.what() << '\n';
         return false;
     }
 

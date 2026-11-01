@@ -1,3 +1,4 @@
+import { errorLog } from "../errors";
 import { apiRequest } from "./client";
 
 
@@ -34,7 +35,9 @@ export async function logout(): Promise<void> {
       credentials: "include",
     });
   } catch {
-    // 무시합니다. 프론트의 인증 상태는 어차피 초기화합니다.
+    // 프론트의 인증 상태는 초기화합니다.
+  } finally {
+    errorLog.clear();
   }
 }
 

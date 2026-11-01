@@ -1,0 +1,2 @@
+ALTER TABLE expected_agent ADD COLUMN IF NOT EXISTS monitor_interval_seconds INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE expected_agent ADD COLUMN IF NOT EXISTS monitor_revision BIGINT NOT NULL DEFAULT 0;

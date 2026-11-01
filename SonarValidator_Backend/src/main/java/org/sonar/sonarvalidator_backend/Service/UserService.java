@@ -56,7 +56,7 @@ public class UserService {
                 displayName == null || displayName.isBlank() ? normalized : displayName,
                 role);
         final User saved = repository.save(user);
-        log.info("user created: username={} role={}", saved.getUsername(), saved.getRole());
+        log.info("사용자 생성: 사용자={} 역할={}", saved.getUsername(), saved.getRole());
         return saved;
     }
 
@@ -83,7 +83,7 @@ public class UserService {
         }
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         repository.save(user);
-        log.info("password changed for username={}", user.getUsername());
+        log.info("비밀번호 변경: 사용자={}", user.getUsername());
         return true;
     }
 
@@ -95,7 +95,7 @@ public class UserService {
         }
         user.setEnabled(enabled);
         repository.save(user);
-        log.info("user {} enabled={}", user.getUsername(), enabled);
+        log.info("계정 상태 변경: 사용자={} 사용={}", user.getUsername(), enabled);
         return true;
     }
 
@@ -106,7 +106,7 @@ public class UserService {
             return false;
         }
         repository.delete(user);
-        log.info("user deleted: username={}", user.getUsername());
+        log.info("사용자 삭제: 사용자={}", user.getUsername());
         return true;
     }
 
@@ -129,7 +129,7 @@ public class UserService {
     @Transactional
     public void recordLoginFailure(String username) {
         final User user = findByUsername(username);
-        log.info("login failed for {}", user == null ? "(unknown user)" : user.getUsername());
+        log.info("로그인 실패: 사용자={}", user == null ? "(unknown user)" : user.getUsername());
     }
 
     @Transactional
@@ -138,11 +138,7 @@ public class UserService {
             return false;
         }
         create("admin", defaultPassword, "Default Administrator", User.Role.ADMIN);
-        log.warn("=================================================================");
-        log.warn(" Default admin account created (username=admin).");
-        log.warn(" CHANGE THIS PASSWORD IMMEDIATELY in any shared environment.");
-        log.warn(" Override with SONAR_ADMIN_PASSWORD environment variable.");
-        log.warn("=================================================================");
+        log.warn("기본 관리자 생성: 사용자=admin, 공유 환경에서는 비밀번호를 변경하세요");
         return true;
     }
 

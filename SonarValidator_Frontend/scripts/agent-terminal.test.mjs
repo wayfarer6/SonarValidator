@@ -45,6 +45,7 @@ for (const apiBase of ["", "http://localhost:3000"]) test(`terminal lifecycle an
     }
   }
   class MockTerminal {
+    options = { disableStdin: true };
     cols = 100;
     rows = 30;
     loadAddon() {}
@@ -76,6 +77,8 @@ for (const apiBase of ["", "http://localhost:3000"]) test(`terminal lifecycle an
     React,
     window: dom.window,
     URL,
+    setTimeout: dom.window.setTimeout.bind(dom.window),
+    clearTimeout: dom.window.clearTimeout.bind(dom.window),
     WebSocket: MockSocket,
     ResizeObserver: class { observe() {} disconnect() {} },
   });
@@ -86,19 +89,31 @@ for (const apiBase of ["", "http://localhost:3000"]) test(`terminal lifecycle an
     }));
   try {
     await act(async () => root.render(render()));
-    assert.equal(sockets.length, 2);
-    assert.equal(sockets[0].readyState, 3, "StrictMode must close its discarded CONNECTING socket");
-    assert.equal(sockets[1].readyState, MockSocket.CONNECTING);
+    await act(async () => new Promise(resolve => setTimeout(resolve, 10)));
+    assert.equal(sockets.length, 1, "StrictMode must cancel the discarded deferred connection");
+    assert.equal(sockets[0].readyState, MockSocket.CONNECTING);
 
-    await act(async () => sockets[1].open());
+    await act(async () => sockets[0].open());
     assert.match(dom.window.document.body.textContent, /Agent 연결 대기/);
-    await act(async () => sockets[1].receive({ type: "terminal-ready" }));
+    await act(async () => sockets[0].receive({ type: "terminal-ready" }));
     assert.match(dom.window.document.body.textContent, /연결됨/);
-    assert.ok(sockets[1].sent.some(message => message.type === "resize"));
+    assert.ok(sockets[0].sent.some(message => message.type === "resize"));
 
     await act(async () => dom.window.document.querySelector('[aria-label="터미널 새로고침"]').click());
-    assert.equal(sockets[1].readyState, 3, "Reconnect must close the OPEN socket");
-    assert.equal(sockets[2].readyState, MockSocket.CONNECTING);
+    assert.equal(sockets[0].readyState, 3, "Reconnect must close the OPEN socket");
+    await act(async () => new Promise(resolve => setTimeout(resolve, 10)));
+    assert.equal(sockets[1].readyState, MockSocket.CONNECTING);
+    await act(async () => {
+      sockets[1].open();
+      sockets[1].receive({ type: "terminal-ready" });
+      sockets[1].receive({ type: "terminal-exit" });
+      sockets[1].close();
+      sockets[1].dispatchEvent(new Event("close"));
+    });
+    assert.match(dom.window.document.body.textContent, /셸 종료됨/,
+      "socket close after a normal shell exit must keep the completed status");
+    await act(async () => dom.window.document.querySelector('[aria-label="터미널 새로고침"]').click());
+    await act(async () => new Promise(resolve => setTimeout(resolve, 10)));
     await act(async () => root.unmount());
     assert.equal(sockets[2].readyState, 3, "Unmount must close a pending connection");
   } finally {

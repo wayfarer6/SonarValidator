@@ -89,7 +89,7 @@ public class ProjectService {
         project.setUpdatedAt(now);
 
         final Project saved = repository.save(project);
-        log.info("project created: key={} name={}", saved.getProjectKey(), saved.getName());
+        log.info("프로젝트 생성: id={} 이름={}", saved.getProjectKey(), saved.getName());
 
         if (notificationService != null) {
             notificationService.notifyQuietly(
@@ -129,7 +129,7 @@ public class ProjectService {
             project.setManagementPrefix(blankToNull(request.managementPrefix()));
         }
         if (request.managementServerIp() != null) {
-            project.setManagementServerIp(blankToNull(request.managementServerIp()));
+            project.setManagementServerIp(ManagementServerAddress.normalize(request.managementServerIp()));
         }
         if (request.managementServerPort() != null) {
             final int port = request.managementServerPort();
@@ -154,7 +154,7 @@ public class ProjectService {
         project.setUpdatedAt(new java.util.Date());
 
         final Project saved = repository.save(project);
-        log.info("project updated: key={} subnets={} rules={}",
+        log.info("프로젝트 저장: id={} 서브넷={} 규칙={}",
                 saved.getProjectKey(), saved.getSubnets().size(), saved.getRules().size());
 
         if (complianceService != null) {
@@ -262,7 +262,7 @@ public class ProjectService {
         final Project project = getByKey(projectKey);
         final String name = project.getName();
         repository.delete(project);
-        log.info("project deleted: key={}", projectKey);
+        log.info("프로젝트 삭제: id={}", projectKey);
 
         // 삭제는 되돌릴 수 없으므로 warning 으로 남깁니다.
         // (info 로 두면 목록에서 묻혀 "그 프로젝트 어디 갔지" 를 놓칩니다)

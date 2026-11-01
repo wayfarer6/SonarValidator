@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.sonar.sonarvalidator_backend.Model.Config.NeutralDeviceConfig;
 import org.sonar.sonarvalidator_backend.Service.telemetry.TelemetryEventPublisher;
 import org.sonar.sonarvalidator_backend.Service.telemetry.TelemetrySnapshot;
+import org.sonar.sonarvalidator_backend.Service.telemetry.SnapshotPayloadGuard;
 import org.sonar.sonarvalidator_backend.Model.DeviceType;
 import org.sonar.sonarvalidator_backend.Model.dto.Envelope;
 import org.sonar.sonarvalidator_backend.Service.cli.CliIngestionService;
@@ -90,6 +91,11 @@ public class AgentMessageRouterService {
         this.telemetryEvents = publisher;
     }
 
+    private AgentMonitorSettingsService monitorSettings;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setMonitorSettings(AgentMonitorSettingsService service) { this.monitorSettings = service; }
+
     public Envelope handle(WebSocketSession session, Envelope envelope) {
         final String agentId = resolveAgentId(session, envelope);
         telemetryStore.touch(agentId);
@@ -100,7 +106,7 @@ public class AgentMessageRouterService {
             case Envelope.Types.POLICY_REQUEST -> onPolicyRequest(session, envelope, agentId);
             case Envelope.Types.TELEMETRY -> onTelemetry(envelope, agentId);
             // Agent 가 우리 푸시(command)에 대한 확인을 보낼 때 사용합니다.
-            case Envelope.Types.ACK -> onAck(envelope, agentId);
+            case Envelope.Types.ACK -> onAck(session, envelope, agentId);
             case Envelope.Types.ERROR -> onError(envelope, agentId);
             default -> Envelope.error(envelope.getCorrelation_id(),
                     "unsupported message type: " + envelope.getType());
@@ -111,11 +117,13 @@ public class AgentMessageRouterService {
         final boolean firstConnect = agentId != null
                 && !registry.connectedAgentIds().contains(agentId);
 
-        registry.register(agentId, session);
+        final boolean telemetry = "telemetry".equals(envelope.payloadOrEmpty().path("channel").asString(""));
+        if (telemetry) registry.registerTelemetry(agentId, session);
+        else registry.register(agentId, session);
 
         // 새 장치가 붙는 것은 운영자가 기다리는 사건입니다.
         // (재접속마다 알리면 하트비트처럼 쌓여 쓸모가 없어집니다)
-        if (firstConnect) {
+        if (firstConnect && !telemetry) {
             // payloadOrEmpty() 는 JsonNode 를 돌려주므로 text() 헬퍼로 읽습니다.
             final String hostname = text(envelope.payloadOrEmpty(), "hostname", null);
             notificationService.notifyQuietly(
@@ -134,6 +142,10 @@ public class AgentMessageRouterService {
         payload.put("agent_id", agentId == null ? "" : agentId);
         payload.put("server_time", Instant.now().toString());
         payload.put("connected_agents", registry.connectedCount());
+        if (telemetry && monitorSettings != null) {
+            final ObjectNode settings = monitorSettings.desired(agentId);
+            if (settings != null) payload.set("monitor_settings", settings);
+        }
         return Envelope.replyTo(Envelope.Types.ACK, envelope, payload);
     }
 
@@ -162,7 +174,7 @@ public class AgentMessageRouterService {
         // 배정이 없으면 서비스가 내부적으로 기본 선언으로 폴백합니다.
         final ObjectNode policy = policyRegistry.forAgent(agentId, deviceType, deviceId, vendor, product);
         policyRequestCount.incrementAndGet();
-        log.info("policy-request from agent={} device={} type={} -> {} (source={})",
+        log.debug("policy-request from agent={} device={} type={} -> {} (source={})",
                 agentId, deviceId, deviceType, policy.path("policy_id").asString("?"),
                 policy.path("summary").path("source").asString("?"));
 
@@ -186,18 +198,23 @@ public class AgentMessageRouterService {
 
             final JsonNode normalized = normalizedPayload(payload, product);
             final NeutralDeviceConfig config = deviceConfigService.parse(agentId, product, normalized);
-            telemetryStore.putConfig(agentId, config);
+            requireUsableConfig(config, normalized);
+            SnapshotPayloadGuard.requireComplete(normalized, telemetryStore.acceptedPayloadOf(agentId));
+            final boolean firstObservation = telemetryStore.configOf(agentId) == null;
+            telemetryStore.putAcceptedSnapshot(agentId, normalized, config, false);
+            if (firstObservation) log.info("장비 수집 확인: 노드={} 인터페이스={} 경로={}",
+                    agentId, config.getInterfaces().size(), config.getRoutes().size());
 
             telemetryEvents.publish(new TelemetrySnapshot(agentId, config, TelemetrySnapshot.Source.LIVE, Instant.now()));
 
-            log.info("telemetry from agent={} keys={} format={} ifaces={} routes={} vlans={}",
+            log.debug("telemetry from agent={} keys={} format={} ifaces={} routes={} vlans={}",
                     agentId, payload.size(), config.getFormat(),
                     config.getInterfaces().size(), config.getRoutes().size(),
                     config.getVlans().size());
         } catch (RuntimeException ex) {
             // 변환 실패가 수신 자체를 막지 않도록 흡수합니다. (일방향 메시지)
             log.warn("config parse failed for agent={}: {}", agentId, ex.getMessage());
-            log.info("telemetry from agent={} keys={}", agentId, payload.size());
+            log.debug("telemetry from agent={} keys={}", agentId, payload.size());
         }
 
         // 텔레메트리에 로그가 실려 오면 적재합니다.
@@ -317,16 +334,24 @@ public class AgentMessageRouterService {
         final NeutralDeviceConfig config =
                 deviceConfigService.parse(agentId, resolvedProduct, normalized);
 
-        // 오프라인 출처로 표시합니다. (UI 가 "연결 끊김 + 파일 업로드" 로 표시)
-        // ⚠️ 연결 상태는 채우지 않습니다 — 채우면 UI 가 "연결됨" 으로 잘못 봅니다.
-        telemetryStore.putTelemetry(agentId, payload);
-        telemetryStore.putOfflineConfig(agentId, config);
+        requireUsableConfig(config, normalized);
+        SnapshotPayloadGuard.requireComplete(normalized, telemetryStore.acceptedPayloadOf(agentId));
+        telemetryStore.putAcceptedSnapshot(agentId, normalized, config, true);
 
         telemetryEvents.publish(new TelemetrySnapshot(agentId, config, TelemetrySnapshot.Source.OFFLINE, Instant.now()));
 
-        log.info("offline telemetry accepted: agent={} product={} format={} keys={}",
+        log.debug("offline telemetry accepted: agent={} product={} format={} keys={}",
                 agentId, resolvedProduct, config.getFormat(), payload == null ? 0 : payload.size());
         return config;
+    }
+
+    private static void requireUsableConfig(NeutralDeviceConfig config, JsonNode payload) {
+        if (config.getInterfaces().isEmpty() && config.getRoutes().isEmpty()
+                && config.getVlans().isEmpty() && config.getFirewallRules().isEmpty()
+                && config.getBridges().isEmpty()) {
+            throw new IllegalArgumentException("파서 '" + config.getFormat()
+                    + "' 가 아무 항목도 해석하지 못했습니다. payload 키를 확인하세요. keys=" + payload.size());
+        }
     }
 
     public boolean isOfflineOrigin(String agentId) {
@@ -341,8 +366,12 @@ public class AgentMessageRouterService {
         return telemetryStore;
     }
 
-    private Envelope onAck(Envelope envelope, String agentId) {
-        log.info("ack from agent={} correlation={}", agentId, envelope.getCorrelation_id());
+    private Envelope onAck(WebSocketSession session, Envelope envelope, String agentId) {
+        log.debug("ack from agent={} correlation={}", agentId, envelope.getCorrelation_id());
+        if (envelope.payloadOrEmpty().path("action").asString("").startsWith("monitor-interval-")) {
+            if (monitorSettings != null) monitorSettings.recordApplied(agentId, session, envelope.payloadOrEmpty());
+            return null;
+        }
 
         // 격리/해제 명령의 적용 결과는 격리 서비스가 소유합니다.
         // 라우터는 전달만 합니다. (두 곳이 상태를 가지면 반드시 어긋납니다)
@@ -363,6 +392,10 @@ public class AgentMessageRouterService {
 
     public Set<String> allTelemetryAgentIds() {
         return telemetryStore.allTelemetryAgentIds();
+    }
+
+    public Instant observedAtOf(String agentId) {
+        return telemetryStore.observedAtOf(agentId);
     }
 
     public Instant lastSeenOf(String agentId) {

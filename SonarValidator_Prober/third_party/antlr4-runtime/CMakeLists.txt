@@ -1,0 +1,8 @@
+file(GLOB_RECURSE sonar_antlr4_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+add_library(sonar_antlr4_runtime STATIC ${sonar_antlr4_sources})
+add_library(Sonar::Antlr4 ALIAS sonar_antlr4_runtime)
+target_include_directories(sonar_antlr4_runtime SYSTEM PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_features(sonar_antlr4_runtime PUBLIC cxx_std_17)
+target_compile_definitions(sonar_antlr4_runtime PUBLIC ANTLR4CPP_STATIC)
+target_link_libraries(sonar_antlr4_runtime PUBLIC Threads::Threads)
+set_target_properties(sonar_antlr4_runtime PROPERTIES POSITION_INDEPENDENT_CODE ON)

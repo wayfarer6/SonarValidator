@@ -19,23 +19,27 @@ public class AgentSessionRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(AgentSessionRegistry.class);
 
-    private static final class SessionHolder {
-        private final WebSocketSession session;
-        private final Object lock = new Object();
-
-        private SessionHolder(WebSocketSession session) {
-            this.session = session;
-        }
-    }
-
-    private final Map<String, SessionHolder> sessions = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
     private final Map<String, String> sessionToAgent = new ConcurrentHashMap<>();
 
-    private final ObjectMapper objectMapper;
+    private final Map<String, WebSocketSession> telemetrySessions = new ConcurrentHashMap<>();
+    private final Map<String, String> telemetrySessionToAgent = new ConcurrentHashMap<>();
 
+    private final ObjectMapper objectMapper;
+    private final java.time.Clock clock;
+    private final Map<String, Long> lastManagementActivity = new ConcurrentHashMap<>();
+    private static final long MANAGEMENT_IDLE_MILLIS = 30_000;
+
+
+    @org.springframework.beans.factory.annotation.Autowired
     public AgentSessionRegistry(ObjectMapper objectMapper) {
+        this(objectMapper, java.time.Clock.systemUTC());
+    }
+
+    public AgentSessionRegistry(ObjectMapper objectMapper, java.time.Clock clock) {
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     public void register(String agentId, WebSocketSession session) {
@@ -43,39 +47,59 @@ public class AgentSessionRegistry {
                 ? "session:" + session.getId()
                 : agentId;
 
-        final SessionHolder previous = sessions.put(key, new SessionHolder(session));
+        lastManagementActivity.put(session.getId(), clock.millis());
+        final WebSocketSession previous = sessions.put(key, session);
         sessionToAgent.put(session.getId(), key);
 
-        if (previous != null && previous.session != session) {
-            log.info("agent {} reconnected; replacing old session {}", key, previous.session.getId());
-            closeQuietly(previous.session);
+        if (previous != null && previous != session) {
+            log.info("장비 관리 연결 복구: 노드={}", key);
+            lastManagementActivity.remove(previous.getId());
+            closeQuietly(previous);
         }
-        log.info("agent {} registered (session={}, total={})", key, session.getId(), sessions.size());
+        if (previous == null) log.info("장비 관리 연결: 노드={}", key);
+    }
+
+    public void registerTelemetry(String agentId, WebSocketSession session) {
+        final WebSocketSession previous = telemetrySessions.put(agentId, session);
+        telemetrySessionToAgent.put(session.getId(), agentId);
+        if (previous != null && previous != session) closeQuietly(previous);
+    }
+
+    public WebSocketSession telemetrySession(String agentId) {
+        final WebSocketSession session = telemetrySessions.get(agentId);
+        return session != null && session.isOpen() ? session : null;
+    }
+
+    public boolean sendToTelemetry(String agentId, Envelope envelope) {
+        final WebSocketSession session = telemetrySession(agentId);
+        return session != null && send(session, envelope);
     }
 
     public void unregister(WebSocketSession session) {
+        lastManagementActivity.remove(session.getId());
+        final String telemetryAgent = telemetrySessionToAgent.remove(session.getId());
+        if (telemetryAgent != null) telemetrySessions.remove(telemetryAgent, session);
         final String key = sessionToAgent.remove(session.getId());
         if (key == null) {
             return;
         }
         // 재접속으로 이미 새 세션으로 교체된 경우에는 제거하지 않습니다.
-        sessions.computeIfPresent(key, (k, holder) -> holder.session == session ? null : holder);
-        log.info("agent {} unregistered (session={}, total={})", key, session.getId(), sessions.size());
+        if (sessions.remove(key, session)) log.info("장비 관리 연결 종료: 노드={}", key);
     }
 
     public boolean sendTo(String agentId, Envelope envelope) {
-        final SessionHolder holder = sessions.get(agentId);
-        if (holder == null) {
+        final WebSocketSession session = sessions.get(agentId);
+        if (session == null || !recent(session)) {
             log.warn("push dropped: agent {} is not connected", agentId);
             return false;
         }
-        return send(holder, envelope);
+        return send(session, envelope);
     }
 
     public int broadcast(Envelope envelope) {
         int sent = 0;
-        for (SessionHolder holder : sessions.values()) {
-            if (send(holder, envelope)) {
+        for (WebSocketSession session : sessions.values()) {
+            if (send(session, envelope)) {
                 sent++;
             }
         }
@@ -83,28 +107,34 @@ public class AgentSessionRegistry {
     }
 
     public int connectedCount() {
-        return sessions.size();
+        return connectedAgentIds().size();
     }
 
     public Collection<String> connectedAgentIds() {
-        return java.util.List.copyOf(sessions.keySet());
+        return sessions.entrySet().stream().filter(entry -> recent(entry.getValue()))
+                .map(Map.Entry::getKey).toList();
     }
 
-    private boolean send(SessionHolder holder, Envelope envelope) {
-        if (!holder.session.isOpen()) {
-            log.warn("push dropped: session {} is closed", holder.session.getId());
-            return false;
-        }
+    private boolean recent(WebSocketSession session) {
+        Long seen = lastManagementActivity.get(session.getId());
+        return session.isOpen() && seen != null && clock.millis() - seen <= MANAGEMENT_IDLE_MILLIS;
+    }
+
+    public boolean send(WebSocketSession session, Envelope envelope) {
         try {
             final String json = objectMapper.writeValueAsString(envelope);
-            synchronized (holder.lock) {
-                holder.session.sendMessage(new TextMessage(json));
+            // Replies and pushes must use the same session lock.
+            synchronized (session) {
+                final Object wrapped = session.getAttributes().get("wrapped");
+                final WebSocketSession target = wrapped instanceof WebSocketSession decorated ? decorated : session;
+                if (!target.isOpen()) return false;
+                target.sendMessage(new TextMessage(json));
             }
             return true;
         } catch (IOException | RuntimeException ex) {
-            log.warn("push failed for session {}: {}", holder.session.getId(), ex.getMessage());
-            closeQuietly(holder.session);
-            unregister(holder.session);
+            log.warn("push failed for session {}: {}", session.getId(), ex.getMessage());
+            closeQuietly(session);
+            unregister(session);
             return false;
         }
     }

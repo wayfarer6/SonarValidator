@@ -80,7 +80,8 @@ Show And Click
 
 Open Node Connections
     [Arguments]    ${agent}
-    Show And Click    css=[data-testid="project-${PROJECT_ID}"] >> role=button[name="${agent} 연결 관리"]
+    Show And Click    css=[data-testid="project-${PROJECT_ID}"] >> role=button[name="${agent} 노드 설정"]
+    Show And Click    role=button[name="연결 관리"]
     Wait For Elements State    css=[data-testid="node-connection-modal"]    visible
     Wait For Elements State    role=combobox[name="서브넷 선택"]    visible
 
@@ -112,3 +113,33 @@ Clean Fixture
     IF    $FIXTURE_ID
         Call API    projects/${FIXTURE_ID}    DELETE
     END
+
+Observe Terminal Output
+    Evaluate JavaScript    ${None}
+    ...    () => { const Native=window.WebSocket; window.__robotTerminal=''; window.__robotTerminalConnections=0; window.__robotShellStarts=0; window.WebSocket=class extends Native {constructor(...args){super(...args);if(String(args[0]).includes('/terminal/browser')){window.__robotTerminalConnections++;this.addEventListener('message',event=>{try{const v=JSON.parse(event.data);if(v.type==='terminal-ready')window.__robotShellStarts++;window.__robotTerminal+=v.data_base64?atob(v.data_base64):(v.data||'');}catch{}});}}}; }
+
+Reset Terminal Output
+    Evaluate JavaScript    ${None}    () => { window.__robotTerminal=''; }
+
+Wait For Shell Prompt
+    Wait For Elements State    css=.xterm-helper-textarea    attached
+    Wait For Function    () => ['$ ','# ','> '].some(prompt => window.__robotTerminal.includes(prompt))
+    Focus    css=.xterm-helper-textarea
+
+Open Node Settings
+    [Arguments]    ${agent}    ${project}=${PROJECT_ID}
+    Show And Click    css=[data-testid="project-${project}"] >> role=button[name="${agent} 노드 설정"]
+    Wait For Elements State    css=[data-testid="node-settings-modal"]    visible
+
+Check Monitor Applied
+    [Arguments]    ${agent}    ${seconds}
+    ${settings}=    Call API    agents/${agent}/monitor-settings?project_id=${PROJECT_ID}
+    Should Be Equal As Integers    ${settings}[monitor_interval_seconds]    ${seconds}
+    Should Be Equal As Integers    ${settings}[reported_interval_seconds]    ${seconds}
+    Should Be Equal    ${settings}[status]    applied
+
+Check Collected Interval
+    [Arguments]    ${agent}    ${seconds}
+    ${body}=    Call API    agents/${agent}/telemetry
+    Should Be Equal As Integers    ${body}[monitor_interval_seconds]    ${seconds}
+    Dictionary Should Contain Key    ${body}    collected_at
